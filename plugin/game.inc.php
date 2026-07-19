@@ -21,6 +21,7 @@ include template('common/header');
 .lds-dual-ring:after { content:" "; display:block; width:32px; height:32px; border-radius:50%; border:4px solid #d33774; border-color:#d33774 transparent #d33774 transparent; animation:lds-dual-ring 1.2s linear infinite; }
 @keyframes lds-dual-ring { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
 </style>
+<link rel="stylesheet" href="/source/plugin/pokemon/wasm/game.css">
 <div id="main">
 <div id="loading">
 <p style="font-size:18px;color:#333;margin-bottom:16px">正在加载宠物中心</p>
