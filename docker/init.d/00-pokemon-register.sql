@@ -15,3 +15,4 @@ INSERT IGNORE INTO pre_common_pluginvar (pluginid, displayorder, title, descript
 -- Pokemon navigation item
 INSERT IGNORE INTO pre_common_nav (parentid, name, title, url, identifier, target, type, available, displayorder, highlight, level, subtype, subcols, icon, subname, suburl, navtype, logo)
 VALUES (0, '宠物中心', 'Pokemon', 'plugin.php?id=pokemon:game', 'pokemon', 0, 0, 1, 6, 0, 0, 0, 0, '', '', '', 0, '');
+
