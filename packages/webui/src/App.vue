@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
+import { useAppStore } from '@/stores'
+import LoadingOverlay from '@/components/common/LoadingOverlay.vue'
+
+const app = useAppStore()
 </script>
 
 <template>
+  <LoadingOverlay v-if="app.loading" :message="app.loadingMessage" />
   <RouterView />
 </template>
-
-<style>
-body {
-  margin: 0;
-  font-family: Inter, system-ui, sans-serif;
-  background: rgb(252, 252, 252);
-  color: #333;
-}
-</style>
