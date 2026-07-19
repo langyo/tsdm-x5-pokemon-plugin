@@ -1,5 +1,9 @@
 <?php
 defined('IN_DISCUZ') || exit('Access Denied');
+
+include template('common/header_common');
+include template('common/header');
 ?>
-<link rel="stylesheet" href="source/plugin/pokemon/wasm/game.css">
-<script type="module" src="source/plugin/pokemon/wasm/game.js"></script>
+<iframe src="source/plugin/pokemon/wasm/index.html" style="width:100%;height:800px;border:none;"></iframe>
+<?php
+include template('common/footer');
