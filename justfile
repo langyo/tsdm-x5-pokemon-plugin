@@ -12,80 +12,64 @@ default:
 # ── Bootstrap ────────────────────────────────────────────────
 
 install:
-    pip install "git+https://github.com/celestia-island/celestia-devtools.git"
-    celestia-devtools init --no-hooks
-    @echo "celestia-devtools installed."
+    pnpm install
 
 commit-msg-hook-install *ARGS='':
+    pip install "git+https://github.com/celestia-island/celestia-devtools.git"
     celestia-devtools hook install {{ARGS}}
 
 # ── Formatting ───────────────────────────────────────────────
 
 markdown-fmt *ARGS='':
+    pip install -q "git+https://github.com/celestia-island/celestia-devtools.git"
     celestia-devtools format-markdown . {{ARGS}}
 
-markdown-fmt-check:
-    celestia-devtools format-markdown . --check
-
 fmt: markdown-fmt
-    just --evaluate _devtools > /dev/null
 
-fmt-check: markdown-fmt-check
+fmt-check: markdown-fmt
 
-# ── Rust / WASM ──────────────────────────────────────────────
+# ── Frontend (Vue 3 + Vite) ─────────────────────────────────
 
-build *ARGS='':
-    cargo build {{ARGS}}
+dev:
+    pnpm --filter @tsdm/webui dev
 
-build-release *ARGS='':
-    cargo build --release {{ARGS}}
+build:
+    pnpm build
 
-test *ARGS='':
-    cargo test {{ARGS}}
+test:
+    pnpm test
 
 lint:
-    cargo clippy --workspace --all-targets -- -D warnings
+    pnpm lint
+
+typecheck:
+    pnpm typecheck
+
+# CI pass locally:
+ci: lint typecheck test build
+
+# ── Docker / Podman ──────────────────────────────────────────
+
+up *FLAGS='':
+    @python scripts/docker/dev.py up {{FLAGS}}
+
+down *FLAGS='':
+    @python scripts/docker/dev.py down {{FLAGS}}
+
+restart *FLAGS='':
+    @python scripts/docker/dev.py restart {{FLAGS}}
+
+logs *FLAGS='':
+    @python scripts/docker/dev.py logs {{FLAGS}}
+
+status:
+    @python scripts/docker/dev.py status
+
+clean:
+    @python scripts/docker/dev.py clean
 
 # ── Commit message ───────────────────────────────────────────
 
 commit-msg-lint FILE:
+    pip install -q "git+https://github.com/celestia-island/celestia-devtools.git"
     celestia-devtools commit-msg-lint check {{FILE}}
-
-# ── Docker / Podman ──────────────────────────────────────────
-
-# Start the full dev stack (Discuz X5 + MariaDB + plugin auto-install).
-up *FLAGS='':
-    @python scripts/docker/dev.py up {{FLAGS}}
-
-# Stop services.
-down *FLAGS='':
-    @python scripts/docker/dev.py down {{FLAGS}}
-
-# Restart the app container.
-restart *FLAGS='':
-    @python scripts/docker/dev.py restart {{FLAGS}}
-
-# Follow logs.
-logs *FLAGS='':
-    @python scripts/docker/dev.py logs {{FLAGS}}
-
-# Show container status.
-status:
-    @python scripts/docker/dev.py status
-
-# Full teardown including volumes (wipes database).
-clean:
-    @python scripts/docker/dev.py clean
-
-# Build WASM frontend and restart app container.
-rebuild:
-    cargo build --release
-    just restart
-
-# ── Cache ────────────────────────────────────────────────────
-
-cache-guard *ARGS='':
-    celestia-devtools cache-guard . {{ARGS}}
-
-clean-incremental:
-    celestia-devtools cache-guard . --clean-incremental

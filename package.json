@@ -1,0 +1,17 @@
+{
+  "name": "tsdm-pokemon-plugin",
+  "private": true,
+  "packageManager": "pnpm@9",
+  "scripts": {
+    "dev": "pnpm --filter @tsdm/webui dev",
+    "build": "pnpm --filter @tsdm/webui build",
+    "test": "pnpm --filter @tsdm/webui test",
+    "lint": "pnpm --filter @tsdm/webui lint",
+    "typecheck": "pnpm --filter @tsdm/webui typecheck",
+    "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

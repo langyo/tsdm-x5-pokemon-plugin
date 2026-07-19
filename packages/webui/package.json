@@ -1,0 +1,30 @@
+{
+  "name": "@tsdm/webui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src/ --fix",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "pinia": "^3",
+    "vue": "^3",
+    "vue-router": "^4"
+  },
+  "devDependencies": {
+    "@unocss/reset": "^66.7",
+    "@vitejs/plugin-vue": "^5",
+    "@vue/tsconfig": "^0.8",
+    "eslint": "^9",
+    "typescript": "~5.8",
+    "unocss": "^66.7",
+    "vite": "^6",
+    "vitest": "^4",
+    "vue-tsc": "^2"
+  }
+}

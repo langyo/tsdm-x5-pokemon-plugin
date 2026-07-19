@@ -1,15 +1,11 @@
-# === Rust / WASM ===
-target/
-rust/*/dist/
-rust/*/*.wasm
-rust/*/*.js
-rust/*/*.d.ts
-rust/*/_bg.wasm
-rust/*/_bg.wasm.d.ts
+# === Frontend (Vue 3 + Vite) ===
+node_modules/
+packages/*/dist/
+*.local
 
-# === SCSS 编译输出 ===
-rust/*/styles/*.css
-rust/*/styles/*.css.map
+# === Rust / WASM (legacy) ===
+target/
+rust/
 
 # === Python ===
 __pycache__/
