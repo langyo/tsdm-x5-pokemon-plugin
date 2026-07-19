@@ -15,15 +15,16 @@ include template('common/header');
 </div>
 
 <style>
-#main { position:relative; max-width:1200px; margin:20px auto; min-height:80vh; }
-#loading { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:24px; text-align:center; user-select:none; pointer-events:none; }
-.lds-dual-ring { display:inline-block; width:24px; height:24px; }
-.lds-dual-ring:after { content:" "; display:block; width:24px; height:24px; border-radius:50%; border:3px solid #d33774; border-color:#d33774 transparent #d33774 transparent; animation:lds-dual-ring 1.2s linear infinite; }
+#ajaxwaitid { display:none !important; }
+#main { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#fcfcfc; z-index:999; }
+#loading { text-align:center; user-select:none; }
+.lds-dual-ring { display:inline-block; width:32px; height:32px; }
+.lds-dual-ring:after { content:" "; display:block; width:32px; height:32px; border-radius:50%; border:4px solid #d33774; border-color:#d33774 transparent #d33774 transparent; animation:lds-dual-ring 1.2s linear infinite; }
 @keyframes lds-dual-ring { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
 </style>
 <div id="main">
 <div id="loading">
-<p style="font-size:16px">正在加载宠物中心</p>
+<p style="font-size:18px;color:#333;margin-bottom:16px">正在加载宠物中心</p>
 <div class="lds-dual-ring"></div>
 </div>
 </div>
