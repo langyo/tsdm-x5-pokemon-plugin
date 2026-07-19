@@ -37,19 +37,22 @@ include template('common/header');
 </script>
 <script type="module">
 (async function() {
+  const base = '/source/plugin/pokemon/wasm';
   try {
-    const gameUrl = "<?php echo $wasmPath; ?>/game.js";
-    const wasmUrl = "<?php echo $wasmPath; ?>/game_bg.wasm";
+    const gameUrl = base + '/game.js';
+    const wasmUrl = base + '/game_bg.wasm';
     const wasmModule = await import(gameUrl);
     await wasmModule.default(wasmUrl);
     const handle = new wasmModule.WebHandle();
     await handle.start();
     document.getElementById("loading").innerHTML = '';
   } catch(err) {
+    const msg = String(err);
     document.getElementById("loading").innerHTML =
       '<p style="color:red;font-size:16px">加载失败</p>' +
-      '<p style="font-size:14px">' + err + '</p>' +
-      '<p style="font-size:14px">请使用 Chrome 浏览器并确保 WebGL 可用</p>';
+      '<p style="font-size:13px;cursor:pointer;color:#666" onclick="navigator.clipboard.writeText(this.textContent).then(()=>{const s=this.nextElementSibling;s.style.display=\'block\';setTimeout(()=>s.style.display=\'none\',1500)})" title="点击复制错误信息">' + msg.replace(/</g,'&lt;') + '</p>' +
+      '<p style="display:none;color:green;font-size:12px">已复制到剪贴板</p>' +
+      '<p style="font-size:13px;color:#999;margin-top:8px">请使用 Chrome 浏览器并确保 WebGL 可用</p>';
   }
 })();
 </script>
