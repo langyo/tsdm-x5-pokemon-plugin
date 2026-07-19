@@ -1,8 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
+    image: izumiko/discuz:latest
     container_name: tsdm-app
     restart: unless-stopped
     ports:
@@ -16,8 +14,13 @@ services:
     volumes:
       - www_data:/app/public
       - ./docker/config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/entrypoint.sh:/entrypoint.sh:ro
+      - ./plugin:/plugin:ro
+      - ./template:/template:ro
       - caddy_data:/data
       - caddy_config:/config
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    command: ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
     depends_on:
       db:
         condition: service_healthy
@@ -33,10 +36,7 @@ services:
       MARIADB_PASSWORD: ${DB_PASSWORD:-discuz}
     volumes:
       - db_data:/var/lib/mysql
-      - ./docker/init.d:/docker-entrypoint-initdb.d:ro
-      - ./plugin:/plugin:ro
-      - ./template:/template:ro
-      - ./migrations:/migrations:ro
+      - ./migrations/from-x3:/migrations:ro
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       interval: 5s
@@ -44,9 +44,7 @@ services:
       retries: 10
 
   setup:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.setup
+    image: mariadb:10
     container_name: tsdm-setup
     depends_on:
       db:
@@ -54,16 +52,15 @@ services:
       app:
         condition: service_started
     volumes:
-      - www_data:/app/public
-      - ./plugin:/plugin:ro
-      - ./template:/template:ro
-      - ./migrations:/migrations:ro
+      - ./docker/setup.sh:/setup.sh:ro
+      - ./migrations/from-x3:/migrations:ro
     environment:
       DB_HOST: db
       DB_PORT: 3306
       DB_NAME: discuz
       DB_USER: discuz
       DB_PASSWORD: ${DB_PASSWORD:-discuz}
+    entrypoint: ["/bin/bash", "/setup.sh"]
     restart: "no"
 
 volumes:

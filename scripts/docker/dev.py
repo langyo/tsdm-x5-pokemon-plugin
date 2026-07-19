@@ -22,12 +22,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 sys.path.insert(0, str(ROOT / "scripts" / "docker"))
-from _docker import docker_cmd, compose_file
+from _docker import docker_cmd, compose_cmd, compose_file
 
 
 def up() -> None:
-    cmd = [*docker_cmd(), "compose", "-f", str(compose_file()), "up", "-d", "--build"]
-    subprocess.run(cmd, check=True)
+    env = os.environ.copy()
+    env["DOCKER_BUILDKIT"] = "0"
+    cmd = [*compose_cmd(), "-f", str(compose_file()), "up", "-d", "--build"]
+    subprocess.run(cmd, check=True, env=env)
     print("[tsdm] services starting...")
     _wait_healthy("tsdm-db", timeout=30)
     if _container_exists("tsdm-setup"):
@@ -37,7 +39,7 @@ def up() -> None:
 
 
 def down(volumes: bool = False) -> None:
-    cmd = [*docker_cmd(), "compose", "-f", str(compose_file()), "down"]
+    cmd = [*compose_cmd(), "-f", str(compose_file()), "down"]
     if volumes:
         cmd.append("-v")
     subprocess.run(cmd, check=True)
@@ -50,7 +52,7 @@ def restart(service: str = "tsdm-app") -> None:
 
 
 def logs(service: str = "") -> None:
-    args = [*docker_cmd(), "compose", "-f", str(compose_file()), "logs", "-f"]
+    args = [*compose_cmd(), "-f", str(compose_file()), "logs", "-f"]
     if service:
         args.append(service)
     subprocess.run(args, check=False)
@@ -58,7 +60,7 @@ def logs(service: str = "") -> None:
 
 def status() -> None:
     subprocess.run(
-        [*docker_cmd(), "compose", "-f", str(compose_file()), "ps"],
+        [*compose_cmd(), "-f", str(compose_file()), "ps"],
         check=False,
     )
 
