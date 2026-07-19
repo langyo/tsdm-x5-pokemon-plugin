@@ -62,7 +62,7 @@ window.__dioxus_no_hot_reload = true;
     await wasmModule.default(wasmUrl);
     const handle = new wasmModule.WebHandle();
     await handle.start();
-    document.getElementById("loading").innerHTML = '';
+    document.getElementById("loading").style.display = 'none';
   } catch(err) {
     const msg = String(err);
     document.getElementById("loading").innerHTML =
