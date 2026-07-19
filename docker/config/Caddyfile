@@ -1,7 +1,6 @@
 {
 	frankenphp
 	order php_server before file_server
-	local_certs
 }
 
 localhost {
@@ -56,4 +55,6 @@ localhost {
 		path /data/*.php /static/*.php /template/*.php /attachment/*.php
 	}
 	respond @php_in_upload 403
+
+	tls /etc/caddy/certs/localhost.crt /etc/caddy/certs/localhost.key
 }
