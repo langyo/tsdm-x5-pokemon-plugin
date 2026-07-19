@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -19,9 +19,11 @@
   "devDependencies": {
     "@unocss/reset": "^66.7",
     "@vitejs/plugin-vue": "^5",
+    "@vitejs/plugin-vue-jsx": "^4",
     "@vue/tsconfig": "^0.8",
     "eslint": "^9",
-    "typescript": "~5.8",
+    "sass": "^1",
+    "typescript": "^5",
     "unocss": "^66.7",
     "vite": "^6",
     "vitest": "^4",

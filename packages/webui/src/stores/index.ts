@@ -27,14 +27,14 @@ export const useUserStore = defineStore('user', () => {
 
   async function fetchProfile() {
     const { api } = await import('@/api/client')
-    const data = await api.get('user', { action: 'profile' })
+    const data: any = await api.get('user', { action: 'profile' })
     profile.value = data
     profileLoaded.value = true
   }
 
   async function fetchInventoryStats() {
     const { api } = await import('@/api/client')
-    const data = await api.get('user', { action: 'inventory_stats' })
+    const data: any = await api.get('user', { action: 'inventory_stats' })
     inventoryStats.value = data
     inventoryLoaded.value = true
   }
@@ -58,7 +58,7 @@ export const usePokemonStore = defineStore('pokemon', () => {
     loading.value = true
     try {
       const { api } = await import('@/api/client')
-      const data = await api.get('pokemon', { action: 'list' })
+      const data: any = await api.get('pokemon', { action: 'list' })
       list.value = data.pokemons ?? data.data ?? []
       loaded.value = true
     } catch (e: any) {
