@@ -12,6 +12,6 @@ echo '<a href="plugin.php?id=pokemon:game">宠物中心</a>';
 echo '</div>';
 echo '</div>';
 ?>
-<iframe src="/source/plugin/pokemon/wasm/index.html" style="width:100%;height:800px;border:none;"></iframe>
+<iframe src="/source/plugin/pokemon/wasm/index.html" style="width:100%;min-height:600px;border:none;"></iframe>
 <?php
 include template('common/footer');
