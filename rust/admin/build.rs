@@ -20,13 +20,5 @@ fn main() {
 
     println!("cargo:rerun-if-changed=../../SourceHanSansCN-Normal.otf");
 
-    // 确保目标目录存在
-    let target_dir = "../../../pokemon_system/wasm";
-    std::fs::create_dir_all(target_dir).ok();
-
-    copy(
-        "../../SourceHanSansCN-Normal.otf",
-        "../../../pokemon_system/wasm/fonts.otf",
-    )
-    .unwrap();
+    println!("cargo:warning=build.rs: skipping font copy (fonts bundled separately)");
 }
