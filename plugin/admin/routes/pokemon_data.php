@@ -217,10 +217,10 @@ function set_pokemon_type($info)
     }
 
     if ($query['name'] != $info["name"]) {
-      DB::query("UPDATE pm_data set name='" . addslashes($info["name"]) . "' where id={$info["id"]}");
+      DB::query('UPDATE %t SET name=%s WHERE id=%d', ['pm_data', $info['name'], $info['id']]);
     }
     if ($query['txt'] != $info["description"]) {
-      DB::query("UPDATE pm_data set txt='" . addslashes($info["description"]) . "' where id={$info["id"]}");
+      DB::query('UPDATE %t SET txt=%s WHERE id=%d', ['pm_data', $info['description'], $info['id']]);
     }
 
     if (intval($query['money']) != intval($info["cost"])) {

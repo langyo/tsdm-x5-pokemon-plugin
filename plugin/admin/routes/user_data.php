@@ -260,7 +260,7 @@ function filter_user_info($list)
           }
         }
         // UID 查询无结果或非数字输入，使用昵称模糊搜索
-        if ($query_all = DB::query("SELECT * from " . DB::table('common_member') . " where `username` like '%$value%'")) {
+        if ($query_all = DB::query("SELECT * FROM %t WHERE username LIKE %s", ['common_member', "%$value%"])) {
           while ($query = DB::fetch($query_all)) {
             $uid = intval($query['uid']);
             array_push($query_sql_list, generate_filter_sql('uid', $operator, $uid, 'id'));
