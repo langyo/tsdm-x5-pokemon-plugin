@@ -1,0 +1,85 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { usePokemonStore, useBattleStore } from '@/stores'
+import { api } from '@/api/client'
+import { spriteUrl, hpClass } from '@/utils/pokemon'
+import Modal from '@/components/common/Modal.vue'
+
+const props = defineProps<{
+  open: boolean
+  reason: 'switch' | 'replace'
+}>()
+
+const emit = defineEmits<{
+  close: []
+  action: []
+}>()
+
+const pokemonStore = usePokemonStore()
+const battleStore = useBattleStore()
+
+const currentPokemonId = computed(() => battleStore.scene?.my_pokemon?.id)
+
+const switchablePokemons = computed(() => {
+  return pokemonStore.bagPokemons.filter((p: any) => p.id !== currentPokemonId.value)
+})
+
+async function doSwitch(pokemonId: number) {
+  const action = props.reason === 'replace' ? 'replace_pokemon' : 'switch_pokemon'
+  emit('action')
+  try {
+    const data: any = await api.post('battle', { action, pokemon_id: pokemonId })
+    battleStore.setScene(data.scene ?? data)
+    emit('close')
+  } catch {
+    // handled by parent
+  }
+}
+</script>
+
+<template>
+  <Modal :open="open" :title="reason === 'replace' ? '选择替换宝可梦' : '选择出场宝可梦'" @close="emit('close')">
+    <div v-if="!switchablePokemons.length" class="text-center py-8 text-gray-400 text-sm">
+      没有可用的宝可梦
+    </div>
+
+    <div v-else class="space-y-2 max-h-80 overflow-y-auto">
+      <button
+        v-for="pokemon in switchablePokemons"
+        :key="pokemon.id"
+        class="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-white hover:bg-gray-50 transition-colors cursor-pointer text-left"
+        @click="doSwitch(pokemon.id)"
+      >
+        <img
+          v-if="pokemon.pmno"
+          :src="spriteUrl(pokemon.pmno)"
+          :alt="pokemon.name"
+          class="w-10 h-10 object-contain shrink-0"
+        />
+        <div class="w-10 h-10 shrink-0 bg-gray-100 rounded flex items-center justify-center text-xs text-gray-400" v-else>
+          无
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-bold truncate">{{ pokemon.name }}</span>
+            <span class="text-xs text-gray-400">Lv.{{ pokemon.level }}</span>
+          </div>
+          <div class="mt-1">
+            <div class="flex items-center gap-2">
+              <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all"
+                  :class="hpClass(pokemon.hp ?? 0, pokemon.maxHp ?? pokemon.max_hp ?? 1)"
+                  :style="{ width: `${Math.max(0, Math.min(100, ((pokemon.hp ?? 0) / (pokemon.maxHp ?? pokemon.max_hp ?? 1)) * 100))}%` }"
+                />
+              </div>
+              <span class="text-xs text-gray-400 shrink-0">
+                {{ pokemon.hp ?? 0 }}/{{ pokemon.maxHp ?? pokemon.max_hp ?? 0 }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </button>
+    </div>
+  </Modal>
+</template>

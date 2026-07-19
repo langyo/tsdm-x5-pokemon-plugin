@@ -4,6 +4,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Card from '@/components/common/Card.vue'
 import Modal from '@/components/common/Modal.vue'
 import TypeBadge from '@/components/common/TypeBadge.vue'
+import BattlePage from '@/components/battle/BattlePage.vue'
 import { usePokemonStore, useBattleStore, useUserStore } from '@/stores'
 import { api } from '@/api/client'
 import { spriteUrl } from '@/utils/pokemon'
@@ -104,22 +105,7 @@ onMounted(async () => {
 <template>
   <AppLayout>
     <!-- Battle View -->
-    <div v-if="battleStore.isActive" class="card text-center py-12">
-      <h2 class="text-xl font-bold mb-4">战斗中...</h2>
-      <div class="mb-4">
-        <p class="text-gray-500">你正在战斗中，战斗模块开发中</p>
-      </div>
-      <div v-if="battleStore.scene" class="text-left max-w-md mx-auto bg-gray-50 rounded-lg p-4 text-sm">
-        <div class="grid grid-cols-2 gap-2">
-          <span class="text-gray-400">地图</span>
-          <span>{{ battleStore.scene.map_name ?? battleStore.scene.map ?? '未知' }}</span>
-          <span class="text-gray-400">回合</span>
-          <span>{{ battleStore.scene.turn ?? battleStore.scene.round ?? '?' }}</span>
-          <span class="text-gray-400">状态</span>
-          <span>{{ battleStore.scene.status ?? 'Active' }}</span>
-        </div>
-      </div>
-    </div>
+    <BattlePage v-if="battleStore.scene" />
 
     <!-- Map View -->
     <div v-else>
