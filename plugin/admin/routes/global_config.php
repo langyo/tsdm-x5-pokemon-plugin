@@ -52,11 +52,12 @@ function get_global_config()
     }
   }
 
-  if ($query_all = DB::query("SELECT * from pm_config")) {
+  $rows = DB::fetch_all("SELECT * from pm_config");
+  if (!empty($rows)) {
     $item = [];
     $item['_TYPE'] = "global_config";
 
-    while ($query = DB::fetch($query_all)) {
+    foreach ($rows as $query) {
       $val = null;
 
       switch ($query['data_type']) {

@@ -13,15 +13,14 @@ function normalize_pokemon_status($status, $pokemon_id)
 function list_pokemon_info($uid, $from, $count)
 {
   $ret = [];
-  if ($query_all = DB::query("SELECT * from pm_mypm where `uid`='$uid' limit $from,$count")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT * from pm_mypm where `uid`='$uid' limit $from,$count");
+  foreach ($rows as $query) {
       $pokemon_id = intval($query['id']);
       $skills = [];
-      if ($query_all_skills = DB::query("SELECT * from pm_myskill where `uid`='$uid' and `petid`='$pokemon_id'")) {
-        while ($query_skill = DB::fetch($query_all_skills)) {
+      $skill_rows = DB::fetch_all("SELECT * from pm_myskill where `uid`='$uid' and `petid`='$pokemon_id'");
+      foreach ($skill_rows as $query_skill) {
           array_push($skills, new_pokemon_skill_info($query_skill['skillid'], $query_skill['skillnum']));
         }
-      }
 
       $item = new_pokemon_info(
         $pokemon_id,
@@ -62,7 +61,6 @@ function list_pokemon_info($uid, $from, $count)
       );
       array_push($ret, $item);
     }
-  }
 
   return $ret;
 }
@@ -76,8 +74,8 @@ function get_pokemon_info($id)
     $uid = intval($query['uid']);
     $pokemon_id = intval($query['id']);
     $skills = [];
-    if ($query_all_skills = DB::query("SELECT * from pm_myskill where `uid`='$uid' and `petid`='$pokemon_id'")) {
-      while ($query_skill = DB::fetch($query_all_skills)) {
+    $skill_rows = DB::fetch_all("SELECT * from pm_myskill where `uid`='$uid' and `petid`='$pokemon_id'");
+    foreach ($skill_rows as $query_skill) {
         array_push($skills, new_pokemon_skill_info($query_skill['skillid'], $query_skill['skillnum']));
       }
     }

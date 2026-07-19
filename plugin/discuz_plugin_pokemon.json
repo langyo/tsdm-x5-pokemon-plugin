@@ -21,6 +21,14 @@
           "displayorder": "0"
         },
         {
+          "name": "pokemon",
+          "menu": "",
+          "url": "",
+          "type": "11",
+          "adminid": "0",
+          "displayorder": "0"
+        },
+        {
           "name": "admincp",
           "menu": "宠物管理",
           "url": "",

@@ -93,16 +93,6 @@ function api_require_admin()
     api_error('Admin permission required', 403);
 }
 
-function db_fetch_all($sql)
-{
-    $result = [];
-    $query = DB::query($sql);
-    while ($row = DB::fetch($query)) {
-        $result[] = $row;
-    }
-    return $result;
-}
-
 function api_test_reset_user()
 {
     $uid = api_require_admin();
@@ -241,13 +231,13 @@ function api_test_create_pokemon()
             }
         }
     } else {
-        $query = DB::query(pm_sql("SELECT id, num FROM " . pm_table('pm_skill') . "
+        $auto_skills = DB::fetch_all(pm_sql("SELECT id, num FROM " . pm_table('pm_skill') . "
             WHERE FIND_IN_SET(%d, REPLACE(pmid, '|', ',')) > 0
             AND lv <= %d
             ORDER BY lv DESC LIMIT 4",
             $pmno, $level));
 
-        while ($skill = DB::fetch($query)) {
+        foreach ($auto_skills as $skill) {
             $skill_id = (int) $skill['id'];
             $max_pp = (int) $skill['num'];
             DB::query(pm_sql("INSERT INTO " . pm_table('pm_myskill') . "
@@ -258,12 +248,12 @@ function api_test_create_pokemon()
     }
 
     $skills_response = [];
-    $skill_query = DB::query(pm_sql("SELECT s.id, s.name, s.num as max_pp, ms.skillnum as pp, s.type, s.category, s.powr as power
+    $skill_rows = DB::fetch_all(pm_sql("SELECT s.id, s.name, s.num as max_pp, ms.skillnum as pp, s.type, s.category, s.powr as power
         FROM " . pm_table('pm_myskill') . " ms
         JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id
         WHERE ms.petid = %d", $pet_id));
 
-    while ($skill = DB::fetch($skill_query)) {
+    foreach ($skill_rows as $skill) {
         $skills_response[] = [
             'id' => (int) $skill['id'],
             'name' => $skill['name'],
@@ -391,22 +381,22 @@ function api_test_get_state()
     ));
 
     $pokemons_response = [];
-    $pokemon_query = DB::query(pm_sql("SELECT m.*, d.name as pmname, d.xs as type1, d.xs2 as type2, d.capture
+    $pokemon_rows = DB::fetch_all(pm_sql("SELECT m.*, d.name as pmname, d.xs as type1, d.xs2 as type2, d.capture
         FROM " . pm_table('pm_mypm') . " m
         LEFT JOIN " . pm_table('pm_data') . " d ON m.pmno = d.id
         WHERE m.uid = %d
         ORDER BY m.site DESC, m.id ASC",
         $target_uid));
 
-    while ($p = DB::fetch($pokemon_query)) {
+    foreach ($pokemon_rows as $p) {
         $skills_response = [];
-        $skill_query = DB::query(pm_sql("SELECT s.id, s.name, ms.skillnum as pp, s.num as max_pp
+        $skill_rows = DB::fetch_all(pm_sql("SELECT s.id, s.name, ms.skillnum as pp, s.num as max_pp
             FROM " . pm_table('pm_myskill') . " ms
             JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id
             WHERE ms.petid = %d",
             (int) $p['id']));
 
-        while ($s = DB::fetch($skill_query)) {
+        foreach ($skill_rows as $s) {
             $skills_response[] = [
                 'id' => (int) $s['id'],
                 'name' => $s['name'],
@@ -433,14 +423,14 @@ function api_test_get_state()
     }
 
     $items_response = [];
-    $item_query = DB::query(pm_sql("SELECT m.id, m.itemid, m.num, d.name, d.type as item_type, d.id as itemdata_id
+    $item_rows = DB::fetch_all(pm_sql("SELECT m.id, m.itemid, m.num, d.name, d.type as item_type, d.id as itemdata_id
         FROM " . pm_table('pm_myitem') . " m
         LEFT JOIN " . pm_table('pm_itemdata') . " d ON m.itemid = d.id
         WHERE m.uid = %d
         ORDER BY m.id ASC",
         $target_uid));
 
-    while ($i = DB::fetch($item_query)) {
+    foreach ($item_rows as $i) {
         $items_response[] = [
             'id' => (int) $i['id'],
             'type_id' => (int) $i['itemdata_id'],
@@ -648,9 +638,9 @@ function api_test_cleanup()
 
     if ($cleanup_users) {
         $deleted_count = 0;
-        $query = DB::query("SELECT uid FROM " . DB::table('common_member') . " WHERE username LIKE 'test_user_%'");
+        $users = DB::fetch_all("SELECT uid FROM " . DB::table('common_member') . " WHERE username LIKE 'test_user_%'");
 
-        while ($user = DB::fetch($query)) {
+        foreach ($users as $user) {
             $test_uid = (int) $user['uid'];
             DB::query(pm_sql("DELETE FROM " . DB::table('common_member') . " WHERE uid = %d", $test_uid));
             DB::query(pm_sql("DELETE FROM " . DB::table('common_member_status') . " WHERE uid = %d", $test_uid));

@@ -203,14 +203,14 @@ function api_get_available_evolutions()
     }
 
     // 获取所有可能的进化路线
-    $query = DB::query(pm_sql(
+    $rows = DB::fetch_all(pm_sql(
         "SELECT * FROM " . pm_table('pm_up') . "
         WHERE pmid = %d",
         $pet['pmno']
     ));
 
     $evolutions = [];
-    while ($row = DB::fetch($query)) {
+    foreach ($rows as $row) {
         $target_info = DB::fetch_first(pm_sql(
             "SELECT * FROM " . pm_table('pm_data') . " WHERE id = %d",
             $row['targetpmid']
@@ -334,7 +334,7 @@ function api_get_evolution_path()
     }
 
     $forward = [];
-    $forward_query = DB::query(pm_sql(
+    $forward_rows = DB::fetch_all(pm_sql(
         "SELECT u.*, d.name as target_name, d.xs as target_type1, d.xs2 as target_type2
         FROM " . pm_table('pm_up') . " u
         JOIN " . pm_table('pm_data') . " d ON u.targetpmid = d.id
@@ -343,7 +343,7 @@ function api_get_evolution_path()
         $pmid
     ));
 
-    while ($row = DB::fetch($forward_query)) {
+    foreach ($forward_rows as $row) {
         $cond_type = $row['cond'];
         $cond_value = $row['val'];
         $cond_display = _format_evolution_condition($cond_type, $cond_value);
@@ -360,7 +360,7 @@ function api_get_evolution_path()
     }
 
     $backward = [];
-    $backward_query = DB::query(pm_sql(
+    $backward_rows = DB::fetch_all(pm_sql(
         "SELECT u.*, d.name as source_name, d.xs as source_type1, d.xs2 as source_type2
         FROM " . pm_table('pm_up') . " u
         JOIN " . pm_table('pm_data') . " d ON u.pmid = d.id
@@ -369,7 +369,7 @@ function api_get_evolution_path()
         $pmid
     ));
 
-    while ($row = DB::fetch($backward_query)) {
+    foreach ($backward_rows as $row) {
         $cond_type = $row['cond'];
         $cond_value = $row['val'];
         $cond_display = _format_evolution_condition($cond_type, $cond_value);

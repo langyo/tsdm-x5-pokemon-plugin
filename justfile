@@ -1,4 +1,4 @@
-# TSDM Pokemon Plugin for Discuz X5 — build recipes.
+# TSDM Pokemon Plugin for Discuz X5 — build + dev recipes.
 # Gitmoji commit convention: <emoji> <Capitalized English summary.>
 
 set shell := ["bash", "-c"]
@@ -11,82 +11,81 @@ default:
 
 # ── Bootstrap ────────────────────────────────────────────────
 
-# Install celestia-devtools (commit-msg hook + format-markdown).
 install:
     pip install "git+https://github.com/celestia-island/celestia-devtools.git"
     celestia-devtools init --no-hooks
-    @echo "celestia-devtools installed. Run 'just commit-msg-hook-install' to enable commit lint."
+    @echo "celestia-devtools installed."
 
-# Install the gitmoji commit-msg hook locally.
 commit-msg-hook-install *ARGS='':
     celestia-devtools hook install {{ARGS}}
 
 # ── Formatting ───────────────────────────────────────────────
 
-# Format Markdown docs.
 markdown-fmt *ARGS='':
     celestia-devtools format-markdown . {{ARGS}}
 
-# Check Markdown formatting (CI mode).
 markdown-fmt-check:
     celestia-devtools format-markdown . --check
 
-# Full format: Markdown + just syntax check.
 fmt: markdown-fmt
     just --evaluate _devtools > /dev/null
 
-# CI format check.
 fmt-check: markdown-fmt-check
 
 # ── Rust / WASM ──────────────────────────────────────────────
 
-# Build all Rust crates (debug).
 build *ARGS='':
     cargo build {{ARGS}}
 
-# Build all Rust crates (release, WASM-optimized).
 build-release *ARGS='':
     cargo build --release {{ARGS}}
 
-# Run Rust tests.
 test *ARGS='':
     cargo test {{ARGS}}
 
-# Lint with clippy.
 lint:
     cargo clippy --workspace --all-targets -- -D warnings
 
 # ── Commit message ───────────────────────────────────────────
 
-# Validate a commit message against the gitmoji convention.
-# Usage: just commit-msg-lint .git/COMMIT_EDITMSG
 commit-msg-lint FILE:
     celestia-devtools commit-msg-lint check {{FILE}}
 
-# ── Docker ───────────────────────────────────────────────────
+# ── Docker / Podman ──────────────────────────────────────────
 
-# Build the Docker image.
-docker-build:
-    docker build -f docker/Dockerfile -t tsdm-x5-pokemon-plugin .
+# Start the full dev stack (Discuz X5 + MariaDB + plugin auto-install).
+up *FLAGS='':
+    @python scripts/docker/dev.py up {{FLAGS}}
 
-# Run with docker-compose.
-docker-up:
-    docker compose -f docker/docker-compose.yml up -d
+# Stop services.
+down *FLAGS='':
+    @python scripts/docker/dev.py down {{FLAGS}}
 
-docker-down:
-    docker compose -f docker/docker-compose.yml down
+# Restart the app container.
+restart *FLAGS='':
+    @python scripts/docker/dev.py restart {{FLAGS}}
+
+# Follow logs.
+logs *FLAGS='':
+    @python scripts/docker/dev.py logs {{FLAGS}}
+
+# Show container status.
+status:
+    @python scripts/docker/dev.py status
+
+# Full teardown including volumes (wipes database).
+clean:
+    @python scripts/docker/dev.py clean
+
+# Build WASM frontend and restart app container.
+rebuild:
+    cargo build --release
+    just restart
 
 # ── Cache ────────────────────────────────────────────────────
 
-# Guard against excessive target/ growth.
 cache-guard *ARGS='':
     celestia-devtools cache-guard . {{ARGS}}
 
-# Clean incremental compilation artifacts.
 clean-incremental:
     celestia-devtools cache-guard . --clean-incremental
-
-# Full clean.
-clean:
-    cargo clean
-    rm -rf rust/*/dist/

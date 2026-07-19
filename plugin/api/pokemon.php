@@ -471,11 +471,11 @@ function api_get_pokemon_list()
     $uid = validate_uid($_G['uid']);
 
     // 查询用户宠物，按 site 排序（首位在前），然后按 id 排序
-    $query = DB::query(pm_sql("SELECT * FROM " . pm_table('pm_mypm') . " WHERE uid = %d ORDER BY site ASC, id ASC", $uid));
+    $pm_rows = DB::fetch_all(pm_sql("SELECT * FROM " . pm_table('pm_mypm') . " WHERE uid = %d ORDER BY site ASC, id ASC", $uid));
 
     $pokemons = [];
 
-    while ($pm = DB::fetch($query)) {
+    foreach ($pm_rows as $pm) {
         $pmno = (int) $pm['pmno'];
         $petid = (int) $pm['id'];
 
@@ -489,7 +489,7 @@ function api_get_pokemon_list()
         $info = DB::fetch_first(pm_sql("SELECT * FROM " . pm_table('pm_data') . " WHERE id = %d", $pmno));
 
         // 查询宠物技能（连接 pm_skill 获取详情）
-        $skill_query = DB::query(pm_sql(
+        $skill_rows = DB::fetch_all(pm_sql(
             "SELECT ms.skillid, ms.skillnum, s.name as skill_name, s.tn, s.category, s.lv, s.powr, s.num as max_pp "
                 . "FROM " . pm_table('pm_myskill') . " ms "
                 . "LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id "
@@ -498,7 +498,7 @@ function api_get_pokemon_list()
         ));
         $skills = [];
 
-        while ($sk = DB::fetch($skill_query)) {
+        foreach ($skill_rows as $sk) {
             $skills[] = [
                 'type_id' => (int) $sk['skillid'],
                 'pp' => (int) $sk['skillnum'],
@@ -627,7 +627,7 @@ function api_get_pokemon_detail()
     $stats = calculate_stats($pm, $info);
 
     // 查询技能（连接 pm_skill 获取详情）
-    $skill_query = DB::query(pm_sql(
+    $skill_rows = DB::fetch_all(pm_sql(
         "SELECT ms.skillid, ms.skillnum, s.name as skill_name, s.tn, s.category, s.lv, s.powr, s.num as max_pp "
             . "FROM " . pm_table('pm_myskill') . " ms "
             . "LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id "
@@ -636,7 +636,7 @@ function api_get_pokemon_detail()
     ));
     $skills = [];
 
-    while ($sk = DB::fetch($skill_query)) {
+    foreach ($sk_rows as $sk) {
         $skills[] = [
             'type_id' => (int) $sk['skillid'],
             'pp' => (int) $sk['skillnum'],
@@ -925,25 +925,19 @@ function api_get_learnable_skills()
     // 数据库格式是 "k,27,28,31,k"，旧版的 like '%,$pmno,%' 匹配不到
     // 所以我们查所有技能，然后在PHP中过滤
 
-    $all_skills_query = DB::query(
+    $all_skills = DB::fetch_all(
         "SELECT * FROM " . pm_table('pm_skill') . " ORDER BY lv ASC"
     );
 
-    $all_skills = [];
-
-    while ($skill = DB::fetch($all_skills_query)) {
-        $all_skills[] = $skill;
-    }
-
     // 获取宠物已学习的技能ID列表（需要加uid过滤）
-    $learned_query = DB::query(pm_sql(
+    $learned_rows = DB::fetch_all(pm_sql(
         "SELECT skillid FROM " . pm_table('pm_myskill') . " WHERE petid = %d AND uid = %d",
         $pet_id,
         $uid
     ));
     $learned_skills = [];
 
-    while ($learned = DB::fetch($learned_query)) {
+    foreach ($learned_rows as $learned) {
         $learned_skills[] = (int) $learned['skillid'];
     }
 
@@ -1288,13 +1282,13 @@ LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.id=%d",
 
     // 获取用户拥有的所有装备道具 (type=5)
     $owned_items = [];
-    $owned_query = DB::query(pm_sql(
+    $owned_rows = DB::fetch_all(pm_sql(
         "SELECT m.id as myitem_id, m.itemid, m.num, i.* FROM " . pm_table('pm_myitem') . " m
 LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.uid=%d AND i.type=5 AND m.num > 0",
         $uid
     ));
 
-    while ($row = DB::fetch($owned_query)) {
+    foreach ($owned_rows as $row) {
 
         // 检查该装备被所有宝可梦使用的总数
         $myitem_id = $row['myitem_id'];
@@ -1342,7 +1336,7 @@ LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.uid=%d AND 
 
     // 获取商店中可购买的装备道具
     $shop_items = [];
-    $shop_query = DB::query(
+    $shop_rows = DB::fetch_all(
         "SELECT * FROM " . pm_table('pm_itemdata') . " 
 WHERE type=5 AND shop=1 ORDER BY money ASC"
     );
@@ -1354,7 +1348,7 @@ WHERE type=5 AND shop=1 ORDER BY money ASC"
     ));
     $user_money = $user_data ? (int) $user_data['money'] : 0;
 
-    while ($row = DB::fetch($shop_query)) {
+    foreach ($shop_rows as $row) {
         // 检查用户是否已拥有该装备
         $owned_type_ids = array_column($owned_items, 'type_id');
         $is_owned = in_array((int) $row['id'], $owned_type_ids);

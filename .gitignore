@@ -37,3 +37,8 @@ Thumbs.db
 # === 环境配置 ===
 .env.local
 .env.production
+
+# === Frontend (Vue3 legacy, kept for reference) ===
+node_modules/
+packages/
+

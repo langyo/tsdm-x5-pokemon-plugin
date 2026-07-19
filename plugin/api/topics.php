@@ -99,7 +99,7 @@ function api_get_topics()
   try {
     $fid_escaped = intval($fid);
     $limit_escaped = intval($limit);
-    $query = DB::query(pm_sql(
+    $rows = DB::fetch_all(pm_sql(
       "SELECT tid, subject, dateline, displayorder, author, authorid, views, replies
            FROM " . DB::table('forum_thread') . "
            WHERE fid = %d AND displayorder >= 0
@@ -108,7 +108,7 @@ function api_get_topics()
       $fid_escaped, $limit_escaped
     ));
 
-    while ($topic = DB::fetch($query)) {
+    foreach ($rows as $topic) {
       $topics[] = [
         'id' => (int) $topic['tid'],
         'title' => $topic['subject'],

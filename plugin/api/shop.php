@@ -101,7 +101,7 @@ function api_get_shop_items()
 
     // 查询商品
     $sql = "SELECT * FROM " . pm_table('pm_itemdata') . " WHERE $where_clause ORDER BY money ASC LIMIT %d, %d";
-    $query = DB::query(pm_sql_v($sql, array_merge($where_values, array($offset, $per_page))));
+    $rows = DB::fetch_all(pm_sql_v($sql, array_merge($where_values, array($offset, $per_page))));
 
     // 获取用户金钱
     $user = DB::fetch_first(pm_sql(
@@ -111,7 +111,7 @@ function api_get_shop_items()
     $user_money = $user ? (int) $user['money'] : 0;
 
     $items = array();
-    while ($row = DB::fetch($query)) {
+    foreach ($rows as $row) {
         $price = (int) $row['money'];
         $items[] = array(
             'id' => (int) $row['id'],
@@ -311,7 +311,7 @@ function api_get_shop_pets()
 
     $offset = ($page - 1) * $per_page;
 
-    $query = DB::query(pm_sql(
+    $rows = DB::fetch_all(pm_sql(
         "SELECT * FROM " . pm_table('pm_data') . " WHERE shop = 1 ORDER BY id ASC LIMIT %d, %d",
         $offset,
         $per_page
@@ -324,7 +324,7 @@ function api_get_shop_pets()
     $user_money = $user ? (int) $user['money'] : 0;
 
     $pets = array();
-    while ($row = DB::fetch($query)) {
+    foreach ($rows as $row) {
         $price = (int) $row['money'];
         $pets[] = array(
             'id' => (int) $row['id'],
@@ -392,10 +392,6 @@ function api_buy_pet()
 
     if ($user_money < $price) {
         api_error('Insufficient funds', 400);
-    }
-
-    if (!defined('DISCUZ_ROOT')) {
-        define('DISCUZ_ROOT', dirname(dirname(dirname(dirname(dirname(__FILE__))))) . '/');
     }
 
     require_once __DIR__ . '/pokemon_utils.php';

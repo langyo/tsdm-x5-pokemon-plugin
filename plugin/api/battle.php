@@ -19,11 +19,6 @@
  * - GET  ?action=recover       恢复战斗状态
  */
 
-// 确保 DISCUZ_ROOT 已定义
-if (!defined('DISCUZ_ROOT')) {
-    define('DISCUZ_ROOT', dirname(dirname(dirname(dirname(dirname(__FILE__))))) . '/');
-}
-
 // 加载 API 辅助函数（包含 get_param, api_error 等）
 require_once __DIR__ . '/index.php';
 
@@ -1172,7 +1167,7 @@ function build_battle_response($myusersdata, $mypokemon, $map = null, $is_boss =
     $petid = $mypokemon['id'];
     $uid = $myusersdata['uid'];
 
-    $skill_query = DB::query(
+    $skills_raw = DB::fetch_all(
         "SELECT ms.skillid, ms.skillnum, s.name, s.powr, s.num as max_pp, s.tn, s.category "
             . "FROM " . pm_table('pm_myskill') . " ms "
             . "LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id "
@@ -1180,7 +1175,7 @@ function build_battle_response($myusersdata, $mypokemon, $map = null, $is_boss =
             . "LIMIT 4"
     );
 
-    while ($sk = DB::fetch($skill_query)) {
+    foreach ($skills_raw as $sk) {
         $skills[] = [
             'id' => (int)$sk['skillid'],
             'name' => $sk['name'],
@@ -1353,12 +1348,11 @@ function api_get_maps()
     // 检查表是否有新字段
     $has_region_field = false;
     try {
-        $columns = DB::query("SHOW COLUMNS FROM {$map_table} LIKE 'region'");
-        if ($columns && DB::fetch($columns)) {
+        $column_result = DB::fetch_first("SHOW COLUMNS FROM {$map_table} LIKE 'region'");
+        if ($column_result) {
             $has_region_field = true;
         }
     } catch (Exception $e) {
-        // 如果查询失败，默认没有该字段
         $has_region_field = false;
     }
 
@@ -1377,14 +1371,14 @@ function api_get_maps()
 
     // 使用 pm_sql 来处理参数
     $final_sql = pm_sql_v($sql, $where_params);
-    $query = DB::query($final_sql);
+    $maps_rows = DB::fetch_all($final_sql);
 
     $maps = [];
-    while ($row = DB::fetch($query)) {
+    foreach ($maps_rows as $row) {
         $map_id = (int)$row['id'];
 
         $map_id_str = strval($map_id);
-        $pokemon_query = DB::query(pm_sql(
+        $pokemon_rows = DB::fetch_all(pm_sql(
             "SELECT id, name FROM {$data_table}
             WHERE FIND_IN_SET(%d, mapid) > 0
                OR mapid LIKE CONCAT('%%,', %s, ',%%')
@@ -1396,7 +1390,7 @@ function api_get_maps()
         ));
 
         $pokemon_names = [];
-        while ($pokemon = DB::fetch($pokemon_query)) {
+        foreach ($pokemon_rows as $pokemon) {
             $pokemon_names[] = [
                 'id' => (int)$pokemon['id'],
                 'name' => $pokemon['name']
@@ -1639,16 +1633,12 @@ function api_capture_pokemon()
     );
 
     // 查看用户背包中所有物品
-    $all_items_query = DB::query(pm_sql("
+    $user_items = DB::fetch_all(pm_sql("
         SELECT m.id, m.itemid, m.num, i.id as itemdata_id, i.name, i.type as item_type
         FROM " . pm_table('pm_myitem') . " m
         LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid = i.id
         WHERE m.uid = %d AND m.num > 0
     ", $_G['uid']));
-    $user_items = [];
-    while ($item = DB::fetch($all_items_query)) {
-        $user_items[] = $item;
-    }
     $debug_info['user_items'] = $user_items;
 
     // 检查用户是否拥有该精灵球
@@ -1923,7 +1913,7 @@ function api_use_item_in_battle()
             // 检查是否是PP恢复物品
             if (in_array($item_module, ['pp5', 'pp10', 'pp15', 'pp99'])) {
                 // PP恢复物品需要返回技能列表供用户选择
-                $skill_query = DB::query(pm_sql(
+                $skills_raw = DB::fetch_all(pm_sql(
                     "SELECT ms.id, ms.skillid, ms.skillnum, s.num as max_pp, s.name as skill_name
                      FROM " . pm_table('pm_myskill') . " ms
                      LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id
@@ -1934,7 +1924,7 @@ function api_use_item_in_battle()
                 ));
 
                 $available_skills = [];
-                while ($skill = DB::fetch($skill_query)) {
+                foreach ($skills_raw as $skill) {
                     $available_skills[] = [
                         'id' => (int)$skill['id'],
                         'skill_id' => (int)$skill['skillid'],
@@ -2193,7 +2183,7 @@ function api_get_battle_items()
     $uid = validate_uid($_G['uid']);
 
     // 获取用户的物品
-    $my_items = DB::query(pm_sql(
+    $my_items = DB::fetch_all(pm_sql(
         "SELECT mi.*, i.type, i.module, i.addhp, i.name, i.img
          FROM " . pm_table('pm_myitem') . " mi
          INNER JOIN " . pm_table('pm_itemdata') . " i ON mi.itemid = i.id
@@ -2205,7 +2195,7 @@ function api_get_battle_items()
     $battle_items = [];
     $pp_restore_modules = ['pp5', 'pp10', 'pp15', 'pp99'];
 
-    while ($item = DB::fetch($my_items)) {
+    foreach ($my_items as $item) {
         $item_type = $item['type'];
         $item_module = isset($item['module']) ? $item['module'] : '';
 
@@ -2283,7 +2273,7 @@ function api_switch_pokemon()
     } else {
         // 没有指定 pokemon_id，自动选择第一个可用宠物
         // 获取用户的所有宠物（按 site 排序，site=1 是首发，site=2 是替补，site=3 是箱子）
-        $all_pokemon_query = DB::query(pm_sql(
+        $all_pokemon_rows = DB::fetch_all(pm_sql(
             "SELECT * FROM " . pm_table('pm_mypm') . "
             WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0
             ORDER BY site ASC, id ASC",
@@ -2292,7 +2282,7 @@ function api_switch_pokemon()
 
         $available_pokemon = [];
 
-        while ($pet = DB::fetch($all_pokemon_query)) {
+        foreach ($all_pokemon_rows as $pet) {
             $pet_id = intval($pet['id']);
             // 排除当前上场的宠物
             if ($pet_id !== $current_pet_id) {
@@ -2466,7 +2456,7 @@ function api_replace_pokemon()
         $next_pokemon = $specified_pet;
     } else {
         // 没有指定 pokemon_id，自动选择第一个可用宠物
-        $all_pokemon_query = DB::query(pm_sql(
+        $all_pokemon_rows = DB::fetch_all(pm_sql(
             "SELECT * FROM " . pm_table('pm_mypm') . "
             WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0
             ORDER BY site ASC, id ASC",
@@ -2475,7 +2465,7 @@ function api_replace_pokemon()
 
         $available_pokemon = [];
 
-        while ($pet = DB::fetch($all_pokemon_query)) {
+        foreach ($all_pokemon_rows as $pet) {
             $pet_id = intval($pet['id']);
             // 排除当前上场的宠物
             if ($pet_id !== $current_pet_id) {

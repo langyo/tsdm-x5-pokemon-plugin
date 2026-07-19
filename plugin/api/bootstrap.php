@@ -11,12 +11,8 @@ ob_start();
 // 定义常量
 define('IN_DISCUZ', true);
 
-// 计算 Discuz 根目录
-$discuz_root = dirname(dirname(dirname(dirname(dirname(__FILE__)))));
-define('DISCUZ_ROOT', $discuz_root . '/');
-
 // 引入Discuz核心
-require_once DISCUZ_ROOT . 'source/class/class_core.php';
+require_once __DIR__ . '/../../../../../source/class/class_core.php';
 
 $discuz = & discuz_core::instance();
 

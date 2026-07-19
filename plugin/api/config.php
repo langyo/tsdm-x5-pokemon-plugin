@@ -35,8 +35,8 @@ function api_get_global_config()
 {
     $config = array();
 
-    $query = DB::query("SELECT * FROM pm_config");
-    while ($obj = DB::fetch($query)) {
+    $rows = DB::fetch_all("SELECT * FROM pm_config");
+    foreach ($rows as $obj) {
         $value = null;
         switch ($obj['data_type']) {
             case "string":
