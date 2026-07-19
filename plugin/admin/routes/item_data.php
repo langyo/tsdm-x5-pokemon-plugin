@@ -18,8 +18,9 @@ function list_item_type($from, $count)
   $count = intval($count);
 
   $ret = [];
-  if ($query_all = DB::query("SELECT * from pm_itemdata order by `id` asc limit $from,$count")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT * from pm_itemdata order by `id` asc limit $from,$count");
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $item = new_item_type(
         intval($query['id']),
         $query['name'],
@@ -50,8 +51,9 @@ function get_item_type($id)
   $id = intval($id);
 
   $ret = [];
-  if ($query_all = DB::query("SELECT * from pm_itemdata where id=$id")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT * from pm_itemdata where id=$id");
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $item = new_item_type(
         intval($query['id']),
         $query['name'],
@@ -289,13 +291,8 @@ function filter_item_type($list)
         if (ctype_digit($value) && $value !== '') {
           // 先尝试 ID 精确查询
           $id_query_sql = "SELECT * from pm_itemdata where id = " . intval($value);
-          if ($query_all = DB::query($id_query_sql)) {
-            $found_id_results = [];
-            while ($query = DB::fetch($query_all)) {
-              $found_id_results[] = $query;
-            }
-            // 如果找到 ID 匹配的结果，直接返回
-            if (count($found_id_results) > 0) {
+          $found_id_results = DB::fetch_all($id_query_sql);
+          if (!empty($found_id_results)) {
               foreach ($found_id_results as $query) {
                 $item = new_item_type(
                   intval($query['id']),
@@ -316,7 +313,6 @@ function filter_item_type($list)
               return $ret;
             }
           }
-        }
         // ID 查询无结果或非数字输入，使用名称模糊搜索
         array_push($query_sql_list, generate_filter_sql('name', $operator, $value, 'text'));
         break;
@@ -345,8 +341,9 @@ function filter_item_type($list)
   $query_sql .= implode(" and ", $query_sql_list);
   $query_sql .= " limit 20";
 
-  if ($query_all = DB::query($query_sql)) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all($query_sql);
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $item = new_item_type(
         intval($query['id']),
         $query['name'],

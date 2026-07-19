@@ -18,8 +18,9 @@ function list_skill_type($from, $count)
   $count = intval($count);
 
   $ret = [];
-  if ($query_all = DB::query("SELECT * from pm_skill order by `id` asc limit $from,$count")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT * from pm_skill order by `id` asc limit $from,$count");
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $pokemon_list = explode(',', $query['pmid']);
       array_shift($pokemon_list);
       array_pop($pokemon_list);
@@ -221,13 +222,8 @@ function filter_skill_type($list)
         if (ctype_digit($value) && $value !== '') {
           // 先尝试 ID 精确查询
           $id_query_sql = "SELECT * from pm_skill where id = " . intval($value);
-          if ($query_all = DB::query($id_query_sql)) {
-            $found_id_results = [];
-            while ($query = DB::fetch($query_all)) {
-              $found_id_results[] = $query;
-            }
-            // 如果找到 ID 匹配的结果，直接返回
-            if (count($found_id_results) > 0) {
+          $found_id_results = DB::fetch_all($id_query_sql);
+          if (!empty($found_id_results)) {
               foreach ($found_id_results as $query) {
                 $pokemon_list = explode(',', $query['pmid']);
                 array_shift($pokemon_list);
@@ -262,7 +258,6 @@ function filter_skill_type($list)
               return $ret;
             }
           }
-        }
         // ID 查询无结果或非数字输入，使用名称模糊搜索
         array_push($query_sql_list, generate_filter_sql('name', $operator, $value, 'text'));
         break;
@@ -290,8 +285,9 @@ function filter_skill_type($list)
   $query_sql .= implode(" and ", $query_sql_list);
   $query_sql .= " limit 20";
 
-  if ($query_all = DB::query($query_sql)) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all($query_sql);
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $pokemon_list = explode(',', $query['pmid']);
       array_shift($pokemon_list);
       array_pop($pokemon_list);

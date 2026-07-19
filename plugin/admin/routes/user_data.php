@@ -18,8 +18,9 @@ function list_user_info($from, $count)
   $count = intval($count);
 
   $ret = [];
-  if ($query_all_user = DB::query("SELECT * from pm_usersdata order by `uid` asc limit $from,$count")) {
-    while ($query_user = DB::fetch($query_all_user)) {
+  $rows = DB::fetch_all("SELECT * from pm_usersdata order by `uid` asc limit $from,$count");
+  if (!empty($rows)) {
+    foreach ($rows as $query_user) {
       $uid = intval($query_user['uid']);
 
       $pokemon_list = list_pokemon_info($uid, 0, 100);
@@ -209,13 +210,8 @@ function filter_user_info($list)
         if (ctype_digit($value) && $value !== '') {
           // 先尝试 UID 精确查询
           $id_query_sql = "SELECT * from pm_usersdata where uid = " . intval($value);
-          if ($query_all = DB::query($id_query_sql)) {
-            $found_id_results = [];
-            while ($query = DB::fetch($query_all)) {
-              $found_id_results[] = $query;
-            }
-            // 如果找到 UID 匹配的结果，直接返回
-            if (count($found_id_results) > 0) {
+          $found_id_results = DB::fetch_all($id_query_sql);
+          if (!empty($found_id_results)) {
               foreach ($found_id_results as $query_user) {
                 $uid = intval($query_user['uid']);
 
@@ -258,10 +254,9 @@ function filter_user_info($list)
               return $ret;
             }
           }
-        }
         // UID 查询无结果或非数字输入，使用昵称模糊搜索
-        if ($query_all = DB::query("SELECT * FROM %t WHERE username LIKE %s", ['common_member', "%$value%"])) {
-          while ($query = DB::fetch($query_all)) {
+        if ($name_rows = DB::fetch_all("SELECT * FROM %t WHERE username LIKE %s", ['common_member', "%$value%"])) {
+          foreach ($name_rows as $query) {
             $uid = intval($query['uid']);
             array_push($query_sql_list, generate_filter_sql('uid', $operator, $uid, 'id'));
           }
@@ -292,8 +287,9 @@ function filter_user_info($list)
   $query_sql .= implode(" and ", $query_sql_list);
   $query_sql .= " limit 20";
 
-  if ($query_all = DB::query($query_sql)) {
-    while ($query_user = DB::fetch($query_all)) {
+  $rows = DB::fetch_all($query_sql);
+  if (!empty($rows)) {
+    foreach ($rows as $query_user) {
       $uid = intval($query_user['uid']);
 
       $pokemon_list = list_pokemon_info($uid, 0, 100);

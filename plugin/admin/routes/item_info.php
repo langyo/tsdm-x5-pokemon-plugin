@@ -2,8 +2,8 @@
 function list_item_info($uid, $from, $count)
 {
   $ret = [];
-  if ($query_all = DB::query("SELECT * from pm_myitem where `uid`='$uid' limit $from,$count")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT * from pm_myitem where `uid`='$uid' limit $from,$count");
+  foreach ($rows as $query) {
       array_push($ret, new_item_info(
         intval($query['id']),
         $uid,

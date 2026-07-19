@@ -315,7 +315,7 @@ function _restore_pp($petid, $amount)
     }
 
     // 查找PP未满的技能
-    $skill_query = DB::query(pm_sql(
+    $skill = DB::fetch_first(pm_sql(
         "SELECT ms.*, s.num as max_pp
          FROM " . pm_table('pm_myskill') . " ms
          LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id
@@ -324,8 +324,6 @@ function _restore_pp($petid, $amount)
         $uid,
         $petid
     ));
-
-    $skill = DB::fetch($skill_query);
 
     if (!$skill) {
         return 1; // 所有技能PP都已满

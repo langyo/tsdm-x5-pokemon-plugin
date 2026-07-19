@@ -16,8 +16,9 @@ function list_map_info($from, $count)
   $count = intval($count);
 
   $ret = [];
-  if ($query_all = DB::query("SELECT * from pm_map order by `id` asc limit $from,$count")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT * from pm_map order by `id` asc limit $from,$count");
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $item = new_map_info(
         intval($query['id']),
         $query['name'],
@@ -337,13 +338,8 @@ function filter_map_info($list)
         if (ctype_digit($value) && $value !== '') {
           // 先尝试 ID 精确查询
           $id_query_sql = "SELECT * from pm_map where id = " . intval($value);
-          if ($query_all = DB::query($id_query_sql)) {
-            $found_id_results = [];
-            while ($query = DB::fetch($query_all)) {
-              $found_id_results[] = $query;
-            }
-            // 如果找到 ID 匹配的结果，直接返回
-            if (count($found_id_results) > 0) {
+          $found_id_results = DB::fetch_all($id_query_sql);
+          if (!empty($found_id_results)) {
               foreach ($found_id_results as $query) {
                 $item = new_map_info(
                   intval($query['id']),
@@ -361,7 +357,6 @@ function filter_map_info($list)
               return $ret;
             }
           }
-        }
         // ID 查询无结果或非数字输入，使用名称模糊搜索
         array_push($query_sql_list, generate_filter_sql('name', $operator, $value, 'text'));
         break;
@@ -395,8 +390,9 @@ function filter_map_info($list)
   $query_sql .= implode(" and ", $query_sql_list);
   $query_sql .= " limit 20";
 
-  if ($query_all = DB::query($query_sql)) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all($query_sql);
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $item = new_map_info(
         intval($query['id']),
         $query['name'],
@@ -432,8 +428,8 @@ function get_wild_pokemons_for_map($map_id)
 
   $ret = [];
   // 使用 FIND_IN_SET 查询 mapid 字段中包含该地图 ID 的宠物
-  if ($query_all = DB::query("SELECT id, name FROM pm_data WHERE FIND_IN_SET({$map_id}, mapid) > 0 ORDER BY id ASC")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT id, name FROM pm_data WHERE FIND_IN_SET({$map_id}, mapid) > 0 ORDER BY id ASC");
+  foreach ($rows as $query) {
       $item = [
         "id" => intval($query['id']),
         "name" => $query['name'],

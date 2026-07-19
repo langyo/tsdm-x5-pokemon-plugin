@@ -217,11 +217,11 @@ function api_get_inventory()
         LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid = i.id
         " . $where_sql . " ORDER BY m.id DESC LIMIT %d, %d";
 
-    $query = DB::query(pm_sql_v($limit_sql, array_merge($where_values, array($offset, $per_page))));
+    $rows = DB::fetch_all(pm_sql_v($limit_sql, array_merge($where_values, array($offset, $per_page))));
 
     $items = [];
 
-    while ($row = DB::fetch($query)) {
+    foreach ($rows as $row) {
         // 使用 JOIN 获取的 item_type
         $item_type_from_item = isset($row['item_type']) && $row['item_type'] !== null
             ? (int) $row['item_type']
@@ -264,7 +264,7 @@ function api_get_user_stats()
     // 获取宠物统计
     $pokemon_stats = DB::fetch_first(
         "SELECT
-COUNT(*) as total,
+ COUNT(*) as total,
             COUNT(CASE WHEN site=1 THEN 1 END) as active,
             SUM(level) as total_levels,
             MAX(level) as max_level FROM " . pm_table('pm_mypm') . "
@@ -275,7 +275,7 @@ COUNT(*) as total,
     // 获取物品统计
     $item_stats = DB::fetch_first(
         "SELECT
-COUNT(*) as total_items,
+ COUNT(*) as total_items,
             SUM(nums) as total_quantity FROM " . pm_table('pm_myitem') . "
             WHERE uid=%d",
         $uid
@@ -356,14 +356,14 @@ function api_get_inventory_stats()
     ];
 
     // 查询用户的物品，并关联 pm_itemdata 获取正确的 type 字段
-    $query = DB::query(pm_sql(
+    $rows = DB::fetch_all(pm_sql(
         "SELECT m.itemid, m.num, i.type as item_type FROM " . pm_table('pm_myitem') . " m
         LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid = i.id
         WHERE m.uid = %d AND m.num > 0",
         (int)$uid
     ));
 
-    while ($row = DB::fetch($query)) {
+    foreach ($rows as $row) {
         // 使用 pm_itemdata 的 type 字段
         $type_id = isset($row['item_type']) && $row['item_type'] !== null
             ? (int) $row['item_type']
@@ -396,11 +396,6 @@ function api_heal_pokemon()
 
     $uid = validate_uid($_G['uid']);
     $pokemon_id = validate_id(get_param('pokemon_id', 0), 'pokemon_id');
-
-    // 确保 DISCUZ_ROOT 已定义
-    if (!defined('DISCUZ_ROOT')) {
-        define('DISCUZ_ROOT', dirname(dirname(dirname(dirname(dirname(__FILE__))))) . '/');
-    }
 
     // 加载必要的函数
     // 加载状态修正变量（$statehp, $stateatk 等）
@@ -494,12 +489,12 @@ function api_heal_pokemon()
     }
 
     // 恢复技能PP值
-    $skill_query = DB::query(pm_sql(
+    $all_skills = DB::fetch_all(pm_sql(
         "SELECT * FROM " . pm_table('pm_myskill') . " WHERE uid=%d AND petid=%d",
         $uid,
         $pokemon_id
     ));
-    while ($my_skill = DB::fetch($skill_query)) {
+    foreach ($all_skills as $my_skill) {
         $skill_id = $my_skill['skillid'];
         $skill = DB::fetch_first(pm_sql(
             "SELECT * FROM " . pm_table('pm_skill') . " WHERE id=%d",
@@ -537,10 +532,6 @@ function api_heal_and_flee()
 
     $uid = validate_uid($_G['uid']);
     $pokemon_id = validate_id(get_param('pokemon_id', 0), 'pokemon_id');
-
-    if (!defined('DISCUZ_ROOT')) {
-        define('DISCUZ_ROOT', dirname(dirname(dirname(dirname(dirname(__FILE__))))) . '/');
-    }
 
 
     $pokemon_data = DB::fetch_first(pm_sql(
@@ -619,12 +610,12 @@ function api_heal_and_flee()
         ));
     }
 
-    $skill_query = DB::query(pm_sql(
+    $all_skills = DB::fetch_all(pm_sql(
         "SELECT * FROM " . pm_table('pm_myskill') . " WHERE uid=%d AND petid=%d",
         $uid,
         $pokemon_id
     ));
-    while ($my_skill = DB::fetch($skill_query)) {
+    foreach ($all_skills as $my_skill) {
         $skill_id = $my_skill['skillid'];
         $skill = DB::fetch_first(pm_sql(
             "SELECT * FROM " . pm_table('pm_skill') . " WHERE id=%d",
@@ -668,7 +659,7 @@ function api_get_online_players()
 
     // 获取所有在线玩家（action=221表示在宠物系统）
     // 注意：头像信息由前端根据 uid 构造 URL，无需从数据库获取
-    $query = DB::query(
+    $rows = DB::fetch_all(
         "SELECT uid, username, lastactivity 
          FROM " . DB::table('common_session') . "
          WHERE action='221' AND uid >= 1
@@ -678,7 +669,7 @@ function api_get_online_players()
     $players = [];
     $count = 0;
 
-    while ($row = DB::fetch($query)) {
+    foreach ($rows as $row) {
         $count++;
 
         // 返回所有玩家信息（用于滚动显示）
@@ -732,11 +723,6 @@ function api_initialize_new_player()
             VALUES (%d, 0, 0, 0, 0, 1)",
             $uid
         ));
-    }
-
-    // 确保 DISCUZ_ROOT 已定义
-    if (!defined('DISCUZ_ROOT')) {
-        define('DISCUZ_ROOT', dirname(dirname(dirname(dirname(dirname(__FILE__))))) . '/');
     }
 
     // 加载宠物数值计算工具函数
@@ -1103,7 +1089,7 @@ function api_get_usable_pokemon()
     $item_type = $item_data['type'];
 
     // 获取用户所有宠物
-    $pokemon_query = DB::query(pm_sql(
+    $all_pokemon = DB::fetch_all(pm_sql(
         "SELECT id, pmno, nowname, level, hp, hpg, hpn, state FROM " . pm_table('pm_mypm') . " WHERE uid = %d",
         $uid
     ));
@@ -1115,7 +1101,7 @@ function api_get_usable_pokemon()
     require_once __DIR__ . '/utils.php';
     global $statehp;
 
-    while ($pokemon = DB::fetch($pokemon_query)) {
+    foreach ($all_pokemon as $pokemon) {
         $can_use = false;
         $level = (int) $pokemon['level'];
         $state = (int) $pokemon['state'];
@@ -1217,7 +1203,7 @@ function api_refresh_forum_badge()
  */
 function _get_badge_pokemon_data($uid)
 {
-    $query = DB::query(pm_sql(
+    $rows = DB::fetch_all(pm_sql(
         "SELECT id, pmno, nowname, level, site, sg FROM " . pm_table('pm_mypm') . "
         WHERE uid = %d AND site < 3",
         $uid
@@ -1225,7 +1211,7 @@ function _get_badge_pokemon_data($uid)
 
     $data = [];
     $creeps = [];
-    while ($pet = DB::fetch($query)) {
+    foreach ($rows as $pet) {
         if ($pet['site'] == 1) {
             $data['first'] = $pet;
         } else {

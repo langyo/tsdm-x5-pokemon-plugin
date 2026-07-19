@@ -10,8 +10,9 @@ function run_sql_console($sql)
     exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
   }
 
+  $rows = DB::fetch_all($sql);
   $result = [];
-  while ($data = DB::fetch($query)) {
+  foreach ($rows as $data) {
     $result[] = $data;
   }
 

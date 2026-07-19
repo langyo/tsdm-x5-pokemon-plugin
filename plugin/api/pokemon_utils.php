@@ -20,11 +20,6 @@ if (!defined('IN_DISCUZ') && !defined('API_ROUTED')) {
     define('IN_DISCUZ', true);
 }
 
-// 确保 DISCUZ_ROOT 已定义
-if (!defined('DISCUZ_ROOT')) {
-    define('DISCUZ_ROOT', dirname(dirname(dirname(dirname(dirname(__FILE__))))) . '/');
-}
-
 /**
  * 获取宠物经验值表类型
  *

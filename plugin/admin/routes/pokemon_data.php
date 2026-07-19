@@ -18,8 +18,9 @@ function list_pokemon_type($from, $count)
   $count = intval($count);
 
   $ret = [];
-  if ($query_all = DB::query("SELECT * from pm_data order by `id` asc limit $from,$count")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT * from pm_data order by `id` asc limit $from,$count");
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $map_ids = explode(',', $query['mapid']);
       $map_ids = array_filter($map_ids, function ($map_id) {
         return trim($map_id) != '' ? intval($map_id) > 0 : false;
@@ -30,8 +31,8 @@ function list_pokemon_type($from, $count)
 
       $pm_id = intval($query['id']);
       $evolution_info_ids = [];
-      $sql_evolution_info = DB::query("SELECT * from pm_up where `pmid`='$pm_id'");
-      while ($query_evolution_info = DB::fetch($sql_evolution_info)) {
+      $evolution_rows = DB::fetch_all("SELECT * from pm_up where `pmid`='$pm_id'");
+      foreach ($evolution_rows as $query_evolution_info) {
         array_push($evolution_info_ids, intval($query_evolution_info['id']));
       }
 
@@ -107,8 +108,8 @@ function get_pokemon_type($id, $depth = 0)
 
     $evolution_info_ids = [];
     $evolution_target_ids = [];
-    $sql_evolution_info = DB::query("SELECT * from pm_up where `pmid`='$id'");
-    while ($query_evolution_info = DB::fetch($sql_evolution_info)) {
+    $evolution_rows = DB::fetch_all("SELECT * from pm_up where `pmid`='$id'");
+    foreach ($evolution_rows as $query_evolution_info) {
       array_push($evolution_info_ids, intval($query_evolution_info['id']));
       $target_id = intval($query_evolution_info['targetpmid']);
       if ($target_id > 0 && $target_id != $id) {
@@ -449,13 +450,8 @@ function filter_pokemon_type($list)
         if (ctype_digit($value) && $value !== '') {
           // 先尝试 ID 精确查询
           $id_query_sql = "SELECT * from pm_data where id = " . intval($value);
-          if ($query_all = DB::query($id_query_sql)) {
-            $found_id_results = [];
-            while ($query = DB::fetch($query_all)) {
-              $found_id_results[] = $query;
-            }
-            // 如果找到 ID 匹配的结果，直接返回
-            if (count($found_id_results) > 0) {
+          $found_id_results = DB::fetch_all($id_query_sql);
+          if (!empty($found_id_results)) {
               foreach ($found_id_results as $query) {
                 $map_ids = explode(',', $query['mapid']);
                 $map_ids = array_filter($map_ids, function ($map_id) {
@@ -467,8 +463,8 @@ function filter_pokemon_type($list)
 
                 $pm_id = intval($query['id']);
                 $evolution_info_ids = [];
-                $sql_evolution_info = DB::query("SELECT * from pm_up where `pmid`='$pm_id'");
-                while ($query_evolution_info = DB::fetch($sql_evolution_info)) {
+      $evolution_rows = DB::fetch_all("SELECT * from pm_up where `pmid`='$pm_id'");
+      foreach ($evolution_rows as $query_evolution_info) {
                   array_push($evolution_info_ids, intval($query_evolution_info['id']));
                 }
 
@@ -518,7 +514,6 @@ function filter_pokemon_type($list)
               return $ret;
             }
           }
-        }
         // ID 查询无结果或非数字输入，使用名称模糊搜索
         array_push($query_sql_list, generate_filter_sql('name', $operator, $value, 'text'));
         break;
@@ -549,8 +544,9 @@ function filter_pokemon_type($list)
   $query_sql .= implode(" and ", $query_sql_list);
   $query_sql .= " limit 20";
 
-  if ($query_all = DB::query($query_sql)) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all($query_sql);
+  if (!empty($rows)) {
+    foreach ($rows as $query) {
       $map_ids = explode(',', $query['mapid']);
       $map_ids = array_filter($map_ids, function ($map_id) {
         return trim($map_id) != '' ? intval($map_id) > 0 : false;
@@ -561,8 +557,8 @@ function filter_pokemon_type($list)
 
       $pm_id = intval($query['id']);
       $evolution_info_ids = [];
-      $sql_evolution_info = DB::query("SELECT * from pm_up where `pmid`='$pm_id'");
-      while ($query_evolution_info = DB::fetch($sql_evolution_info)) {
+      $evolution_rows = DB::fetch_all("SELECT * from pm_up where `pmid`='$pm_id'");
+      foreach ($evolution_rows as $query_evolution_info) {
         array_push($evolution_info_ids, intval($query_evolution_info['id']));
       }
 
@@ -640,8 +636,8 @@ function get_pokemon_types_by_ids($ids)
   $ret = [];
   // 使用 IN 查询一次性获取所有宠物
   $ids_str = implode(',', $valid_ids);
-  if ($query_all = DB::query("SELECT id, name FROM pm_data WHERE id IN ($ids_str) ORDER BY id ASC")) {
-    while ($query = DB::fetch($query_all)) {
+  $rows = DB::fetch_all("SELECT id, name FROM pm_data WHERE id IN ($ids_str) ORDER BY id ASC");
+  foreach ($rows as $query) {
       $item = [
         "id" => intval($query['id']),
         "name" => $query['name'],
