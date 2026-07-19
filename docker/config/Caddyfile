@@ -50,7 +50,7 @@ localhost {
 		path /source/*
 	}
 	@plugin_dist {
-		path /source/plugin/pokemon/dist/* /source/plugin/pokemon/wasm/* /source/plugin/pokemon/images/*
+		path /source/plugin/pokemon/dist/* /source/plugin/pokemon/wasm/* /source/plugin/pokemon/images/* /source/plugin/pokemon/pokemon_system/*
 	}
 	handle @plugin_dist {
 		file_server
