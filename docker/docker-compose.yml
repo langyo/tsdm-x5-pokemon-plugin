@@ -36,6 +36,7 @@ services:
       MARIADB_PASSWORD: ${DB_PASSWORD:-discuz}
     volumes:
       - db_data:/var/lib/mysql
+      - ./docker/init.d:/docker-entrypoint-initdb.d:ro
       - ./migrations/from-x3:/migrations:ro
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
