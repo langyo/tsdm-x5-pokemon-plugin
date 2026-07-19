@@ -5,6 +5,9 @@ name = "_game"
 publish = false
 version = "0.1.0"
 
+[package.metadata.wasm-pack]
+wasm-opt = false
+
 [lib]
 crate-type = ["cdylib", "rlib"]
 
