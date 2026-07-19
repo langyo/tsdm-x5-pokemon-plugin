@@ -49,6 +49,12 @@ localhost {
 		path /data/restore/* /data/log/* /data/back3/* /data/sysdata/*
 		path /source/*
 	}
+	@plugin_dist {
+		path /source/plugin/pokemon/dist/*
+	}
+	handle @plugin_dist {
+		file_server
+	}
 	respond @forbidden 403
 
 	@php_in_upload {
