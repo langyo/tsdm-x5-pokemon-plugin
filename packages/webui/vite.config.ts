@@ -13,7 +13,7 @@ export default defineConfig({
   },
   base: '/source/plugin/pokemon/dist/',
   build: {
-    outDir: '../dist',
+    outDir: '../../plugin/dist',
     target: 'es2020',
     rollupOptions: {
       output: {
