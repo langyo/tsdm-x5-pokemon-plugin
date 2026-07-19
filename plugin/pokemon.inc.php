@@ -1,9 +1,6 @@
 <?php
 defined('IN_DISCUZ') || exit('Access Denied');
 
-error_reporting(E_ALL & ~E_WARNING & ~E_NOTICE);
-@ini_set('display_errors', 0);
-
 loadcache('plugin');
 $settings = $_G['cache']['plugin']['pokemon'] ?? [];
 
@@ -12,8 +9,8 @@ $index = isset($_GET['index']) ? preg_replace('/[^a-z_]/', '', $_GET['index']) :
 if (isset($_GET['endpoint'])) {
     $endpoint = $_GET['endpoint'];
     if (preg_match('/^[a-z_]+$/', $endpoint)) {
-        @header('Content-Type: application/json; charset=utf-8');
-        @header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
 
         $api_files = [
             'pokemon' => 'pokemon.php',

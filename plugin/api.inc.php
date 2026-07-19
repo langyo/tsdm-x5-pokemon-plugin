@@ -2,7 +2,6 @@
 
 defined('IN_DISCUZ') || exit('Access Denied');
 
-ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
