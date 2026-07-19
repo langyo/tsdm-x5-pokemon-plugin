@@ -31,8 +31,8 @@ include template('common/header');
 <script type="importmap">
 {
   "imports": {
-    "./snippets/": "<?php echo $wasmPath; ?>/snippets/",
-    "./game_bg.wasm": "<?php echo $wasmPath; ?>/game_bg.wasm"
+    "./snippets/": "/<?php echo $wasmPath; ?>/snippets/",
+    "./game_bg.wasm": "/<?php echo $wasmPath; ?>/game_bg.wasm"
   }
 }
 </script>
