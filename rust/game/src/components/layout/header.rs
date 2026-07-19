@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use super::{Page, CURRENT_PAGE};
 
 /// 图片资源基础路径 (对应 PHP $imgpath)
-pub const IMG_PATH: &str = "source/plugin/pokemon/pokemon_system/images";
+pub const IMG_PATH: &str = "source/plugin/pokemon/images";
 /// 远程 CDN 路径 (对应 PHP $imgpath_remote)
 pub const IMG_PATH_REMOTE: &str = "https://img.tsdm39.com/Pokemon";
 
