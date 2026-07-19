@@ -36,6 +36,22 @@ include template('common/header');
   }
 }
 </script>
+<script>
+window.__dioxus_hmr_disabled = true;
+window.__dioxus_no_hot_reload = true;
+(function() {
+  const _fetch = window.fetch;
+  window.fetch = function(url, opts) {
+    if (typeof url === 'string' && url.includes('/_dioxus'))
+      return Promise.resolve(new Response('{}', {status:200,headers:{'Content-Type':'application/json'}}));
+    return _fetch.apply(this, arguments);
+  };
+})();
+(function() {
+  const _push = history.pushState, _replace = history.replaceState;
+  history.pushState = function(){}; history.replaceState = function(){};
+})();
+</script>
 <script type="module">
 (async function() {
   const base = '/source/plugin/pokemon/wasm';
