@@ -13,8 +13,16 @@
       "version": "X5.0",
       "__modules": [
         {
-          "name": "pokemon",
+          "name": "game",
           "menu": "宠物中心",
+          "url": "plugin.php?id=pokemon:game",
+          "type": "7",
+          "adminid": "0",
+          "displayorder": "0"
+        },
+        {
+          "name": "pokemon",
+          "menu": "",
           "url": "",
           "type": "11",
           "adminid": "0",
