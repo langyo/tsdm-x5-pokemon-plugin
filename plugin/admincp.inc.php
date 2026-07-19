@@ -1,12 +1,15 @@
 <?php
 defined('IN_DISCUZ') || exit('Access Denied');
 
-if (!defined('IN_ADMINCP')) {
+$is_admin = ($_G['adminid'] == 1 || $_G['groupid'] == 1);
+$is_moderator = false;
+if (!$is_admin && $_G['uid']) {
+    $modcheck = DB::result_first("SELECT COUNT(*) FROM " . DB::table('forum_moderator') . " WHERE uid=%d", [$_G['uid']]);
+    $is_moderator = $modcheck > 0;
+}
+if (!$is_admin && !$is_moderator) {
     showmessage(lang('plugin/pokemon', 'admin_only'));
 }
-
-loadcache('plugin');
-$settings = $_G['cache']['plugin']['pokemon'] ?? [];
 
 $op = isset($_GET['op']) ? preg_replace('/[^a-z_]/', '', $_GET['op']) : 'index';
 
