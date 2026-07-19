@@ -1,34 +1,59 @@
 {
-    admin localhost:2019
+	frankenphp
+	order php_server before file_server
+	local_certs
+}
 
-    :80 {
-        root * /app/public
-        php_fastcgi unix//var/run/php/php-fpm.sock
-        encode zstd gzip
-        file_server
+localhost {
+	root * /app/public
 
-        # SEO-friendly URLs
-        @rewrite {
-            path *.php
-            not path /install/*
-        }
-        rewrite @rewrite /{path}?{query}
+	encode zstd gzip
 
-        # Security: block access to sensitive directories
-        @blocked {
-            path /config/*
-            path /uc_client/data/*
-            path /source/*
-        }
-        respond @blocked 403
+	php_server
 
-        # Prevent PHP execution in data directories
-        @no_php {
-            path /data/*.php
-            path /static/*.php
-            path /template/*.php
-            path /attachment/*.php
-        }
-        respond @no_php 403
-    }
+	file_server
+
+	route {
+		@topic path_regexp topic ^/topic-(.+)\.html$
+		rewrite @topic /portal.php?mod=topic&topic={re.topic.1}
+
+		@article path_regexp article ^/article-([0-9]+)-([0-9]+)\.html$
+		rewrite @article /portal.php?mod=view&aid={re.article.1}&page={re.article.2}
+
+		@forum path_regexp forum ^/forum-([0-9]+)-([0-9]+)\.html$
+		rewrite @forum /forum.php?mod=forumdisplay&fid={re.forum.1}&page={re.forum.2}
+
+		@thread path_regexp thread ^/thread-([0-9]+)-([0-9]+)-([0-9]+)\.html$
+		rewrite @thread /forum.php?mod=viewthread&tid={re.thread.1}&extra=page%3D{re.thread.3}&page={re.thread.2}
+
+		@group path_regexp group ^/group-([0-9]+)-([0-9]+)\.html$
+		rewrite @group /forum.php?mod=group&fid={re.group.1}&page={re.group.2}
+
+		@space path_regexp space ^/space-(username|uid)-(.+)\.html$
+		rewrite @space /home.php?mod=space&{re.space.1}={re.space.2}
+
+		@blog path_regexp blog ^/blog-([0-9]+)-([0-9]+)\.html$
+		rewrite @blog /home.php?mod=space&uid={re.blog.1}&do=blog&id={re.blog.2}
+
+		@archiver path_regexp archiver ^/archiver/([a-z0-9\-]+)\.html$
+		rewrite @archiver /archiver/index.php?{re.archiver.1}
+
+		@plugin path_regexp plugin ^/([a-z]+[a-z0-9_]*)-([a-z0-9_\-]+)\.html$
+		rewrite @plugin /plugin.php?id={re.plugin.1}:{re.plugin.2}
+
+		try_files {path} {path}/ /index.php?{query}
+	}
+
+	@forbidden {
+		path /config/*
+		path /uc_client/data/* /uc_server/data/*
+		path /data/restore/* /data/log/* /data/back3/* /data/sysdata/*
+		path /source/*
+	}
+	respond @forbidden 403
+
+	@php_in_upload {
+		path /data/*.php /static/*.php /template/*.php /attachment/*.php
+	}
+	respond @php_in_upload 403
 }
