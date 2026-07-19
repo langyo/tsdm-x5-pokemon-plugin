@@ -1,0 +1,10 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    mariadb-client \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY docker/setup.sh /setup.sh
+RUN chmod +x /setup.sh
+
+ENTRYPOINT ["/setup.sh"]

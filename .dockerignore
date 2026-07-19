@@ -1,0 +1,13 @@
+target/
+node_modules/
+dist/
+.git/
+.just/
+.pytest_cache/
+.ruff_cache/
+.env
+*.md
+docs/
+scripts/
+.cache/
+docker/init.d/

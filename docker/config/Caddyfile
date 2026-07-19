@@ -1,0 +1,34 @@
+{
+    admin localhost:2019
+
+    :80 {
+        root * /app/public
+        php_fastcgi unix//var/run/php/php-fpm.sock
+        encode zstd gzip
+        file_server
+
+        # SEO-friendly URLs
+        @rewrite {
+            path *.php
+            not path /install/*
+        }
+        rewrite @rewrite /{path}?{query}
+
+        # Security: block access to sensitive directories
+        @blocked {
+            path /config/*
+            path /uc_client/data/*
+            path /source/*
+        }
+        respond @blocked 403
+
+        # Prevent PHP execution in data directories
+        @no_php {
+            path /data/*.php
+            path /static/*.php
+            path /template/*.php
+            path /attachment/*.php
+        }
+        respond @no_php 403
+    }
+}
