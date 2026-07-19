@@ -16,17 +16,14 @@ include template('common/header');
 
 <style>
 #ajaxwaitid { display:none !important; }
-#main { max-width:1200px; margin:20px auto; min-height:60vh; display:flex; align-items:center; justify-content:center; }
-#loading { text-align:center; }
+#loading { text-align:center; padding-top:40vh; }
 .lds-dual-ring { display:inline-block; width:32px; height:32px; }
 .lds-dual-ring:after { content:" "; display:block; width:32px; height:32px; border-radius:50%; border:4px solid #d33774; border-color:#d33774 transparent #d33774 transparent; animation:lds-dual-ring 1.2s linear infinite; }
 @keyframes lds-dual-ring { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
 </style>
-<div id="main">
 <div id="loading">
 <p style="font-size:18px;color:#333;margin-bottom:16px">正在加载宠物中心</p>
 <div class="lds-dual-ring"></div>
-</div>
 </div>
 <script type="importmap">
 {
