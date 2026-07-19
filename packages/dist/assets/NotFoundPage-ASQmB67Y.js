@@ -1,0 +1,1 @@
+import{e as s,f as e,i as t}from"./vue-fwJH5KAD.js";const n=s({name:"NotFoundPage",setup(){return()=>e("div",{class:"min-h-screen flex items-center justify-center"},[e("div",{class:"text-center"},[e("h1",{class:"text-4xl font-bold text-gray-300 mb-4"},[t("404")]),e("p",{class:"text-gray-500"},[t("页面不存在")])])])}});export{n as default};

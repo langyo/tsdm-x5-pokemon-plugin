@@ -1,0 +1,1 @@
+import{a as t}from"./pokemon-D_O1P3uo.js";import{e as o,f as p}from"./vue-fwJH5KAD.js";const a=o({name:"TypeBadge",props:{type:String},setup(e){return()=>p("span",{class:"inline-block rounded-full px-2 py-0.5 text-xs font-bold text-white",style:{backgroundColor:t(e.type)}},[e.type])}});export{a as T};

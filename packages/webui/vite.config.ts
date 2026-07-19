@@ -11,6 +11,7 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  base: '/source/plugin/pokemon/dist/',
   build: {
     outDir: '../dist',
     target: 'es2020',
