@@ -27,7 +27,8 @@
   border: 1px solid variables.$color-gray-200;
   background: variables.$color-white;
   box-shadow: variables.$shadow-lg;
-  padding: variables.$spacing-base;
+  padding: variables.$spacing-base variables.$spacing-base variables.$spacing-base variables.$spacing-base;
+  padding-right: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -38,6 +39,7 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: variables.$spacing-sm;
+  padding-right: variables.$spacing-base;
   flex-shrink: 0;
 }
 
