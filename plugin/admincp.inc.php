@@ -47,6 +47,7 @@ include template('common/header');
 @keyframes lds-dual-ring { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
 </style>
 <link rel="stylesheet" href="/source/plugin/pokemon/wasm/admin.css">
+<script src="/source/plugin/pokemon/wasm/lucide.min.js"></script>
 <div id="main">
 <div id="loading">
 <p style="font-size:18px;color:#333;margin-bottom:16px">正在加载管理后台</p>
