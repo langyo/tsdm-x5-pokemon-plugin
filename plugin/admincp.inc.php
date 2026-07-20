@@ -61,9 +61,12 @@ include template('common/header');
   }
 }
 </script>
+<script src="https://unpkg.com/lucide@latest"></script>
 <script>
 window.__dioxus_hmr_disabled = true;
 window.__dioxus_no_hot_reload = true;
+// Initialize lucide icons after Dioxus renders
+setTimeout(function(){ if(window.lucide) lucide.createIcons(); }, 1000);
 (function() {
   const _fetch = window.fetch;
   window.fetch = function(url, opts) {
