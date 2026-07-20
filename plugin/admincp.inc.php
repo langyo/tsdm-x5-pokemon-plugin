@@ -70,9 +70,10 @@ window.__dioxus_no_hot_reload = true;
   } catch(err) {
     const msg = String(err);
     document.getElementById("loading").innerHTML =
-      '<p style="color:red;font-size:16px">加载失败</p>' +
-      '<p style="font-size:13px;cursor:pointer;color:#666" onclick="navigator.clipboard.writeText(this.textContent).then(()=>{const s=this.nextElementSibling;s.style.display=\'block\';setTimeout(()=>s.style.display=\'none\',1500)})" title="点击复制错误信息">' + msg.replace(/</g,'&lt;') + '</p>' +
-      '<p style="display:none;color:green;font-size:12px">已复制到剪贴板</p>';
+      '<p style="color:red;font-size:16px;margin-bottom:8px">加载失败</p>' +
+      '<div style="max-height:200px;overflow:auto;background:#f8f8f8;border-radius:4px;padding:8px;margin:8px 0;text-align:left;font-family:monospace;font-size:12px;word-break:break-all;cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent).then(()=>{var t=this.nextElementSibling;t.style.display=\'block\';setTimeout(()=>t.style.display=\'none\',1500)})" title="点击复制">' + msg.replace(/</g,'&lt;').replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>' +
+      '<p style="display:none;color:green;font-size:12px">已复制到剪贴板</p>' +
+      '<p style="font-size:13px;color:#999;margin-top:8px">请使用 Chrome 浏览器并确保 WebGL 可用</p>';
   }
 })();
 </script>
