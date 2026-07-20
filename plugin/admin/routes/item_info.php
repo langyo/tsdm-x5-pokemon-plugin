@@ -11,7 +11,6 @@ function list_item_info($uid, $from, $count)
         intval($query['nums'])
       ));
     }
-  }
 
   return $ret;
 }

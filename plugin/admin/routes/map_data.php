@@ -437,7 +437,6 @@ function get_wild_pokemons_for_map($map_id)
       ];
       array_push($ret, $item);
     }
-  }
 
   return $ret;
 }

@@ -645,7 +645,6 @@ function get_pokemon_types_by_ids($ids)
       ];
       array_push($ret, $item);
     }
-  }
 
   return $ret;
 }

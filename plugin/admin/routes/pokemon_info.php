@@ -78,7 +78,6 @@ function get_pokemon_info($id)
     foreach ($skill_rows as $query_skill) {
         array_push($skills, new_pokemon_skill_info($query_skill['skillid'], $query_skill['skillnum']));
       }
-    }
 
     array_push($ret, new_pokemon_info(
       $pokemon_id,
