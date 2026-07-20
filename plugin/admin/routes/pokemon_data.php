@@ -31,7 +31,7 @@ function list_pokemon_type($from, $count)
 
       $pm_id = intval($query['id']);
       $evolution_info_ids = [];
-      $evolution_rows = DB::fetch_all("SELECT * from pm_up where `pmid`='$pm_id'");
+      $evolution_rows = DB::fetch_all("SELECT * from pm_evolution where `from_id`='$pm_id'");
       foreach ($evolution_rows as $query_evolution_info) {
         array_push($evolution_info_ids, intval($query_evolution_info['id']));
       }
@@ -108,10 +108,10 @@ function get_pokemon_type($id, $depth = 0)
 
     $evolution_info_ids = [];
     $evolution_target_ids = [];
-    $evolution_rows = DB::fetch_all("SELECT * from pm_up where `pmid`='$id'");
+    $evolution_rows = DB::fetch_all("SELECT * from pm_evolution where `from_id`='$id'");
     foreach ($evolution_rows as $query_evolution_info) {
       array_push($evolution_info_ids, intval($query_evolution_info['id']));
-      $target_id = intval($query_evolution_info['targetpmid']);
+      $target_id = intval($query_evolution_info['to_id']);
       if ($target_id > 0 && $target_id != $id) {
         array_push($evolution_target_ids, $target_id);
       }
@@ -463,7 +463,7 @@ function filter_pokemon_type($list)
 
                 $pm_id = intval($query['id']);
                 $evolution_info_ids = [];
-      $evolution_rows = DB::fetch_all("SELECT * from pm_up where `pmid`='$pm_id'");
+      $evolution_rows = DB::fetch_all("SELECT * from pm_evolution where `from_id`='$pm_id'");
       foreach ($evolution_rows as $query_evolution_info) {
                   array_push($evolution_info_ids, intval($query_evolution_info['id']));
                 }
@@ -557,7 +557,7 @@ function filter_pokemon_type($list)
 
       $pm_id = intval($query['id']);
       $evolution_info_ids = [];
-      $evolution_rows = DB::fetch_all("SELECT * from pm_up where `pmid`='$pm_id'");
+      $evolution_rows = DB::fetch_all("SELECT * from pm_evolution where `from_id`='$pm_id'");
       foreach ($evolution_rows as $query_evolution_info) {
         array_push($evolution_info_ids, intval($query_evolution_info['id']));
       }

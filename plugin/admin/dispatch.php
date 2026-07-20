@@ -1,6 +1,8 @@
 <?php
 if (!defined("IN_DISCUZ")) exit;
 
+include_once __DIR__ . "/routes.php";
+
 $entity_map = [
     "global_config" => "global_config",
     "pokemon_type" => "pokemon_data",
