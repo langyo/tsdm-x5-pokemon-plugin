@@ -91,6 +91,16 @@ window.__dioxus_no_hot_reload = true;
     const handle = new wasmModule.WebHandle();
     await handle.start();
     document.getElementById("loading").style.display = 'none';
+    // Watch for WASM toast copy buttons and add feedback
+    setTimeout(function(){
+      document.querySelectorAll(".admin-toast__copy").forEach(function(btn){
+        if(btn.dataset.patched)return; btn.dataset.patched=1;
+        btn.addEventListener("click",function(){
+          var t=document.createElement("div");t.textContent="已复制";t.style.cssText="position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#22c55e;color:#fff;padding:6px 20px;border-radius:6px;font-size:13px;z-index:9999;pointer-events:none";
+          document.body.appendChild(t);setTimeout(function(){t.remove()},1500);
+        });
+      });
+    },2000);
   } catch(err) {
     var msg = String(err);
     var el = document.getElementById("loading");
