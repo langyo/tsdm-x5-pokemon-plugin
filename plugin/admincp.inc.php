@@ -42,7 +42,7 @@ include template('common/header');
 {
   "imports": {
     "./snippets/": "/<?php echo $wasmPath; ?>/snippets/",
-    "./admin_bg.wasm": "/<?php echo $wasmPath; ?>/admin_bg.wasm"
+    "./_admin_bg.wasm": "/<?php echo $wasmPath; ?>/_admin_bg.wasm"
   }
 }
 </script>
@@ -62,18 +62,19 @@ window.__dioxus_no_hot_reload = true;
 (async function() {
   const base = '/source/plugin/pokemon/wasm';
   try {
-    const wasmModule = await import(base + '/admin.js');
-    await wasmModule.default(base + '/admin_bg.wasm');
+    const wasmModule = await import(base + '/_admin.js');
+    await wasmModule.default(base + '/_admin_bg.wasm');
     const handle = new wasmModule.WebHandle();
     await handle.start();
     document.getElementById("loading").style.display = 'none';
   } catch(err) {
-    const msg = String(err);
-    document.getElementById("loading").innerHTML =
-      '<p style="color:red;font-size:16px;margin-bottom:8px">加载失败</p>' +
-      '<div style="max-height:200px;overflow:auto;background:#f8f8f8;border-radius:4px;padding:8px;margin:8px 0;text-align:left;font-family:monospace;font-size:12px;word-break:break-all;cursor:pointer" onclick="navigator.clipboard.writeText(this.textContent).then(()=>{var t=this.nextElementSibling;t.style.display=\'block\';setTimeout(()=>t.style.display=\'none\',1500)})" title="点击复制">' + msg.replace(/</g,'&lt;').replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</div>' +
-      '<p style="display:none;color:green;font-size:12px">已复制到剪贴板</p>' +
-      '<p style="font-size:13px;color:#999;margin-top:8px">请使用 Chrome 浏览器并确保 WebGL 可用</p>';
+    var msg = String(err);
+    var el = document.getElementById("loading");
+    el.innerHTML = '<div style="max-width:600px;margin:0 auto;text-align:left">' +
+      '<p style="color:red;font-size:16px;margin:0 0 8px">管理后台加载失败</p>' +
+      '<div style="max-height:200px;overflow:auto;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:8px;font-family:monospace;font-size:11px;word-break:break-all;margin-bottom:8px">' + msg.replace(/</g,'&lt;').replace(/&/g,'&amp;').replace(/&lt;/g,'<') + '</div>' +
+      '<button onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent)" style="border:1px solid #ccc;background:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">复制错误信息</button>' +
+      '</div>';
   }
 })();
 </script>

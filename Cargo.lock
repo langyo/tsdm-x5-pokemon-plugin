@@ -3977,34 +3977,6 @@ name = "evernight"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "aoba"
-version = "0.2.0"
-
-[[patch.unused]]
-name = "kirino"
-version = "0.5.0"
-
-[[patch.unused]]
-name = "libnoa"
-version = "0.4.0"
-
-[[patch.unused]]
-name = "tairitsu-hooks"
-version = "0.5.18"
-
-[[patch.unused]]
-name = "tairitsu-macros"
-version = "0.5.18"
-
-[[patch.unused]]
-name = "tairitsu-style"
-version = "0.5.18"
-
-[[patch.unused]]
-name = "tairitsu-vdom"
-version = "0.5.18"
-
-[[patch.unused]]
 name = "_bootloader"
 version = "0.1.0"
 
@@ -4083,3 +4055,31 @@ version = "0.1.0"
 [[patch.unused]]
 name = "arona"
 version = "0.1.0"
+
+[[patch.unused]]
+name = "aoba"
+version = "0.2.0"
+
+[[patch.unused]]
+name = "kirino"
+version = "0.5.0"
+
+[[patch.unused]]
+name = "libnoa"
+version = "0.4.0"
+
+[[patch.unused]]
+name = "tairitsu-hooks"
+version = "0.5.18"
+
+[[patch.unused]]
+name = "tairitsu-macros"
+version = "0.5.18"
+
+[[patch.unused]]
+name = "tairitsu-style"
+version = "0.5.18"
+
+[[patch.unused]]
+name = "tairitsu-vdom"
+version = "0.5.18"
