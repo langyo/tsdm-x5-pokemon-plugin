@@ -39,8 +39,8 @@ CREATE TABLE IF NOT EXISTS `pm_data` (
     `birthodds` tinyint(2) NOT NULL DEFAULT 0,
     `pnclevel` smallint(3) NOT NULL DEFAULT 0,
     `god` tinyint(1) NOT NULL DEFAULT 0,
-    `minmoeny` int(1) NOT NULL DEFAULT 0,
-    `mixmoeny` int(5) NOT NULL DEFAULT 0,
+    `minmoney` int(1) NOT NULL DEFAULT 0,
+    `maxmoney` int(5) NOT NULL DEFAULT 0,
     `strength` tinyint(3) NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
