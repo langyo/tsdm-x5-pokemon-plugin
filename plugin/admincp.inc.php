@@ -15,8 +15,14 @@ if (!$is_admin && !$is_moderator) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json; charset=utf-8');
     $action = isset($_POST['action']) ? $_POST['action'] : '';
+    if (!$action) {
+        $raw = file_get_contents('php://input');
+        $json = json_decode($raw, true);
+        if ($json && isset($json['action'])) {
+            $action = $json['action'];
+        }
+    }
     $parts = explode('::', $action);
-    $op = $parts[0] ?? '';
     $target = $parts[1] ?? '';
     if ($target) {
         include __DIR__ . '/admin/dispatch.php';
