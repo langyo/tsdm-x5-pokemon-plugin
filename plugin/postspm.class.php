@@ -11,28 +11,24 @@ class plugin_pokemon_forum
 
     private static function pet_img_url($pet)
     {
-        return "https://img.tsdm39.com/Pokemon/pm/{$pet['pmno']}.gif";
+        return "source/plugin/pokemon/images/pm/{$pet['pmno']}.png";
     }
 
     private static function pet_small_url($pmno)
     {
-        $dir = self::get_imgdir();
-        return "$dir/spm/$pmno.gif";
+        return "source/plugin/pokemon/images/spm/$pmno.gif";
     }
 
     private static function first_pet_html($pet)
     {
         $img_url = self::pet_img_url($pet);
-        $href = "plugin.php?id=pokemon:pokemon&index=ajax_pm&petid={$pet['id']}&action=show&cshu=2";
-        $onclick = "showWindow('pokemon',this.href);return false;";
+        $href = "plugin.php?id=pokemon:game";
         return <<<HTML
-<div align="center">
-  <a href="$href" onclick="$onclick" target="_blank">
-    <img src="$img_url" border="0">
+<div style="padding:6px 0;text-align:center">
+  <a href="$href" target="_blank">
+    <img src="$img_url" style="width:auto;height:80px;padding:0 24px;" border="0">
   </a>
-</div>
-<div align="center">
-  <a href="$href" onclick="$onclick">{$pet['nowname']}</a> Lv:{$pet['level']}
+  <div style="margin-top:2px;font-size:12px">{$pet['nowname']} Lv.{$pet['level']}</div>
 </div>
 HTML;
     }
