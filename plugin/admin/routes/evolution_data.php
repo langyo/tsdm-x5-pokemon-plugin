@@ -25,8 +25,8 @@ function list_evolution_info($from, $count)
     foreach ($rows as $query) {
       $pokemon_ids[intval($query['from_id'])] = true;
       $pokemon_ids[intval($query['to_id'])] = true;
-      if ($query['cond'] == 'item') {
-        $item_ids[intval($query['val'])] = true;
+      if ($query['method'] == 'item') {
+        $item_ids[intval($query['condition_value'])] = true;
       }
     }
 
@@ -56,8 +56,8 @@ function list_evolution_info($from, $count)
       $target_id = intval($query['to_id']);
       // 获取道具名称
       $item_name = null;
-      if ($query['cond'] == 'item' && isset($item_names[intval($query['val'])])) {
-        $item_name = $item_names[intval($query['val'])];
+      if ($query['method'] == 'item' && isset($item_names[intval($query['condition_value'])])) {
+        $item_name = $item_names[intval($query['condition_value'])];
       }
       $item = new_evolution_info(
         intval($query['id']),
@@ -65,7 +65,7 @@ function list_evolution_info($from, $count)
         $target_id,
         isset($pokemon_names[$source_id]) ? $pokemon_names[$source_id] : '',
         isset($pokemon_names[$target_id]) ? $pokemon_names[$target_id] : '',
-        new_evolution_limit_type($query['cond'], $query['val'], $item_name),
+        new_evolution_limit_type($query['method'], $query['condition_value'], $item_name),
         intval($query['priority']),
         $item_name
       );
@@ -99,8 +99,8 @@ function get_evolution_info($id)
 
     // 查询道具名称
     $item_name = null;
-    if ($query['cond'] == 'item') {
-      $item_query = DB::fetch_first("SELECT name from pm_itemdata where id=" . intval($query['val']));
+    if ($query['method'] == 'item') {
+      $item_query = DB::fetch_first("SELECT name from pm_itemdata where id=" . intval($query['condition_value']));
       if ($item_query) {
         $item_name = $item_query['name'];
       }
@@ -112,7 +112,7 @@ function get_evolution_info($id)
       $target_id,
       isset($pokemon_names[$source_id]) ? $pokemon_names[$source_id] : '',
       isset($pokemon_names[$target_id]) ? $pokemon_names[$target_id] : '',
-      new_evolution_limit_type($query['cond'], $query['val'], $item_name),
+      new_evolution_limit_type($query['method'], $query['condition_value'], $item_name),
       intval($query['priority']),
       $item_name
     );
@@ -141,11 +141,11 @@ function set_evolution_info($info)
       DB::query("UPDATE pm_evolution set `to_id`=" . intval($info["target_id"]) . " where `id`=$id");
     }
     $cond = translate_evolution_info_label_to_db_cond($info["condition"]);
-    if ($query['cond'] != $cond[0]) {
-      DB::query("UPDATE pm_evolution set `cond`='" . $cond[0] . "' where `id`=$id");
+    if ($query['method'] != $cond[0]) {
+      DB::query("UPDATE pm_evolution set `method`='" . $cond[0] . "' where `id`=$id");
     }
-    if ($query['val'] != $cond[1]) {
-      DB::query("UPDATE pm_evolution set `val`='" . $cond[1] . "' where `id`=$id");
+    if ($query['condition_value'] != $cond[1]) {
+      DB::query("UPDATE pm_evolution set `condition_value`='" . $cond[1] . "' where `id`=$id");
     }
     if (intval($query['priority']) != intval($info["priority"])) {
       DB::query("UPDATE pm_evolution set `priority`=" . intval($info["priority"]) . " where `id`=$id");
@@ -170,7 +170,7 @@ function insert_evolution_info($info)
   $new_id = $last_id + 1;
 
   DB::query("INSERT INTO pm_evolution (
-    `id`, `from_id`, `to_id`, `cond`, `val`, `priority`
+    `id`, `from_id`, `to_id`, `method`, `condition_value`, `priority`
   ) VALUES (
     $new_id, $source_id, $target_id, '" .
     $cond[0] . "', '" .
@@ -234,7 +234,7 @@ function filter_evolution_info($list)
                 $target_id,
                 isset($pokemon_names[$source_id]) ? $pokemon_names[$source_id] : "未知宠物 #$source_id",
                 isset($pokemon_names[$target_id]) ? $pokemon_names[$target_id] : "未知宠物 #$target_id",
-                new_evolution_limit_type($query['cond'], $query['val'], null),
+                new_evolution_limit_type($query['method'], $query['condition_value'], null),
                 intval($query['priority']),
                 null
               );
@@ -281,7 +281,7 @@ function filter_evolution_info($list)
                 $target_id,
                 isset($pokemon_names[$source_id]) ? $pokemon_names[$source_id] : "未知宠物 #$source_id",
                 isset($pokemon_names[$target_id]) ? $pokemon_names[$target_id] : "未知宠物 #$target_id",
-                new_evolution_limit_type($query['cond'], $query['val'], null),
+                new_evolution_limit_type($query['method'], $query['condition_value'], null),
                 intval($query['priority']),
                 null
               );
@@ -336,7 +336,7 @@ function filter_evolution_info($list)
         $target_id,
         isset($pokemon_names[$source_id]) ? $pokemon_names[$source_id] : '',
         isset($pokemon_names[$target_id]) ? $pokemon_names[$target_id] : '',
-        new_evolution_limit_type($query['cond'], $query['val'], null),
+        new_evolution_limit_type($query['method'], $query['condition_value'], null),
         intval($query['priority']),
         null
       );

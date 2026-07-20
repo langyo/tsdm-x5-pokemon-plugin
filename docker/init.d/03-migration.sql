@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS `pm_evolution` (
     `to_id` mediumint(8) unsigned NOT NULL,
     `method` varchar(20) NOT NULL DEFAULT 'level',
     `condition_value` varchar(50) NOT NULL DEFAULT '',
+    `priority` int(10) NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
     KEY `idx_from` (`from_id`),
     KEY `idx_to` (`to_id`)
