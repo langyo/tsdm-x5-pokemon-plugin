@@ -90,8 +90,9 @@ setTimeout(function(){ if(window.lucide) lucide.createIcons(); }, 1000);
     var el = document.getElementById("loading");
     el.innerHTML = '<div style="max-width:600px;margin:0 auto;text-align:left">' +
       '<p style="color:red;font-size:16px;margin:0 0 8px">管理后台加载失败</p>' +
-      '<div style="max-height:200px;overflow:auto;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:8px;font-family:monospace;font-size:11px;word-break:break-all;margin-bottom:8px">' + msg.replace(/</g,'&lt;').replace(/&/g,'&amp;').replace(/&lt;/g,'<') + '</div>' +
-      '<button onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent)" style="border:1px solid #ccc;background:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">复制错误信息</button>' +
+      '<div id="err-msg" style="max-height:200px;overflow:auto;background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:8px;font-family:monospace;font-size:11px;word-break:break-all;margin-bottom:8px">' + msg.replace(/</g,'&lt;') + '</div>' +
+      '<button onclick="var t=document.getElementById(\'err-msg\').textContent;navigator.clipboard.writeText(t).then(function(){var s=document.getElementById(\'copy-ok\');s.style.display=\'block\';setTimeout(function(){s.style.display=\'none\'},2000)})" style="border:1px solid #d33774;color:#d33774;background:#fff;padding:4px 16px;border-radius:4px;cursor:pointer;font-size:12px">复制错误信息</button>' +
+      '<span id="copy-ok" style="display:none;color:green;font-size:12px;margin-left:8px">已复制到剪贴板</span>' +
       '</div>';
   }
 })();
