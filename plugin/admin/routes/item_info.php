@@ -52,8 +52,8 @@ function set_item_info($info)
     if (intval($query['itemid']) != intval($info["type_id"])) {
       DB::query("UPDATE pm_myitem set `itemid`='" . intval($info["type_id"]) . "' where `id`='$id'");
     }
-    if (intval($query['num']) != intval($info["count"])) {
-      DB::query("UPDATE pm_myitem set `num`='" . intval($info["count"]) . "' where `id`='$id'");
+    if (intval($query['nums']) != intval($info["count"])) {
+      DB::query("UPDATE pm_myitem set `nums`='" . intval($info["count"]) . "' where `id`='$id'");
     }
   } else {
     $json_ret = [];
@@ -86,17 +86,17 @@ function insert_item_info($info)
   }
 
   // 检查用户是否已拥有该类型物品
-  if ($existing = DB::fetch_first("SELECT id, num from pm_myitem where `uid`='$uid' and `itemid`='$itemid'")) {
+  if ($existing = DB::fetch_first("SELECT id, nums from pm_myitem where `uid`='$uid' and `itemid`='$itemid'")) {
     // 已存在，累加数量
     $existing_id = intval($existing['id']);
-    $new_nums = intval($existing['num']) + $nums;
-    DB::query("UPDATE pm_myitem set `num`='$new_nums' where `id`='$existing_id'");
+    $new_nums = intval($existing['nums']) + $nums;
+    DB::query("UPDATE pm_myitem set `nums`='$new_nums' where `id`='$existing_id'");
     return $existing_id;
   }
 
   // 不存在，创建新条目
   DB::query("INSERT INTO pm_myitem (
-    `uid`,`itemid`,`num`
+    `uid`,`itemid`,`nums`
   ) VALUES (
     '$uid','$itemid','$nums'
   )");

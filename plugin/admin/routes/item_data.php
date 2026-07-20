@@ -39,10 +39,7 @@ function list_item_type($from, $count)
     }
     return $ret;
   } else {
-    $json_ret = [];
-    $json_ret["success"] = false;
-    $json_ret["reason"] = "数据库无法访问";
-    exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
+    return [];
   }
 }
 
