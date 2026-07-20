@@ -9,8 +9,10 @@ $index = isset($_GET['index']) ? preg_replace('/[^a-z_]/', '', $_GET['index']) :
 if (isset($_GET['endpoint'])) {
     $endpoint = $_GET['endpoint'];
     if (preg_match('/^[a-z_]+$/', $endpoint)) {
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-store, no-cache, must-revalidate');
+        if ($endpoint !== 'badge') {
+            @header('Content-Type: application/json; charset=utf-8');
+            @header('Cache-Control: no-store, no-cache, must-revalidate');
+        }
 
         $api_files = [
             'pokemon' => 'pokemon.php',
@@ -21,6 +23,7 @@ if (isset($_GET['endpoint'])) {
             'topics' => 'topics.php',
             'admin' => 'admin.php',
             'config' => 'config.php',
+            'badge' => 'badge.php',
         ];
 
         if (isset($api_files[$endpoint])) {

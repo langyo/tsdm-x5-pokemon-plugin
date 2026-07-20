@@ -21,6 +21,14 @@
           "displayorder": "0"
         },
         {
+          "name": "badge",
+          "menu": "",
+          "url": "",
+          "type": "10",
+          "adminid": "0",
+          "displayorder": "0"
+        },
+        {
           "name": "pokemon",
           "menu": "",
           "url": "",
