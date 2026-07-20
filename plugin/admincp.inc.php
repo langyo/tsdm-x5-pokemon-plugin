@@ -11,6 +11,21 @@ if (!$is_admin && !$is_moderator) {
     showmessage(lang('plugin/pokemon', 'admin_only'));
 }
 
+// Handle AJAX API calls from admin WASM
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    header('Content-Type: application/json; charset=utf-8');
+    $action = isset($_POST['action']) ? $_POST['action'] : '';
+    $op = strtok($action, ':');
+    $target = strtok(':');
+    $file = __DIR__ . '/admin/routes/' . $target . '.php';
+    if ($target && file_exists($file)) {
+        include $file;
+    } else {
+        echo json_encode(['success' => false, 'reason' => 'Unknown action: ' . $action]);
+    }
+    exit;
+}
+
 $wasmPath = 'source/plugin/pokemon/wasm';
 $wasmVer = time();
 
