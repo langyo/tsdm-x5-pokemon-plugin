@@ -24,6 +24,7 @@ if (isset($_GET['endpoint'])) {
             'admin' => 'admin.php',
             'config' => 'config.php',
             'badge' => 'badge.php',
+            'badges' => 'badges.php',
         ];
 
         if (isset($api_files[$endpoint])) {
