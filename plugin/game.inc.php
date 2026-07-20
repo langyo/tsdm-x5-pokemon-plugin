@@ -1,6 +1,11 @@
 <?php
 defined('IN_DISCUZ') || exit('Access Denied');
 
+if (isset($_GET['index']) && $_GET['index'] === 'admin') {
+    include_once __DIR__ . '/admincp.inc.php';
+    return;
+}
+
 $wasmPath = 'source/plugin/pokemon/wasm';
 $wasmVer = time();
 
