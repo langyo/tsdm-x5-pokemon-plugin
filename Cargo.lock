@@ -3973,10 +3973,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[patch.unused]]
-name = "evernight"
-version = "0.1.0"
-
-[[patch.unused]]
 name = "_bootloader"
 version = "0.1.0"
 
@@ -4083,3 +4079,7 @@ version = "0.5.18"
 [[patch.unused]]
 name = "tairitsu-vdom"
 version = "0.5.18"
+
+[[patch.unused]]
+name = "evernight"
+version = "0.1.0"

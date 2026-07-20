@@ -61,18 +61,9 @@ include template('common/header');
   }
 }
 </script>
-<script src="https://unpkg.com/lucide@latest"></script>
 <script>
 window.__dioxus_hmr_disabled = true;
 window.__dioxus_no_hot_reload = true;
-(function(){
-  var tries=0;
-  function initIcons(){
-    if(window.lucide){lucide.createIcons();return}
-    if(++tries<20)setTimeout(initIcons,500)
-  }
-  initIcons();
-})();
 (function() {
   const _fetch = window.fetch;
   window.fetch = function(url, opts) {
@@ -91,17 +82,6 @@ window.__dioxus_no_hot_reload = true;
     const handle = new wasmModule.WebHandle();
     await handle.start();
     document.getElementById("loading").style.display = 'none';
-    // Attach copy feedback to WASM toast buttons immediately when they appear
-    (new MutationObserver(function(mutations,obs){
-      document.querySelectorAll(".admin-toast__copy").forEach(function(btn){
-        if(btn.dataset.patched)return; btn.dataset.patched=1;
-        btn.addEventListener("click",function(e){
-          e.stopPropagation();
-          var t=document.createElement("div");t.textContent="已复制";t.style.cssText="position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#22c55e;color:#fff;padding:6px 20px;border-radius:6px;font-size:13px;z-index:9999;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.15)";
-          document.body.appendChild(t);setTimeout(function(){t.style.opacity=0;t.style.transition="opacity .3s";setTimeout(function(){t.remove()},300)},1000);
-        });
-      });
-    })).observe(document.body,{childList:true,subtree:true});
   } catch(err) {
     var msg = String(err);
     var el = document.getElementById("loading");
