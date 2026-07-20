@@ -23,3 +23,6 @@ FROM pre_common_plugin WHERE identifier='pokemon';
 INSERT IGNORE INTO pre_common_pluginvar (pluginid, displayorder, title, description, variable, type, value, extra)
 SELECT pluginid, 5, 'Enable PVP', 'Allow player vs player battles', 'is_enable_pvp', 'radio', '1', ''
 FROM pre_common_plugin WHERE identifier='pokemon';
+
+-- Add pokemon badge column
+ALTER TABLE pre_common_member_field_forum ADD COLUMN IF NOT EXISTS pokemon TEXT AFTER medals;

@@ -285,6 +285,8 @@ CREATE TABLE IF NOT EXISTS `pm_pc` (
     KEY `idx_uid` (`uid`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+ALTER TABLE pre_common_member_field_forum ADD COLUMN IF NOT EXISTS pokemon TEXT AFTER medals;
+
 EOF;
 
 runquery($sql);
