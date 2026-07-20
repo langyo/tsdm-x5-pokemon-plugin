@@ -4,7 +4,7 @@ use wasm_bindgen::JsCast;
 
 use crate::dioxus::{
     components::icon::{Icon, IconName},
-    state::{hide_toast, AdminNoticeLevel, ADMIN_TOASTS},
+    state::{hide_toast, push_toast, AdminNoticeLevel, ADMIN_TOASTS},
 };
 
 #[component]
@@ -67,9 +67,10 @@ fn AdminToastItem(id: u64, level: AdminNoticeLevel, message: String) -> Element 
                     {
                         let msg = message_for_copy.clone();
                         let mut c = copied;
-                        let js = format!("navigator.clipboard.writeText('{}').then(function(){{}})", msg.replace('\'', "\\'"));
+                        let js = format!("navigator.clipboard.writeText('{}')", msg.replace('\'', "\\'").replace('\\', "\\\\"));
                         let _ = js_sys::eval(&js);
                         c.set(true);
+                        push_toast(AdminNoticeLevel::Success, "已复制到剪贴板");
                     }
                 },
                 if copied() {
