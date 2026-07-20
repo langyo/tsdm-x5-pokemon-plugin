@@ -67,13 +67,9 @@ fn AdminToastItem(id: u64, level: AdminNoticeLevel, message: String) -> Element 
                     {
                         let msg = message_for_copy.clone();
                         let mut c = copied;
-                        spawn(async move {
-                            if let Some(window) = web_sys::window() {
-                                let clipboard = window.navigator().clipboard();
-                                let _ = clipboard.write_text(&msg);
-                                c.set(true);
-                            }
-                        });
+                        let js = format!("navigator.clipboard.writeText('{}').then(function(){{}})", msg.replace('\'', "\\'"));
+                        let _ = js_sys::eval(&js);
+                        c.set(true);
                     }
                 },
                 if copied() {
