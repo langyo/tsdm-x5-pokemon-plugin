@@ -26,3 +26,7 @@ FROM pre_common_plugin WHERE identifier='pokemon';
 
 -- Add pokemon badge column
 ALTER TABLE pre_common_member_field_forum ADD COLUMN IF NOT EXISTS pokemon TEXT AFTER medals;
+
+-- Pokemon trainer badge medal (dynamic image via PHP)
+INSERT IGNORE INTO pre_forum_medal (medalid, name, available, image, type, displayorder, description, expiration, permission, credit, price)
+VALUES (99, '训练师徽章', 1, 'plugin.php?id=pokemon:pokemon&endpoint=badge', 0, 99, '当前携带的宝可梦', 0, '', 0, 0);
