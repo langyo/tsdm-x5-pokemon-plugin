@@ -54,6 +54,7 @@ services:
         condition: service_started
     volumes:
       - ./docker/setup.sh:/setup.sh:ro
+      - ./docker/init.d/04-tsdm-theme.sql:/theme.sql:ro
       - ./migrations/from-x3:/migrations:ro
     environment:
       DB_HOST: db
