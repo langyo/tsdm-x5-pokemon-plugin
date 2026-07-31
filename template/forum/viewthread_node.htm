@@ -1,3 +1,4 @@
+<?php exit('Access Denied');?>
 <!--{eval $needhiddenreply = ($hiddenreplies && $_G['uid'] != $post['authorid'] && $_G['uid'] != $_G['forum_thread']['authorid'] && !$post['first'] && !$_G['forum']['ismoderator']);}-->
 <!--{if $_G['fid'] == 16 && $needhiddenreply}-->
 	<!--{eval $needhiddenreply = !in_array($post['authorid'], $showarray);}-->
@@ -17,6 +18,7 @@
 <!--{if $post['first'] &&  $_G['forum_threadstamp']}-->
 	<div id="threadstamp"><img src="{STATICURL}image/stamp/$_G[forum_threadstamp][url]" title="$_G[forum_threadstamp][text]" /></div>
 <!--{/if}-->
+<!--{if empty($post['deleted'])}-->
 <table id="pid$post[pid]" summary="pid$post[pid]" cellspacing="0" cellpadding="0" class="tsdm_post_t" miku="$_G[config][tsdm][guestsidebar]">
 <tr>
 	<td id="userinfo_$post[pid]" class="pls" <!--{if !$_G['uid'] && $_G['config']['tsdm']['guestsidebar']<1}-->style="width:1px"<!--{/if}-->>
@@ -613,5 +615,28 @@
 		attachimglstshow($post['pid'], <!--{echo intval($_G['setting']['lazyload'])}-->);
 	<!--{/if}-->
 </script>
+<!--{/if}-->
+<!--{else}-->
+	<table id="pid$post[pid]" summary="pid$post[pid]" cellspacing="0" cellpadding="0">
+	<tbody>
+		<tr>
+			<!--{if !$close_leftinfo}-->
+			<td class="pls"></td>
+			<!--{/if}-->
+			<td class="plc"<!--{if $close_leftinfo}--> style="width:100%"<!--{/if}-->>
+				<div class="pi">
+					<strong><a><!--{if !empty($postno[$post[number]])}-->$postno[$post[number]]<!--{else}--><em>{$post[number]}</em>{$postno[0]}<!--{/if}--></a></strong>
+				</div>
+				<div class="pct">{lang post_deleted}</div>
+			</td>
+		</tr>
+		<tr class="ad">
+			<!--{if !$close_leftinfo}-->
+			<td class="pls"></td>
+			<!--{/if}-->
+			<td class="plc"></td>
+		</tr>
+	</tbody>
+</table>
 <!--{/if}-->
 <!--{hook/viewthread_endline $postcount}-->
