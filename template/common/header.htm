@@ -1,3 +1,4 @@
+<?php exit('Access Denied');?>
 <!--{subtemplate common/header_common}-->
 {cells common/header/css}
 {cells common/header/js}
@@ -29,6 +30,33 @@
 			</div>
 			<script type="text/javascript">setTimeout(setShortcut, 2000);</script>
 		<!--{/if}-->
+		<div id="toptb" class="cl">
+			<!--{hook/global_cpnav_top}-->
+			<div class="wp">
+				<div class="z">
+					<!--{loop $_G['setting']['topnavs'][0] $nav}-->
+						<!--{if is_array($nav) && $nav['available'] && (!$nav['level'] || ($nav['level'] == 1 && $_G['uid']) || ($nav['level'] == 2 && $_G['adminid'] > 0) || ($nav['level'] == 3 && $_G['adminid'] == 1))}-->$nav[code]<!--{/if}-->
+					<!--{/loop}-->
+					<!--{hook/global_cpnav_extra1}-->
+				</div>
+				<div class="y">
+					<a id="switchblind" href="javascript:;" onclick="toggleBlind(this)" title="{lang switch_blind}" class="switchblind"></a>
+					<!--{hook/global_cpnav_extra2}-->
+					<!--{loop $_G['setting']['topnavs'][1] $nav}-->
+						<!--{if is_array($nav) && $nav['available'] && (!$nav['level'] || ($nav['level'] == 1 && $_G['uid']) || ($nav['level'] == 2 && $_G['adminid'] > 0) || ($nav['level'] == 3 && $_G['adminid'] == 1))}-->$nav[code]<!--{/if}-->
+					<!--{/loop}-->
+					<!--{if empty($_G['disabledwidthauto']) && $_G['setting']['switchwidthauto']}-->
+						<a href="javascript:;" id="switchwidth" onclick="widthauto(this)" title="{if widthauto()}{lang switch_narrow}{else}{lang switch_wide}{/if}" class="switchwidth"><!--{if widthauto()}-->{lang switch_narrow}<!--{else}-->{lang switch_wide}<!--{/if}--></a>
+					<!--{/if}-->
+					<!--{if $_G['uid'] && !empty($_G['style']['extstyle'])}--><a id="sslct" href="javascript:;" onmouseover="delayShow(this, function() {showMenu({'ctrlid':'sslct','pos':'34!'})});">{lang changestyle}</a><!--{/if}-->
+					<!--{if check_diy_perm($topic)}-->
+						$diynav
+					<!--{/if}-->
+					{cells common/header/i18n_switch}
+				</div>
+			</div>
+		</div>
+
 		<!--{if !IS_ROBOT}-->
 			<!--{if $_G['uid'] && !$_G['setting']['bbclosed'] && empty($_G['member']['freeze']) && $_G['member']['groupid'] != 5}-->
 			<ul id="myprompt_menu" class="p_pop" style="display: none;">
