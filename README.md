@@ -33,12 +33,40 @@ just fmt           # 格式化 Markdown
 just lint          # clippy 检查 Rust 代码
 just test          # 运行 Rust 测试
 just build         # 构建 Rust/WASM
+just build-wasm    # 重新构建 admin/game 的 WASM 前端到 plugin/wasm
+just publish       # 打包为 X5 可安装的插件 zip (dist/tsdm-pokemon-<version>.zip)
+just publish-verify <zip>  # 校验已生成的插件包结构
 just up            # 启动 Docker/Podman 开发环境
 just down          # 停止
 just logs          # 查看日志
 just status        # 容器状态
 just clean         # 全量清理（含数据卷）
 ```
+
+## Publishing
+
+`just publish` 会依次：用 wasm-pack 重新构建 `rust/admin` 与 `rust/game`（Dioxus WASM 前端），
+剔除开发期文件后组装插件目录，并生成安装包：
+
+```
+dist/
+└── tsdm-pokemon-X5.0.zip
+    └── pokemon/                  # 插件目录（与 discuz_plugin_pokemon.json 的 directory 一致）
+        ├── discuz_plugin_pokemon.json
+        ├── install.php / uninstall.php
+        ├── admincp.inc.php / game.inc.php
+        ├── api/ admin/ table/ i18n/ images/
+        └── wasm/                 # 运行时 WASM 资产 + snippets
+```
+
+在 X5 论坛安装：
+
+1. 解压 zip，将 `pokemon/` 文件夹上传到 `source/plugin/pokemon`
+2. 后台 → 应用 → 插件，找到「TSDM 口袋妖怪」，点击安装（执行 `install.php`）
+3. 启用插件并确认 `api/index.php` 可被 Caddy/Nginx 访问（伪静态需放行）
+
+主题包（可选）：`just publish --with-theme` 额外生成 `dist/re_tsdm_newWing-<version>.zip`，
+解压到 `template/` 后在后台上传 `discuz_style_new_wing.json` 导入样式。
 
 ## Project Structure
 

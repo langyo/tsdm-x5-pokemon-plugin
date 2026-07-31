@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+"""Build and package the TSDM Pokemon plugin into an X5-installable zip.
+
+Usage:
+    python scripts/publish/build.py [--skip-build] [--version X.Y.Z] [--with-theme]
+    python scripts/publish/build.py --build-wasm
+    python scripts/publish/build.py --verify <zip>
+
+The produced zip contains a `pokemon/` directory at its root, matching the
+`"directory": "pokemon/"` entry in discuz_plugin_pokemon.json. Users unzip it
+and upload the folder to Discuz's `source/plugin/` directory, then enable the
+plugin in the admin panel.
+"""
+
+import argparse
+import json
+import re
+import shutil
+import subprocess
+import sys
+import zipfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+PLUGIN = ROOT / "plugin"
+WASM = PLUGIN / "wasm"
+DIST = ROOT / "dist"
+STAGE = DIST / "staging"
+PLUGIN_NAME = "pokemon"
+THEME_NAME = "re_tsdm_newWing"
+
+# wasm-pack overwrites plugin/wasm/.gitignore with "*" on every build,
+# so the canonical content is restored from here after building.
+WASM_GITIGNORE = """\
+# Dev/build artifacts — never commit. Restored by scripts/publish/build.py
+# after every wasm-pack build (wasm-pack overwrites this file with "*").
+*.d.ts
+*.css.map
+package.json
+index.html
+snippets/dioxus-cli-config-*/
+
+# Stale legacy builds, superseded by _admin/_game wasm-pack outputs.
+admin.js
+admin_bg.wasm
+game.js
+game_bg.wasm
+fonts.otf
+game_font.ttf
+"""
+
+# Files wasm-pack must produce/keep at runtime, served by game/admin pages.
+RUNTIME_WASM_FILES = {
+    "_admin.js",
+    "_admin_bg.wasm",
+    "_game.js",
+    "_game_bg.wasm",
+    "admin.css",
+    "game.css",
+    "lucide.min.js",
+}
+
+# Dev/build artifacts that never ship in the plugin package.
+DEV_WASM_NAMES = {
+    ".gitignore",
+    "package.json",
+    "index.html",
+    "admin.js",          # stale legacy build
+    "admin_bg.wasm",     # stale legacy build
+    "admin.css.map",
+    "admin.d.ts",
+    "admin_bg.wasm.d.ts",
+    "game.js",           # stale legacy build
+    "game_bg.wasm",      # stale legacy build
+    "game.d.ts",
+    "game_bg.wasm.d.ts",
+    "fonts.otf",         # unreferenced by runtime
+    "game_font.ttf",     # unreferenced by runtime
+    "_admin.d.ts",
+    "_admin_bg.wasm.d.ts",
+    "_game.d.ts",
+    "_game_bg.wasm.d.ts",
+}
+
+DEV_PLUGIN_TOP = {"_x5-ref"}
+
+REQUIRED_IN_ZIP = [
+    "pokemon/discuz_plugin_pokemon.json",
+    "pokemon/install.php",
+    "pokemon/uninstall.php",
+    "pokemon/admincp.inc.php",
+    "pokemon/game.inc.php",
+    "pokemon/pokemon.inc.php",
+    "pokemon/api/index.php",
+    "pokemon/wasm/_admin.js",
+    "pokemon/wasm/_admin_bg.wasm",
+    "pokemon/wasm/_game.js",
+    "pokemon/wasm/_game_bg.wasm",
+    "pokemon/wasm/lucide.min.js",
+]
+
+
+def default_version() -> str:
+    manifest = PLUGIN / "discuz_plugin_pokemon.json"
+    if manifest.exists():
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and isinstance(data.get("Data"), dict):
+            version = data["Data"].get("version")
+            if isinstance(version, str) and version.strip():
+                return version.strip()
+    return "0.1.0"
+
+
+def run(cmd, cwd=ROOT):
+    print(f"[publish] $ {' '.join(cmd)}", flush=True)
+    subprocess.run(cmd, cwd=cwd, check=True)
+
+
+def build_wasm():
+    if shutil.which("wasm-pack") is None:
+        sys.exit("[publish] error: wasm-pack is not installed (cargo install wasm-pack)")
+    for crate, out_name in (("admin", "_admin"), ("game", "_game")):
+        run([
+            "wasm-pack", "build", str(ROOT / "rust" / crate),
+            "--release", "--target", "web",
+            "--out-dir", "../../plugin/wasm",
+            "--out-name", out_name,
+        ])
+    (WASM / ".gitignore").write_text(WASM_GITIGNORE, encoding="utf-8")
+
+
+def check_runtime_wasm():
+    missing = [f for f in RUNTIME_WASM_FILES if not (WASM / f).exists() or (WASM / f).stat().st_size == 0]
+    if missing:
+        sys.exit(f"[publish] error: missing runtime WASM assets in {WASM}: {', '.join(missing)}\n"
+                 "        Run `just build-wasm` first (or pass --skip-build only if assets exist).")
+
+
+def referenced_snippets(js_text: str):
+    refs = set()
+    refs.update(re.findall(r"from\s+['\"]\./snippets/([^'\"]+)", js_text))
+    refs.update(re.findall(r"import\s*\(\s*['\"]\./snippets/([^'\"]+)", js_text))
+    return {r.split("/", 1)[0] for r in refs}
+
+
+def stage_plugin():
+    target = STAGE / PLUGIN_NAME
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True)
+
+    for entry in sorted(PLUGIN.iterdir()):
+        if entry.name in DEV_PLUGIN_TOP:
+            continue
+        if entry.name == "wasm":
+            dest = target / "wasm"
+            dest.mkdir()
+            for f in RUNTIME_WASM_FILES:
+                shutil.copy2(WASM / f, dest / f)
+            live_dirs = set()
+            for js in ("_admin.js", "_game.js"):
+                live_dirs |= referenced_snippets((dest / js).read_text(encoding="utf-8", errors="replace"))
+            snippets_src = WASM / "snippets"
+            for d in sorted(live_dirs):
+                src = snippets_src / d
+                if src.exists():
+                    shutil.copytree(src, dest / "snippets" / d)
+        else:
+            dest = target / entry.name
+            if entry.is_dir():
+                shutil.copytree(entry, dest)
+            else:
+                shutil.copy2(entry, dest)
+
+    return target
+
+
+def stage_theme():
+    source = ROOT / "template"
+    if not source.exists():
+        sys.exit("[publish] error: template/ directory not found")
+    target = STAGE / THEME_NAME
+    if target.exists():
+        shutil.rmtree(target)
+    shutil.copytree(source, target)
+    return target
+
+
+def make_zip(name: str, top: Path):
+    zip_path = DIST / f"{name}.zip"
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(top.rglob("*")):
+            if path.is_file():
+                zf.write(path, arcname=f"{top.name}/{path.relative_to(top).as_posix()}")
+    return zip_path
+
+
+def verify_zip(zip_path: Path):
+    if not zip_path.exists():
+        sys.exit(f"[publish] error: {zip_path} not found")
+    with zipfile.ZipFile(zip_path) as zf:
+        names = set(zf.namelist())
+        entries = [n for n in names if not n.endswith("/")]
+        bad = [n for n in entries if ".." in n or n.startswith("/")]
+        if bad:
+            sys.exit(f"[publish] error: unsafe entries in {zip_path}: {bad}")
+        missing = [n for n in REQUIRED_IN_ZIP if n not in names]
+        if missing:
+            sys.exit(f"[publish] error: missing required entries in {zip_path}: {missing}")
+        snippet_refs = set()
+        for js in ("pokemon/wasm/_admin.js", "pokemon/wasm/_game.js"):
+            content = zf.read(js).decode("utf-8", errors="replace")
+            snippet_refs |= referenced_snippets(content)
+        missing_snippets = [
+            s for s in snippet_refs
+            if not any(n.startswith(f"pokemon/wasm/snippets/{s}/") for n in names)
+        ]
+        if missing_snippets:
+            sys.exit(f"[publish] error: wasm snippets referenced by JS missing in {zip_path}: {missing_snippets}")
+        manifest = json.loads(zf.read("pokemon/discuz_plugin_pokemon.json"))
+        if not isinstance(manifest.get("Data", {}).get("plugin"), dict):
+            sys.exit("[publish] error: discuz_plugin_pokemon.json is not a valid Discuz plugin manifest")
+        total = sum(i.file_size for i in zf.infolist())
+    print(f"[publish] ok: {zip_path}")
+    print(f"[publish]      entries={len(entries)} uncompressed={total / 1024 / 1024:.1f} MiB")
+    return True
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Build and package the TSDM Pokemon plugin for Discuz X5")
+    parser.add_argument("--skip-build", action="store_true", help="skip the wasm-pack rebuild")
+    parser.add_argument("--build-wasm", action="store_true", help="only rebuild the WASM frontends")
+    parser.add_argument("--with-theme", action="store_true", help="also package the tsdm_newWing theme")
+    parser.add_argument("--version", help="override the package version (default: manifest version)")
+    parser.add_argument("--verify", metavar="ZIP", help="verify a previously built zip instead of building")
+    args = parser.parse_args()
+
+    if args.verify:
+        verify_zip(Path(args.verify))
+        return
+
+    version = args.version or default_version()
+    version_tag = re.sub(r"[^A-Za-z0-9._-]", "-", version)
+
+    if args.build_wasm:
+        build_wasm()
+        return
+
+    if not args.skip_build:
+        build_wasm()
+    check_runtime_wasm()
+
+    plugin_stage = stage_plugin()
+    print(f"[publish] staged plugin at {plugin_stage}")
+    zip_path = make_zip(f"tsdm-pokemon-{version_tag}", plugin_stage)
+    verify_zip(zip_path)
+
+    if args.with_theme:
+        theme_stage = stage_theme()
+        print(f"[publish] staged theme at {theme_stage}")
+        theme_zip = make_zip(f"{THEME_NAME}-{version_tag}", theme_stage)
+        verify_theme(theme_zip)
+
+
+def verify_theme(zip_path: Path):
+    if not zip_path.exists():
+        sys.exit(f"[publish] error: {zip_path} not found")
+    with zipfile.ZipFile(zip_path) as zf:
+        names = set(zf.namelist())
+        missing = [
+            f"{THEME_NAME}/discuz_style_new_wing.json",
+            f"{THEME_NAME}/common/header.htm",
+            f"{THEME_NAME}/common/footer.htm",
+            f"{THEME_NAME}/cells/common/header/css.htm",
+        ]
+        missing = [n for n in missing if n not in names]
+        if missing:
+            sys.exit(f"[publish] error: missing required theme entries in {zip_path}: {missing}")
+        json.loads(zf.read(f"{THEME_NAME}/discuz_style_new_wing.json"))
+        total = sum(i.file_size for i in zf.infolist())
+        entries = [n for n in names if not n.endswith("/")]
+    print(f"[publish] ok: {zip_path}")
+    print(f"[publish]      entries={len(entries)} uncompressed={total / 1024 / 1024:.1f} MiB")
+    return True
+
+
+if __name__ == "__main__":
+    main()

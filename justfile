@@ -82,6 +82,20 @@ rebuild:
     cargo build --release
     just restart
 
+# ── Publish ─────────────────────────────────────────────────
+
+# Rebuild the WASM frontends into plugin/wasm.
+build-wasm *ARGS='':
+    @python3 scripts/publish/build.py --build-wasm {{ARGS}}
+
+# Package the plugin into an X5-installable zip under dist/.
+publish *ARGS='':
+    @python3 scripts/publish/build.py {{ARGS}}
+
+# Verify a published plugin zip.
+publish-verify ZIP:
+    @python3 scripts/publish/build.py --verify {{ZIP}}
+
 # ── Cache ────────────────────────────────────────────────────
 
 cache-guard *ARGS='':

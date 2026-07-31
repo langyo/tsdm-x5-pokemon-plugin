@@ -46,3 +46,6 @@ scripts/e2e/.tmp/
 
 # SQL backups
 scripts/backup/
+
+# Published plugin packages
+dist/
