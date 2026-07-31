@@ -982,3 +982,21 @@ ul.mdlow {
 	padding: 0 4px;
 	font-size: 11px;
 }
+
+/* Discuz X5 cell-based template adaptations */
+#toptb a.switchblind {
+	display: inline-block;
+	margin-right: 4px;
+	width: 18px;
+	height: 18px;
+	overflow: hidden;
+	text-indent: -999px;
+	background: url(/static/image/common/switchblind.gif) no-repeat 0 0;
+	opacity: 0.8;
+}
+#toptb a.switchblind:hover { opacity: 1; }
+#toptb a#sslct:hover, #toptb a#switchwidth:hover { text-decoration: none; color: #60cff0; }
+#toptb .z a:hover, #toptb .y a:hover { color: #60cff0; }
+.fa_fav:hover, .fa_rss:hover, .fa_achv:hover { color: #e7628d; }
+.flg td.fl_g:hover { background: rgba(247, 217, 229, 0.35); }
+.tsdm_post_t { background: #fefefe; }
