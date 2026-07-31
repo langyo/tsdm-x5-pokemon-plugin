@@ -1,0 +1,15 @@
+# Dev/build artifacts — never commit. Restored by scripts/publish/build.py
+# after every wasm-pack build (wasm-pack overwrites this file with "*").
+*.d.ts
+*.css.map
+package.json
+index.html
+snippets/dioxus-cli-config-*/
+
+# Stale legacy builds, superseded by _admin/_game wasm-pack outputs.
+admin.js
+admin_bg.wasm
+game.js
+game_bg.wasm
+fonts.otf
+game_font.ttf
