@@ -84,6 +84,10 @@ rebuild:
 
 # ── Publish ─────────────────────────────────────────────────
 
+# Run static tests (schema consistency + stale column scan + seed data validation).
+test-php:
+    @python3 scripts/test/run.py
+
 # Rebuild the WASM frontends into plugin/wasm.
 build-wasm *ARGS='':
     @python3 scripts/publish/build.py --build-wasm {{ARGS}}
