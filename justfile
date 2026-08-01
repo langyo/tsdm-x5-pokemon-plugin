@@ -93,10 +93,10 @@ build-wasm *ARGS='':
     @python3 scripts/publish/build.py --build-wasm {{ARGS}}
 
 # Package the plugin into an X5-installable zip under dist/.
-# Bundles migrations, bumps patch version, tags and pushes by default.
+# Bundles migrations + seed SQL, bumps patch version, tags and pushes by default.
 # Use --no-bump to skip version bump, --skip-build to skip WASM rebuild.
 publish *ARGS='':
-    @python3 scripts/publish/build.py {{ARGS}}
+    @python3 scripts/publish/build.py --clean {{ARGS}}
 
 # Verify a published plugin zip.
 publish-verify ZIP:

@@ -30,6 +30,17 @@ PLUGIN_NAME = "pokemon"
 THEME_NAME = "re_tsdm_newWing"
 VERSION_FILE = ROOT / "VERSION"
 MIGRATIONS_DIR = ROOT / "migrations" / "from-x3"
+INIT_D_DIR = ROOT / "docker" / "init.d"
+
+SEED_SQL_FILES = [
+    "02-pokemon-schema.sql",
+    "04-pokemon-config.sql",
+    "05-pokemon-data.sql",
+    "06-pokemon-items.sql",
+    "07-pokemon-maps.sql",
+    "08-pokemon-evolutions.sql",
+    "09-pokemon-skills.sql",
+]
 
 # wasm-bindgen-cli regenerates *.d.ts next to the JS entry on every build;
 # those are dev-only and never committed.
@@ -106,6 +117,8 @@ REQUIRED_IN_ZIP = [
     "pokemon/wasm/_game_bg.wasm",
     "pokemon/wasm/lucide.min.js",
     "pokemon/migrations/001_x3_to_x5_migration.sql",
+    "pokemon/sql/02-pokemon-schema.sql",
+    "pokemon/sql/05-pokemon-data.sql",
 ]
 
 
@@ -226,6 +239,33 @@ def stage_plugin():
         for sql in sorted(MIGRATIONS_DIR.glob("*.sql")):
             shutil.copy2(sql, mig_dest / sql.name)
 
+    sql_dest = target / "sql"
+    sql_dest.mkdir(exist_ok=True)
+    if INIT_D_DIR.exists():
+        for fname in SEED_SQL_FILES:
+            src = INIT_D_DIR / fname
+            if src.exists():
+                shutil.copy2(src, sql_dest / fname)
+        (sql_dest / "README.txt").write_text(
+            "Pokemon Plugin — Database Initialization SQL\n"
+            "==============================================\n\n"
+            "For a fresh install (no existing data):\n"
+            "  1. Upload pokemon/ to source/plugin/pokemon/\n"
+            "  2. In Discuz admin, install the plugin (runs install.php → creates tables)\n"
+            "  3. Import these SQL files in numeric order via phpMyAdmin or mysql CLI:\n"
+            "       02-pokemon-schema.sql   (table structure — skip if install.php already ran)\n"
+            "       04-pokemon-config.sql   (system config)\n"
+            "       05-pokemon-data.sql     (pokemon species / Pokedex)\n"
+            "       06-pokemon-items.sql    (item catalog)\n"
+            "       07-pokemon-maps.sql     (map data)\n"
+            "       08-pokemon-evolutions.sql (evolution chains)\n"
+            "       09-pokemon-skills.sql   (skill catalog)\n\n"
+            "For upgrading from an old X3/X2 database:\n"
+            "  Run migrations/001_x3_to_x5_migration.sql instead — it renames columns\n"
+            "  and preserves your existing data.\n",
+            encoding="utf-8",
+        )
+
     return target
 
 
@@ -290,11 +330,16 @@ def main():
     parser.add_argument("--verify", metavar="ZIP", help="verify a previously built zip instead of building")
     parser.add_argument("--no-bump", action="store_true", help="skip version bump + git tag after packaging")
     parser.add_argument("--bump-only", action="store_true", help="only bump version + tag (no build/package)")
+    parser.add_argument("--clean", action="store_true", help="wipe dist/ before building")
     args = parser.parse_args()
 
     if args.verify:
         verify_zip(Path(args.verify))
         return
+
+    if args.clean and DIST.exists():
+        shutil.rmtree(DIST)
+        print(f"[publish] cleaned {DIST}")
 
     current_version = read_version()
 
