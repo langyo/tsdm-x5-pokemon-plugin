@@ -212,7 +212,7 @@ function api_get_inventory()
 
     // 分页查询
     $offset = ($page - 1) * $per_page;
-    $limit_sql = "SELECT m.*, i.type as item_type, i.name as item_name, i.txt as item_desc, i.tpname as item_image, i.id as itemdata_id
+    $limit_sql = "SELECT m.*, i.type as item_type, i.name as item_name, i.description as item_desc, i.tpname as item_image, i.id as itemdata_id
         FROM " . pm_table('pm_myitem') . " m
         LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid = i.id
         " . $where_sql . " ORDER BY m.id DESC LIMIT %d, %d";
@@ -859,7 +859,8 @@ function api_use_item()
                 api_error('宝可梦不存在或不属于您', 403);
             }
 
-            $addhp = (int) $item_data['addhp'];
+            $effects = json_decode(isset($item_data['effects']) ? $item_data['effects'] : '{}', true) ?: [];
+            $addhp = (int) (isset($effects['hp']) ? $effects['hp'] : 0);
             $current_hp = (int) $pokemon['hp'];
             $current_state = (int) $pokemon['state'];
 
@@ -1090,7 +1091,7 @@ function api_get_usable_pokemon()
 
     // 获取用户所有宠物
     $all_pokemon = DB::fetch_all(pm_sql(
-        "SELECT id, species_id, nickname, level, hp, iv_values, ev_values, state FROM " . pm_table('pm_mypm') . " WHERE uid = %d",
+        "SELECT id, species_id, nickname, level, hp, hpg, atkg, defg, spatkg, spdefg, sdg, hpn, atkn, defn, spatkn, spdefn, sdn, state FROM " . pm_table('pm_mypm') . " WHERE uid = %d",
         $uid
     ));
 

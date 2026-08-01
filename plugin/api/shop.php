@@ -262,13 +262,13 @@ function add_item_to_inventory($uid, $item_type_id)
     if ($existing) {
         // 增加数量
         DB::query(pm_sql(
-            "UPDATE " . pm_table('pm_myitem') . " SET num = num + 1 WHERE id = %d",
+            "UPDATE " . pm_table('pm_myitem') . " SET nums = nums + 1 WHERE id = %d",
             intval($existing['id'])
         ));
     } else {
         // 添加新物品
         DB::query(pm_sql(
-            "INSERT INTO " . pm_table('pm_myitem') . " (uid, itemid, num) VALUES (%d, %d, 1)",
+            "INSERT INTO " . pm_table('pm_myitem') . " (uid, itemid, nums) VALUES (%d, %d, 1)",
             $uid,
             $item_type_id
         ));

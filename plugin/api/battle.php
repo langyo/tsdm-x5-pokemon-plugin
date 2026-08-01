@@ -131,32 +131,6 @@ switch ($action) {
 }
 
 /**
- * 恢复战斗状态
- * 如果用户有进行中的战斗，返回当前的战斗状态
- */
-function api_recover_battle()
-{
-    require_login();
-
-    global $_G;
-
-    $myusersdata = api_my_usersdata($_G['uid']);
-    $mypokemon = api_my_pokemon($_G['username']);
-
-    if (empty($myusersdata['npcid']) || $myusersdata['npcid'] <= 0) {
-        api_error('No active battle to recover', 404);
-    }
-
-    if (!$mypokemon || !is_array($mypokemon) || $mypokemon['species_id'] <= 0) {
-        api_error('No active pokemon found', 400);
-    }
-
-    $battle = build_battle_response($myusersdata, $mypokemon);
-    $battle['status'] = 'active';
-    api_success($battle);
-}
-
-/**
  * 开始战斗
  */
 function api_start_battle()
@@ -192,102 +166,8 @@ function api_start_battle()
     if (!empty($myusersdata['npcid']) && $myusersdata['npcid'] > 0) {
         // 返回现有战斗状态
         $battle = build_battle_response($myusersdata, $mypokemon);
-    api_success($battle);
-}
-
-/**
- * 获取地图列表
- */
-function api_get_maps()
-{
-    require_login();
-
-    global $_G;
-    $uid = validate_uid($_G['uid']);
-
-    $min_level = isset($_GET['min_level']) ? intval($_GET['min_level']) : 0;
-    $max_level = isset($_GET['max_level']) ? intval($_GET['max_level']) : 999;
-
-    $where = "WHERE is_enabled = 1";
-    if ($min_level > 0) {
-        $where .= " AND min_level >= $min_level";
+        api_success($battle);
     }
-    if ($max_level < 999) {
-        $where .= " AND max_level <= $max_level";
-    }
-
-    $maps_raw = DB::fetch_all("SELECT * FROM " . pm_table('pm_map') . " $where ORDER BY id ASC");
-    $maps = [];
-
-    foreach ($maps_raw as $map) {
-        $map_id = (int) $map['id'];
-
-        // 获取该地图上的野生宠物
-        $wild_pokemon_rows = DB::fetch_all(
-            "SELECT id, name, xs, xs2, hp, atk, def, spatk, spdef, speed " .
-            "FROM " . pm_table('pm_data') . " " .
-            "WHERE FIND_IN_SET($map_id, REPLACE(mapid, ' ', '')) > 0 " .
-            "ORDER BY id ASC"
-        );
-        $wild_pokemons = [];
-        foreach ($wild_pokemon_rows as $poke) {
-            $wild_pokemons[] = [
-                'pokemon_type_id' => (int) $poke['id'],
-                'name' => $poke['name'],
-                'type1' => $poke['xs'],
-                'type2' => $poke['xs2'],
-            ];
-        }
-
-        // 确定地图模式
-        $boss_config = !empty($map['boss_config']) ? intval($map['boss_config']) : 0;
-        $has_wild = !empty($wild_pokemons);
-
-        $mode = 'wild';
-        $bosses = [];
-        if ($boss_config > 0 && $has_wild) {
-            $mode = 'hybrid';
-        } elseif ($boss_config > 0) {
-            $mode = 'boss';
-        }
-
-        // 如果有boss配置，获取boss信息
-        if ($boss_config > 0) {
-            $boss_npc_rows = DB::fetch_all(
-                "SELECT id, name, xs, xs2 FROM " . pm_table('pm_data') . " WHERE id = $boss_config"
-            );
-            foreach ($boss_npc_rows as $boss_npc) {
-                $bosses[] = [
-                    'pokemon_type_id' => (int) $boss_npc['id'],
-                    'pokemon_name' => $boss_npc['name'],
-                    'level' => (int) $map['max_level'],
-                    'boss_multiplier' => 1.0,
-                ];
-            }
-        }
-
-        $maps[] = [
-            'id' => $map_id,
-            'name' => $map['name'],
-            'area_type' => $map['site'],
-            'area_type_name' => $map['site'],
-            'region' => $map['region'],
-            'pos_x' => (int) $map['pos_x'],
-            'pos_y' => (int) $map['pos_y'],
-            'is_enabled' => (bool) $map['is_enabled'],
-            'min_level' => (int) $map['min_level'],
-            'max_level' => (int) $map['max_level'],
-            'mode' => $mode,
-            'bosses' => $bosses,
-            'wild_pokemons' => $wild_pokemons,
-        ];
-    }
-
-    api_success([
-        'maps' => $maps,
-        'total' => count($maps),
-    ]);
-}
 
     // 获取地图信息
     $map = DB::fetch_first(pm_sql("SELECT * FROM " . pm_table('pm_map') . " WHERE id = %d", $map_id));
@@ -426,7 +306,7 @@ function api_use_skill()
 
     // 获取技能信息
     $skillname = '普通攻击';
-    $powr = 30;
+    $power = 30;
     $skill_type = $mydata['xs'];
     $skill_category = 0;
 
@@ -434,7 +314,7 @@ function api_use_skill()
         $skilldata = DB::fetch_first(pm_sql("SELECT * FROM " . pm_table('pm_skill') . " WHERE id = %d", $skill_id));
         if ($skilldata) {
             $skillname = $skilldata['name'];
-            $powr = intval($skilldata['powr']) ?: 40;
+            $power = intval($skilldata['power']) ?: 40;
             $skill_type = $skilldata['sx'] ?: $mydata['xs'];
             $skill_category = intval($skilldata['category']);
 
@@ -467,7 +347,7 @@ function api_use_skill()
             $npcdef,
             $mspatk,
             $npcspdef,
-            $powr,
+            $power,
             $skill_type,
             $skill_category,
             $mydata,
@@ -1076,7 +956,7 @@ function battle_calc_my_stats($data, $pokemon)
 function battle_calc_npc_stats($data, $saved_state, $strength = 1)
 {
     $level = intval($saved_state['level']);
-    $flash = intval($saved_state['npcsg']);
+    $flash = intval($saved_state['allure']) & 1;
     if ($strength <= 0) $strength = 1;
     $stats = [];
     foreach (['hp', 'atk', 'def', 'spatk', 'spdef', 'speed'] as $stat) {
@@ -2012,7 +1892,8 @@ function api_use_item_in_battle()
     // 根据物品类型处理
     switch ($item_type) {
         case '1': // 回复药
-            $addhp = intval($item_data['addhp']);
+            $effects = json_decode($item_data['effects'] ?? '{}', true) ?: [];
+            $addhp = intval($effects['hp'] ?? 0);
             $max_hp = api_calculate_pokemon_max_hp($mypokemon);
             $current_hp = intval($mypokemon['hp']);
 
@@ -2315,7 +2196,7 @@ function api_get_battle_items()
 
     // 获取用户的物品
     $my_items = DB::fetch_all(pm_sql(
-        "SELECT mi.*, i.type, i.module, i.addhp, i.name, i.img
+        "SELECT mi.*, i.type, i.module, i.effects, i.name, i.tpname
          FROM " . pm_table('pm_myitem') . " mi
          INNER JOIN " . pm_table('pm_itemdata') . " i ON mi.itemid = i.id
          WHERE mi.uid = %d AND mi.nums > 0
@@ -2329,18 +2210,20 @@ function api_get_battle_items()
     foreach ($my_items as $item) {
         $item_type = $item['type'];
         $item_module = isset($item['module']) ? $item['module'] : '';
+        $effects = json_decode($item['effects'] ?? '{}', true) ?: [];
+        $heal_hp = intval($effects['hp'] ?? 0);
 
         // 只返回可以在战斗中使用的物品
-        // 1. HP恢复药水（type=1，有addhp属性）
-        if ($item_type == '1' && isset($item['addhp']) && $item['addhp'] > 0) {
+        // 1. HP恢复药水（type=1，有hp效果）
+        if ($item_type == '1' && $heal_hp > 0) {
             $battle_items[] = [
                 'id' => (int) $item['itemid'],
                 'name' => $item['name'],
-                'img' => $item['img'],
+                'img' => $item['tpname'],
                 'nums' => (int) $item['nums'],
                 'item_type' => (int) $item_type,
                 'module' => $item_module,
-                'addhp' => (int) $item['addhp'],
+                'addhp' => $heal_hp,
             ];
         }
         // 2. PP恢复道具（type=4，module是pp5/pp10/pp15/pp99之一）
@@ -2348,7 +2231,7 @@ function api_get_battle_items()
             $battle_items[] = [
                 'id' => (int) $item['itemid'],
                 'name' => $item['name'],
-                'img' => $item['img'],
+                'img' => $item['tpname'],
                 'nums' => (int) $item['nums'],
                 'item_type' => (int) $item_type,
                 'module' => $item_module,

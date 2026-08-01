@@ -67,7 +67,8 @@ function yypg($petid, $itemname)
         "SELECT * FROM " . pm_table('pm_itemdata') . " WHERE module = 'yypg' LIMIT 1"
     ));
 
-    $heal_amount = isset($item['addhp']) ? (int)$item['addhp'] : 50;
+    $effects = json_decode(isset($item['effects']) ? $item['effects'] : '{}', true) ?: [];
+    $heal_amount = isset($effects['hp']) ? (int)$effects['hp'] : 50;
 
     // 饥饿状态是 5, 6
     $negative_states = [5, 6];
@@ -216,12 +217,6 @@ function quality($petid, $itemname)
     // 随机生成新的品质 (1-31)
     $new_quality = rand(1, 31);
 
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET quality = %d WHERE id = %d",
-        $new_quality,
-        $petid
-    ));
-
     return 0;
 }
 
@@ -366,7 +361,7 @@ function clean_equipment($petid, $itemname)
 
     // 清空努力值
     DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET expn = 0 WHERE id = %d",
+        "UPDATE " . pm_table('pm_mypm') . " SET hpn = 0, atkn = 0, defn = 0, spatkn = 0, spdefn = 0, sdn = 0 WHERE id = %d",
         $petid
     ));
 
@@ -424,43 +419,43 @@ function _increase_effort_value($petid, $stat, $amount)
         return 1;
     }
 
-    // 获取当前努力值 (从 expn 字段解析)
-    $expn = isset($pet['expn']) ? $pet['expn'] : '0,0,0,0,0,0';
-    $evs = explode(',', $expn);
-
-    $stat_index = [
-        'hp' => 0,
-        'atk' => 1,
-        'def' => 2,
-        'spatk' => 3,
-        'spdef' => 4,
-        'speed' => 5,
+    $stat_column = [
+        'hp' => 'hpn',
+        'atk' => 'atkn',
+        'def' => 'defn',
+        'spatk' => 'spatkn',
+        'spdef' => 'spdefn',
+        'speed' => 'sdn',
     ];
 
-    $idx = $stat_index[$stat];
-    $current_ev = isset($evs[$idx]) ? (int)$evs[$idx] : 0;
+    $col = $stat_column[$stat];
+    $current_ev = (int) $pet[$col];
 
-    // 检查总努力值上限 (510)
-    $total_ev = array_sum(array_map('intval', $evs));
+    $all_evs = [
+        (int) $pet['hpn'],
+        (int) $pet['atkn'],
+        (int) $pet['defn'],
+        (int) $pet['spatkn'],
+        (int) $pet['spdefn'],
+        (int) $pet['sdn'],
+    ];
+
+    $total_ev = array_sum($all_evs);
 
     if ($total_ev >= 510) {
-        return 1; // 已达总上限
+        return 1;
     }
 
-    // 单项努力值上限 (252)
     if ($current_ev >= 252) {
-        return 1; // 该项已达上限
+        return 1;
     }
 
-    // 计算实际增加值
     $actual_increase = min($amount, 252 - $current_ev, 510 - $total_ev);
-    $evs[$idx] = (int)$evs[$idx] + $actual_increase;
-
-    $new_expn = implode(',', $evs);
+    $new_ev = $current_ev + $actual_increase;
 
     DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET expn = %s WHERE id = %d",
-        $new_expn,
+        "UPDATE " . pm_table('pm_mypm') . " SET $col = %d WHERE id = %d",
+        $new_ev,
         $petid
     ));
 
@@ -891,14 +886,14 @@ function libaochunj($petid, $itemname)
         if ($existing) {
             // 更新数量
             DB::query(pm_sql(
-                "UPDATE " . pm_table('pm_myitem') . " SET num = num + %d WHERE id = %d",
+                "UPDATE " . pm_table('pm_myitem') . " SET nums = nums + %d WHERE id = %d",
                 $item_info['nums'],
                 $existing['id']
             ));
         } else {
             // 插入新物品
             DB::query(pm_sql(
-                "INSERT INTO " . pm_table('pm_myitem') . " (uid, itemid, num) VALUES (%d, %d, %d)",
+                "INSERT INTO " . pm_table('pm_myitem') . " (uid, itemid, nums) VALUES (%d, %d, %d)",
                 $uid,
                 $item_info['typeid'],
                 $item_info['nums']

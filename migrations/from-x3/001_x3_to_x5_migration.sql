@@ -1,177 +1,241 @@
 -- ============================================================
--- TSDM Pokemon Plugin - X3 到 X5 数据库迁移脚本
+-- TSDM Pokemon Plugin — X3/X2 to X5 canonical schema migration
 -- ============================================================
--- 用途：从旧版 Discuz X3.x plugin_pokemon 数据库迁移到 X5
--- 说明：此脚本在保留原有数据的前提下进行表结构调整
--- ============================================================
-
--- ============================================================
--- 第一阶段：备份与安全检查
+-- Transforms an old X3/X2 pm_* schema (old column names + scalar
+-- stat columns) into the canonical X5 schema (new column names +
+-- JSON-consolidated columns). Safe to run multiple times (idempotent
+-- via IF NOT EXISTS / IF EXISTS guards).
 -- ============================================================
 
--- 1.1 创建迁移日志表
+SET sql_mode = '';
+SET NAMES utf8mb4;
+
+-- Migration log
 CREATE TABLE IF NOT EXISTS `pm_migration_log` (
     `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-    `step` varchar(50) NOT NULL COMMENT '迁移步骤',
-    `status` tinyint(1) NOT NULL DEFAULT 0 COMMENT '0=未执行 1=成功 2=失败',
+    `step` varchar(50) NOT NULL,
+    `status` tinyint(1) NOT NULL DEFAULT 0,
     `message` text,
     `executed_at` int(10) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- ============================================================
--- 第二阶段：废弃字段标记与清理
+-- pm_data: txt→description, sd→speed, god→is_legendary,
+--          hpn/atkn/defn/spatkn/spdefn/sdn→effort_values(JSON),
+--          minmoney/maxmoney→drop_money(JSON)
 -- ============================================================
 
--- 2.1 pm_map.exp 字段已废弃（原地图经验值，不再使用）
--- 保留字段但不再写入，待后续版本彻底移除
--- ALTER TABLE pm_map DROP COLUMN exp; -- 暂不执行，待数据确认后手动执行
+ALTER TABLE `pm_data`
+  ADD COLUMN IF NOT EXISTS `description` varchar(255) NOT NULL DEFAULT '' AFTER `money`,
+  ADD COLUMN IF NOT EXISTS `speed` smallint(6) NOT NULL DEFAULT 0 AFTER `spdef`,
+  ADD COLUMN IF NOT EXISTS `is_legendary` tinyint(1) NOT NULL DEFAULT 0 AFTER `birth`,
+  ADD COLUMN IF NOT EXISTS `effort_values` text NOT NULL AFTER `shop`,
+  ADD COLUMN IF NOT EXISTS `drop_money` varchar(60) NOT NULL DEFAULT '' AFTER `is_legendary`;
 
--- 2.2 pm_data.shop 字段已废弃（商店直接购买功能已移除）
--- ALTER TABLE pm_data DROP COLUMN shop; -- 暂不执行
+UPDATE `pm_data` SET
+  `description` = IFNULL(`txt`, `description`),
+  `speed` = IFNULL(`sd`, `speed`),
+  `is_legendary` = IFNULL(`god`, `is_legendary`),
+  `effort_values` = IF(`effort_values` = '', JSON_OBJECT('hp', IFNULL(`hpn`,0), 'atk', IFNULL(`atkn`,0), 'def', IFNULL(`defn`,0), 'spatk', IFNULL(`spatkn`,0), 'spdef', IFNULL(`spdefn`,0), 'spd', IFNULL(`sdn`,0)), `effort_values`),
+  `drop_money` = IF(`drop_money` = '', CONCAT('[', IFNULL(`minmoney`,0), ',', IFNULL(`maxmoney`,0), ']'), `drop_money`)
+WHERE `txt` IS NOT NULL OR `sd` IS NOT NULL OR `god` IS NOT NULL OR `hpn` IS NOT NULL OR `minmoney` IS NOT NULL;
 
--- 2.3 pm_data.met 字段已废弃（旧版遇见概率，改用新的 encounter_rate）
--- ALTER TABLE pm_data DROP COLUMN met; -- 暂不执行
-
--- 2.4 pm_mypm.sx 字段已废弃（旧版属性缩写，改用 xs 字段）
--- ALTER TABLE pm_mypm DROP COLUMN sx; -- 暂不执行
-
--- ============================================================
--- 第三阶段：表引擎升级（MyISAM -> InnoDB）
--- ============================================================
-
--- 3.1 升级 pm_usersdata 表引擎
-ALTER TABLE pm_usersdata ENGINE = InnoDB;
-
--- 3.2 升级 pm_data 表引擎
-ALTER TABLE pm_data ENGINE = InnoDB;
-
--- 3.3 升级 pm_mypm 表引擎
-ALTER TABLE pm_mypm ENGINE = InnoDB;
-
--- 3.4 升级 pm_itemdata 表引擎
-ALTER TABLE pm_itemdata ENGINE = InnoDB;
-
--- 3.5 升级 pm_myitem 表引擎
-ALTER TABLE pm_myitem ENGINE = InnoDB;
-
--- 3.6 升级 pm_skill 表引擎
-ALTER TABLE pm_skill ENGINE = InnoDB;
-
--- 3.7 升级 pm_myskill 表引擎
-ALTER TABLE pm_myskill ENGINE = InnoDB;
-
--- 3.8 升级 pm_map 表引擎
-ALTER TABLE pm_map ENGINE = InnoDB;
+ALTER TABLE `pm_data`
+  DROP COLUMN IF EXISTS `txt`,
+  DROP COLUMN IF EXISTS `sd`,
+  DROP COLUMN IF EXISTS `god`,
+  DROP COLUMN IF EXISTS `hpn`,
+  DROP COLUMN IF EXISTS `atkn`,
+  DROP COLUMN IF EXISTS `defn`,
+  DROP COLUMN IF EXISTS `spatkn`,
+  DROP COLUMN IF EXISTS `spdefn`,
+  DROP COLUMN IF EXISTS `sdn`,
+  DROP COLUMN IF EXISTS `minmoney`,
+  DROP COLUMN IF EXISTS `maxmoney`,
+  DROP COLUMN IF EXISTS `minmoeny`,
+  DROP COLUMN IF EXISTS `mixmoeny`,
+  DROP COLUMN IF EXISTS `birthodds`,
+  DROP COLUMN IF EXISTS `pnclevel`;
 
 -- ============================================================
--- 第四阶段：字符集升级（utf8mb3 -> utf8mb4）
+-- pm_mypm: nowname→nickname, pmno→species_id, sg→is_shiny,
+--          add created_at
 -- ============================================================
 
--- 4.1 升级 pm_usersdata
-ALTER TABLE pm_usersdata CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+ALTER TABLE `pm_mypm`
+  ADD COLUMN IF NOT EXISTS `nickname` varchar(30) NOT NULL DEFAULT '' AFTER `pmname`,
+  ADD COLUMN IF NOT EXISTS `species_id` smallint(8) unsigned NOT NULL DEFAULT 0 AFTER `uid`,
+  ADD COLUMN IF NOT EXISTS `is_shiny` tinyint(1) NOT NULL DEFAULT 0 AFTER `sg`,
+  ADD COLUMN IF NOT EXISTS `created_at` int(10) unsigned NOT NULL DEFAULT 0;
 
--- 4.2 升级 pm_data
-ALTER TABLE pm_data CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+UPDATE `pm_mypm` SET
+  `nickname` = IFNULL(`nowname`, `nickname`),
+  `species_id` = IFNULL(`pmno`, `species_id`),
+  `is_shiny` = IFNULL(`sg`, `is_shiny`)
+WHERE `nowname` IS NOT NULL OR `pmno` IS NOT NULL OR `sg` IS NOT NULL;
 
--- 4.3 升级 pm_mypm
-ALTER TABLE pm_mypm CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- 4.4 升级 pm_itemdata
-ALTER TABLE pm_itemdata CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- 4.5 升级 pm_myitem
-ALTER TABLE pm_myitem CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
--- ============================================================
--- 第五阶段：字段类型标准化
--- ============================================================
-
--- 5.1 修正 pm_map.exp 类型 (int(255) -> int(10))
-ALTER TABLE pm_map MODIFY COLUMN `exp` int(10) NOT NULL DEFAULT 0;
-
--- 5.2 修正 pm_map 补充空值默认
-UPDATE pm_map SET `expn` = '' WHERE `expn` IS NULL;
-UPDATE pm_map SET `region` = '' WHERE `region` IS NULL;
+ALTER TABLE `pm_mypm`
+  DROP COLUMN IF EXISTS `nowname`,
+  DROP COLUMN IF EXISTS `pmno`,
+  DROP COLUMN IF EXISTS `sg`,
+  DROP COLUMN IF EXISTS `pcid`;
 
 -- ============================================================
--- 第六阶段：新增表（X5 新增功能）
+-- pm_skill: pmid→available_pokemons, txt→description, lv→level_required,
+--           powr→power, num→max_uses, tn→element
 -- ============================================================
 
--- 6.1 宠物盒子表
-CREATE TABLE IF NOT EXISTS `pm_box` (
-    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-    `uid` mediumint(8) unsigned NOT NULL,
-    `box_index` tinyint(3) unsigned NOT NULL DEFAULT 0,
-    `pm_id` mediumint(8) unsigned NOT NULL,
-    `slot` tinyint(3) unsigned NOT NULL DEFAULT 0,
-    PRIMARY KEY (`id`),
-    KEY `idx_uid_box` (`uid`, `box_index`),
-    KEY `idx_pm_id` (`pm_id`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+ALTER TABLE `pm_skill`
+  ADD COLUMN IF NOT EXISTS `available_pokemons` mediumtext NOT NULL AFTER `id`,
+  ADD COLUMN IF NOT EXISTS `description` mediumtext NOT NULL AFTER `name`,
+  ADD COLUMN IF NOT EXISTS `level_required` smallint(5) NOT NULL DEFAULT 0 AFTER `description`,
+  ADD COLUMN IF NOT EXISTS `power` mediumint(8) NOT NULL DEFAULT 40 AFTER `level_required`,
+  ADD COLUMN IF NOT EXISTS `max_uses` smallint(5) NOT NULL DEFAULT 35 AFTER `power`,
+  ADD COLUMN IF NOT EXISTS `element` varchar(6) NOT NULL DEFAULT '' AFTER `type`;
 
--- 6.2 进化链表
-CREATE TABLE IF NOT EXISTS `pm_evolution` (
-    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-    `from_id` mediumint(8) unsigned NOT NULL,
-    `to_id` mediumint(8) unsigned NOT NULL,
-    `method` varchar(20) NOT NULL DEFAULT 'level',
-    `condition_value` varchar(50) NOT NULL DEFAULT '',
-    PRIMARY KEY (`id`),
-    KEY `idx_from` (`from_id`),
-    KEY `idx_to` (`to_id`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+UPDATE `pm_skill` SET
+  `available_pokemons` = IFNULL(`pmid`, `available_pokemons`),
+  `description` = IFNULL(`txt`, `description`),
+  `level_required` = IFNULL(`lv`, `level_required`),
+  `power` = IFNULL(`powr`, `power`),
+  `max_uses` = IFNULL(`num`, `max_uses`),
+  `element` = IFNULL(`tn`, `element`)
+WHERE `pmid` IS NOT NULL OR `txt` IS NOT NULL OR `lv` IS NOT NULL;
 
--- 6.3 对战日志表
-CREATE TABLE IF NOT EXISTS `pm_battle_log` (
-    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-    `uid_1` mediumint(8) unsigned NOT NULL,
-    `uid_2` mediumint(8) unsigned NOT NULL,
-    `pm_id_1` mediumint(8) unsigned NOT NULL,
-    `pm_id_2` mediumint(8) unsigned NOT NULL,
-    `result` tinyint(1) NOT NULL DEFAULT 0,
-    `detail` text NOT NULL,
-    `created_at` int(10) unsigned NOT NULL DEFAULT 0,
-    PRIMARY KEY (`id`),
-    KEY `idx_uid_1` (`uid_1`),
-    KEY `idx_created_at` (`created_at`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
--- 6.4 PC中心寄存表
-CREATE TABLE IF NOT EXISTS `pm_pc` (
-    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-    `uid` mediumint(8) unsigned NOT NULL,
-    `pm_id` mediumint(8) unsigned NOT NULL,
-    `deposited_at` int(10) unsigned NOT NULL DEFAULT 0,
-    `healed_at` int(10) unsigned NOT NULL DEFAULT 0,
-    PRIMARY KEY (`id`),
-    KEY `idx_uid` (`uid`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+ALTER TABLE `pm_skill`
+  DROP COLUMN IF EXISTS `pmid`,
+  DROP COLUMN IF EXISTS `txt`,
+  DROP COLUMN IF EXISTS `lv`,
+  DROP COLUMN IF EXISTS `powr`,
+  DROP COLUMN IF EXISTS `num`,
+  DROP COLUMN IF EXISTS `tn`;
 
 -- ============================================================
--- 第七阶段：数据迁移（旧结构 -> 新结构）
+-- pm_map: kg→is_enabled, minlevel→min_level, maxlevel→max_level,
+--         exp→experience, expn→boss_config
 -- ============================================================
 
--- 7.1 从旧版用户数据迁移宠物盒子信息
--- (pm_usersdata.boxnum 记录了盒子数量，迁移为实际盒子槽位)
--- 此步骤需根据实际数据情况手动调整
+ALTER TABLE `pm_map`
+  ADD COLUMN IF NOT EXISTS `is_enabled` tinyint(1) NOT NULL DEFAULT 1 AFTER `name`,
+  ADD COLUMN IF NOT EXISTS `min_level` tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER `is_enabled`,
+  ADD COLUMN IF NOT EXISTS `max_level` tinyint(3) unsigned NOT NULL DEFAULT 1 AFTER `min_level`,
+  ADD COLUMN IF NOT EXISTS `experience` int(10) NOT NULL DEFAULT 0 AFTER `max_level`,
+  ADD COLUMN IF NOT EXISTS `boss_config` text NOT NULL AFTER `site`;
 
--- 7.2 清理过期交换请求
--- 超过7天的交换记录可安全清理
--- DELETE FROM pm_usersdata WHERE exchanguid > 0 AND ppktime < UNIX_TIMESTAMP() - 604800;
+UPDATE `pm_map` SET
+  `is_enabled` = IFNULL(`kg`, `is_enabled`),
+  `min_level` = IFNULL(`minlevel`, `min_level`),
+  `max_level` = IFNULL(`maxlevel`, `max_level`),
+  `experience` = IFNULL(`exp`, `experience`),
+  `boss_config` = IF(`boss_config` = '' AND `expn` IS NOT NULL, `expn`, `boss_config`)
+WHERE `kg` IS NOT NULL OR `minlevel` IS NOT NULL OR `exp` IS NOT NULL OR `expn` IS NOT NULL;
+
+ALTER TABLE `pm_map`
+  DROP COLUMN IF EXISTS `kg`,
+  DROP COLUMN IF EXISTS `minlevel`,
+  DROP COLUMN IF EXISTS `maxlevel`,
+  DROP COLUMN IF EXISTS `exp`,
+  DROP COLUMN IF EXISTS `expn`;
 
 -- ============================================================
--- 第八阶段：索引优化
+-- pm_itemdata: txt→description, consolidate addhp/addexp/addlv/addgood→effects(JSON),
+--              consolidate equipment_*→equipment(JSON), add module, drop dead columns
 -- ============================================================
 
--- 8.1 为 pm_mypm 添加联合查询索引
--- ALTER TABLE pm_mypm ADD INDEX idx_uid_state (`uid`, `state`);
+ALTER TABLE `pm_itemdata`
+  ADD COLUMN IF NOT EXISTS `description` varchar(255) NOT NULL DEFAULT '' AFTER `tpname`,
+  ADD COLUMN IF NOT EXISTS `module` varchar(30) NOT NULL DEFAULT '' AFTER `type`,
+  ADD COLUMN IF NOT EXISTS `effects` text NOT NULL AFTER `xsask`,
+  ADD COLUMN IF NOT EXISTS `equipment` text NOT NULL AFTER `zbtype`;
 
--- 8.2 为 pm_myskill 添加技能查询索引
--- ALTER TABLE pm_myskill ADD INDEX idx_skillid (`skillid`);
+UPDATE `pm_itemdata` SET
+  `description` = IFNULL(`txt`, `description`),
+  `effects` = IF(`effects` = '', JSON_OBJECT('hp', IFNULL(`addhp`,0), 'exp', IFNULL(`addexp`,0), 'level', IFNULL(`addlv`,0), 'intimacy', IFNULL(`addgood`,0)), `effects`),
+  `equipment` = IF(`equipment` = '', JSON_OBJECT('hp', IFNULL(`equipment_hp`,0), 'atk', IFNULL(`equipment_atk`,0), 'def', IFNULL(`equipment_def`,0), 'spatk', IFNULL(`equipment_spatk`,0), 'spdef', IFNULL(`equipment_spdef`,0), 'spd', IFNULL(`equipment_sd`,0)), `equipment`)
+WHERE `txt` IS NOT NULL OR `addhp` IS NOT NULL OR `equipment_hp` IS NOT NULL;
+
+ALTER TABLE `pm_itemdata`
+  DROP COLUMN IF EXISTS `txt`,
+  DROP COLUMN IF EXISTS `intro`,
+  DROP COLUMN IF EXISTS `addhp`,
+  DROP COLUMN IF EXISTS `addexp`,
+  DROP COLUMN IF EXISTS `addlv`,
+  DROP COLUMN IF EXISTS `addgood`,
+  DROP COLUMN IF EXISTS `captmin`,
+  DROP COLUMN IF EXISTS `sitemid`,
+  DROP COLUMN IF EXISTS `ppkallow`,
+  DROP COLUMN IF EXISTS `hot`,
+  DROP COLUMN IF EXISTS `equipment_hp`,
+  DROP COLUMN IF EXISTS `equipment_atk`,
+  DROP COLUMN IF EXISTS `equipment_def`,
+  DROP COLUMN IF EXISTS `equipment_spatk`,
+  DROP COLUMN IF EXISTS `equipment_spdef`,
+  DROP COLUMN IF EXISTS `equipment_sd`,
+  DROP COLUMN IF EXISTS `atk`,
+  DROP COLUMN IF EXISTS `def`,
+  DROP COLUMN IF EXISTS `spatk`,
+  DROP COLUMN IF EXISTS `spdef`,
+  DROP COLUMN IF EXISTS `speed`;
 
 -- ============================================================
--- 迁移完成标记
+-- pm_evolution: add priority if missing
 -- ============================================================
-INSERT INTO pm_migration_log (`step`, `status`, `message`, `executed_at`)
-VALUES ('migration_v1_x3_to_x5', 1, 'X3 到 X5 迁移脚本执行完毕', UNIX_TIMESTAMP());
+
+ALTER TABLE `pm_evolution`
+  ADD COLUMN IF NOT EXISTS `priority` int(10) NOT NULL DEFAULT 0;
+
+-- ============================================================
+-- pm_usersdata: drop dead PVP/EV columns
+-- ============================================================
+
+ALTER TABLE `pm_usersdata`
+  DROP COLUMN IF EXISTS `pcid`,
+  DROP COLUMN IF EXISTS `ppkname`,
+  DROP COLUMN IF EXISTS `ppktime`,
+  DROP COLUMN IF EXISTS `ppkround`,
+  DROP COLUMN IF EXISTS `ppk`,
+  DROP COLUMN IF EXISTS `ppkfight`,
+  DROP COLUMN IF EXISTS `ppkdodge`,
+  DROP COLUMN IF EXISTS `ppkot`,
+  DROP COLUMN IF EXISTS `ppkpriority`,
+  DROP COLUMN IF EXISTS `exchanguid`,
+  DROP COLUMN IF EXISTS `exchangepmid`,
+  DROP COLUMN IF EXISTS `npcsg`,
+  DROP COLUMN IF EXISTS `hpn`,
+  DROP COLUMN IF EXISTS `atkn`,
+  DROP COLUMN IF EXISTS `defn`,
+  DROP COLUMN IF EXISTS `spatkn`,
+  DROP COLUMN IF EXISTS `spdefn`,
+  DROP COLUMN IF EXISTS `sdn`;
+
+-- ============================================================
+-- pm_myitem: drop dead columns
+-- ============================================================
+
+ALTER TABLE `pm_myitem`
+  DROP COLUMN IF EXISTS `pcid`,
+  DROP COLUMN IF EXISTS `typeid`,
+  DROP COLUMN IF EXISTS `ball`,
+  DROP COLUMN IF EXISTS `pmid`;
+
+-- ============================================================
+-- pm_myskill, pm_pc, pm_box: drop orphan pcid
+-- ============================================================
+
+ALTER TABLE `pm_myskill` DROP COLUMN IF EXISTS `pcid`;
+ALTER TABLE `pm_pc` DROP COLUMN IF EXISTS `pcid`;
+ALTER TABLE `pm_box` DROP COLUMN IF EXISTS `pcid`;
+
+-- ============================================================
+-- Indexes
+-- ============================================================
+
+ALTER TABLE `pm_mypm` ADD INDEX IF NOT EXISTS `idx_uid` (`uid`);
+ALTER TABLE `pm_myitem` ADD INDEX IF NOT EXISTS `idx_uid` (`uid`);
+ALTER TABLE `pm_myskill` ADD INDEX IF NOT EXISTS `idx_uid_petid` (`uid`, `petid`);
+ALTER TABLE `pm_myskill` ADD INDEX IF NOT EXISTS `idx_petid` (`petid`);
+ALTER TABLE `pm_battle_log` ADD INDEX IF NOT EXISTS `idx_uid_2` (`uid_2`);
+
+INSERT INTO `pm_migration_log` (`step`, `status`, `message`, `executed_at`) VALUES
+  ('x3_to_x5_full', 1, 'Schema migration complete', UNIX_TIMESTAMP());

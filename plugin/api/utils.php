@@ -76,10 +76,9 @@ function api_my_usersdata($uid)
     if (!$data) {
         // 初始化用户数据（移除未使用的 PVP 相关字段）
         DB::query(pm_sql("INSERT INTO " . pm_table('pm_usersdata') . " (
-            uid, npcid, hpg, hp, allure, capture,
-            exchanguid, exchangepmid
+            uid, npcid, hpg, hp, allure, capture
         ) VALUES (
-            %d, '', '', '', '', '', '', ''
+            %d, '', '', '', '', ''
         )", $uid));
         $data = DB::fetch_first(pm_sql("SELECT * FROM " . pm_table('pm_usersdata') . " WHERE uid = %d", $uid));
     }
@@ -156,12 +155,13 @@ function api_parse_pet_wear_items(&$pet, $html, &$max_hp = null)
 
             // 计算装备加成
             if ($max_hp !== null) {
-                $arr[0] += intval($data['equipment_hp']);
-                $arr[1] += intval($data['equipment_atk']);
-                $arr[2] += intval($data['equipment_def']);
-                $arr[3] += intval($data['equipment_spatk']);
-                $arr[4] += intval($data['equipment_spdef']);
-                $arr[5] += intval($data['equipment_sd']);
+                $equipment = json_decode($data['equipment'], true) ?: [];
+                $arr[0] += intval(isset($equipment['hp']) ? $equipment['hp'] : 0);
+                $arr[1] += intval(isset($equipment['atk']) ? $equipment['atk'] : 0);
+                $arr[2] += intval(isset($equipment['def']) ? $equipment['def'] : 0);
+                $arr[3] += intval(isset($equipment['spatk']) ? $equipment['spatk'] : 0);
+                $arr[4] += intval(isset($equipment['spdef']) ? $equipment['spdef'] : 0);
+                $arr[5] += intval(isset($equipment['spd']) ? $equipment['spd'] : 0);
             }
         }
     }
@@ -463,12 +463,13 @@ function api_calculate_pokemon_max_hp($pm, $pm_data = null, $include_equipment =
             $iid = isset($pm["equipmentid$i"]) ? (int) $pm["equipmentid$i"] : 0;
             if ($iid > 0) {
                 $item = DB::fetch_first(pm_sql(
-                    "SELECT i.equipment_hp FROM " . pm_table('pm_myitem') . " m "
+                    "SELECT i.equipment FROM " . pm_table('pm_myitem') . " m "
                     . "LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id "
                     . "WHERE m.id=%d", $iid
                 ));
                 if ($item) {
-                    $equipment_hp += (int) $item['equipment_hp'];
+                    $equipment = json_decode($item['equipment'], true) ?: [];
+                    $equipment_hp += (int) (isset($equipment['hp']) ? $equipment['hp'] : 0);
                 }
             }
         }

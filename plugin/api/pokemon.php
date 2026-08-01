@@ -427,18 +427,19 @@ function calculate_pokemon_full_stats($pm, $pm_data = null)
 
         if ($equip_id > 0) {
             $equip_item = DB::fetch_first(pm_sql(
-                "SELECT i.equipment_hp, i.equipment_atk, i.equipment_def, i.equipment_spatk, i.equipment_spdef, i.equipment_sd
+                "SELECT i.equipment
 FROM " . pm_table('pm_myitem') . " m LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.id=%d",
                 $equip_id
             ));
 
             if ($equip_item) {
-                $equipment_bonuses['hp'] += (int) $equip_item['equipment_hp'];
-                $equipment_bonuses['atk'] += (int) $equip_item['equipment_atk'];
-                $equipment_bonuses['def'] += (int) $equip_item['equipment_def'];
-                $equipment_bonuses['spatk'] += (int) $equip_item['equipment_spatk'];
-                $equipment_bonuses['spdef'] += (int) $equip_item['equipment_spdef'];
-                $equipment_bonuses['speed'] += (int) $equip_item['equipment_sd'];
+                $equipment = json_decode($equip_item['equipment'], true) ?: [];
+                $equipment_bonuses['hp'] += (int) (isset($equipment['hp']) ? $equipment['hp'] : 0);
+                $equipment_bonuses['atk'] += (int) (isset($equipment['atk']) ? $equipment['atk'] : 0);
+                $equipment_bonuses['def'] += (int) (isset($equipment['def']) ? $equipment['def'] : 0);
+                $equipment_bonuses['spatk'] += (int) (isset($equipment['spatk']) ? $equipment['spatk'] : 0);
+                $equipment_bonuses['spdef'] += (int) (isset($equipment['spdef']) ? $equipment['spdef'] : 0);
+                $equipment_bonuses['speed'] += (int) (isset($equipment['spd']) ? $equipment['spd'] : 0);
             }
         }
     }
@@ -849,7 +850,7 @@ function calculate_stats($pm, $info)
         'defense'=> ['base' => 'def',    'iv' => 'defg',  'ev' => 'defn',  'state' => $statedef],
         'sp_attack' => ['base' => 'spatk','iv' => 'spatkg','ev' => 'spatkn','state' => $statespatk],
         'sp_defense'=>['base' => 'spdef', 'iv' => 'spdefg','ev' => 'spdefn','state' => $statespdef],
-        'speed'  => ['base' => 'sd',     'iv' => 'sdg',   'ev' => 'sdn',   'state' => $statespeed],
+        'speed'  => ['base' => 'speed',     'iv' => 'sdg',   'ev' => 'sdn',   'state' => $statespeed],
     ];
 
     $result = [];
@@ -1260,6 +1261,7 @@ LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.id=%d",
             ));
 
             if ($myitem) {
+                $equipment = json_decode($myitem['equipment'], true) ?: [];
                 $slot_info['item'] = [
                     'myitem_id' => (int) $myitem['myitem_id'],
                     'type_id' => (int) $myitem['id'],
@@ -1267,12 +1269,12 @@ LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.id=%d",
                     'description' => $myitem['description'] ?: '',
                     'image' => $myitem['tpname'] ?: '',
                     'zbtype' => (int) $myitem['zbtype'],
-                    'equipment_hp' => (int) $myitem['equipment_hp'],
-                    'equipment_atk' => (int) $myitem['equipment_atk'],
-                    'equipment_def' => (int) $myitem['equipment_def'],
-                    'equipment_spatk' => (int) $myitem['equipment_spatk'],
-                    'equipment_spdef' => (int) $myitem['equipment_spdef'],
-                    'equipment_sd' => (int) $myitem['equipment_sd'],
+                    'equipment_hp' => (int) (isset($equipment['hp']) ? $equipment['hp'] : 0),
+                    'equipment_atk' => (int) (isset($equipment['atk']) ? $equipment['atk'] : 0),
+                    'equipment_def' => (int) (isset($equipment['def']) ? $equipment['def'] : 0),
+                    'equipment_spatk' => (int) (isset($equipment['spatk']) ? $equipment['spatk'] : 0),
+                    'equipment_spdef' => (int) (isset($equipment['spdef']) ? $equipment['spdef'] : 0),
+                    'equipment_sd' => (int) (isset($equipment['spd']) ? $equipment['spd'] : 0),
                 ];
             }
         }
@@ -1289,6 +1291,8 @@ LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.uid=%d AND 
     ));
 
     foreach ($owned_rows as $row) {
+
+        $equipment = json_decode($row['equipment'], true) ?: [];
 
         // 检查该装备被所有宝可梦使用的总数
         $myitem_id = $row['myitem_id'];
@@ -1325,12 +1329,12 @@ LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.uid=%d AND 
             'available_count' => max(0, (int) $row['nums'] - $equipped_count),
             'is_equipped' => $is_equipped_by_current,
             'zbtype' => (int) $row['zbtype'],
-            'equipment_hp' => (int) $row['equipment_hp'],
-            'equipment_atk' => (int) $row['equipment_atk'],
-            'equipment_def' => (int) $row['equipment_def'],
-            'equipment_spatk' => (int) $row['equipment_spatk'],
-            'equipment_spdef' => (int) $row['equipment_spdef'],
-            'equipment_sd' => (int) $row['equipment_sd'],
+            'equipment_hp' => (int) (isset($equipment['hp']) ? $equipment['hp'] : 0),
+            'equipment_atk' => (int) (isset($equipment['atk']) ? $equipment['atk'] : 0),
+            'equipment_def' => (int) (isset($equipment['def']) ? $equipment['def'] : 0),
+            'equipment_spatk' => (int) (isset($equipment['spatk']) ? $equipment['spatk'] : 0),
+            'equipment_spdef' => (int) (isset($equipment['spdef']) ? $equipment['spdef'] : 0),
+            'equipment_sd' => (int) (isset($equipment['spd']) ? $equipment['spd'] : 0),
         ];
     }
 
@@ -1349,6 +1353,7 @@ WHERE type=5 AND shop=1 ORDER BY money ASC"
     $user_money = $user_data ? (int) $user_data['money'] : 0;
 
     foreach ($shop_rows as $row) {
+        $equipment = json_decode($row['equipment'], true) ?: [];
         // 检查用户是否已拥有该装备
         $owned_type_ids = array_column($owned_items, 'type_id');
         $is_owned = in_array((int) $row['id'], $owned_type_ids);
@@ -1360,12 +1365,12 @@ WHERE type=5 AND shop=1 ORDER BY money ASC"
             'image' => $row['tpname'] ?: '',
             'price' => (int) $row['money'],
             'zbtype' => (int) $row['zbtype'],
-            'equipment_hp' => (int) $row['equipment_hp'],
-            'equipment_atk' => (int) $row['equipment_atk'],
-            'equipment_def' => (int) $row['equipment_def'],
-            'equipment_spatk' => (int) $row['equipment_spatk'],
-            'equipment_spdef' => (int) $row['equipment_spdef'],
-            'equipment_sd' => (int) $row['equipment_sd'],
+            'equipment_hp' => (int) (isset($equipment['hp']) ? $equipment['hp'] : 0),
+            'equipment_atk' => (int) (isset($equipment['atk']) ? $equipment['atk'] : 0),
+            'equipment_def' => (int) (isset($equipment['def']) ? $equipment['def'] : 0),
+            'equipment_spatk' => (int) (isset($equipment['spatk']) ? $equipment['spatk'] : 0),
+            'equipment_spdef' => (int) (isset($equipment['spdef']) ? $equipment['spdef'] : 0),
+            'equipment_sd' => (int) (isset($equipment['spd']) ? $equipment['spd'] : 0),
             'is_owned' => $is_owned,
             'can_buy' => $user_money >= (int) $row['money'],
         ];
@@ -1424,8 +1429,7 @@ function api_equip_item()
 
     // 验证物品归属
     $myitem = DB::fetch_first(pm_sql(
-        "SELECT m.*, i.type, i.name, i.equipment_hp, i.equipment_atk, i.equipment_def,
-i.equipment_spatk, i.equipment_spdef, i.equipment_sd FROM " . pm_table('pm_myitem') . " m LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.id=%d AND m.uid=%d",
+        "SELECT m.*, i.type, i.name, i.equipment FROM " . pm_table('pm_myitem') . " m LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid=i.id WHERE m.id=%d AND m.uid=%d",
         $myitem_id, $uid
     ));
 

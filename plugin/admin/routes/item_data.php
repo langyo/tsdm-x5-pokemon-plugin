@@ -90,7 +90,7 @@ function set_item_type($info)
     }
 
     if ($query['description'] != $info["description"]) {
-      DB::query("UPDATE pm_itemdata set txt='" . $info["description"] . "' where id=$id");
+      DB::query("UPDATE pm_itemdata set description='" . $info["description"] . "' where id=$id");
     }
 
     if (boolval($query['shop']) != boolval($info["is_selling"])) {
@@ -146,35 +146,37 @@ function set_item_type($info)
       DB::query("UPDATE pm_itemdata set xsask='" . translate_kind_id_to_chinese_kind($info["limits"]["kind_require"]) . "' where id=$id");
     }
 
-    if (intval($query['addhp']) != intval($info["effects"]["add_hit_points"])) {
-      DB::query("UPDATE pm_itemdata set addhp=" . intval($info["effects"]["add_hit_points"]) . " where id=$id");
+    $effects = json_decode($query['effects'], true);
+    $addhp = intval($info["effects"]["add_hit_points"]);
+    $addexp = intval($info["effects"]["add_experience"]);
+    $addlv = intval($info["effects"]["add_level"]);
+    $addgood = intval($info["effects"]["add_intimacy"]);
+    if (
+      intval($effects['hp'] ?? 0) != $addhp ||
+      intval($effects['exp'] ?? 0) != $addexp ||
+      intval($effects['level'] ?? 0) != $addlv ||
+      intval($effects['intimacy'] ?? 0) != $addgood
+    ) {
+      $effects_json = '{"hp":' . intval($addhp) . ',"exp":' . intval($addexp) . ',"level":' . intval($addlv) . ',"intimacy":' . intval($addgood) . '}';
+      DB::query("UPDATE pm_itemdata set effects='" . addslashes($effects_json) . "' where id=$id");
     }
-    if (intval($query['addexp']) != intval($info["effects"]["add_experience"])) {
-      DB::query("UPDATE pm_itemdata set addexp=" . intval($info["effects"]["add_experience"]) . " where id=$id");
-    }
-    if (intval($query['addlv']) != intval($info["effects"]["add_level"])) {
-      DB::query("UPDATE pm_itemdata set addlv=" . intval($info["effects"]["add_level"]) . " where id=$id");
-    }
-    if (intval($query['addgood']) != intval($info["effects"]["add_intimacy"])) {
-      DB::query("UPDATE pm_itemdata set addgood=" . intval($info["effects"]["add_intimacy"]) . " where id=$id");
-    }
-    if (intval($query['equipment_hp']) != intval($info["effects"]["attribute_add_hit_points"])) {
-      DB::query("UPDATE pm_itemdata set equipment_hp=" . intval($info["effects"]["attribute_add_hit_points"]) . " where id=$id");
-    }
-    if (intval($query['equipment_atk']) != intval($info["effects"]["attribute_add_attack"])) {
-      DB::query("UPDATE pm_itemdata set equipment_atk=" . intval($info["effects"]["attribute_add_attack"]) . " where id=$id");
-    }
-    if (intval($query['equipment_def']) != intval($info["effects"]["attribute_add_defense"])) {
-      DB::query("UPDATE pm_itemdata set equipment_def=" . intval($info["effects"]["attribute_add_defense"]) . " where id=$id");
-    }
-    if (intval($query['equipment_spatk']) != intval($info["effects"]["attribute_add_special_attack"])) {
-      DB::query("UPDATE pm_itemdata set equipment_spatk=" . intval($info["effects"]["attribute_add_special_attack"]) . " where id=$id");
-    }
-    if (intval($query['equipment_spdef']) != intval($info["effects"]["attribute_add_special_defense"])) {
-      DB::query("UPDATE pm_itemdata set equipment_spdef=" . intval($info["effects"]["attribute_add_special_defense"]) . " where id=$id");
-    }
-    if (intval($query['equipment_sd']) != intval($info["effects"]["attribute_add_speed"])) {
-      DB::query("UPDATE pm_itemdata set equipment_sd=" . intval($info["effects"]["attribute_add_speed"]) . " where id=$id");
+    $equipment = json_decode($query['equipment'], true);
+    $equipment_hp = intval($info["effects"]["attribute_add_hit_points"]);
+    $equipment_atk = intval($info["effects"]["attribute_add_attack"]);
+    $equipment_def = intval($info["effects"]["attribute_add_defense"]);
+    $equipment_spatk = intval($info["effects"]["attribute_add_special_attack"]);
+    $equipment_spdef = intval($info["effects"]["attribute_add_special_defense"]);
+    $equipment_sd = intval($info["effects"]["attribute_add_speed"]);
+    if (
+      intval($equipment['hp'] ?? 0) != $equipment_hp ||
+      intval($equipment['atk'] ?? 0) != $equipment_atk ||
+      intval($equipment['def'] ?? 0) != $equipment_def ||
+      intval($equipment['spatk'] ?? 0) != $equipment_spatk ||
+      intval($equipment['spdef'] ?? 0) != $equipment_spdef ||
+      intval($equipment['spd'] ?? 0) != $equipment_sd
+    ) {
+      $equipment_json = '{"hp":' . intval($equipment_hp) . ',"atk":' . intval($equipment_atk) . ',"def":' . intval($equipment_def) . ',"spatk":' . intval($equipment_spatk) . ',"spdef":' . intval($equipment_spdef) . ',"spd":' . intval($equipment_sd) . '}';
+      DB::query("UPDATE pm_itemdata set equipment='" . addslashes($equipment_json) . "' where id=$id");
     }
     if (intval($query['captmax']) != intval($info["effects"]["capture"])) {
       DB::query("UPDATE pm_itemdata set captmax=" . intval($info["effects"]["capture"]) . " where id=$id");
@@ -242,21 +244,22 @@ function insert_item_type($info)
   $last_id = intval($last_id['id']);
   $new_id = $last_id + 1;
 
+  $effects_json = '{"hp":' . intval($addhp) . ',"exp":' . intval($addexp) . ',"level":' . intval($addlv) . ',"intimacy":' . intval($addgood) . '}';
+  $equipment_json = '{"hp":' . intval($equipment_hp) . ',"atk":' . intval($equipment_atk) . ',"def":' . intval($equipment_def) . ',"spatk":' . intval($equipment_spatk) . ',"spdef":' . intval($equipment_spdef) . ',"spd":' . intval($equipment_sd) . '}';
+
   DB::query("INSERT INTO pm_itemdata (
-    id, name, tpname, txt, shop, money, type,
+    id, name, tpname, description, shop, money, type,
     ballid, upitem, sitemname, zbtype,
     lvask, xsask,
-    addhp, addexp, addlv, addgood,
-    equipment_hp, equipment_atk, equipment_def,
-    equipment_spatk, equipment_spdef, equipment_sd,
+    effects,
+    equipment,
     captmax
   ) VALUES (
     $new_id, '$name', '$tpname', '$txt', $shop, $money, '$type',
     $ballid, $upitem, '$sitemname', $zbtype,
     $lvask, '$xsask',
-    $addhp, $addexp, $addlv, $addgood,
-    $equipment_hp, $equipment_atk, $equipment_def,
-    $equipment_spatk, $equipment_spdef, $equipment_sd,
+    '$effects_json',
+    '$equipment_json',
     $captmax
   )");
 
@@ -323,7 +326,7 @@ function filter_item_type($list)
         array_push($query_sql_list, generate_filter_sql('shop', $operator, boolval($value), 'id'));
         break;
       case '描述':
-        array_push($query_sql_list, generate_filter_sql('txt', $operator, $value, 'text'));
+        array_push($query_sql_list, generate_filter_sql('description', $operator, $value, 'text'));
         break;
       default:
     }

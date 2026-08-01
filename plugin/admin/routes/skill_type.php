@@ -119,18 +119,18 @@ function set_skill_type($info)
     $available_pokemons = array_values(array_unique($available_pokemons));
 
     $pokemon_list_str = "k," . implode(',', $available_pokemons) . ",k";
-    DB::query("UPDATE pm_skill set pmid='$pokemon_list_str' where id=$id");
+    DB::query("UPDATE pm_skill set available_pokemons='$pokemon_list_str' where id=$id");
 
     if ($query['description'] != $info["description"]) {
-      DB::query("UPDATE pm_skill set txt='{$info["description"]}' where id=$id");
+      DB::query("UPDATE pm_skill set description='{$info["description"]}' where id=$id");
     }
 
     if (intval($query['level_required']) != intval($info["min_level_limit"])) {
-      DB::query("UPDATE pm_skill set lv='{$info["min_level_limit"]}' where id=$id");
+      DB::query("UPDATE pm_skill set level_required='{$info["min_level_limit"]}' where id=$id");
     }
 
     if (intval($query['max_uses']) != intval($info["use_times_limit"])) {
-      DB::query("UPDATE pm_skill set num='{$info["use_times_limit"]}' where id=$id");
+      DB::query("UPDATE pm_skill set max_uses='{$info["use_times_limit"]}' where id=$id");
     }
 
     $effect = translate_skill_type_obj_to_raw($info["effect"]);
@@ -141,10 +141,10 @@ function set_skill_type($info)
       DB::query("UPDATE pm_skill set category='$category' where id=$id");
     }
     if ($query['element'] != $pokemon_type) {
-      DB::query("UPDATE pm_skill set tn='$pokemon_type' where id=$id");
+      DB::query("UPDATE pm_skill set element='$pokemon_type' where id=$id");
     }
     if (intval($query['power']) != $damage) {
-      DB::query("UPDATE pm_skill set powr='$damage' where id=$id");
+      DB::query("UPDATE pm_skill set power='$damage' where id=$id");
     }
   } else {
     $json_ret = [];
@@ -186,7 +186,7 @@ function insert_skill_type($info)
   $new_id = $last_id + 1;
 
   DB::query("INSERT INTO pm_skill (
-    id, name, pmid, txt, lv, num, category, tn, powr
+    id, name, available_pokemons, description, level_required, max_uses, category, element, power
   ) VALUES (
     $new_id, '$name', '$pmid', '$txt', $lv, $num, '$category', '$tn', $powr
   )");
@@ -259,14 +259,14 @@ function filter_skill_type($list)
         array_push($query_sql_list, generate_filter_sql('name', $operator, $value, 'text'));
         break;
       case '描述':
-        array_push($query_sql_list, generate_filter_sql('txt', $operator, $value, 'text'));
+        array_push($query_sql_list, generate_filter_sql('description', $operator, $value, 'text'));
         break;
       case '可学习此技能的宠物种族':
       case '可用此的种族':
-        // pmid 格式是 "k,1,2,3,k"，需要搜索 ",xxx," 格式
+        // available_pokemons 格式是 "k,1,2,3,k"，需要搜索 ",xxx," 格式
         if ($operator === 'equal' || $operator === 'contains') {
           $pokemon_id = intval($value);
-          array_push($query_sql_list, "pmid like '%,$pokemon_id,%'");
+          array_push($query_sql_list, "available_pokemons like '%,$pokemon_id,%'");
         }
         break;
       default:

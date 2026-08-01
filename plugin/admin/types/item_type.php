@@ -67,16 +67,18 @@ function new_item_effects($query)
 {
   $ret = [];
 
-  $ret["add_hit_points"] = intval($query['addhp']);
-  $ret["add_experience"] = intval($query['addexp']);
-  $ret["add_level"] = intval($query['addlv']);
-  $ret["add_intimacy"] = intval($query['addgood']);
-  $ret["attribute_add_hit_points"] = intval($query['equipment_hp']);
-  $ret["attribute_add_attack"] = intval($query['equipment_atk']);
-  $ret["attribute_add_defense"] = intval($query['equipment_def']);
-  $ret["attribute_add_special_attack"] = intval($query['equipment_spatk']);
-  $ret["attribute_add_special_defense"] = intval($query['equipment_spdef']);
-  $ret["attribute_add_speed"] = intval($query['equipment_sd']);
+  $effects = json_decode($query['effects'], true);
+  $equipment = json_decode($query['equipment'], true);
+  $ret["add_hit_points"] = intval($effects['hp'] ?? 0);
+  $ret["add_experience"] = intval($effects['exp'] ?? 0);
+  $ret["add_level"] = intval($effects['level'] ?? 0);
+  $ret["add_intimacy"] = intval($effects['intimacy'] ?? 0);
+  $ret["attribute_add_hit_points"] = intval($equipment['hp'] ?? 0);
+  $ret["attribute_add_attack"] = intval($equipment['atk'] ?? 0);
+  $ret["attribute_add_defense"] = intval($equipment['def'] ?? 0);
+  $ret["attribute_add_special_attack"] = intval($equipment['spatk'] ?? 0);
+  $ret["attribute_add_special_defense"] = intval($equipment['spdef'] ?? 0);
+  $ret["attribute_add_speed"] = intval($equipment['spd'] ?? 0);
   $ret["capture"] = intval($query['captmax']);
 
   return $ret;

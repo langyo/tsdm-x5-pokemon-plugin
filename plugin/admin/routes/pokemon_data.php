@@ -223,7 +223,7 @@ function set_pokemon_type($info)
       DB::query("UPDATE pm_data set name='" . addslashes($info['name']) . "' where id={$info["id"]}");
     }
     if ($query['description'] != $info["description"]) {
-      DB::query("UPDATE pm_data set txt='" . addslashes($info['description']) . "' where id={$info["id"]}");
+      DB::query("UPDATE pm_data set description='" . addslashes($info['description']) . "' where id={$info["id"]}");
     }
 
     if (intval($query['money']) != intval($info["cost"])) {
@@ -257,26 +257,26 @@ function set_pokemon_type($info)
       DB::query("UPDATE pm_data set spdef=" . intval($info["initial_statistic"]["special_defense"]) . " where id={$info["id"]}");
     }
     if (intval($query['speed']) != intval($info["initial_statistic"]["speed"])) {
-      DB::query("UPDATE pm_data set sd=" . intval($info["initial_statistic"]["speed"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set speed=" . intval($info["initial_statistic"]["speed"]) . " where id={$info["id"]}");
     }
 
-    if (intval($effort['hp'] ?? 0) != intval($info["initial_base_points"]["hit_points"])) {
-      DB::query("UPDATE pm_data set hpn=" . intval($info["initial_base_points"]["hit_points"]) . " where id={$info["id"]}");
-    }
-    if (intval($effort['atk'] ?? 0) != intval($info["initial_base_points"]["attack"])) {
-      DB::query("UPDATE pm_data set atkn=" . intval($info["initial_base_points"]["attack"]) . " where id={$info["id"]}");
-    }
-    if (intval($effort['def'] ?? 0) != intval($info["initial_base_points"]["defense"])) {
-      DB::query("UPDATE pm_data set defn=" . intval($info["initial_base_points"]["defense"]) . " where id={$info["id"]}");
-    }
-    if (intval($effort['spatk'] ?? 0) != intval($info["initial_base_points"]["special_attack"])) {
-      DB::query("UPDATE pm_data set spatkn=" . intval($info["initial_base_points"]["special_attack"]) . " where id={$info["id"]}");
-    }
-    if (intval($effort['spdef'] ?? 0) != intval($info["initial_base_points"]["special_defense"])) {
-      DB::query("UPDATE pm_data set spdefn=" . intval($info["initial_base_points"]["special_defense"]) . " where id={$info["id"]}");
-    }
-    if (intval($effort['spd'] ?? 0) != intval($info["initial_base_points"]["speed"])) {
-      DB::query("UPDATE pm_data set sdn=" . intval($info["initial_base_points"]["speed"]) . " where id={$info["id"]}");
+    $effort = json_decode($query['effort_values'], true);
+    $hpn = intval($info["initial_base_points"]["hit_points"]);
+    $atkn = intval($info["initial_base_points"]["attack"]);
+    $defn = intval($info["initial_base_points"]["defense"]);
+    $spatkn = intval($info["initial_base_points"]["special_attack"]);
+    $spdefn = intval($info["initial_base_points"]["special_defense"]);
+    $sdn = intval($info["initial_base_points"]["speed"]);
+    if (
+      intval($effort['hp'] ?? 0) != $hpn ||
+      intval($effort['atk'] ?? 0) != $atkn ||
+      intval($effort['def'] ?? 0) != $defn ||
+      intval($effort['spatk'] ?? 0) != $spatkn ||
+      intval($effort['spdef'] ?? 0) != $spdefn ||
+      intval($effort['spd'] ?? 0) != $sdn
+    ) {
+      $effort_values = '{"hp":' . intval($hpn) . ',"atk":' . intval($atkn) . ',"def":' . intval($defn) . ',"spatk":' . intval($spatkn) . ',"spdef":' . intval($spdefn) . ',"spd":' . intval($sdn) . '}';
+      DB::query("UPDATE pm_data set effort_values='" . addslashes($effort_values) . "' where id={$info["id"]}");
     }
 
     if (translate_chinese_kind_to_kind_id($query['xs']) != $info["kind"][0]) {
@@ -288,7 +288,7 @@ function set_pokemon_type($info)
       DB::query("UPDATE pm_data set xs2='" . translate_kind_id_to_chinese_kind($info["kind"][1]) . "' where id={$info["id"]}");
     }
     if (boolval($query['is_legendary']) != boolval($info["is_legendary"])) {
-      DB::query("UPDATE pm_data set god=" . (boolval($info["is_legendary"]) ? 1 : 0) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set is_legendary=" . (boolval($info["is_legendary"]) ? 1 : 0) . " where id={$info["id"]}");
     }
 
     $mapid = [];
@@ -410,18 +410,20 @@ function insert_pokemon_type($info)
   $last_id = intval($last_id['id']);
   $new_id = $last_id + 1;
 
+  $effort_values = '{"hp":' . intval($hpn) . ',"atk":' . intval($atkn) . ',"def":' . intval($defn) . ',"spatk":' . intval($spatkn) . ',"spdef":' . intval($spdefn) . ',"spd":' . intval($sdn) . '}';
+  $drop_money = '[' . intval($minmoney) . ',' . intval($maxmoney) . ']';
   DB::query("INSERT INTO pm_data (
-    id, name, txt, money, shop, sex,
-    hp, atk, def, spatk, spdef, sd,
-    hpn, atkn, defn, spatkn, spdefn, sdn,
-    xs, xs2, god, mapid, capture, met,
-    birth, strength, minmoney, maxmoney
+    id, name, description, money, shop, sex,
+    hp, atk, def, spatk, spdef, speed,
+    effort_values,
+    xs, xs2, is_legendary, mapid, capture, met,
+    birth, strength, drop_money
   ) VALUES (
     $new_id, '$name', '$txt', $money, $shop, $sex,
     $hp, $atk, $def, $spatk, $spdef, $sd,
-    $hpn, $atkn, $defn, $spatkn, $spdefn, $sdn,
+    '$effort_values',
     '$xs', '$xs2', $god, '$mapid', $capture, $met,
-    $birth, $strength, $minmoney, $maxmoney
+    $birth, $strength, '$drop_money'
   )");
 
   return $new_id;
@@ -532,7 +534,7 @@ function filter_pokemon_type($list)
         }
         break;
       case '描述':
-        array_push($query_sql_list, generate_filter_sql('txt', $operator, $value, 'text'));
+        array_push($query_sql_list, generate_filter_sql('description', $operator, $value, 'text'));
         break;
       default:
     }

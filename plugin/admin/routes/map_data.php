@@ -107,13 +107,13 @@ function set_map_info($info)
 
     if (boolval($query['is_enabled']) != boolval($info["is_enabled"])) {
       $is_enabled = boolval($info["is_enabled"]) ? 1 : 0;
-      DB::query("UPDATE pm_map set kg={$is_enabled} where id={$info["id"]}");
+      DB::query("UPDATE pm_map set is_enabled={$is_enabled} where id={$info["id"]}");
     }
     if (intval($query['min_level']) != intval($info["min_level"])) {
-      DB::query("UPDATE pm_map set minlevel={$info["min_level"]} where id={$info["id"]}");
+      DB::query("UPDATE pm_map set min_level={$info["min_level"]} where id={$info["id"]}");
     }
     if (intval($query['max_level']) != intval($info["max_level"])) {
-      DB::query("UPDATE pm_map set maxlevel={$info["max_level"]} where id={$info["id"]}");
+      DB::query("UPDATE pm_map set max_level={$info["max_level"]} where id={$info["id"]}");
     }
 
     // 处理地图模式配置
@@ -176,9 +176,9 @@ function set_map_info($info)
 
     // 如果是 Boss 配置，确保 expn 字段可以存储 JSON
     if ($has_boss_config) {
-      $column_info = DB::fetch_first("SHOW COLUMNS FROM pm_map LIKE 'expn'");
+      $column_info = DB::fetch_first("SHOW COLUMNS FROM pm_map LIKE 'boss_config'");
       if ($column_info && strpos($column_info['Type'], 'text') === false && strpos($column_info['Type'], 'varchar') === false) {
-        DB::query("ALTER TABLE pm_map MODIFY COLUMN expn TEXT NOT NULL DEFAULT ''");
+        DB::query("ALTER TABLE pm_map MODIFY COLUMN boss_config TEXT NOT NULL DEFAULT ''");
       }
     }
 
@@ -186,7 +186,7 @@ function set_map_info($info)
     $current_expn = $query['boss_config'];
     if ($current_expn != $new_expn) {
       $new_expn_escaped = addslashes($new_expn);
-      DB::query("UPDATE pm_map set expn='{$new_expn_escaped}' where id={$info["id"]}");
+      DB::query("UPDATE pm_map set boss_config='{$new_expn_escaped}' where id={$info["id"]}");
     }
   } else {
     $json_ret = [];
@@ -290,9 +290,9 @@ function insert_map_info($info)
 
   // 如果是 Boss 配置，确保 expn 字段可以存储 JSON
   if ($has_boss_config) {
-    $column_info = DB::fetch_first("SHOW COLUMNS FROM pm_map LIKE 'expn'");
+    $column_info = DB::fetch_first("SHOW COLUMNS FROM pm_map LIKE 'boss_config'");
     if ($column_info && strpos($column_info['Type'], 'text') === false && strpos($column_info['Type'], 'varchar') === false) {
-      DB::query("ALTER TABLE pm_map MODIFY COLUMN expn TEXT NOT NULL DEFAULT ''");
+      DB::query("ALTER TABLE pm_map MODIFY COLUMN boss_config TEXT NOT NULL DEFAULT ''");
     }
   }
 
@@ -302,7 +302,7 @@ function insert_map_info($info)
 
   $expn_escaped = addslashes($expn);
   DB::query("INSERT INTO pm_map (
-    id, name, site, kg, minlevel, maxlevel, expn
+    id, name, site, is_enabled, min_level, max_level, boss_config
   ) VALUES (
     $new_id, '$name', '$site', $kg, $minlevel, $maxlevel, '$expn_escaped'
   )");
