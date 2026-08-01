@@ -28,6 +28,8 @@ DIST = ROOT / "dist"
 STAGE = DIST / "staging"
 PLUGIN_NAME = "pokemon"
 THEME_NAME = "re_tsdm_newWing"
+VERSION_FILE = ROOT / "VERSION"
+MIGRATIONS_DIR = ROOT / "migrations" / "from-x3"
 
 # wasm-bindgen-cli regenerates *.d.ts next to the JS entry on every build;
 # those are dev-only and never committed.
@@ -103,7 +105,40 @@ REQUIRED_IN_ZIP = [
     "pokemon/wasm/_game.js",
     "pokemon/wasm/_game_bg.wasm",
     "pokemon/wasm/lucide.min.js",
+    "pokemon/migrations/001_x3_to_x5_migration.sql",
 ]
+
+
+def read_version() -> str:
+    if VERSION_FILE.exists():
+        return VERSION_FILE.read_text(encoding="utf-8").strip()
+    return "0.1.0"
+
+
+def bump_patch_version(ver: str) -> str:
+    parts = ver.split(".")
+    if len(parts) != 3:
+        return ver
+    parts[2] = str(int(parts[2]) + 1)
+    return ".".join(parts)
+
+
+def write_version(ver: str):
+    VERSION_FILE.write_text(ver + "\n", encoding="utf-8")
+    for cargo in (ROOT / "rust" / "admin" / "Cargo.toml", ROOT / "rust" / "game" / "Cargo.toml"):
+        if cargo.exists():
+            text = cargo.read_text(encoding="utf-8")
+            text = re.sub(r'^version\s*=\s*"[^"]*"', f'version = "{ver}"', text, count=1, flags=re.MULTILINE)
+            cargo.write_text(text, encoding="utf-8")
+
+
+def git_bump_and_tag(ver: str):
+    run(["git", "add", "VERSION", "rust/admin/Cargo.toml", "rust/game/Cargo.toml"])
+    run(["git", "commit", "-m", f"🔖 Bump version to {ver}."])
+    run(["git", "tag", f"v{ver}"])
+    run(["git", "push"])
+    run(["git", "push", "--tags"])
+    print(f"[publish] version bumped to {ver}, tagged v{ver}, pushed")
 
 
 def default_version() -> str:
@@ -185,6 +220,12 @@ def stage_plugin():
             else:
                 shutil.copy2(entry, dest)
 
+    mig_dest = target / "migrations"
+    mig_dest.mkdir(exist_ok=True)
+    if MIGRATIONS_DIR.exists():
+        for sql in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            shutil.copy2(sql, mig_dest / sql.name)
+
     return target
 
 
@@ -245,15 +286,25 @@ def main():
     parser.add_argument("--skip-build", action="store_true", help="skip the WASM rebuild")
     parser.add_argument("--build-wasm", action="store_true", help="only rebuild the WASM frontends")
     parser.add_argument("--with-theme", action="store_true", help="also package the tsdm_newWing theme")
-    parser.add_argument("--version", help="override the package version (default: manifest version)")
+    parser.add_argument("--version", help="override the package version (default: VERSION file)")
     parser.add_argument("--verify", metavar="ZIP", help="verify a previously built zip instead of building")
+    parser.add_argument("--no-bump", action="store_true", help="skip version bump + git tag after packaging")
+    parser.add_argument("--bump-only", action="store_true", help="only bump version + tag (no build/package)")
     args = parser.parse_args()
 
     if args.verify:
         verify_zip(Path(args.verify))
         return
 
-    version = args.version or default_version()
+    current_version = read_version()
+
+    if args.bump_only:
+        new_ver = bump_patch_version(current_version)
+        write_version(new_ver)
+        git_bump_and_tag(new_ver)
+        return
+
+    version = args.version or current_version
     version_tag = re.sub(r"[^A-Za-z0-9._-]", "-", version)
 
     if args.build_wasm:
@@ -274,6 +325,11 @@ def main():
         print(f"[publish] staged theme at {theme_stage}")
         theme_zip = make_zip(f"{THEME_NAME}-{version_tag}", theme_stage)
         verify_theme(theme_zip)
+
+    if not args.no_bump:
+        new_ver = bump_patch_version(current_version)
+        write_version(new_ver)
+        git_bump_and_tag(new_ver)
 
 
 def verify_theme(zip_path: Path):

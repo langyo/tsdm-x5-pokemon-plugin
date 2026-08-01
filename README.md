@@ -46,18 +46,27 @@ just clean         # 全量清理（含数据卷）
 ## Publishing
 
 `just publish` 会依次：手动构建 WASM 前端（`cargo build --target wasm32-unknown-unknown` +
-`wasm-bindgen-cli`，无需 wasm-pack），剔除开发期文件后组装插件目录，并生成安装包：
+`wasm-bindgen-cli`，无需 wasm-pack），整合 DB 迁移脚本，剔除开发期文件后组装插件目录，
+生成安装包，然后自动 bump patch 版本号、打 git tag 并推送：
 
 ```
 dist/
-└── tsdm-pokemon-X5.0.zip
+└── tsdm-pokemon-<version>.zip
     └── pokemon/                  # 插件目录（与 discuz_plugin_pokemon.json 的 directory 一致）
         ├── discuz_plugin_pokemon.json
         ├── install.php / uninstall.php
         ├── admincp.inc.php / game.inc.php
         ├── api/ admin/ table/ i18n/ images/
+        ├── migrations/           # X3→X5 迁移脚本（供老站升级用）
         └── wasm/                 # 运行时 WASM 资产 + snippets
 ```
+
+版本号由根目录 `VERSION` 文件管理（格式 `MAJOR.MINOR.PATCH`）。每次 `just publish` 后
+patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`，提交
+`🔖 Bump version to X.Y.Z.` 并打 tag `vX.Y.Z` 推送。
+
+可用标志：`--no-bump`（跳过版本 bump）、`--skip-build`（跳过 WASM 重建）、
+`--with-theme`（额外打包主题）、`--bump-only`（仅 bump+tag 不构建）。
 
 在 X5 论坛安装：
 
