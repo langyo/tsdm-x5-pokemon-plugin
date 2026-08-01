@@ -5,12 +5,6 @@ name = "_admin"
 publish = false
 version = "0.1.10"
 
-[package.metadata.wasm-pack]
-wasm-opt = false
-
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = false
-
 build = "build.rs"
 
 [lib]

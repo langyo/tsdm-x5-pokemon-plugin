@@ -45,8 +45,8 @@ just clean         # 全量清理（含数据卷）
 
 ## Publishing
 
-`just publish` 会依次：用 wasm-pack 重新构建 `rust/admin` 与 `rust/game`（Dioxus WASM 前端），
-剔除开发期文件后组装插件目录，并生成安装包：
+`just publish` 会依次：手动构建 WASM 前端（`cargo build --target wasm32-unknown-unknown` +
+`wasm-bindgen-cli`，无需 wasm-pack），剔除开发期文件后组装插件目录，并生成安装包：
 
 ```
 dist/
