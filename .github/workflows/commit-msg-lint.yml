@@ -1,0 +1,70 @@
+# Commit Message Lint — validates the PR title (future squash subject) and
+# every commit in the PR against the gitmoji convention (AGENTS.md §1) using
+# celestia-devtools. Hosted adaptation of the org workflow; the org's reusable
+# workflow is pinned to org self-hosted runners this repo cannot use.
+#
+# Triggers on every PR event that can introduce or edit commits/titles
+# (including synchronize — this job is cheap, unlike the CI build jobs).
+
+name: Commit Message Lint
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: commit-msg-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint PR title and commit subjects
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (full history for commit range)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install celestia-devtools
+        run: pip install git+https://github.com/celestia-island/celestia-devtools.git
+
+      - name: Lint PR title (squash merge subject)
+        if: github.actor != 'dependabot[bot]'
+        env:
+          # Passed via env so a user-controlled title is never interpolated
+          # into shell syntax (quotes, $() and backticks are inert in env).
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -o pipefail
+          [ -n "$(printf '%s' "$PR_TITLE" | tr -d '[:space:]')" ] || { echo "empty PR title"; exit 1; }
+          echo "PR title: $PR_TITLE"
+          printf '%s\n' "$PR_TITLE" | \
+          celestia-devtools commit-msg-lint check --stdin-subjects
+
+      - name: Lint all commits in the PR
+        if: github.actor != 'dependabot[bot]'
+        env:
+          # Passed via env: a branch name must never be interpolated into
+          # shell syntax.
+          BASE_NAME: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -o pipefail
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          # The event snapshot of base.sha can go stale after squash merges
+          # advance the base branch (the old base commit disappears from
+          # history). Resolve the real fork point against the checked-out base
+          # branch, falling back to the event snapshot.
+          BASE_REF="$(git rev-parse --verify -q "origin/${BASE_NAME}" || echo "${{ github.event.pull_request.base.sha }}")"
+          MERGE_BASE="$(git merge-base "$BASE_REF" "$HEAD_SHA" 2>/dev/null || echo "$BASE_REF")"
+          RANGE="${MERGE_BASE}..${HEAD_SHA}"
+          echo "Linting commits in range: $RANGE"
+          git log --format='%s' "$RANGE" | \
+          celestia-devtools commit-msg-lint check --stdin-subjects

@@ -28,9 +28,11 @@ markdown-fmt-check:
     celestia-devtools format-markdown . --check
 
 fmt: markdown-fmt
+    cargo fmt --all
     just --evaluate _devtools > /dev/null
 
 fmt-check: markdown-fmt-check
+    cargo fmt --all -- --check
 
 # ── Rust / WASM ──────────────────────────────────────────────
 

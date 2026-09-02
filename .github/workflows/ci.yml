@@ -1,0 +1,94 @@
+# CI — GitHub-hosted checks for this repository.
+# The Celestia self-hosted runner fleet is org-scoped and cannot serve this
+# personal repo, so everything runs on ubuntu-latest.
+#
+# Trigger policy (see AGENTS.md §8): PR checks fire on open/reopen/ready only —
+# every-push rebuilds waste Actions minutes and PR attention. Re-run manually
+# via workflow_dispatch before merging when needed; pushes to master verify the
+# merge result.
+
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, reopened, ready_for_review]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  markdown:
+    name: Markdown format check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install celestia-devtools
+        run: pip install git+https://github.com/celestia-island/celestia-devtools.git
+
+      - name: Check markdown formatting
+        run: celestia-devtools format-markdown . --check
+
+  php:
+    name: PHP syntax and static tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      # Dev stack runs frankenphp (PHP 8.3); lint with the same major.minor.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Static test suite (schema consistency + php -l over plugin/)
+        run: python3 scripts/test/run.py
+
+  rust:
+    name: Rust fmt / clippy / test
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      # Live-stack integration tests are #[ignore]d and skip here; unit tests
+      # must pass.
+      - name: test
+        run: cargo test --workspace
