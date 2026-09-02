@@ -8,8 +8,7 @@ use crate::{
     state::{
         refresh_pokemon_list, show_error, show_success, start_global_loading, stop_global_loading,
         update_pokemon_hp, use_battle_state, use_pokemon_state, MyPokemonTab, SelectedItem,
-        EQUIPMENT_BONUSES, MY_POKEMON_TAB, POKEMON_STATE, SELECTED_ITEM,
-        SELECTED_POKEMON_INDEX,
+        EQUIPMENT_BONUSES, MY_POKEMON_TAB, POKEMON_STATE, SELECTED_ITEM, SELECTED_POKEMON_INDEX,
     },
     utils::{
         api_client::NewApiClient,
@@ -120,11 +119,7 @@ pub fn MyPokemon() -> Element {
         let pm = selected_id
             .and_then(|id| state.list.iter().find(|p| p.id == id).cloned())
             .or_else(|| state.get_first_pokemon().cloned());
-        (
-            state.loading,
-            state.error.clone(),
-            pm,
-        )
+        (state.loading, state.error.clone(), pm)
     };
 
     rsx! {
@@ -2044,10 +2039,7 @@ enum EvoPathTab {
 }
 
 #[component]
-fn EvolutionPathModal(
-    pokemon_type_id: u64,
-    on_close: EventHandler<()>,
-) -> Element {
+fn EvolutionPathModal(pokemon_type_id: u64, on_close: EventHandler<()>) -> Element {
     let mut active_evo_tab = use_signal(|| EvoPathTab::Forward);
 
     let evo_data = use_resource(move || async move {
@@ -2057,7 +2049,11 @@ fn EvolutionPathModal(
             .map_err(|e| format!("查询失败: {}", e))
     });
 
-    let loaded = evo_data.read().as_ref().and_then(|r| r.as_ref().ok()).cloned();
+    let loaded = evo_data
+        .read()
+        .as_ref()
+        .and_then(|r| r.as_ref().ok())
+        .cloned();
 
     rsx! {
         Modal {

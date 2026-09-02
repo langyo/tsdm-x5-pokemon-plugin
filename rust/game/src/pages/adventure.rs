@@ -6,14 +6,16 @@ use crate::{
     pages::BattlePage,
     state::{
         clear_battle_scene, refresh_inventory_state, refresh_pokemon_list,
-        refresh_user_profile_state, set_battle_scene, show_error, use_pokemon_state,
-        BATTLE_STATE, POKEMON_STATE,
+        refresh_user_profile_state, set_battle_scene, show_error, use_pokemon_state, BATTLE_STATE,
+        POKEMON_STATE,
     },
     utils::api_client::NewApiClient,
 };
 use _utils::types::{
-    api_map::MapInfo, api_map_region::MapRegion,
-    api_pokemon::{ApiResponse as PokemonApiResponse, PokemonBasic}, api_user::InventoryItem,
+    api_map::MapInfo,
+    api_map_region::MapRegion,
+    api_pokemon::{ApiResponse as PokemonApiResponse, PokemonBasic},
+    api_user::InventoryItem,
 };
 
 #[component]
@@ -32,7 +34,8 @@ pub fn Adventure() -> Element {
     let mut battle_items = use_signal(Vec::<InventoryItem>::new);
     let mut battle_balls = use_signal(Vec::<InventoryItem>::new);
 
-    let mut skill_selection_mode = use_signal(|| None::<(u64, String, Vec<_utils::types::api_battle::BattleSkill>)>);
+    let mut skill_selection_mode =
+        use_signal(|| None::<(u64, String, Vec<_utils::types::api_battle::BattleSkill>)>);
 
     let _resource = use_resource(move || async move {
         let api = NewApiClient::new();
@@ -193,7 +196,9 @@ pub fn Adventure() -> Element {
             match api.use_item_on_skill(item_id, skill_id).await {
                 Ok(scene) => {
                     skill_selection_mode.set(None);
-                    message_log.write().push("对技能使用了PP恢复道具！".to_string());
+                    message_log
+                        .write()
+                        .push("对技能使用了PP恢复道具！".to_string());
 
                     let api2 = NewApiClient::new();
                     if let Ok(data) = api2.get_battle_items().await {
@@ -222,11 +227,18 @@ pub fn Adventure() -> Element {
 
             match api.use_item_in_battle_raw(item_id).await {
                 Ok(response_text) => {
-                    if let Ok(skill_resp) = serde_json::from_str::<PokemonApiResponse<_utils::types::api_battle::SkillSelectionResponse>>(&response_text) {
+                    if let Ok(skill_resp) = serde_json::from_str::<
+                        PokemonApiResponse<_utils::types::api_battle::SkillSelectionResponse>,
+                    >(&response_text)
+                    {
                         if skill_resp.success {
                             if let Some(data) = skill_resp.data {
                                 if data.requires_skill_selection {
-                                    skill_selection_mode.set(Some((data.item_id, data.item_name, data.available_skills)));
+                                    skill_selection_mode.set(Some((
+                                        data.item_id,
+                                        data.item_name,
+                                        data.available_skills,
+                                    )));
                                     loading.set(false);
                                     return;
                                 }
@@ -493,14 +505,28 @@ pub fn Adventure() -> Element {
         .unwrap_or_default();
     let modal_is_open = selected_map_clone.is_some();
 
-    let (pokemon_list_empty, pokemon_list_for_recommendation, current_battle_scene, can_continue_battle, last_map_id) = {
+    let (
+        pokemon_list_empty,
+        pokemon_list_for_recommendation,
+        current_battle_scene,
+        can_continue_battle,
+        last_map_id,
+    ) = {
         let ps = POKEMON_STATE.read();
         let bs = BATTLE_STATE.read();
         let scene = bs.scene.as_ref();
-        let is_victory = scene.map(|s| s.status == _utils::types::api_battle::BattleStatus::Victory).unwrap_or(false);
+        let is_victory = scene
+            .map(|s| s.status == _utils::types::api_battle::BattleStatus::Victory)
+            .unwrap_or(false);
         let my_pokemon_alive = scene.map(|s| s.my_pokemon.hp > 0).unwrap_or(false);
         let map_id = scene.map(|s| s.map_id).unwrap_or(0);
-        (ps.list.is_empty(), ps.list.clone(), bs.scene.clone(), is_victory && my_pokemon_alive, map_id)
+        (
+            ps.list.is_empty(),
+            ps.list.clone(),
+            bs.scene.clone(),
+            is_victory && my_pokemon_alive,
+            map_id,
+        )
     };
 
     let mut continue_battle = move |_| {

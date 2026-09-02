@@ -437,9 +437,7 @@ fn get_admin_endpoint() -> Result<String> {
         Ok(value) => value
             .as_string()
             .ok_or_else(|| anyhow!("获取后台接口地址失败")),
-        Err(error) => {
-            Err(anyhow!("获取后台接口地址失败"))
-        }
+        Err(error) => Err(anyhow!("获取后台接口地址失败")),
     }
 }
 

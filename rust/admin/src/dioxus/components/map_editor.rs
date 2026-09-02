@@ -38,7 +38,6 @@ enum MapPetTab {
     Boss,
 }
 
-
 /// 获取当前区域类型的代码
 fn map_area_type_code(map_area_type: &MapAreaType) -> String {
     match map_area_type {
@@ -145,7 +144,12 @@ pub fn MapInfoEditorModal(
 
     // 地图宠物标签页：根据是否有 Boss 配置来决定默认标签页
     let mut map_pet_tab = use_signal(|| {
-        if draft.read().mode.get_boss_config().map_or(true, |config| config.bosses.is_empty()) {
+        if draft
+            .read()
+            .mode
+            .get_boss_config()
+            .map_or(true, |config| config.bosses.is_empty())
+        {
             MapPetTab::Wild
         } else {
             MapPetTab::Boss

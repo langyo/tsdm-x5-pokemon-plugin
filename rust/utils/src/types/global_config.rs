@@ -1,5 +1,5 @@
-use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 use crate::types::api_config::NewsAnnouncement;
+use serde::{de::Error as DeError, Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -81,7 +81,9 @@ where
 }
 
 /// 反序列化 news_announcements - 支持数组或 JSON 字符串
-fn deserialize_news_announcements<'de, D>(deserializer: D) -> Result<Vec<NewsAnnouncement>, D::Error>
+fn deserialize_news_announcements<'de, D>(
+    deserializer: D,
+) -> Result<Vec<NewsAnnouncement>, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -99,7 +101,8 @@ where
         NewsAnnouncementsValue::String(s) => {
             // 尝试解析 JSON 字符串
             if let Ok(Value::Array(arr)) = serde_json::from_str::<Value>(&s) {
-                let result: Vec<NewsAnnouncement> = arr.into_iter()
+                let result: Vec<NewsAnnouncement> = arr
+                    .into_iter()
                     .filter_map(|v| serde_json::from_value::<NewsAnnouncement>(v).ok())
                     .collect();
                 Ok(result)
@@ -112,7 +115,10 @@ where
 }
 
 /// 序列化 news_announcements - 直接序列化为数组
-fn serialize_news_announcements<S>(value: &Vec<NewsAnnouncement>, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_news_announcements<S>(
+    value: &Vec<NewsAnnouncement>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

@@ -17,7 +17,8 @@ mod integration_tests {
             }
         }
 
-        let resp = client.post(API)
+        let resp = client
+            .post(API)
             .json(&body)
             .send()
             .await
@@ -25,13 +26,17 @@ mod integration_tests {
 
         let text = resp.text().await.map_err(|e| e.to_string())?;
 
-        serde_json::from_str(&text).map_err(|e| format!("JSON parse: {} — raw: {}", e, &text[..200.min(text.len())]))
+        serde_json::from_str(&text)
+            .map_err(|e| format!("JSON parse: {} — raw: {}", e, &text[..200.min(text.len())]))
     }
 
     async fn check(action: &str, extra: &[(&str, &str)]) -> bool {
         match admin_api(action, extra).await {
             Ok(v) => v.get("success").and_then(|s| s.as_bool()).unwrap_or(false),
-            Err(e) => { eprintln!("  ERR: {e}"); false }
+            Err(e) => {
+                eprintln!("  ERR: {e}");
+                false
+            }
         }
     }
 
@@ -39,12 +44,18 @@ mod integration_tests {
     #[tokio::test]
     async fn test_admin_crud_endpoints() {
         let tests = vec![
-            "count::pokemon_type", "list::pokemon_type",
-            "count::item_type", "list::item_type",
-            "count::map_info", "list::map_info",
-            "count::evolution_info", "list::evolution_info",
-            "count::skill_type", "list::skill_type",
-            "list::global_config", "count::user_info",
+            "count::pokemon_type",
+            "list::pokemon_type",
+            "count::item_type",
+            "list::item_type",
+            "count::map_info",
+            "list::map_info",
+            "count::evolution_info",
+            "list::evolution_info",
+            "count::skill_type",
+            "list::skill_type",
+            "list::global_config",
+            "count::user_info",
         ];
 
         for action in &tests {
@@ -57,14 +68,22 @@ mod integration_tests {
     #[ignore = "requires local dev stack (just up) on localhost:8443"]
     #[tokio::test]
     async fn test_pokemon_info_endpoint() {
-        let ok = check("list::pokemon_info", &[("uid", "1"), ("from", "0"), ("count", "5")]).await;
+        let ok = check(
+            "list::pokemon_info",
+            &[("uid", "1"), ("from", "0"), ("count", "5")],
+        )
+        .await;
         assert!(ok, "pokemon_info failed");
     }
 
     #[ignore = "requires local dev stack (just up) on localhost:8443"]
     #[tokio::test]
     async fn test_item_info_endpoint() {
-        let ok = check("list::item_info", &[("uid", "1"), ("from", "0"), ("count", "5")]).await;
+        let ok = check(
+            "list::item_info",
+            &[("uid", "1"), ("from", "0"), ("count", "5")],
+        )
+        .await;
         assert!(ok, "item_info failed");
     }
 }

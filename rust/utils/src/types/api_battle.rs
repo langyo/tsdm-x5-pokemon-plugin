@@ -127,7 +127,7 @@ impl<'de> Deserialize<'de> for BattleScene {
 pub struct BattlePokemon {
     pub id: u64,
     #[serde(default)]
-    pub instance_id: u64,  // 数据库唯一 ID (pm_mypm.id)
+    pub instance_id: u64, // 数据库唯一 ID (pm_mypm.id)
     pub name: String,
     pub level: u64,
     pub hp: i64,

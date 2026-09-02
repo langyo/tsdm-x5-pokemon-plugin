@@ -7,7 +7,11 @@ use _utils::types::api_config::NewsAnnouncement;
 #[derive(Clone, Debug, PartialEq)]
 enum DisplayItem {
     News(NewsAnnouncement),
-    Topic { id: u64, title: String, is_pinned: bool },
+    Topic {
+        id: u64,
+        title: String,
+        is_pinned: bool,
+    },
 }
 
 #[component]

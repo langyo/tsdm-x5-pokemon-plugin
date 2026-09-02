@@ -164,10 +164,10 @@ pub fn BattlePage(
     });
 
     // 始终显示战斗界面，通过 modal 处理所有战斗事件
-        let is_battle_end = battle_event
-            .read()
-            .as_ref()
-            .is_some_and(|e| matches!(e, BattleEvent::BattleEnd));
+    let is_battle_end = battle_event
+        .read()
+        .as_ref()
+        .is_some_and(|e| matches!(e, BattleEvent::BattleEnd));
     rsx! {
         div { class: "page-battle",
             div { class: "battle-card",

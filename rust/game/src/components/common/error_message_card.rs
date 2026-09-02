@@ -37,7 +37,8 @@ pub fn ErrorMessageCard(props: ErrorMessageCardProps) -> Element {
                         document.body.removeChild(ta);
                     }}
                 }})();"#,
-                serde_json::to_string(&msg).unwrap_or_else(|_| format!("\"{}\"", msg.replace('"', "\\\"")))
+                serde_json::to_string(&msg)
+                    .unwrap_or_else(|_| format!("\"{}\"", msg.replace('"', "\\\"")))
             );
             if js_sys::eval(&js_code).is_ok() {
                 copied.set(true);

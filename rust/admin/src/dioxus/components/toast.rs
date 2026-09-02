@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
+use std::collections::HashSet;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsCast;
-use std::collections::HashSet;
 
 use crate::dioxus::{
     components::icon::{Icon, IconName},

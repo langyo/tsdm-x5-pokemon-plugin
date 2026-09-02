@@ -15,8 +15,7 @@ impl WebHandle {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-        if let Err(e) = console_log::init_with_level(log::Level::Debug) {
-        }
+        if let Err(e) = console_log::init_with_level(log::Level::Debug) {}
         Self {}
     }
 

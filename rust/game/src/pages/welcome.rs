@@ -13,7 +13,6 @@ pub fn Welcome() -> Element {
             initializing.set(true);
             error_message.set(None);
 
-
             let api = NewApiClient::new();
             match api.initialize_player().await {
                 Ok(response) => {

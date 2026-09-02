@@ -21,9 +21,7 @@ pub fn use_shop(
     })
 }
 
-pub fn use_shop_pets(
-    current_page: Signal<u32>,
-) -> Resource<Result<ShopPetListResponse, String>> {
+pub fn use_shop_pets(current_page: Signal<u32>) -> Resource<Result<ShopPetListResponse, String>> {
     use_resource(move || async move {
         let api = NewApiClient::new();
         let page = *current_page.read();

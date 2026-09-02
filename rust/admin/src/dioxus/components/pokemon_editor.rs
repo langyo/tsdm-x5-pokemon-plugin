@@ -54,12 +54,8 @@ fn format_evolution_condition(evo: &EvolutionInfo) -> String {
         _utils::types::evolution_info::EvolutionLimitType::CompareAttackAndDefense(_) => {
             " (攻防比较)".to_string()
         }
-        _utils::types::evolution_info::EvolutionLimitType::Random(_) => {
-            " (随机)".to_string()
-        }
-        _utils::types::evolution_info::EvolutionLimitType::Sex(_) => {
-            " (性别)".to_string()
-        }
+        _utils::types::evolution_info::EvolutionLimitType::Random(_) => " (随机)".to_string(),
+        _utils::types::evolution_info::EvolutionLimitType::Sex(_) => " (性别)".to_string(),
         _utils::types::evolution_info::EvolutionLimitType::IsBagHaveChairs(_) => {
             " (背包空位)".to_string()
         }

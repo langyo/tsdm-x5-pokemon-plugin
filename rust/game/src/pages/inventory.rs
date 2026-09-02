@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::{
     components::{
         common::Modal,
-        layout::{INITIAL_INVENTORY_CATEGORY, Page, CURRENT_PAGE, IMG_PATH},
+        layout::{Page, CURRENT_PAGE, IMG_PATH, INITIAL_INVENTORY_CATEGORY},
     },
     state::{refresh_inventory_state, show_error, show_success, show_warning, use_battle_state},
     utils::api_client::NewApiClient,

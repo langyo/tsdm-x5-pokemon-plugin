@@ -7,9 +7,7 @@ use crate::{
     config::{CARGO_VERSION, UI_FRAMEWORK},
     dioxus::{
         components::{
-            form_fields::NewsAnnouncementsField,
-            icon::IconName,
-            icon_button::IconButton,
+            form_fields::NewsAnnouncementsField, icon::IconName, icon_button::IconButton,
             json_panel::JsonPanel,
         },
         pages::shared::ActionModal,

@@ -17,9 +17,9 @@ use crate::dioxus::{
         ADMIN_POKEMON_DATA, ADMIN_USER_DATA,
     },
     utils::api::{
-        count_user_info, delete_item_info, delete_pokemon_info, filter_user_info,
-        list_item_info, list_item_type, list_pokemon_info, list_pokemon_type, list_user_info,
-        set_item_info, set_pokemon_info, set_user_info,
+        count_user_info, delete_item_info, delete_pokemon_info, filter_user_info, list_item_info,
+        list_item_type, list_pokemon_info, list_pokemon_type, list_user_info, set_item_info,
+        set_pokemon_info, set_user_info,
     },
 };
 use _utils::types::{
@@ -882,7 +882,10 @@ fn save_user_meta(uid: u64, mut data: UserInfo) {
                 reload_users();
             }
             Err(error) => {
-                set_notice(AdminNoticeLevel::Error, format!("保存用户信息失败: {}", error));
+                set_notice(
+                    AdminNoticeLevel::Error,
+                    format!("保存用户信息失败: {}", error),
+                );
             }
         }
 

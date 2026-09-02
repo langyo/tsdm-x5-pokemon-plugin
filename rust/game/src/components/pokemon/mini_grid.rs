@@ -150,7 +150,9 @@ fn PokemonTooltip(pokemon: MiniPokemonInfo, hp_class: String) -> Element {
 
     // EXP 计算：当前等级内的经验 / 当前等级总经验需求
     let exp_in_current_level = pokemon.exp.saturating_sub(pokemon.exp_for_current_level);
-    let exp_needed = pokemon.exp_for_next_level.saturating_sub(pokemon.exp_for_current_level);
+    let exp_needed = pokemon
+        .exp_for_next_level
+        .saturating_sub(pokemon.exp_for_current_level);
     let exp_pct = if exp_needed > 0 {
         (exp_in_current_level as f64 / exp_needed as f64 * 100.0).min(100.0) as u64
     } else {

@@ -9,16 +9,23 @@ use serde::{Deserialize, Serialize};
 use gloo_net::http::Request;
 
 // 导入API类型
-use _utils::types::api_battle::{BattleScene, FleeRequest, StartBattleRequest, UseItemOnSkillRequest, UseSkillRequest};
+use _utils::types::api_battle::{
+    BattleScene, FleeRequest, StartBattleRequest, UseItemOnSkillRequest, UseSkillRequest,
+};
 use _utils::types::api_config::{GlobalConfigData, GlobalConfigResponse};
-use _utils::types::api_evolution::{EvolutionCheckResponse, EvolutionPathResponse, EvolutionRequest, EvolutionResponse};
+use _utils::types::api_evolution::{
+    EvolutionCheckResponse, EvolutionPathResponse, EvolutionRequest, EvolutionResponse,
+};
 use _utils::types::api_map::MapsResponse;
 use _utils::types::api_pokemon::{
     ApiResponse as PokemonApiResponse, EquipItemRequest, EquipItemResponse, EquipmentResponse,
     LearnSkillRequest, LearnSkillResponse, LearnableSkillsResponse, PokemonDetail, ReleaseRequest,
     RenameRequest, UnequipItemRequest, UnequipItemResponse, UpdateStateResponse,
 };
-use _utils::types::api_shop::{BuyItemRequest, BuyItemResponse, BuyPetRequest, BuyPetResponse, ShopListResponse, ShopPetListResponse};
+use _utils::types::api_shop::{
+    BuyItemRequest, BuyItemResponse, BuyPetRequest, BuyPetResponse, ShopListResponse,
+    ShopPetListResponse,
+};
 use _utils::types::api_topics::TopicsResponse;
 use _utils::types::api_user::{
     InitializePlayerResponse, InventoryResponse, InventoryStatsResponse, OnlinePlayersResponse,
@@ -617,7 +624,11 @@ impl NewApiClient {
     }
 
     /// 在战斗中切换宠物（指定宠物 ID）
-    pub async fn switch_pokemon_with_id(&self, battle_id: &str, pokemon_id: Option<u64>) -> Result<BattleScene> {
+    pub async fn switch_pokemon_with_id(
+        &self,
+        battle_id: &str,
+        pokemon_id: Option<u64>,
+    ) -> Result<BattleScene> {
         let url = format!("{}&endpoint=battle&action=switch_pokemon", self.base_url);
         let mut body_json = serde_json::json!({
             "battle_id": battle_id,
@@ -1095,10 +1106,7 @@ impl NewApiClient {
     }
 
     pub async fn get_shop_pets(&self, page: u32) -> Result<ShopPetListResponse> {
-        let url = format!(
-            "{}&endpoint=shop&action=pets&page={}",
-            self.base_url, page
-        );
+        let url = format!("{}&endpoint=shop&action=pets&page={}", self.base_url, page);
 
         let response = Request::get(&url)
             .send()
@@ -1274,10 +1282,7 @@ impl NewApiClient {
             if let Some(ref _data) = result.data {}
             result.data.ok_or_else(|| anyhow!("No data returned"))
         } else {
-            let error_msg = result
-                .error
-                .as_deref()
-                .unwrap_or("Unknown error");
+            let error_msg = result.error.as_deref().unwrap_or("Unknown error");
             Err(anyhow!("API error: {}", error_msg))
         }
     }
@@ -1641,7 +1646,13 @@ impl NewApiClient {
             .map_err(|e| anyhow!("Read error: {}", e))?;
 
         let result: PokemonApiResponse<serde_json::Value> = serde_json::from_str(&response_text)
-            .map_err(|e| anyhow!("Parse error: {} | Response: {}", e, response_text.chars().take(200).collect::<String>()))?;
+            .map_err(|e| {
+                anyhow!(
+                    "Parse error: {} | Response: {}",
+                    e,
+                    response_text.chars().take(200).collect::<String>()
+                )
+            })?;
 
         if result.success {
             Ok(())
