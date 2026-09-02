@@ -56,17 +56,19 @@ already conveys the change type — never repeat it as a `type:` prefix.
 
 ### PR Title (becomes the squash merge commit)
 
-PR titles follow the exact same rule as commit summaries, plus the PR number at
-the end:
+PR titles follow the exact same rule as commit summaries — **without** any PR
+number suffix:
 
 ```
-<gitmoji> <Capitalized English summary.> (#<PR_ID>)
+<gitmoji> <Capitalized English summary.>
 ```
 
-Example: `✨ Add evolution chain data table. (#42)`
+Example: `✨ Add evolution chain data table.`
 
-GitHub appends ` (#N)` automatically when squashing if the title does not
-already contain it; the linter tolerates both forms.
+GitHub appends ` (#N)` automatically when squashing (repo setting: commit-or-PR
+title). Never write the number yourself — a manual `(#N)` produces a doubled
+`(#N) (#N)` subject (observed in #17). The linter tolerates both forms, but
+the convention is: no number in the title.
 
 ### Exemptions
 

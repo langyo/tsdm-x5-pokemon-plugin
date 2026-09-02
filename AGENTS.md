@@ -79,8 +79,10 @@ Every change — human or agent — lands through this exact pattern:
 3. **Commit** with the gitmoji message format (§1).
 4. **Push** the branch.
 5. **Create the PR** via `gh pr create`. The PR title follows the exact same
-   rule as a commit subject (`<gitmoji> <one-sentence description.>`); append
-   the `(#<PR_ID>)` suffix once the number is known (repo convention).
+   rule as a commit subject (`<gitmoji> <one-sentence description.>`) —
+   **without** any `(#<PR_ID>)` suffix: GitHub appends the number automatically
+   when squashing (repo setting: commit-or-PR title), and a manually added
+   number doubles it (see the `(#17) (#17)` subject of #17).
 6. **Squash merge** (autonomous per §6). Never use a merge commit or rebase
    merge through the UI/API — squash only, even though the repo settings permit
    the other styles.
