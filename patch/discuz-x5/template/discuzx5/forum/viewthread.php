@@ -493,5 +493,4 @@ fixed_avatar([<!--{echo implode(',', array_keys($postlist))}-->], {if empty($_G[
 fixed_top_nv();
 <!--{/if}-->
 </script>
-<?php @include(DISCUZ_ROOT.'./source/plugin/pokemon/api/badge_js.php'); ?>
 <!--{template common/footer}-->

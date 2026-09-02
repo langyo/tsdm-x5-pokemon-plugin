@@ -1,7 +1,7 @@
 -- Register Pokemon plugin
 INSERT IGNORE INTO pre_common_plugin (available, adminid, name, identifier, description, directory, copyright, version, modules) 
-VALUES (1, 1, 'TSDM Pokemon', 'pokemon', 'TSDM Pokemon Plugin', 'pokemon/', 'TSDM.net', 'X5.0', 
-  'a:2:{i:0;a:5:{s:4:"name";s:4:"game";s:4:"menu";s:12:"pet center";s:3:"url";s:0:"";s:4:"type";s:1:"7";s:12:"displayorder";s:1:"0";}i:1;a:5:{s:4:"name";s:7:"admincp";s:4:"menu";s:5:"admin";s:3:"url";s:0:"";s:4:"type";s:1:"3";s:12:"displayorder";s:1:"0";}}'
+VALUES (1, 1, 'TSDM Pokemon', 'pokemon', 'TSDM Pokemon Plugin', 'pokemon/', 'TSDM.net', 'X5.1', 
+  'a:6:{i:0;a:5:{s:4:"name";s:4:"game";s:4:"menu";s:12:"宠物中心";s:3:"url";s:26:"plugin.php?id=pokemon:game";s:4:"type";s:1:"7";s:12:"displayorder";s:1:"0";}i:1;a:5:{s:4:"name";s:7:"refresh";s:4:"menu";s:0:"";s:3:"url";s:0:"";s:4:"type";s:1:"7";s:12:"displayorder";s:1:"0";}i:2;a:5:{s:4:"name";s:5:"badge";s:4:"menu";s:0:"";s:3:"url";s:0:"";s:4:"type";s:2:"10";s:12:"displayorder";s:1:"0";}i:3;a:5:{s:4:"name";s:7:"pokemon";s:4:"menu";s:0:"";s:3:"url";s:0:"";s:4:"type";s:2:"11";s:12:"displayorder";s:1:"0";}i:4;a:5:{s:4:"name";s:7:"postspm";s:4:"menu";s:0:"";s:3:"url";s:0:"";s:4:"type";s:2:"11";s:12:"displayorder";s:1:"0";}i:5;a:5:{s:4:"name";s:7:"admincp";s:4:"menu";s:12:"宠物管理";s:3:"url";s:0:"";s:4:"type";s:1:"3";s:12:"displayorder";s:1:"0";}}'
 );
 
 INSERT IGNORE INTO pre_common_pluginvar (pluginid, displayorder, title, description, variable, type, value, extra)
@@ -22,6 +22,10 @@ FROM pre_common_plugin WHERE identifier='pokemon';
 
 INSERT IGNORE INTO pre_common_pluginvar (pluginid, displayorder, title, description, variable, type, value, extra)
 SELECT pluginid, 5, 'Enable PVP', 'Allow player vs player battles', 'is_enable_pvp', 'radio', '1', ''
+FROM pre_common_plugin WHERE identifier='pokemon';
+
+INSERT IGNORE INTO pre_common_pluginvar (pluginid, displayorder, title, description, variable, type, value, extra)
+SELECT pluginid, 6, 'Show Pet Badge In Posts', 'Show the pet badge under the author medal wall in posts', 'pmpostsshow', 'radio', '1', ''
 FROM pre_common_plugin WHERE identifier='pokemon';
 
 -- Add pokemon badge column

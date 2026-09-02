@@ -10,7 +10,7 @@
       "datatables": "pm_usersdata,pm_data,pm_mypm,pm_itemdata,pm_myitem,pm_config,pm_map,pm_skill,pm_myskill,pm_box,pm_evolution,pm_battle_log,pm_pc",
       "directory": "pokemon/",
       "copyright": "TSDM.net",
-      "version": "X5.0",
+      "version": "X5.1",
       "__modules": [
         {
           "name": "game",
@@ -45,6 +45,14 @@
           "displayorder": "0"
         },
         {
+          "name": "postspm",
+          "menu": "",
+          "url": "",
+          "type": "11",
+          "adminid": "0",
+          "displayorder": "0"
+        },
+        {
           "name": "admincp",
           "menu": "宠物管理",
           "url": "",
@@ -54,7 +62,7 @@
         }
       ]
     },
-    "version": "X5.0",
+    "version": "X5.1",
     "var": [
       {
         "displayorder": "1",
@@ -97,6 +105,15 @@
         "title": "是否启用PVP对战",
         "description": "控制是否允许玩家之间进行对战",
         "variable": "is_enable_pvp",
+        "type": "radio",
+        "value": "1",
+        "extra": ""
+      },
+      {
+        "displayorder": "6",
+        "title": "帖子页显示宠物徽章",
+        "description": "在帖子作者信息栏勋章下方展示玩家的宠物",
+        "variable": "pmpostsshow",
         "type": "radio",
         "value": "1",
         "extra": ""

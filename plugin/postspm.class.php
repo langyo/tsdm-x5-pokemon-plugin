@@ -11,34 +11,55 @@ class plugin_pokemon_forum
 
     private static function pet_img_url($pet)
     {
-        return "source/plugin/pokemon/images/pm/{$pet['species_id']}.png";
+        $species = self::pet_species($pet);
+        return "source/plugin/pokemon/images/pm/{$species}.png";
     }
 
-    private static function pet_small_url($species_id)
+    private static function pet_small_url($pet)
     {
-        return "source/plugin/pokemon/images/spm/$species_id.gif";
+        $species = self::pet_species($pet);
+        return "source/plugin/pokemon/images/spm/{$species}.gif";
+    }
+
+    // 兼容两种数据形态：X5 刷新徽章写入的 species_id/nickname，
+    // 以及 X3 历史数据遗留的 pmno/nowname。
+    private static function pet_species($pet)
+    {
+        return intval($pet['species_id'] ?? $pet['pmno'] ?? 0);
+    }
+
+    private static function pet_name($pet)
+    {
+        return (string)($pet['nickname'] ?? $pet['nowname'] ?? '');
+    }
+
+    private static function pet_level($pet)
+    {
+        return intval($pet['level'] ?? 0);
     }
 
     private static function first_pet_html($pet)
     {
         $img_url = self::pet_img_url($pet);
+        $name = self::pet_name($pet);
+        $level = self::pet_level($pet);
         $href = "plugin.php?id=pokemon:game";
         return <<<HTML
 <div style="padding:6px 0;text-align:center">
   <a href="$href" target="_blank">
     <img src="$img_url" style="width:auto;height:80px;padding:0 24px;" border="0">
   </a>
-  <div style="margin-top:2px;font-size:12px">{$pet['nickname']} Lv.{$pet['level']}</div>
+  <div style="margin-top:2px;font-size:12px">$name Lv.$level</div>
 </div>
 HTML;
     }
 
     private static function creep_pet_html($pet)
     {
-        $href = "plugin.php?id=pokemon:pokemon&index=ajax_pm&petid={$pet['id']}&action=show&cshu=2";
+        $src = self::pet_small_url($pet);
+        $title = htmlspecialchars(self::pet_name($pet) . ' Lv:' . self::pet_level($pet), ENT_QUOTES);
+        $href = "plugin.php?id=pokemon:pokemon&index=ajax_pm&petid=" . intval($pet['id'] ?? 0) . "&action=show&cshu=2";
         $onclick = "showWindow('pokemon',this.href);return false;";
-        $src = self::pet_small_url($pet['species_id']);
-        $title = htmlspecialchars("{$pet['nickname']} Lv:{$pet['level']}");
         return <<<HTML
 <a href="$href" onclick="$onclick"><img src="$src" title="$title" border="0"></a>
 HTML;
@@ -73,18 +94,26 @@ HTML;
                 continue;
             }
             $data = dunserialize($data);
+            if (!is_array($data)) {
+                continue;
+            }
             $html = '';
-            $first = $data['first'];
-            if ($first) {
+            $first = $data['first'] ?? null;
+            if (is_array($first) && self::pet_species($first)) {
                 $html = self::first_pet_html($first);
             }
-            $creeps = $data['creeps'];
-            if ($creeps) {
-                $html .= '<div style="text-align:center">';
+            $creeps = $data['creeps'] ?? null;
+            if (is_array($creeps)) {
+                $creeps_html = '';
                 foreach ($creeps as $pet) {
-                    $html .= self::creep_pet_html($pet) . ' ';
+                    if (!is_array($pet) || !self::pet_species($pet)) {
+                        continue;
+                    }
+                    $creeps_html .= self::creep_pet_html($pet) . ' ';
                 }
-                $html .= '</div>';
+                if ($creeps_html !== '') {
+                    $html .= '<div style="text-align:center">' . $creeps_html . '</div>';
+                }
             }
             if ($html) {
                 $badge[$uid] = $html;
