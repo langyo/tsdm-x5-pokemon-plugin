@@ -1280,7 +1280,7 @@ CREATE TABLE `pre_common_member` (
 LOCK TABLES `pre_common_member` WRITE;
 /*!40000 ALTER TABLE `pre_common_member` DISABLE KEYS */;
 INSERT INTO `pre_common_member` VALUES
-(1,'admin@admin.com','admin','admin','699e862860ba1ee1f3503bf657b2f892','','',0,0,0,0,1,1,0,'',1784453715,0,0,'9999',0,0,0,1,0,0,0);
+(1,'admin@admin.com','admin','admin','0c909a141f1f2c0a1cb602b0b2d7d050','','',0,0,0,0,1,1,0,'',1784453715,0,0,'9999',0,0,0,1,0,0,0);
 /*!40000 ALTER TABLE `pre_common_member` ENABLE KEYS */;
 UNLOCK TABLES;
 DROP TABLE IF EXISTS `pre_common_member_account`;

@@ -141,11 +141,9 @@ just up
 
 ## Database Migrations
 
-Migration scripts live in `migrations/from-x3/`. They are designed to be run
-sequentially:
+Migration scripts live in `migrations/from-x3/`:
 
-1. `001_x3_to_x5_migration.sql` — engine/charset upgrade, new tables
-2. `002_cleanup_deprecated_fields.sql` — drop deprecated columns
-3. `003_restructure_tables.sql` — data normalization and index rebuild
+1. `001_x3_to_x5_migration.sql` — engine/charset upgrade, table normalization
+   (idempotent; safe to re-run)
 
 Always back up the database before running migration scripts.
