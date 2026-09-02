@@ -45,7 +45,6 @@ pub fn Home() -> Element {
                     is_pinned: topic.is_pinned,
                 });
             }
-        } else {
         }
 
         items

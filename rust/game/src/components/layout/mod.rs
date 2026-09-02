@@ -52,10 +52,7 @@ fn get_layout_mode(page: Page) -> LayoutMode {
 }
 
 fn should_show_sidebar(page: Page) -> bool {
-    match page {
-        Page::Home => false,
-        _ => true,
-    }
+    !matches!(page, Page::Home)
 }
 
 #[component]

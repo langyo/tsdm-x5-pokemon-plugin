@@ -1276,8 +1276,7 @@ impl NewApiClient {
         } else {
             let error_msg = result
                 .error
-                .as_ref()
-                .map(|s| s.as_str())
+                .as_deref()
                 .unwrap_or("Unknown error");
             Err(anyhow!("API error: {}", error_msg))
         }
@@ -1642,7 +1641,7 @@ impl NewApiClient {
             .map_err(|e| anyhow!("Read error: {}", e))?;
 
         let result: PokemonApiResponse<serde_json::Value> = serde_json::from_str(&response_text)
-            .map_err(|e| anyhow!("Parse error: {} | Response: {}", e, &response_text.chars().take(200).collect::<String>()))?;
+            .map_err(|e| anyhow!("Parse error: {} | Response: {}", e, response_text.chars().take(200).collect::<String>()))?;
 
         if result.success {
             Ok(())

@@ -23,7 +23,7 @@ pub fn PokemonStorage() -> Element {
 
     let popup = use_popup();
     let mut select_mode = use_signal::<bool>(|| false);
-    let mut selected_ids = use_signal::<Vec<u64>>(|| vec![]);
+    let mut selected_ids = use_signal::<Vec<u64>>(Vec::new);
 
     let (is_user_in_battle, loading, loaded, bag_pokemons, storage_pokemons) = {
         let state = POKEMON_STATE.read();

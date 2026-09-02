@@ -67,13 +67,5 @@ features = [
 ]
 version = "^0.3"
 
-# WASM优化配置 - 减小bundle大小
-[profile.release]
-opt-level = "z"   # 优化大小
-lto = true        # 链接时优化
-codegen-units = 1 # 更好的优化
-panic = "abort"   # 减小panic unwinding代码
-strip = true      # 移除符号表
-
-[profile.release.package."*"]
-opt-level = 3 # 依赖项使用速度优化
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

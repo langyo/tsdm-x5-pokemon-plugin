@@ -77,17 +77,6 @@ enable-hmr = false
 reqwest = { version = "^0.12", features = ["json", "cookies"] }
 tokio = { version = "^1", features = ["macros", "rt-multi-thread"] }
 
-# WASM优化配置 - 减小bundle大小
-[profile.release]
-opt-level = "z"   # 优化大小
-lto = true        # 链接时优化
-codegen-units = 1 # 更好的优化
-panic = "abort"   # 减小panic unwinding代码
-strip = true      # 移除符号表
-
-[profile.release.package."*"]
-opt-level = 3 # 依赖项使用速度优化
-
 [[example]]
 name = "e2e_api_test"
 required-features = []

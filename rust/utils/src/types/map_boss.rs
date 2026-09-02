@@ -3,15 +3,9 @@ use serde::{Deserialize, Serialize};
 use super::pokemon_type::PokemonAttributes;
 
 /// 地图 Boss 配置
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct MapBossConfig {
     pub bosses: Vec<MapBoss>,
-}
-
-impl Default for MapBossConfig {
-    fn default() -> Self {
-        Self { bosses: Vec::new() }
-    }
 }
 
 /// 单个 Boss 配置
@@ -66,7 +60,7 @@ impl MapBossConfig {
         }
 
         // 如果不是 JSON，尝试解析为数字（兼容旧数据）
-        if let Ok(_) = expn.parse::<u64>() {
+        if expn.parse::<u64>().is_ok() {
             return Self::default();
         }
 

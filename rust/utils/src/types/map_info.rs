@@ -189,12 +189,6 @@ impl Serialize for MapInfo {
     {
         use serde::ser::SerializeMap;
 
-        // 日志：记录序列化的 MapInfo
-        if let Some(boss_config) = self.mode.get_boss_config() {
-            for (_idx, _boss) in boss_config.bosses.iter().enumerate() {}
-        } else {
-        }
-
         // 手动实现序列化以支持扁平化格式
         let mut map = serializer.serialize_map(None)?;
         map.serialize_entry("id", &self.id)?;
@@ -272,35 +266,35 @@ impl<'de> Deserialize<'de> for MapInfo {
                     let key_str = key.as_str();
                     match key_str {
                         "id" => {
-                            id = Some(map.next_value().map_err(|e| e)?);
+                            id = Some(map.next_value()?);
                         }
                         "name" => {
-                            name = Some(map.next_value().map_err(|e| e)?);
+                            name = Some(map.next_value()?);
                         }
                         "area_type" => {
-                            area_type = Some(map.next_value().map_err(|e| e)?);
+                            area_type = Some(map.next_value()?);
                         }
                         "is_enabled" => {
-                            is_enabled = Some(map.next_value().map_err(|e| e)?);
+                            is_enabled = Some(map.next_value()?);
                         }
                         "min_level" => {
-                            min_level = Some(map.next_value().map_err(|e| e)?);
+                            min_level = Some(map.next_value()?);
                         }
                         "max_level" => {
-                            max_level = Some(map.next_value().map_err(|e| e)?);
+                            max_level = Some(map.next_value()?);
                         }
                         "mode" => {
-                            mode_str = Some(map.next_value().map_err(|e| e)?);
+                            mode_str = Some(map.next_value()?);
                         }
                         "experience" => {
-                            experience = Some(map.next_value().map_err(|e| e)?);
+                            experience = Some(map.next_value()?);
                         }
                         "experience_increase_times" => {
-                            experience_increase_times = Some(map.next_value().map_err(|e| e)?);
+                            experience_increase_times = Some(map.next_value()?);
                         }
                         "bosses" => {
                             // Handle potential malformed data - if bosses is an object instead of array, skip it
-                            let value: serde_json::Value = map.next_value().map_err(|e| e)?;
+                            let value: serde_json::Value = map.next_value()?;
                             match value {
                                 serde_json::Value::Array(arr) => {
                                     bosses = Some(

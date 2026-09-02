@@ -103,7 +103,7 @@ pub fn MyPokemon() -> Element {
     let mut selected_pokemon_type_id = use_signal(|| 0u64);
 
     // 每次打开个人中心时都刷新宠物列表，确保数据是最新的
-    let _ = use_resource(move || async move {
+    let _resource = use_resource(move || async move {
         refresh_pokemon_list();
     });
 
@@ -1210,13 +1210,14 @@ fn calculate_total_bonuses(slots: &[EquipmentSlot]) -> Vec<(String, i64)> {
         }
     }
 
-    let mut bonuses = Vec::new();
-    bonuses.push(("HP".to_string(), hp));
-    bonuses.push(("攻击".to_string(), atk));
-    bonuses.push(("防御".to_string(), def));
-    bonuses.push(("特攻".to_string(), spat));
-    bonuses.push(("特防".to_string(), spdef));
-    bonuses.push(("速度".to_string(), spd));
+    let bonuses = vec![
+        ("HP".to_string(), hp),
+        ("攻击".to_string(), atk),
+        ("防御".to_string(), def),
+        ("特攻".to_string(), spat),
+        ("特防".to_string(), spdef),
+        ("速度".to_string(), spd),
+    ];
 
     bonuses
 }
@@ -1773,7 +1774,7 @@ fn SkillLearnModal(
                         for skill in available.iter() {
                             SkillLearnItem {
                                 skill: skill.clone(),
-                                on_learn: on_learn.clone(),
+                                on_learn,
                             }
                         }
                     }
@@ -1783,7 +1784,7 @@ fn SkillLearnModal(
                         for skill in unavailable.iter() {
                             SkillLearnItem {
                                 skill: skill.clone(),
-                                on_learn: on_learn.clone(),
+                                on_learn,
                             }
                         }
                     }

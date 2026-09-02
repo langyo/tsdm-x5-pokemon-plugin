@@ -164,10 +164,10 @@ pub fn BattlePage(
     });
 
     // 始终显示战斗界面，通过 modal 处理所有战斗事件
-    let is_battle_end = battle_event
-        .read()
-        .as_ref()
-        .map_or(false, |e| matches!(e, BattleEvent::BattleEnd));
+        let is_battle_end = battle_event
+            .read()
+            .as_ref()
+            .is_some_and(|e| matches!(e, BattleEvent::BattleEnd));
     rsx! {
         div { class: "page-battle",
             div { class: "battle-card",
@@ -381,14 +381,14 @@ pub fn BattlePage(
                                             .cloned()
                                             .collect();
                                         let fainted_instance_id = battle.my_pokemon.instance_id;
-                                        let on_replace = on_replace_pokemon.clone();
+                                        let on_replace = on_replace_pokemon;
 
                                         rsx! {
                                             for (idx, pm) in all_pokemons.iter().enumerate() {
                                                 {
                                                     let pm_clone = pm.clone();
                                                     let pm_id = pm_clone.id;
-                                                    let on_replace_clone = on_replace.clone();
+                                                    let on_replace_clone = on_replace;
                                                     let is_the_fainted_one = pm_clone.id == fainted_instance_id;
                                                     let is_fainted = is_the_fainted_one || pm_clone.hp <= 0;
                                                     let is_first = pm_clone.site == 1;
@@ -581,7 +581,7 @@ fn MyPokemonSection(
                             div { class: "tooltip-skill-row",
                                 span { class: "skill-name", "{skill.name}" }
                                 span { class: "skill-pp", "PP: {skill.pp}/{skill.max_pp}" }
-                                if skill.skill_type != "" {
+                                if !skill.skill_type.is_empty() {
                                     TypeBadge {
                                         skill_type: skill.skill_type.clone(),
                                         class: "type-badge-sm".to_string(),

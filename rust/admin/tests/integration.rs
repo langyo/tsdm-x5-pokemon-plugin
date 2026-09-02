@@ -1,9 +1,7 @@
 #[cfg(test)]
 mod integration_tests {
-    use std::collections::HashMap;
     use serde_json::Value;
 
-    const BASE: &str = "https://localhost:8443";
     const API: &str = "https://localhost:8443/plugin.php?id=pokemon:game&index=admin";
 
     async fn admin_api(action: &str, extra: &[(&str, &str)]) -> Result<Value, String> {
@@ -37,6 +35,7 @@ mod integration_tests {
         }
     }
 
+    #[ignore = "requires local dev stack (just up) on localhost:8443"]
     #[tokio::test]
     async fn test_admin_crud_endpoints() {
         let tests = vec![
@@ -55,12 +54,14 @@ mod integration_tests {
         }
     }
 
+    #[ignore = "requires local dev stack (just up) on localhost:8443"]
     #[tokio::test]
     async fn test_pokemon_info_endpoint() {
         let ok = check("list::pokemon_info", &[("uid", "1"), ("from", "0"), ("count", "5")]).await;
         assert!(ok, "pokemon_info failed");
     }
 
+    #[ignore = "requires local dev stack (just up) on localhost:8443"]
     #[tokio::test]
     async fn test_item_info_endpoint() {
         let ok = check("list::item_info", &[("uid", "1"), ("from", "0"), ("count", "5")]).await;

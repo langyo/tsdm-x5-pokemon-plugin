@@ -17,7 +17,7 @@ pub fn PokemonCenter() -> Element {
     use_pokemon_state();
 
     // 每次打开治疗中心时都刷新宠物列表，确保数据是最新的
-    let _ = use_resource(move || async move {
+    let _resource = use_resource(move || async move {
         refresh_pokemon_list();
         refresh_user_profile_state();
     });
@@ -53,7 +53,7 @@ pub fn PokemonCenter() -> Element {
         (injured, healable, healthy, ld, empty)
     };
 
-    let loading_for_heal_all = loading.clone();
+    let loading_for_heal_all = loading;
     let is_in_battle_for_heal_all = is_in_battle_state;
     let heal_all = move |_| {
         let pokemons: Vec<(u64, String, u8)> = POKEMON_STATE
@@ -63,13 +63,7 @@ pub fn PokemonCenter() -> Element {
             .filter(|p| {
                 let is_negative = matches!(p.state, 0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15);
                 let needs_healing = p.hp < p.max_hp || is_negative;
-                if !needs_healing {
-                    false
-                } else if is_in_battle_for_heal_all && p.site == 1 {
-                    false
-                } else {
-                    true
-                }
+                needs_healing && !(is_in_battle_for_heal_all && p.site == 1)
             })
             .map(|p| (p.id, p.name.clone(), p.site))
             .collect();
@@ -80,7 +74,7 @@ pub fn PokemonCenter() -> Element {
         }
 
         let api = NewApiClient::new();
-        let mut loading_clone = loading_for_heal_all.clone();
+        let mut loading_clone = loading_for_heal_all;
         spawn(async move {
             loading_clone.set(true);
             let mut total_cost = 0i64;
@@ -183,11 +177,11 @@ pub fn PokemonCenter() -> Element {
 
                                         let is_in_battle = is_in_battle_state && pm.site == 1;
 
-                                        let loading_clone = loading.clone();
+                                        let loading_clone = loading;
                                         let onclick_handler = move |_| {
                                             let name = pokemon_name_for_handler.clone();
                                             let api = NewApiClient::new();
-                                            let mut loading_ref = loading_clone.clone();
+                                            let mut loading_ref = loading_clone;
                                             let in_battle = is_in_battle;
                                             spawn(async move {
                                                 loading_ref.set(true);

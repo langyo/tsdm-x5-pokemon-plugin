@@ -1,4 +1,4 @@
-use std::{fs::copy, io::Write};
+use std::io::Write;
 
 fn main() {
     println!("cargo:rerun-if-changed=Cargo.toml");

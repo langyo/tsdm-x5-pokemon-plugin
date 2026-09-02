@@ -36,24 +36,21 @@ pub enum MapMode {
 impl MapMode {
     /// 获取 Boss 列表
     pub fn get_bosses(&self) -> Vec<BossInfo> {
-        let result = match self {
+        match self {
             MapMode::Wild => Vec::new(),
             MapMode::Boss { bosses } => bosses.clone(),
             MapMode::Hybrid { bosses } => bosses.clone(),
-        };
-        result
+        }
     }
 
     /// 是否支持野生宠物
     pub fn has_wild_pokemon(&self) -> bool {
-        let result = matches!(self, MapMode::Wild | MapMode::Hybrid { .. });
-        result
+        matches!(self, MapMode::Wild | MapMode::Hybrid { .. })
     }
 
     /// 是否支持 Boss 挑战
     pub fn has_boss_challenge(&self) -> bool {
-        let result = matches!(self, MapMode::Boss { .. } | MapMode::Hybrid { .. });
-        result
+        matches!(self, MapMode::Boss { .. } | MapMode::Hybrid { .. })
     }
 }
 

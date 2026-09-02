@@ -69,5 +69,5 @@ pub fn is_negative_state(state: u8) -> bool {
 }
 
 pub fn is_weak_state(state: u8) -> bool {
-    matches!(state, 20 | 21 | 22)
+    matches!(state, 20..=22)
 }

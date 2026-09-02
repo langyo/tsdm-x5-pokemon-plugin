@@ -23,7 +23,6 @@ pub fn trigger_state_update() {
         let api = NewApiClient::new();
         match api.update_pokemon_state().await {
             Ok(response) => {
-                if response.state_changed {}
                 *STATE_UPDATE_RESULT.write() = Some(response);
                 *STATE_UPDATE_ERROR.write() = None;
             }
