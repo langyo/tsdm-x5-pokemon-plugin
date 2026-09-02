@@ -2,10 +2,7 @@ use dioxus::prelude::*;
 
 use crate::components::common::Modal;
 use crate::{
-    components::{
-        common::TypeBadge,
-        layout::{IMG_PATH, IMG_PATH_REMOTE},
-    },
+    components::{common::TypeBadge, layout::IMG_PATH},
     state::{POKEMON_STATE, SWITCH_POKEMON_REQUEST},
     utils::pokemon::{hp_class, hp_percent},
 };
@@ -487,7 +484,7 @@ fn WildPokemonSection(pokemon: _utils::types::api_battle::WildPokemon) -> Elemen
             div { class: "enemy-sprite-container",
                 img {
                     class: "enemy-sprite",
-                    src: "{IMG_PATH_REMOTE}/pm/{pokemon.id}.gif",
+                    src: "{IMG_PATH}/pm/{pokemon.id}.png",
                     alt: "{pokemon.name}",
                 }
             }
@@ -556,7 +553,7 @@ fn MyPokemonSection(
             div { class: "player-sprite-container",
                 img {
                     class: "player-sprite",
-                    src: "{IMG_PATH_REMOTE}/pmb/{pokemon.id}.gif",
+                    src: "{IMG_PATH}/pmb/{pokemon.id}.png",
                     alt: "{pokemon.name}",
                 }
             }

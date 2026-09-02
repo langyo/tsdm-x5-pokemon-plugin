@@ -2,7 +2,7 @@ use dioxus::prelude::*;
 
 use crate::{
     components::common::Modal,
-    components::layout::IMG_PATH_REMOTE,
+    components::layout::IMG_PATH,
     pages::BattlePage,
     state::{
         clear_battle_scene, refresh_inventory_state, refresh_pokemon_list,
@@ -666,7 +666,7 @@ pub fn Adventure() -> Element {
                                                          onclick: move |_| start_boss_adventure(mid, boss.pokemon_type_id),
                                                          div { class: "boss-row-content",
                                                              img {
-                                                                 src: "{IMG_PATH_REMOTE}/pm/{boss.pokemon_type_id}.gif",
+                                                                 src: "{IMG_PATH}/pm/{boss.pokemon_type_id}.png",
                                                                  class: "boss-row-avatar",
                                                                  alt: "{boss.pokemon_name}",
                                                              }
@@ -834,7 +834,7 @@ pub fn Adventure() -> Element {
                                                                                                 start_boss_adventure(mid, boss.pokemon_type_id);
                                                                                             },
                                                                                             img {
-                                                                                                src: "{IMG_PATH_REMOTE}/pm/{boss.pokemon_type_id}.gif",
+                                                                                                src: "{IMG_PATH}/pm/{boss.pokemon_type_id}.png",
                                                                                                 class: "card-boss-avatar",
                                                                                                 alt: "{boss.pokemon_name}",
                                                                                             }

@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::{
     components::{
         common::{use_popup, PopupContext, PopupMenu, PopupMenuItem},
-        layout::IMG_PATH_REMOTE,
+        layout::IMG_PATH,
     },
     state::{
         show_error, show_success, use_pokemon_state, use_user_profile_state, POKEMON_STATE,
@@ -391,7 +391,7 @@ fn PokemonSlot(
             },
             div { class: "pokemon-sprite",
                 img {
-                    src: "{IMG_PATH_REMOTE}/pm/{pokemon.type_id}.gif",
+                    src: "{IMG_PATH}/pm/{pokemon.type_id}.png",
                     alt: "{display_name}",
                 }
             }

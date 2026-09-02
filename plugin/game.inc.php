@@ -37,7 +37,7 @@ include template('common/header');
 {
   "imports": {
     "./snippets/": "/<?php echo $wasmPath; ?>/snippets/",
-    "./_game_bg.wasm": "/<?php echo $wasmPath; ?>/_game_bg.wasm"
+    "./_game_bg.wasm": "/<?php echo $wasmPath; ?>/_game_bg.wasm?v=<?php echo $wasmVer; ?>"
   }
 }
 </script>
@@ -56,13 +56,24 @@ window.__dioxus_no_hot_reload = true;
   const _push = history.pushState, _replace = history.replaceState;
   history.pushState = function(){}; history.replaceState = function(){};
 })();
+// 头像兜底：avatar.php 不可用（未打补丁/占位图缺失）时换用插件自带的默认头像。
+(function() {
+  document.addEventListener('error', function(e) {
+    var img = e.target;
+    if (!img || img.tagName !== 'IMG') return;
+    var src = img.getAttribute('src') || '';
+    if (src.indexOf('avatar.php') === -1 || img.dataset.avatarFallback) return;
+    img.dataset.avatarFallback = '1';
+    img.src = '/source/plugin/pokemon/images/site/noavatar.svg';
+  }, true);
+})();
 </script>
 <script type="module">
 (async function() {
   const base = '/source/plugin/pokemon/wasm';
   try {
-    const wasmUrl = base + '/_game_bg.wasm';
-    const wasmModule = await import(base + '/_game.js');
+    const wasmUrl = base + '/_game_bg.wasm?v=<?php echo $wasmVer; ?>';
+    const wasmModule = await import(base + '/_game.js?v=<?php echo $wasmVer; ?>');
     await wasmModule.default(wasmUrl);
     const handle = new wasmModule.WebHandle();
     await handle.start();
