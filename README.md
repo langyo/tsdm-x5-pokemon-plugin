@@ -70,26 +70,16 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 
 可用标志：`--no-bump`（跳过版本 bump）、`--skip-build`（跳过 WASM 重建）、
 `--with-theme`（额外打包主题）、`--bump-only`（仅 bump+tag 不构建）、
-`--clean`（打包前清空 `dist/`——注意这会连带删掉手工放在 dist 里的补丁与说明文件）。
+`--clean`（打包前清空 `dist/`——注意这会连带删掉手工放在 dist 里的说明文件）。
 
 在 X5 论坛安装：
 
 1. 解压 zip，将 `pokemon/` 文件夹上传到 `source/plugin/pokemon`
 2. 后台 → 应用 → 插件，找到「TSDM 宠物小精灵」，点击安装（执行 `install.php`）
 3. 启用插件并确认 `api/index.php` 可被 Caddy/Nginx 访问（伪静态需放行）
-4. **部署补丁文件**（见下节）——插件 zip 不包含它们，必须手动同步
 
-## Patch Files (patch/)
-
-`patch/` 存放需要手动同步到 **论坛本体目录**（非插件目录）的补丁文件。
-它们不随插件 zip 分发，也不会被插件安装/升级流程更新，每次部署或升级插件后
-都要重新覆盖一次：
-
-| 补丁文件 | 目标位置 | 作用 |
-|---|---|---|
-| `patch/discuz-x5/uc_server/avatar.php` | `uc_server/avatar.php` | 头像接口。X5 原版缺少可用的 `uc_server/avatar.php`（游戏侧边栏头像依赖它），补丁按 UID 返回 `data/avatar/` 下的头像文件（兼容标准九位 UID 命名与老站迁移的 uid 末两位短命名），缺失时依次回退到 `data/avatar/noavatar.svg`、插件自带的 `images/site/noavatar.svg`。未部署时游戏内头像会加载失败。 |
-
-`just publish` 后记得把补丁文件一并拷入 `dist/` 随包分发（`--clean` 会清空 `dist/`）。
+插件自带头像接口（`endpoint=avatar`）与徽章图片接口（`endpoint=badge`），
+不依赖 X5 已移除的 `uc_server`，覆盖插件目录即可用，无需改动论坛本体文件。
 
 主题包（可选）：`just publish --with-theme` 额外生成 `dist/re_tsdm_newWing-<version>.zip`，
 解压到 `template/` 后在后台上传 `discuz_style_new_wing.json` 导入样式。
@@ -113,8 +103,6 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 │   ├── admin/                管理后台
 │   ├── game/                 游戏前端
 │   └── utils/                共享类型与工具
-├── patch/                    论坛本体补丁 (手动同步, 见 Patch Files)
-│   └── discuz-x5/            uc_server/avatar.php 头像接口
 ├── template/                 tsdm_newWing 模板
 ├── migrations/               X3 → X5 数据库迁移脚本
 └── scripts/                  开发脚本

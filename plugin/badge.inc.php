@@ -26,7 +26,7 @@ if (!$pet) {
     exit;
 }
 
-$imgDir = dirname(__DIR__) . '/images/spm';
+$imgDir = __DIR__ . '/images/spm';
 foreach (['gif','png'] as $ext) {
     $f = "$imgDir/{$pet['species_id']}.$ext";
     if (file_exists($f)) {

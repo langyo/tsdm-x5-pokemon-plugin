@@ -34,9 +34,9 @@ class plugin_pokemon {
 
     // 帖子页宠物徽章由 postspm.class.php 的 viewthread_sidebottom_output 服务端注入，
     // 不再走 global_header 的 JS 注入（旧选择器只匹配部分模板，且会与钩子重复渲染）。
+    // 注意：这里不要声明 viewthread_sidebottom_output 桩方法——两个 type-11 模块
+    // 的类都会被 hookscript 缓存扫描，桩会与 postspm 的真实输出重复注册。
     function global_header() {
         return '';
     }
-
-    function viewthread_sidebottom_output() { return []; }
 }

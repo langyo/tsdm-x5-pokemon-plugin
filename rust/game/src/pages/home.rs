@@ -161,7 +161,7 @@ pub fn Home() -> Element {
                                                 title: "{player.username}",
                                                 target: "_blank",
                                                 img {
-                                                    src: "uc_server/avatar.php?uid={player.uid}&size=small",
+                                                    src: "plugin.php?id=pokemon:pokemon&endpoint=avatar&uid={player.uid}&size=small",
                                                     alt: "{player.username}",
                                                 }
                                             }

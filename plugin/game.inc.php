@@ -64,7 +64,7 @@ window.__dioxus_no_hot_reload = true;
     var img = e.target;
     if (!img || img.tagName !== 'IMG') return;
     var src = img.getAttribute('src') || '';
-    if (src.indexOf('avatar.php') !== -1 && !img.dataset.avatarFallback) {
+    if (src.indexOf('endpoint=avatar') !== -1 && !img.dataset.avatarFallback) {
       img.dataset.avatarFallback = '1';
       img.src = '/source/plugin/pokemon/images/site/noavatar.svg';
       return;

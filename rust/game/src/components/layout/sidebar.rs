@@ -12,7 +12,10 @@ use crate::{
 use _utils::types::api_pokemon::PokemonBasic;
 
 fn avatar_url(uid: u64) -> String {
-    format!("uc_server/avatar.php?uid={}&size=middle", uid)
+    format!(
+        "plugin.php?id=pokemon:pokemon&endpoint=avatar&uid={}&size=middle",
+        uid
+    )
 }
 
 fn battle_scene_instance_id(scene: &Option<_utils::types::api_battle::BattleScene>) -> Option<u64> {

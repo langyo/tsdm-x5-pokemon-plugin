@@ -12,6 +12,12 @@ class plugin_pokemon_forum
     private static function pet_img_url($pet)
     {
         $species = self::pet_species($pet);
+        return "https://img.tsdm39.com/Pokemon/pm/{$species}.gif";
+    }
+
+    private static function pet_img_fallback_url($pet)
+    {
+        $species = self::pet_species($pet);
         return "source/plugin/pokemon/images/pm/{$species}.png";
     }
 
@@ -41,13 +47,14 @@ class plugin_pokemon_forum
     private static function first_pet_html($pet)
     {
         $img_url = self::pet_img_url($pet);
+        $fallback_url = htmlspecialchars(self::pet_img_fallback_url($pet), ENT_QUOTES);
         $name = self::pet_name($pet);
         $level = self::pet_level($pet);
         $href = "plugin.php?id=pokemon:game";
         return <<<HTML
 <div style="padding:6px 0;text-align:center">
   <a href="$href" target="_blank">
-    <img src="$img_url" style="width:auto;height:80px;padding:0 24px;" border="0">
+    <img src="$img_url" onerror="this.onerror=null;this.src='$fallback_url';" style="width:auto;height:80px;padding:0 24px;" border="0">
   </a>
   <div style="margin-top:2px;font-size:12px">$name Lv.$level</div>
 </div>
@@ -68,6 +75,12 @@ HTML;
     function viewthread_sidebottom_output()
     {
         global $postlist, $_G;
+        static $served = false;
+        if ($served) {
+            // 钩子在个别站点缓存/模板状态下可能被调用多次，第二次起直接返回空，避免徽章重复。
+            return [];
+        }
+        $served = true;
         $pmpostsshow = $_G['cache']['plugin']['pokemon']['pmpostsshow'];
         if (!$_GET['tid'] || !$postlist || !$pmpostsshow) {
             return [];
