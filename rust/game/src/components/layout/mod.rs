@@ -5,7 +5,7 @@ mod sidebar;
 
 use dioxus::prelude::*;
 pub use footer::Footer;
-pub use header::{Header, IMG_PATH};
+pub use header::{Header, IMG_PATH, IMG_PATH_REMOTE};
 pub use page_container::{LayoutMode, PageContainer};
 pub use sidebar::Sidebar;
 

@@ -56,7 +56,7 @@
 | `plugin/` | The Discuz X5 plugin itself (PHP): game logic, admin panel, API, i18n, images. `_x5-ref/` inside is read-only Discuz reference code — never modify it. |
 | `rust/` | Rust/WASM frontends (`_admin`, `_game`, `_utils`), built into `plugin/wasm/` by `scripts/publish/build.py`. |
 | `template/` | Discuz X5 page templates. |
-| `patch/` | Patches applied to the forum core (outside the plugin dir): `uc_server/avatar.php` avatar endpoint and the `discuzx5` viewthread template revision. NOT part of the plugin zip — must be copied to the forum manually on every deployment; see README "Patch Files". |
+| `patch/` | Patches applied to the forum core (outside the plugin dir): `uc_server/avatar.php` avatar endpoint. NOT part of the plugin zip — must be copied to the forum manually on every deployment; see README "Patch Files". |
 | `migrations/from-x3/` | Sequential X3→X5 SQL migration scripts. |
 | `docker/` | Dev-stack Dockerfile + MariaDB init SQL (`init.d/`). |
 | `scripts/` | Python tooling: `docker/` (dev stack), `test/run.py` (static test suite), `publish/build.py` (WASM build + packaging), `migrate/`, `backup/`, `e2e/`. |

@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::{
     components::{
         common::{use_popup, Modal, ModalLg, PopupMenu, PopupMenuItem, TypeBadge},
-        layout::IMG_PATH,
+        layout::{IMG_PATH, IMG_PATH_REMOTE},
     },
     state::{
         refresh_pokemon_list, show_error, show_success, start_global_loading, stop_global_loading,
@@ -188,7 +188,7 @@ pub fn MyPokemon() -> Element {
 
                                         img {
                                             class: "pokemon-sprite-img",
-                                            src: "{IMG_PATH}/pm/{pm.type_id}.png",
+                                            src: "{IMG_PATH_REMOTE}/pm/{pm.type_id}.gif",
                                             alt: "{pm.name}",
                                         }
 

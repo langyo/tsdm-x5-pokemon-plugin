@@ -4,6 +4,9 @@ use super::{Page, CURRENT_PAGE};
 
 /// 图片资源基础路径 (对应 PHP $imgpath)
 pub const IMG_PATH: &str = "source/plugin/pokemon/images";
+/// 远程 CDN 大图资源 — X3 时代的动画 GIF 素材库 (pm 正面 / pmb 背面)，
+/// 覆盖含自定宠在内的全部物种；CDN 缺图时由 game.inc.php 的 onerror 回退到本地 PNG。
+pub const IMG_PATH_REMOTE: &str = "https://img.tsdm39.com/Pokemon";
 
 #[component]
 pub fn Header() -> Element {

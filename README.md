@@ -87,8 +87,7 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 
 | 补丁文件 | 目标位置 | 作用 |
 |---|---|---|
-| `patch/discuz-x5/uc_server/avatar.php` | `uc_server/avatar.php` | 头像接口。X5 原版缺少可用的 `uc_server/avatar.php`（游戏侧边栏头像依赖它），补丁按 UID 返回 `data/avatar/` 下的头像文件，缺失时依次回退到 `data/avatar/noavatar.svg`、插件自带的 `images/site/noavatar.svg`。未部署时游戏内头像会加载失败。 |
-| `patch/discuz-x5/template/discuzx5/forum/viewthread.php` | `template/discuzx5/forum/viewthread.php` | 帖子页模板修订（移除了会与插件钩子重复注入宠物徽章的旧 badge_js 引用）。仅使用 discuzx5 模板的站点需要。 |
+| `patch/discuz-x5/uc_server/avatar.php` | `uc_server/avatar.php` | 头像接口。X5 原版缺少可用的 `uc_server/avatar.php`（游戏侧边栏头像依赖它），补丁按 UID 返回 `data/avatar/` 下的头像文件（兼容标准九位 UID 命名与老站迁移的 uid 末两位短命名），缺失时依次回退到 `data/avatar/noavatar.svg`、插件自带的 `images/site/noavatar.svg`。未部署时游戏内头像会加载失败。 |
 
 `just publish` 后记得把补丁文件一并拷入 `dist/` 随包分发（`--clean` 会清空 `dist/`）。
 
@@ -115,7 +114,7 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 │   ├── game/                 游戏前端
 │   └── utils/                共享类型与工具
 ├── patch/                    论坛本体补丁 (手动同步, 见 Patch Files)
-│   └── discuz-x5/            uc_server/avatar.php + 模板修订
+│   └── discuz-x5/            uc_server/avatar.php 头像接口
 ├── template/                 tsdm_newWing 模板
 ├── migrations/               X3 → X5 数据库迁移脚本
 └── scripts/                  开发脚本

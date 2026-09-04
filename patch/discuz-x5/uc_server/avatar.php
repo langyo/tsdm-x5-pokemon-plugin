@@ -7,7 +7,13 @@ $size = isset($sizes[$size]) ? $sizes[$size] : "small";
 
 $uid_sprintf = sprintf("%09d", $uid);
 $subdir = substr($uid_sprintf, 0, 3) . "/" . substr($uid_sprintf, 3, 2) . "/" . substr($uid_sprintf, 5, 2);
-$avatar_file = __DIR__ . "/../data/avatar/{$subdir}/{$uid_sprintf}_avatar_{$size}.jpg";
+
+// 老站（X2/X3 迁移）的头像文件名是 uid 的末两位（如 001/53/53/10_avatar_middle.jpg），
+// 标准命名则是完整九位 UID；两种都试。
+$avatar_files = [
+    __DIR__ . "/../data/avatar/{$subdir}/{$uid_sprintf}_avatar_{$size}.jpg",
+    __DIR__ . "/../data/avatar/{$subdir}/" . ($uid % 100) . "_avatar_{$size}.jpg",
+];
 
 // 回退链：用户头像 → 站点默认 → 插件自带默认（随插件分发，始终存在）。
 $fallbacks = [
@@ -17,16 +23,11 @@ $fallbacks = [
 
 $serve = null;
 $type = null;
-if (file_exists($avatar_file)) {
-    $serve = $avatar_file;
-    $type = "image/jpeg";
-} else {
-    foreach ($fallbacks as $candidate) {
-        if (is_readable($candidate)) {
-            $serve = $candidate;
-            $type = "image/svg+xml";
-            break;
-        }
+foreach (array_merge($avatar_files, $fallbacks) as $i => $candidate) {
+    if (is_readable($candidate)) {
+        $serve = $candidate;
+        $type = $i < count($avatar_files) ? "image/jpeg" : "image/svg+xml";
+        break;
     }
 }
 

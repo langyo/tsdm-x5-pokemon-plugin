@@ -56,15 +56,25 @@ window.__dioxus_no_hot_reload = true;
   const _push = history.pushState, _replace = history.replaceState;
   history.pushState = function(){}; history.replaceState = function(){};
 })();
-// 头像兜底：avatar.php 不可用（未打补丁/占位图缺失）时换用插件自带的默认头像。
+// 图片兜底：
+// 1) 头像 — avatar.php 不可用（未打补丁/占位图缺失）时换用插件自带的默认头像。
+// 2) 大图 — CDN 动画 GIF (img.tsdm39.com/Pokemon) 缺图或不可达时回退到本地静态 PNG。
 (function() {
   document.addEventListener('error', function(e) {
     var img = e.target;
     if (!img || img.tagName !== 'IMG') return;
     var src = img.getAttribute('src') || '';
-    if (src.indexOf('avatar.php') === -1 || img.dataset.avatarFallback) return;
-    img.dataset.avatarFallback = '1';
-    img.src = '/source/plugin/pokemon/images/site/noavatar.svg';
+    if (src.indexOf('avatar.php') !== -1 && !img.dataset.avatarFallback) {
+      img.dataset.avatarFallback = '1';
+      img.src = '/source/plugin/pokemon/images/site/noavatar.svg';
+      return;
+    }
+    var cdnAt = src.indexOf('img.tsdm39.com/Pokemon/');
+    if (cdnAt !== -1 && /\.gif(\?|$)/i.test(src) && !img.dataset.pmFallback) {
+      img.dataset.pmFallback = '1';
+      img.src = '/source/plugin/pokemon/images/' +
+        src.slice(cdnAt + 'img.tsdm39.com/Pokemon/'.length).replace(/\.gif(\?|$)/i, '.png$1');
+    }
   }, true);
 })();
 </script>
