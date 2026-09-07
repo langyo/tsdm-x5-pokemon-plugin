@@ -30,6 +30,22 @@ $statesd = array('1' => '1', '2' => '0.9', '3' => '0.8', '4' => '0.5', '5' => '0
  * @param array $item_data pm_itemdata 行
  * @return string 模块名（可能为空字符串）
  */
+function api_ensure_itemdata_module_column()
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    // 旧版 install.php/种子创建的 pm_itemdata 可能没有 module 列（全新安装站点），
+    // 显式 SELECT i.module 会直接抛 DbException；这里惰性补列，幂等安全。
+    $col = DB::fetch_first("SHOW COLUMNS FROM " . pm_table('pm_itemdata') . " LIKE 'module'");
+    if (!$col) {
+        DB::query("ALTER TABLE " . pm_table('pm_itemdata') . "
+            ADD COLUMN module varchar(30) NOT NULL DEFAULT '' AFTER type");
+    }
+}
+
 function api_get_item_module($item_data)
 {
     if (!is_array($item_data)) {

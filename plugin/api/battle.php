@@ -2216,9 +2216,13 @@ function api_get_battle_items()
     global $_G;
     $uid = validate_uid($_G['uid']);
 
+    // 旧库可能缺 module 列，先自愈；SELECT 亦不引用该列，api_get_item_module
+    // 会从行数据的 sitemname/tpname 回退解析模块名
+    api_ensure_itemdata_module_column();
+
     // 获取用户的物品
     $my_items = DB::fetch_all(pm_sql(
-        "SELECT mi.*, i.type, i.module, i.sitemname, i.effects, i.name, i.tpname
+        "SELECT mi.*, i.type, i.sitemname, i.effects, i.name, i.tpname
          FROM " . pm_table('pm_myitem') . " mi
          INNER JOIN " . pm_table('pm_itemdata') . " i ON mi.itemid = i.id
          WHERE mi.uid = %d AND mi.nums > 0
