@@ -1,4 +1,4 @@
 #[allow(dead_code)]
-pub const CARGO_VERSION: &'static str = "0.1.16";
+pub const CARGO_VERSION: &'static str = "0.1.17";
 #[allow(dead_code)]
 pub const UI_FRAMEWORK: &'static str = "dioxus";
