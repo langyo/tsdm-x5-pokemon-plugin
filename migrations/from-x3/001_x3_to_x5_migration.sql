@@ -275,6 +275,11 @@ BEGIN
         IF has_old > 0 THEN
             UPDATE `pm_itemdata` SET
               `description` = IFNULL(`txt`, `description`),
+              -- 旧库模块名存于 sitemname（强化/PP类）或 tpname（其余），回填到 module 列
+              `module`      = IF(`module` = '' OR `module` IS NULL,
+                  NULLIF(TRIM(CASE WHEN NULLIF(TRIM(`sitemname`), '') IS NOT NULL
+                                   THEN `sitemname` ELSE `tpname` END), ''),
+                  `module`),
               `effects`     = IF(`effects` = '' OR `effects` IS NULL,
                   JSON_OBJECT('hp',       IFNULL(`addhp`,0),
                               'exp',      IFNULL(`addexp`,0),

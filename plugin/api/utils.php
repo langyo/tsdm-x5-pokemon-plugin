@@ -21,6 +21,32 @@ $statespdef = array('1' => '1', '2' => '0.9', '3' => '0.8', '4' => '0.5', '5' =>
 $statesd = array('1' => '1', '2' => '0.9', '3' => '0.8', '4' => '0.5', '5' => '0.9', '6' => '0.8', '7' => '0.5', '8' => '1', '9' => '1.2', '10' => '2', '11' => '1', '12' => '1', '13' => '1.2', '14' => '1.6', '15' => '0.7', '16' => '1', '17' => '1', '18' => '1', '19' => '1', '20' => '1',);
 
 /**
+ * 获取物品的功能模块名（item_modules.php 中的函数名）
+ *
+ * X2 旧库与 X5 导出/种子数据中模块名不在 module 列：
+ * 强化/PP 类道具在 sitemname（如 pp5、hpn10），其余在 tpname（如 szs、lvupitem）。
+ * 这里按 module → sitemname → tpname 的顺序回退，保证旧数据物品仍能正确分发。
+ *
+ * @param array $item_data pm_itemdata 行
+ * @return string 模块名（可能为空字符串）
+ */
+function api_get_item_module($item_data)
+{
+    if (!is_array($item_data)) {
+        return '';
+    }
+
+    foreach (['module', 'sitemname', 'tpname'] as $col) {
+        $val = isset($item_data[$col]) ? trim(strval($item_data[$col])) : '';
+        if ($val !== '' && preg_match('/^[a-z][a-z0-9_]*$/i', $val)) {
+            return $val;
+        }
+    }
+
+    return '';
+}
+
+/**
  * 治疗物品回复HP计算
  * 原型：get_item_healed_hp
  *

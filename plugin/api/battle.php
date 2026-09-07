@@ -315,8 +315,10 @@ function api_use_skill()
         if ($skilldata) {
             $skillname = $skilldata['name'];
             $power = intval($skilldata['power']) ?: 40;
-            $skill_type = $skilldata['sx'] ?: $mydata['xs'];
-            $skill_category = intval($skilldata['category']);
+            // pm_skill 的属性列是 element（曾误用不存在的 sx 列导致技能属性恒为宠物自身属性）
+            $skill_type = $skilldata['element'] ?: $mydata['xs'];
+            // pm_skill.category 存中文（'物攻'/'特攻'），intval 恒为 0，需按字符串判断
+            $skill_category = api_normalize_skill_category($skilldata['category']);
 
             // 检查PP值
             $myskill = DB::fetch_first(pm_sql(
@@ -480,7 +482,7 @@ function api_use_skill()
                 $npcdef,
                 $mspatk,
                 $npcspdef,
-                $powr,
+                $power,
                 $skill_type,
                 $skill_category,
                 $mydata,
@@ -916,6 +918,19 @@ function calculate_counter_damage_legacy($level, $atk, $def, $spatk, $spdef, $np
 }
 
 /**
+ * 归一化技能攻击分类
+ * pm_skill.category 为中文字符串（'物攻'/'特攻'），返回 1 表示特殊攻击，0 表示物理攻击
+ */
+function api_normalize_skill_category($category)
+{
+    $category = trim(strval($category));
+    if ($category === '1' || $category === '特攻') {
+        return 1;
+    }
+    return 0;
+}
+
+/**
  * 计算我方宠物六维属性（从宠物实例数据读取IV/EV，应用状态修正）
  * @return array [hp, atk, def, spatk, spdef, sd]
  */
@@ -924,51 +939,64 @@ function battle_calc_my_stats($data, $pokemon)
     $level = intval($pokemon['level']);
     $flash = intval($pokemon['is_shiny']);
     $s = intval($pokemon['state']);
+
+    // pm_mypm 中速度的 IV/EV 列是 sdg/sdn，状态修正变量是 $statesd（见 utils.php），
+    // 与其他五项的命名规则不同，必须单独映射，否则速度恒为 0（永远后手）
+    $stat_columns = [
+        'hp'    => ['iv' => 'hpg',    'ev' => 'hpn',    'state' => 'statehp'],
+        'atk'   => ['iv' => 'atkg',   'ev' => 'atkn',   'state' => 'stateatk'],
+        'def'   => ['iv' => 'defg',   'ev' => 'defn',   'state' => 'statedef'],
+        'spatk' => ['iv' => 'spatkg', 'ev' => 'spatkn', 'state' => 'statespatk'],
+        'spdef' => ['iv' => 'spdefg', 'ev' => 'spdefn', 'state' => 'statespdef'],
+        'speed' => ['iv' => 'sdg',    'ev' => 'sdn',    'state' => 'statesd'],
+    ];
+
     $stats = [];
-    foreach (['hp', 'atk', 'def', 'spatk', 'spdef', 'speed'] as $stat) {
+    foreach ($stat_columns as $stat => $cols) {
         $base = $data[$stat];
-        $iv = intval($pokemon[$stat . 'g']);
-        $ev = intval($pokemon[$stat . 'n']);
+        $iv = intval($pokemon[$cols['iv']]);
+        $ev = intval($pokemon[$cols['ev']]);
         $is_hp = ($stat === 'hp');
         $boost = $is_hp ? (10 + $level) : 5;
         if ($flash == 1) $boost *= 2;
-        $state = $GLOBALS['state' . $stat][$s];
-        $stats[] = floor(((2 * $base + $iv + $ev / 4) * $level / 100 + $boost) * $state);
+        $state_arr = isset($GLOBALS[$cols['state']]) ? $GLOBALS[$cols['state']] : [];
+        $state_mult = isset($state_arr[$s]) ? (float)$state_arr[$s] : 1.0;
+        $stats[] = floor(((2 * $base + $iv + $ev / 4) * $level / 100 + $boost) * $state_mult);
     }
 
-    $equipment_bonuses = api_parse_pet_wear_items($pokemon, false, $stats[0]);
+    // 装备加成：api_parse_pet_wear_items 通过第三个引用参数把 HP 加成累加进 $eq_hp_total，
+    // 其余五项从返回数组读取；不得对返回数组的 [0] 再累加（它是对 $eq_hp_total 的引用）
+    $eq_hp_total = 0;
+    $equipment_bonuses = api_parse_pet_wear_items($pokemon, false, $eq_hp_total);
     if (!empty($equipment_bonuses)) {
-        $stats[0] += $equipment_bonuses[0];
-        $stats[1] += $equipment_bonuses[1];
-        $stats[2] += $equipment_bonuses[2];
-        $stats[3] += $equipment_bonuses[3];
-        $stats[4] += $equipment_bonuses[4];
-        $stats[5] += $equipment_bonuses[5];
+        $stats[0] += (int)$eq_hp_total;
+        for ($i = 1; $i <= 5; $i++) {
+            $stats[$i] += (int)$equipment_bonuses[$i];
+        }
     }
 
     return $stats;
 }
 
 /**
- * 计算野怪（已保存战斗状态）六维属性（state 恒为 1）
+ * 计算野怪（已保存战斗状态）六维属性
+ *
+ * pm_usersdata 的 hpg/atkg/defg/spatkg/spdefg/sdg 在开战时已由
+ * battle_calc_new_npc_stats 算好并写入（含 strength 倍率），这里直接读取即可。
+ * 旧实现把这些完整属性当作 IV 再套一遍成长公式，导致野怪攻防每回合虚高约三成。
+ *
  * @return array [hp, atk, def, spatk, spdef, sd]
  */
 function battle_calc_npc_stats($data, $saved_state, $strength = 1)
 {
-    $level = intval($saved_state['level']);
-    $flash = intval($saved_state['allure']) & 1;
-    if ($strength <= 0) $strength = 1;
-    $stats = [];
-    foreach (['hp', 'atk', 'def', 'spatk', 'spdef', 'speed'] as $stat) {
-        $base = $data[$stat];
-        $iv = intval($saved_state[$stat . 'g']);
-        $ev = intval($saved_state[$stat . 'n']);
-        $is_hp = ($stat === 'hp');
-        $boost = $is_hp ? (10 + $level) : 5;
-        if ($flash == 1) $boost *= 2;
-        $stats[] = floor((2 * $base + $iv + $ev / 4) * $level / 100 + $boost) * $strength;
-    }
-    return $stats;
+    return [
+        intval($saved_state['hpg']),
+        intval($saved_state['atkg']),
+        intval($saved_state['defg']),
+        intval($saved_state['spatkg']),
+        intval($saved_state['spdefg']),
+        intval($saved_state['sdg']),
+    ];
 }
 
 /**
@@ -1885,9 +1913,49 @@ function api_use_item_in_battle()
     }
 
     $item_type = $item_data['type'];
-    $item_module = isset($item_data['module']) ? $item_data['module'] : '';
+    // 旧数据 module 列为空，模块名在 sitemname/tpname 中，需回退读取
+    $item_module = api_get_item_module($item_data);
     $message = '';
     $status = 'active';
+
+    // PP 恢复道具：迁移数据中 type=1（回复药），必须先于类型分支按模块路由，
+    // 否则会被回复药分支当作 0 点回复消耗掉
+    if (in_array($item_module, ['pp5', 'pp10', 'pp15', 'pp99'])) {
+        $skills_raw = DB::fetch_all(pm_sql(
+            "SELECT ms.id, ms.skillid, ms.skillnum, s.max_uses as max_pp, s.name as skill_name
+             FROM " . pm_table('pm_myskill') . " ms
+             LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id
+             WHERE ms.uid = %d AND ms.petid = %d AND ms.skillnum < s.max_uses
+             ORDER BY ms.id",
+            $_G['uid'],
+            $mypokemon['id']
+        ));
+
+        $available_skills = [];
+        foreach ($skills_raw as $skill) {
+            $available_skills[] = [
+                'id' => (int)$skill['id'],
+                'skill_id' => (int)$skill['skillid'],
+                'name' => $skill['skill_name'],
+                'current_pp' => (int)$skill['skillnum'],
+                'max_pp' => (int)$skill['max_pp'],
+            ];
+        }
+
+        if (empty($available_skills)) {
+            api_error('所有技能PP都已满', 400);
+        }
+
+        // 返回技能列表，需要用户选择
+        api_success([
+            'requires_skill_selection' => true,
+            'item_id' => $item_id,
+            'item_name' => $item_data['name'],
+            'available_skills' => $available_skills,
+            'message' => '请选择要恢复PP的技能',
+        ]);
+        return;
+    }
 
     // 根据物品类型处理
     switch ($item_type) {
@@ -1921,47 +1989,8 @@ function api_use_item_in_battle()
             api_error('精灵球请通过捕捉功能使用', 400);
             break;
 
-        case '4': // 强化道具（包括PP恢复）
-            // 检查是否是PP恢复物品
-            if (in_array($item_module, ['pp5', 'pp10', 'pp15', 'pp99'])) {
-                // PP恢复物品需要返回技能列表供用户选择
-                $skills_raw = DB::fetch_all(pm_sql(
-                    "SELECT ms.id, ms.skillid, ms.skillnum, s.max_uses as max_pp, s.name as skill_name
-                     FROM " . pm_table('pm_myskill') . " ms
-                     LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id
-                     WHERE ms.uid = %d AND ms.petid = %d AND ms.skillnum < s.max_uses
-                     ORDER BY ms.id",
-                    $_G['uid'],
-                    $mypokemon['id']
-                ));
-
-                $available_skills = [];
-                foreach ($skills_raw as $skill) {
-                    $available_skills[] = [
-                        'id' => (int)$skill['id'],
-                        'skill_id' => (int)$skill['skillid'],
-                        'name' => $skill['skill_name'],
-                        'current_pp' => (int)$skill['skillnum'],
-                        'max_pp' => (int)$skill['max_pp'],
-                    ];
-                }
-
-                if (empty($available_skills)) {
-                    api_error('所有技能PP都已满', 400);
-                }
-
-                // 返回技能列表，需要用户选择
-                api_success([
-                    'requires_skill_selection' => true,
-                    'item_id' => $item_id,
-                    'item_name' => $item_data['name'],
-                    'available_skills' => $available_skills,
-                    'message' => '请选择要恢复PP的技能',
-                ]);
-                return;
-            } else {
-                api_error('该物品无法在战斗中使用', 400);
-            }
+        case '4': // 强化道具（PP恢复类已在函数开头按模块路由）
+            api_error('该物品无法在战斗中使用', 400);
             break;
 
         default:
@@ -2076,7 +2105,8 @@ function api_use_item_on_skill_in_battle()
         api_error('您没有该物品', 400);
     }
 
-    $item_module = isset($item_data['module']) ? $item_data['module'] : '';
+    // 旧数据 module 列为空，模块名在 sitemname/tpname 中，需回退读取
+    $item_module = api_get_item_module($item_data);
 
     // 验证是否是PP恢复物品
     $pp_amount = 0;
@@ -2196,7 +2226,7 @@ function api_get_battle_items()
 
     // 获取用户的物品
     $my_items = DB::fetch_all(pm_sql(
-        "SELECT mi.*, i.type, i.module, i.effects, i.name, i.tpname
+        "SELECT mi.*, i.type, i.module, i.sitemname, i.effects, i.name, i.tpname
          FROM " . pm_table('pm_myitem') . " mi
          INNER JOIN " . pm_table('pm_itemdata') . " i ON mi.itemid = i.id
          WHERE mi.uid = %d AND mi.nums > 0
@@ -2209,13 +2239,25 @@ function api_get_battle_items()
 
     foreach ($my_items as $item) {
         $item_type = $item['type'];
-        $item_module = isset($item['module']) ? $item['module'] : '';
+        // 旧数据 module 列为空，模块名在 sitemname/tpname 中，需回退读取
+        $item_module = api_get_item_module($item);
         $effects = json_decode($item['effects'] ?? '{}', true) ?: [];
         $heal_hp = intval($effects['hp'] ?? 0);
 
         // 只返回可以在战斗中使用的物品
-        // 1. HP恢复药水（type=1，有hp效果）
-        if ($item_type == '1' && $heal_hp > 0) {
+        // 1. PP恢复道具（按模块识别；迁移数据中其 type=1 而非 4）
+        if (in_array($item_module, $pp_restore_modules)) {
+            $battle_items[] = [
+                'id' => (int) $item['itemid'],
+                'name' => $item['name'],
+                'img' => $item['tpname'],
+                'nums' => (int) $item['nums'],
+                'item_type' => (int) $item_type,
+                'module' => $item_module,
+            ];
+        }
+        // 2. HP恢复药水（type=1，有hp效果，且非PP道具）
+        elseif ($item_type == '1' && $heal_hp > 0) {
             $battle_items[] = [
                 'id' => (int) $item['itemid'],
                 'name' => $item['name'],
@@ -2224,17 +2266,6 @@ function api_get_battle_items()
                 'item_type' => (int) $item_type,
                 'module' => $item_module,
                 'addhp' => $heal_hp,
-            ];
-        }
-        // 2. PP恢复道具（type=4，module是pp5/pp10/pp15/pp99之一）
-        elseif ($item_type == '4' && in_array($item_module, $pp_restore_modules)) {
-            $battle_items[] = [
-                'id' => (int) $item['itemid'],
-                'name' => $item['name'],
-                'img' => $item['tpname'],
-                'nums' => (int) $item['nums'],
-                'item_type' => (int) $item_type,
-                'module' => $item_module,
             ];
         }
     }

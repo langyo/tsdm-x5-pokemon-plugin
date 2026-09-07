@@ -840,10 +840,16 @@ function api_use_item()
 
     // 根据物品类型处理
     $item_type = $item_data['type'];
-    $item_module = $item_data['module'];
+    // 旧数据 module 列为空，模块名在 sitemname/tpname 中，需回退读取
+    $item_module = api_get_item_module($item_data);
     $success = false;
     $message = '';
     $pokemon_update = null;
+
+    // PP 恢复道具（迁移数据中 type=1）需要指定技能，战斗外不支持直接使用
+    if (in_array($item_module, ['pp5', 'pp10', 'pp15', 'pp99'])) {
+        api_error('PP恢复道具请在战斗中对技能使用', 400);
+    }
 
     switch ($item_type) {
         case '1': // 回复药

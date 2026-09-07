@@ -804,7 +804,11 @@ impl NewApiClient {
     }
 
     /// 在战斗中使用物品（可能返回技能选择响应）
-    pub async fn use_item_in_battle(&self, item_id: u64) -> Result<BattleScene> {
+    ///
+    /// 返回原始响应文本：PP 恢复类道具需要先让用户选择技能（requires_skill_selection），
+    /// 其余物品直接返回战斗场景。调用方只需发起这一次请求——服务端在该请求中
+    /// 已经完成扣道具、加血与野怪反击，再次调用会重复扣道具。
+    pub async fn use_item_in_battle_raw(&self, item_id: u64) -> Result<String> {
         let url = format!("{}&endpoint=battle&action=use_item", self.base_url);
         let body = serde_json::json!({
             "item_id": item_id,
@@ -819,12 +823,13 @@ impl NewApiClient {
             .map_err(|e| anyhow!("Network error: {}", e))?;
 
         if !response.ok() {
+            let status = response.status();
             let error_text = response
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unable to read error response".to_string());
 
-            // 尝试解析 JSON 错误响应，提取 error 字段
+            // 解析 JSON 错误响应，提取 error 字段（如"您没有该物品"）
             if let Ok(err_resp) =
                 serde_json::from_str::<PokemonApiResponse<serde_json::Value>>(&error_text)
             {
@@ -833,32 +838,13 @@ impl NewApiClient {
                 }
             }
 
-            return Err(anyhow!("HTTP error {}", response.status()));
+            return Err(anyhow!("HTTP error {}", status));
         }
 
-        let response_text = response
+        response
             .text()
             .await
-            .map_err(|e| anyhow!("Failed to read response: {}", e))?;
-
-        if response_text.trim().is_empty() {
-            return Err(anyhow!("Empty response from server"));
-        }
-
-        let result: PokemonApiResponse<BattleScene> = serde_json::from_str(&response_text)
-            .map_err(|e| {
-                anyhow!(
-                    "Parse error: {} | Response was: {}",
-                    e,
-                    response_text.chars().take(200).collect::<String>()
-                )
-            })?;
-
-        if result.success {
-            result.data.ok_or_else(|| anyhow!("No data returned"))
-        } else {
-            Err(anyhow!("API error: {}", result.error.unwrap_or_default()))
-        }
+            .map_err(|e| anyhow!("Failed to read response: {}", e))
     }
 
     /// 在战斗中对指定技能使用PP恢复道具
@@ -915,31 +901,6 @@ impl NewApiClient {
         } else {
             Err(anyhow!("API error: {}", result.error.unwrap_or_default()))
         }
-    }
-
-    /// 检查使用战斗道具是否需要技能选择（返回原始响应以判断）
-    pub async fn use_item_in_battle_raw(&self, item_id: u64) -> Result<String> {
-        let url = format!("{}&endpoint=battle&action=use_item", self.base_url);
-        let body = serde_json::json!({
-            "item_id": item_id,
-        });
-
-        let response = Request::post(&url)
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .map_err(|e| anyhow!("Serialize error: {}", e))?
-            .send()
-            .await
-            .map_err(|e| anyhow!("Network error: {}", e))?;
-
-        if !response.ok() {
-            return Err(anyhow!("HTTP error {}", response.status()));
-        }
-
-        response
-            .text()
-            .await
-            .map_err(|e| anyhow!("Failed to read response: {}", e))
     }
 
     // ============== Map API ==============

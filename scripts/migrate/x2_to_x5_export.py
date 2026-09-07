@@ -149,6 +149,15 @@ def row_pm_data(v):
     ]
 
 
+def _module_name(*values):
+    """First identifier-like value (module names live in sitemname or tpname)."""
+    for v in values:
+        v = (v or "").strip()
+        if re.match(r"^[A-Za-z][A-Za-z0-9_]*$", v):
+            return v
+    return ""
+
+
 def row_pm_itemdata(v):
     """old: id,name,tpname,shop,money,txt,type,lvask,xsask,addhp,addexp,
     addlv,addgood,ballid,upitem,captmax,captmin,sitemname,hot,zbtype,
@@ -171,9 +180,12 @@ def row_pm_itemdata(v):
         },
         ensure_ascii=False,
     )
+    # Old rows keep the module function name in sitemname (enhancers/PP)
+    # or tpname (stones/candies); backfill it into the module column.
+    module = _module_name(sitemname, tpname)
     return [
         num(i), name, tpname or "", txt or "", num(shop), num(money),
-        num(typ), "", num(lvask), xsask or "", effects, num(ballid),
+        num(typ), module, num(lvask), xsask or "", effects, num(ballid),
         num(upitem), num(captmax), sitemname or "", num(zbtype), equip,
     ]
 
@@ -320,10 +332,10 @@ def main():
     if len(sys.argv) != 3:
         print("usage: x2_to_x5_export.py <input.sql> <output.sql>")
         return 1
+    src, dst = sys.argv[1], sys.argv[2]
     dst = os.path.abspath(dst)
     if os.path.isdir(dst):
         raise SystemExit(f"output path is a directory: {dst}")
-    src, dst = sys.argv[1], sys.argv[2]
 
     with open(src, "r", encoding="utf-8-sig", errors="replace") as f:
         text = f.read()

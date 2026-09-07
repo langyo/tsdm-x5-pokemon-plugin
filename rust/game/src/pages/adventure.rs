@@ -225,8 +225,11 @@ pub fn Adventure() -> Element {
         spawn(async move {
             loading.set(true);
 
+            // 只发起一次请求：服务端在该请求中已扣道具、结算并让野怪反击，
+            // 之前的实现会再调用一次同一端点，导致道具被扣两次/报"您没有该物品"
             match api.use_item_in_battle_raw(item_id).await {
                 Ok(response_text) => {
+                    // PP 恢复道具：服务端返回 requires_skill_selection，等待用户选择技能
                     if let Ok(skill_resp) = serde_json::from_str::<
                         PokemonApiResponse<_utils::types::api_battle::SkillSelectionResponse>,
                     >(&response_text)
@@ -246,21 +249,36 @@ pub fn Adventure() -> Element {
                         }
                     }
 
-                    match api.use_item_in_battle(item_id).await {
-                        Ok(scene) => {
-                            message_log.write().push("使用了物品！".to_string());
+                    // 其余物品：同一响应即战斗场景
+                    match serde_json::from_str::<
+                        PokemonApiResponse<_utils::types::api_battle::BattleScene>,
+                    >(&response_text)
+                    {
+                        Ok(resp) => {
+                            if resp.success {
+                                if let Some(scene) = resp.data {
+                                    message_log.write().push("使用了物品！".to_string());
 
-                            let api2 = NewApiClient::new();
-                            if let Ok(data) = api2.get_battle_items().await {
-                                battle_items.set(data.items);
-                            }
-                            let api3 = NewApiClient::new();
-                            if let Ok(data) = api3.get_user_inventory(Some(2), 1).await {
-                                battle_balls.set(data.items);
-                            }
+                                    let api2 = NewApiClient::new();
+                                    if let Ok(data) = api2.get_battle_items().await {
+                                        battle_items.set(data.items);
+                                    }
+                                    let api3 = NewApiClient::new();
+                                    if let Ok(data) = api3.get_user_inventory(Some(2), 1).await {
+                                        battle_balls.set(data.items);
+                                    }
 
-                            set_battle_scene(Some(scene.clone()));
-                            refresh_pokemon_list();
+                                    set_battle_scene(Some(scene.clone()));
+                                    refresh_pokemon_list();
+                                } else {
+                                    show_error("使用物品失败：No data returned".to_string());
+                                }
+                            } else {
+                                show_error(format!(
+                                    "使用物品失败：{}",
+                                    resp.error.unwrap_or_default()
+                                ));
+                            }
                         }
                         Err(e) => {
                             show_error(format!("使用物品失败：{}", e));
