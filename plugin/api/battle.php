@@ -853,12 +853,12 @@ function generate_wild_pokemon_legacy($map, $strength, $force_boss_type_id = nul
         }
     }
 
-    // 确定等级
+    // 确定等级（pm_data 没有 pve_catch_level 列，按地图等级区间随机）
     global $settings;
     if (!empty($settings['pve_catch_level']) && $settings['pve_catch_level'] > 0) {
-        $level = $settings['pve_catch_level'];
+        $level = (int)$settings['pve_catch_level'];
     } else {
-        $level = $pet['pve_catch_level'] ?: rand($map['min_level'], $map['max_level']);
+        $level = rand((int)$map['min_level'], (int)$map['max_level']);
     }
 
     return [
@@ -1127,7 +1127,9 @@ function apply_rewards($uid, $mypokemon, $rewards)
 {
     global $_G;
 
-    $new_exp = intval($mypokemon['experience']) + $rewards['experience'];
+    // pm_mypm 的经验列是 exp，calculate_rewards 返回的键也是 exp；
+    // 旧代码读 experience 两处都取不到，导致每次胜利把经验写成 0、永远无法升级
+    $new_exp = intval($mypokemon['exp']) + intval($rewards['exp']);
     $old_level = intval($mypokemon['level']);
     $pmno = intval($mypokemon['species_id']);
 
@@ -1183,9 +1185,11 @@ function apply_rewards($uid, $mypokemon, $rewards)
  */
 function clear_battle_state($uid)
 {
+    // 这些列均为整数类型：写入 '' 在 MariaDB 严格模式(STRICT_TRANS_TABLES)下会直接报错，
+    // 导致战斗状态无法清除（用户卡在战斗中），必须写 0
     DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . "
-        SET npcid = '', level = '', hp = '', hpg = '', atkg = '', defg = '',
-            spatkg = '', spdefg = '', sdg = '', allure = 0, capture = ''
+        SET npcid = 0, level = 0, hp = 0, hpg = 0, atkg = 0, defg = 0,
+            spatkg = 0, spdefg = 0, sdg = 0, allure = 0, capture = 0
         WHERE uid = %d", $uid));
 }
 
@@ -1665,20 +1669,10 @@ function api_capture_pokemon()
         api_error('没有进行中的战斗', 400);
     }
 
-    // 调试：输出接收到的 ball_id
     $debug_info = array(
         'received_ball_id' => $ball_id,
         'uid' => $_G['uid'],
     );
-
-    // 查看用户背包中所有物品
-    $user_items = DB::fetch_all(pm_sql("
-        SELECT m.id, m.itemid, m.nums, i.id as itemdata_id, i.name, i.type as item_type
-        FROM " . pm_table('pm_myitem') . " m
-        LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid = i.id
-        WHERE m.uid = %d AND m.nums > 0
-    ", $_G['uid']));
-    $debug_info['user_items'] = $user_items;
 
     // 检查用户是否拥有该精灵球
     // 明确指定字段以避免 id 字段冲突
@@ -1692,13 +1686,6 @@ function api_capture_pokemon()
     $my_ball = DB::fetch_first($sql);
 
     $debug_info['query_result'] = $my_ball ? 'found' : 'not_found';
-    if ($my_ball) {
-        $debug_info['found_ball'] = array(
-            'itemid' => $my_ball['itemid'],
-            'nums' => $my_ball['nums'],
-            'item_name' => isset($my_ball['name']) ? $my_ball['name'] : 'unknown'
-        );
-    }
 
     if (!$my_ball || $my_ball['nums'] <= 0) {
         api_error('您没有该精灵球', 400, $debug_info);
@@ -1733,7 +1720,8 @@ function api_capture_pokemon()
     // 计算捕捉率
     $captmax = $my_ball['captmax'] ?: 1;
     $capture_rate = (($npc_max_hp * 3 - $npc_hp * 2) * $myusersdata['capture'] * $captmax) / ($npc_max_hp * 3);
-    $capture_rate = min(255, $capture_rate);
+    // 下限 1：capture 为 0 时避免后续 16711680/$capture_rate 除零
+    $capture_rate = max(1, min(255, $capture_rate));
 
     $shake_check = intval(1048560 / pow(16711680 / $capture_rate, 0.25));
 
@@ -1801,16 +1789,20 @@ function api_capture_pokemon()
             $site = $active_count >= 6 ? 3 : 2;
         }
 
-        // 插入新宠物
-        DB::query("INSERT INTO " . pm_table('pm_mypm') . "
+        // 插入新宠物（itemevolve 是 pm_mypm 的列而 pm_data 没有，固定写 0）
+        DB::query(pm_sql("INSERT INTO " . pm_table('pm_mypm') . "
             (uid, pmname, nickname, species_id, level, exp, sex, sx, hp,
              hpg, atkg, defg, spatkg, spdefg, sdg,
              good, itemevolve, ballid, site, state, statetime, gduptime, initialuid)
             VALUES (
-                {$_G['uid']}, '{$npc['name']}', '{$npc['name']}', {$npc['id']}, $npc_level, 0, $sex, '{$npc['xs']}',
-                $npc_hp, $hpg, $atkg, $defg, $spatkg, $spdefg, $sdg,
-                70, '{$npc['itemevolve']}', {$my_ball['ballid']}, $site, 1, " . time() . ", " . time() . ", {$_G['uid']}
-            )");
+                %d, %s, %s, %d, %d, 0, %d, %s,
+                %d, %d, %d, %d, %d, %d, %d,
+                70, 0, %d, %d, 1, %d, %d, %d
+            )",
+            $_G['uid'], $npc['name'], $npc['name'], $npc['id'], $npc_level, $sex, $npc['xs'],
+            $npc_hp, $hpg, $atkg, $defg, $spatkg, $spdefg, $sdg,
+            $my_ball['ballid'], $site, time(), time(), $_G['uid']
+        ));
 
         clear_battle_state($_G['uid']);
     } else {
