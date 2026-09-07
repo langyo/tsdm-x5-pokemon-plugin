@@ -28,8 +28,9 @@ use _utils::types::api_shop::{
 };
 use _utils::types::api_topics::TopicsResponse;
 use _utils::types::api_user::{
-    InitializePlayerResponse, InventoryResponse, InventoryStatsResponse, OnlinePlayersResponse,
-    UsablePokemonResponse, UseItemRequest, UseItemResponse, UserProfileResponse, UserStatsResponse,
+    BadgeStatusResponse, InitializePlayerResponse, InventoryResponse, InventoryStatsResponse,
+    OnlinePlayersResponse, UsablePokemonResponse, UseItemRequest, UseItemResponse,
+    UserProfileResponse, UserStatsResponse,
 };
 
 /// API客户端
@@ -1584,10 +1585,15 @@ impl NewApiClient {
         }
     }
 
-    pub async fn refresh_forum_badge(&self) -> Result<()> {
+    /// 刷新（hide=false，重新同步宠物数据并显示）或隐藏（hide=true）帖子宠物徽章
+    pub async fn refresh_forum_badge(&self, hide: bool) -> Result<BadgeStatusResponse> {
         let url = format!("{}&endpoint=user&action=refresh_badge", self.base_url);
+        let body = serde_json::json!({ "hide": hide });
 
         let response = Request::post(&url)
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .map_err(|e| anyhow!("Serialize error: {}", e))?
             .send()
             .await
             .map_err(|e| anyhow!("Network error: {}", e))?;
@@ -1606,7 +1612,7 @@ impl NewApiClient {
             .await
             .map_err(|e| anyhow!("Read error: {}", e))?;
 
-        let result: PokemonApiResponse<serde_json::Value> = serde_json::from_str(&response_text)
+        let result: PokemonApiResponse<BadgeStatusResponse> = serde_json::from_str(&response_text)
             .map_err(|e| {
                 anyhow!(
                     "Parse error: {} | Response: {}",
@@ -1616,7 +1622,41 @@ impl NewApiClient {
             })?;
 
         if result.success {
-            Ok(())
+            result.data.ok_or_else(|| anyhow!("No data returned"))
+        } else {
+            Err(anyhow!("API error: {}", result.error.unwrap_or_default()))
+        }
+    }
+
+    /// 查询帖子宠物徽章当前是否隐藏
+    pub async fn get_badge_status(&self) -> Result<BadgeStatusResponse> {
+        let url = format!("{}&endpoint=user&action=badge_status", self.base_url);
+
+        let response = Request::get(&url)
+            .send()
+            .await
+            .map_err(|e| anyhow!("Network error: {}", e))?;
+
+        if !response.ok() {
+            return Err(anyhow!("HTTP error: {}", response.status()));
+        }
+
+        let response_text = response
+            .text()
+            .await
+            .map_err(|e| anyhow!("Read error: {}", e))?;
+
+        let result: PokemonApiResponse<BadgeStatusResponse> = serde_json::from_str(&response_text)
+            .map_err(|e| {
+                anyhow!(
+                    "Parse error: {} | Response: {}",
+                    e,
+                    response_text.chars().take(200).collect::<String>()
+                )
+            })?;
+
+        if result.success {
+            result.data.ok_or_else(|| anyhow!("No data returned"))
         } else {
             Err(anyhow!("API error: {}", result.error.unwrap_or_default()))
         }

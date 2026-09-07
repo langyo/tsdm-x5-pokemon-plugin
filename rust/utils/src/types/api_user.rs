@@ -240,3 +240,12 @@ pub struct UsablePokemonResponse {
     #[serde(rename = "unusable_count")]
     pub unusable_count: usize,
 }
+
+/// 帖子宠物徽章可见状态（refresh_badge 与 badge_status 共用）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BadgeStatusResponse {
+    #[serde(default)]
+    pub hidden: bool,
+    #[serde(default)]
+    pub initialized: bool,
+}

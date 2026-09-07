@@ -77,6 +77,10 @@ switch ($action) {
         api_refresh_forum_badge();
         break;
 
+    case 'badge_status':
+        api_get_badge_status();
+        break;
+
     default:
         api_error('Invalid action', 400);
 }
@@ -1172,6 +1176,8 @@ function api_get_usable_pokemon()
 /**
  * 刷新论坛帖子宠物徽章
  * 将用户当前宠物数据同步到 common_member_field_forum.pokemon 字段
+ *
+ * 请求体可选 hide: true —— 清空 pokemon 字段，帖子旁不再显示携带的宠物
  */
 function api_refresh_forum_badge()
 {
@@ -1180,15 +1186,30 @@ function api_refresh_forum_badge()
     global $_G;
     $uid = validate_uid($_G['uid']);
 
-    $pm_data = _get_badge_pokemon_data($uid);
+    $input = get_json_input();
+    $hide = !empty($input['hide']);
 
     $forum_table = DB::table('common_member_field_forum');
-    $serialized = serialize($pm_data);
 
     $col = DB::fetch_first("SHOW COLUMNS FROM $forum_table LIKE 'pokemon'");
     if (!$col) {
         DB::query("ALTER TABLE $forum_table ADD COLUMN pokemon text NOT NULL");
     }
+
+    if ($hide) {
+        DB::query(pm_sql(
+            "UPDATE $forum_table SET pokemon = '' WHERE uid = %d",
+            $uid
+        ));
+
+        api_success([
+            'message' => '帖子徽章已隐藏',
+            'hidden' => true,
+        ]);
+    }
+
+    $pm_data = _get_badge_pokemon_data($uid);
+    $serialized = serialize($pm_data);
 
     DB::query(pm_sql(
         "UPDATE $forum_table SET pokemon = %s WHERE uid = %d",
@@ -1202,6 +1223,38 @@ function api_refresh_forum_badge()
         'message' => '徽章已刷新',
         'first_pokemon' => $first_name,
         'creep_count' => $creep_count,
+        'hidden' => false,
+    ]);
+}
+
+/**
+ * 查询当前用户帖子宠物徽章的可见状态
+ * pokemon 字段为空（从未刷新或已隐藏）时视为隐藏
+ */
+function api_get_badge_status()
+{
+    require_login();
+
+    global $_G;
+    $uid = validate_uid($_G['uid']);
+
+    $forum_table = DB::table('common_member_field_forum');
+
+    $col = DB::fetch_first("SHOW COLUMNS FROM $forum_table LIKE 'pokemon'");
+    if (!$col) {
+        api_success(['hidden' => true, 'initialized' => false]);
+    }
+
+    $row = DB::fetch_first(pm_sql(
+        "SELECT pokemon FROM $forum_table WHERE uid = %d",
+        $uid
+    ));
+
+    $hidden = !$row || trim(strval($row['pokemon'])) === '';
+
+    api_success([
+        'hidden' => $hidden,
+        'initialized' => true,
     ]);
 }
 
