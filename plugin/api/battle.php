@@ -659,7 +659,14 @@ function api_flee()
     $mypokemon = api_my_pokemon($_G['username']);
 
     if (empty($myusersdata['npcid']) || $myusersdata['npcid'] <= 0) {
-        api_error('No active battle found', 400);
+        // 服务端已无进行中的战斗（例如胜利后前端仍停在战斗界面）。
+        // 此前返回 400 "No active battle found" 会让玩家卡死在战斗画面，
+        // 改为幂等返回 fled，前端据此正常收尾。
+        $battle = build_battle_response($myusersdata, $mypokemon);
+        $battle['status'] = 'fled';
+        $battle['message'] = '战斗已经结束。';
+        $battle['turn'] = 0;
+        api_success($battle);
     }
 
     $npc = pm_data($myusersdata['npcid']);

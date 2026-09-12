@@ -201,6 +201,35 @@
   background: #c0392b;
 }
 
+.storage-search-bar {
+  padding: 8px 16px;
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.storage-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: $font-family-base;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  outline: none;
+
+  &:focus {
+    border-color: var(--color-primary);
+  }
+}
+
+.storage-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 4px;
+}
+
 .storage-panel .panel-body {
   flex: 1;
   overflow-y: auto;

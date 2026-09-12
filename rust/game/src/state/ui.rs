@@ -83,14 +83,18 @@ pub fn show_toast(message: impl Into<String>, toast_type: ToastType) {
     });
 
     let toast_id = id;
-    let should_auto_hide = !matches!(toast_type, ToastType::Error | ToastType::Warning);
+    // 错误/警告停留更久便于阅读和复制，但也要自动消失，
+    // 否则会一直挡在页面顶部（此前错误 toast 永不消失）
+    let timeout_ms = match toast_type {
+        ToastType::Error => 8000,
+        ToastType::Warning => 6000,
+        _ => 3000,
+    };
 
-    if should_auto_hide {
-        spawn(async move {
-            gloo_timers::future::TimeoutFuture::new(3000).await;
-            hide_toast(toast_id);
-        });
-    }
+    spawn(async move {
+        gloo_timers::future::TimeoutFuture::new(timeout_ms).await;
+        hide_toast(toast_id);
+    });
 }
 
 pub fn hide_toast(id: u64) {

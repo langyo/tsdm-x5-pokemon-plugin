@@ -208,20 +208,29 @@ function api_get_inventory()
 
     $where_sql = "WHERE " . implode(' AND ', $where_params);
 
-    // 获取总数 - 使用 JOIN
-    $count_sql = "SELECT COUNT(*) as total FROM " . pm_table('pm_myitem') . " m
+    // 装备道具（type=5）被宠物装备后不应继续占着背包列表（恢复旧版"装备后即隐藏"）。
+    // 注意：Discuz querysafe 拦截括号子查询（"(select"），这里用四个 LEFT JOIN
+    // 按装备槽统计每件物品已被装备的数量，HAVING 过滤已全部装备的行。
+    $limit_sql = "SELECT SQL_CALC_FOUND_ROWS m.*,
+            i.type as item_type, i.name as item_name, i.description as item_desc, i.tpname as item_image, i.id as itemdata_id,
+            COUNT(DISTINCT p1.id) + COUNT(DISTINCT p2.id) + COUNT(DISTINCT p3.id) + COUNT(DISTINCT p4.id) AS equipped_cnt
+        FROM " . pm_table('pm_myitem') . " m
         LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid = i.id
-        " . $where_sql;
-    $total = (int) DB::result_first(pm_sql_v($count_sql, $where_values));
+        LEFT JOIN " . pm_table('pm_mypm') . " p1 ON p1.uid = m.uid AND p1.equipmentid1 = m.id
+        LEFT JOIN " . pm_table('pm_mypm') . " p2 ON p2.uid = m.uid AND p2.equipmentid2 = m.id
+        LEFT JOIN " . pm_table('pm_mypm') . " p3 ON p3.uid = m.uid AND p3.equipmentid3 = m.id
+        LEFT JOIN " . pm_table('pm_mypm') . " p4 ON p4.uid = m.uid AND p4.equipmentid4 = m.id
+        " . $where_sql . "
+        GROUP BY m.id
+        HAVING i.type <> 5 OR m.nums > equipped_cnt
+        ORDER BY m.id DESC LIMIT %d, %d";
 
     // 分页查询
     $offset = ($page - 1) * $per_page;
-    $limit_sql = "SELECT m.*, i.type as item_type, i.name as item_name, i.description as item_desc, i.tpname as item_image, i.id as itemdata_id
-        FROM " . pm_table('pm_myitem') . " m
-        LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid = i.id
-        " . $where_sql . " ORDER BY m.id DESC LIMIT %d, %d";
-
     $rows = DB::fetch_all(pm_sql_v($limit_sql, array_merge($where_values, array($offset, $per_page))));
+
+    // 精确的总数（已扣除被隐藏的已装备行）
+    $total = (int) DB::result_first("SELECT FOUND_ROWS()");
 
     $items = [];
 
@@ -230,8 +239,14 @@ function api_get_inventory()
         $item_type_from_item = isset($row['item_type']) && $row['item_type'] !== null
             ? (int) $row['item_type']
             : 0;
-        
+
         $typeid = isset($row['itemdata_id']) ? (int)$row['itemdata_id'] : 0;
+
+        // 装备道具的可用量 = 持有数 - 已被装备数
+        $quantity = (int) $row['nums'];
+        if ($item_type_from_item === 5) {
+            $quantity = max(0, $quantity - (int) $row['equipped_cnt']);
+        }
 
         $items[] = [
             'id' => (int) $row['id'],
@@ -240,9 +255,9 @@ function api_get_inventory()
             'name' => isset($row['item_name']) && $row['item_name'] ? $row['item_name'] : '未知',
             'description' => isset($row['item_desc']) ? $row['item_desc'] : '',
             'image' => isset($row['item_image']) ? $row['item_image'] : '',
-            'quantity' => (int) $row['nums'],
+            'quantity' => $quantity,
             'type_name' => get_item_type_name($item_type_from_item),
-            'can_use' => $row['nums'] > 0,
+            'can_use' => $quantity > 0,
         ];
     }
 

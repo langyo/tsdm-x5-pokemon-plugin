@@ -35,21 +35,27 @@ pub fn PokemonCenter() -> Element {
 
     let (injured_pokemons, has_healable_pokemons, all_healthy, is_loading, list_is_empty) = {
         let pokemon_list = POKEMON_STATE.read();
-        let injured: Vec<_> = pokemon_list
+        // 医疗只针对身上携带的宠物（site 1/2，上限 6），箱子里的不在这里显示
+        let carried: Vec<_> = pokemon_list
             .list
+            .iter()
+            .filter(|p| p.site == 1 || p.site == 2)
+            .cloned()
+            .collect();
+        let injured: Vec<_> = carried
             .iter()
             .filter(|p| p.hp < p.max_hp || is_negative_state(p.state))
             .cloned()
             .collect();
 
-        let healable = pokemon_list.list.iter().any(|p| {
+        let healable = carried.iter().any(|p| {
             let needs_healing = p.hp < p.max_hp || is_negative_state(p.state);
             needs_healing && !(is_in_battle_state && p.site == 1)
         });
 
-        let healthy = injured.is_empty() && !pokemon_list.list.is_empty();
+        let healthy = injured.is_empty() && !carried.is_empty();
         let ld = pokemon_list.loading;
-        let empty = pokemon_list.list.is_empty();
+        let empty = carried.is_empty();
         (injured, healable, healthy, ld, empty)
     };
 
@@ -61,7 +67,10 @@ pub fn PokemonCenter() -> Element {
             .list
             .iter()
             .filter(|p| {
-                let is_negative = matches!(p.state, 0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15);
+                if !(p.site == 1 || p.site == 2) {
+                    return false;
+                }
+                let is_negative = is_negative_state(p.state);
                 let needs_healing = p.hp < p.max_hp || is_negative;
                 needs_healing && !(is_in_battle_for_heal_all && p.site == 1)
             })

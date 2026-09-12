@@ -2274,7 +2274,8 @@ function api_move_pokemon()
     }
 
     // 如果从仓库移到背包，需要检查背包是否已满（最多6只）
-    if ($current_site === 3 && ($target_site === 1 || $target_site === 2)) {
+    // 旧版数据用 site 3..N 表示多个箱子，仓库判定不能只认 site === 3
+    if ($current_site >= 3 && ($target_site === 1 || $target_site === 2)) {
         $bag_count = DB::result_first(
             "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . " WHERE uid = $uid AND site IN (1, 2)"
         );
@@ -2396,8 +2397,8 @@ function api_set_first_pokemon()
         return;
     }
 
-    // 如果宠物在仓库（site=3），不允许直接设为首位
-    if ($current_site === 3) {
+    // 如果宠物在仓库（site >= 3，旧数据 3..N 表示多个箱子），不允许直接设为首位
+    if ($current_site >= 3) {
         api_error('请先将宝可梦移出仓库再设为首位', 400);
         return;
     }

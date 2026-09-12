@@ -41,7 +41,8 @@ impl PokemonState {
     }
 
     pub fn get_storage_pokemons(&self) -> Vec<PokemonBasic> {
-        self.list.iter().filter(|p| p.site == 3).cloned().collect()
+        // 旧版数据用 site 3..N 表示多个箱子（boxnum 决定 N），不能只认 site == 3
+        self.list.iter().filter(|p| p.site >= 3).cloned().collect()
     }
 
     pub fn get_first_pokemon(&self) -> Option<&PokemonBasic> {
@@ -49,9 +50,12 @@ impl PokemonState {
     }
 
     pub fn get_injured_pokemons(&self) -> Vec<PokemonBasic> {
+        // 仅限身上携带的宠物（战斗前后自动治疗只针对它们）
         self.list
             .iter()
-            .filter(|p| p.hp < p.max_hp || is_negative_state(p.state))
+            .filter(|p| {
+                (p.site == 1 || p.site == 2) && (p.hp < p.max_hp || is_negative_state(p.state))
+            })
             .cloned()
             .collect()
     }

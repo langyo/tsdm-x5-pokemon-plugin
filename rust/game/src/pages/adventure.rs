@@ -528,7 +528,6 @@ pub fn Adventure() -> Element {
         pokemon_list_for_recommendation,
         current_battle_scene,
         can_continue_battle,
-        last_map_id,
     ) = {
         let ps = POKEMON_STATE.read();
         let bs = BATTLE_STATE.read();
@@ -537,23 +536,23 @@ pub fn Adventure() -> Element {
             .map(|s| s.status == _utils::types::api_battle::BattleStatus::Victory)
             .unwrap_or(false);
         let my_pokemon_alive = scene.map(|s| s.my_pokemon.hp > 0).unwrap_or(false);
-        let map_id = scene.map(|s| s.map_id).unwrap_or(0);
         (
             ps.list.is_empty(),
             ps.list.clone(),
             bs.scene.clone(),
             is_victory && my_pokemon_alive,
-            map_id,
         )
     };
 
     let mut continue_battle = move |_| {
-        if last_map_id > 0 {
+        // 战斗结束响应里 map_id 恒为 0（服务端不回传地图），
+        // 必须读开战时持久化的地图 ID，否则这里拿 0 会静默失效
+        let map_id = crate::state::get_last_map_id();
+        if map_id > 0 {
             clear_battle_scene();
             message_log.set(Vec::new());
 
             let api = NewApiClient::new();
-            let map_id = last_map_id;
 
             let injured: Vec<(u64, String)> = POKEMON_STATE
                 .read()

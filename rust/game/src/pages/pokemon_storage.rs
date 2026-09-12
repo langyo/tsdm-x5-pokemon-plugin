@@ -24,6 +24,10 @@ pub fn PokemonStorage() -> Element {
     let popup = use_popup();
     let mut select_mode = use_signal::<bool>(|| false);
     let mut selected_ids = use_signal::<Vec<u64>>(Vec::new);
+    let mut search_text = use_signal(String::new);
+    // 仓库可能有多箱数百只宠物（旧数据 site 3..N），默认只渲染一部分
+    const STORAGE_PAGE_SIZE: usize = 60;
+    let mut visible_count = use_signal(|| STORAGE_PAGE_SIZE);
 
     let (is_user_in_battle, loading, loaded, bag_pokemons, storage_pokemons) = {
         let state = POKEMON_STATE.read();
@@ -38,12 +42,32 @@ pub fn PokemonStorage() -> Element {
             .cloned()
             .collect();
         let storage: Vec<PokemonBasic> =
-            state.list.iter().filter(|p| p.site == 3).cloned().collect();
+            state.list.iter().filter(|p| p.site >= 3).cloned().collect();
         (in_battle, ld, ld2, bag, storage)
     };
 
-    let storage_count = storage_pokemons.len();
-    let storage_pokemon_ids: Vec<u64> = storage_pokemons.iter().map(|p| p.id).collect();
+    let keyword = search_text.read().trim().to_lowercase();
+    let filtered_storage: Vec<PokemonBasic> = storage_pokemons
+        .iter()
+        .filter(|p| {
+            if keyword.is_empty() {
+                true
+            } else {
+                let name = p.name.to_lowercase();
+                let nickname = p.nickname.as_deref().unwrap_or("").to_lowercase();
+                name.contains(&keyword) || nickname.contains(&keyword)
+            }
+        })
+        .cloned()
+        .collect();
+    let shown_storage: Vec<PokemonBasic> = filtered_storage
+        .iter()
+        .take(*visible_count.read())
+        .cloned()
+        .collect();
+
+    let storage_count = filtered_storage.len();
+    let storage_pokemon_ids: Vec<u64> = filtered_storage.iter().map(|p| p.id).collect();
 
     let mut toggle_select = {
         let mut selected_ids = selected_ids;
@@ -177,7 +201,19 @@ pub fn PokemonStorage() -> Element {
                                 }
                             }
                         }
-                        if *select_mode.read() && !storage_pokemons.is_empty() {
+                        div { class: "storage-search-bar",
+                            input {
+                                class: "storage-search-input",
+                                r#type: "text",
+                                placeholder: "搜索名字 / 昵称",
+                                value: "{search_text.read()}",
+                                oninput: move |evt| {
+                                    search_text.set(evt.value());
+                                    visible_count.set(STORAGE_PAGE_SIZE);
+                                }
+                            }
+                        }
+                        if *select_mode.read() && !filtered_storage.is_empty() {
                             div { class: "select-actions-bar",
                                 button {
                                     class: "select-action-btn",
@@ -195,11 +231,17 @@ pub fn PokemonStorage() -> Element {
                         div { class: "panel-body",
                             if loading && !loaded {
                                 div { class: "panel-loading", "加载中..." }
-                            } else if storage_pokemons.is_empty() {
-                                div { class: "panel-empty", "仓库中没有宠物" }
+                            } else if filtered_storage.is_empty() {
+                                div { class: "panel-empty",
+                                    if keyword.is_empty() {
+                                        "仓库中没有宠物"
+                                    } else {
+                                        "没有匹配的宠物"
+                                    }
+                                }
                             } else {
                                 div { class: "pokemon-grid storage-grid",
-                                    for pokemon in storage_pokemons.iter() {
+                                    for pokemon in shown_storage.iter() {
                                         {
                                             let pokemon_clone = pokemon.clone();
                                             let display_name = pokemon
@@ -225,6 +267,18 @@ pub fn PokemonStorage() -> Element {
                                                     on_toggle_select: move |_| toggle_select(pokemon_id),
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+                                if filtered_storage.len() > shown_storage.len() {
+                                    div { class: "storage-load-more",
+                                        button {
+                                            class: "select-action-btn",
+                                            onclick: move |_| {
+                                                let next = *visible_count.read() + STORAGE_PAGE_SIZE;
+                                                visible_count.set(next);
+                                            },
+                                            "加载更多（已显示 {shown_storage.len()}/{filtered_storage.len()}）"
                                         }
                                     }
                                 }
