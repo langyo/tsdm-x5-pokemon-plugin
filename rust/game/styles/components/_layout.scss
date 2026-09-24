@@ -677,23 +677,162 @@
   }
 
   .footer-copyright { color: $color-gray-600; }
-  .footer-powered { 
-    color: $color-gray-400;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
-    
-    .powered-line {
-      font-size: $font-size-xs;
-      line-height: 1.3;
+
+  .footer-about-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: $radius-round;
+    background: transparent;
+    color: $color-gray-500;
+    cursor: pointer;
+    transition: color $transition-fast, background $transition-fast;
+
+    svg { width: 18px; height: 18px; }
+
+    &:hover {
+      color: $color-primary-dark;
+      background: $color-primary-lighter;
     }
-    
-    .powered-models {
-      font-size: $font-size-xs;
-      line-height: 1.3;
-      text-align: right;
+
+    &:focus-visible {
+      outline: 2px solid $color-primary;
+      outline-offset: 2px;
     }
   }
+
   p { margin: 0; }
+}
+
+// =============================================================================
+// About Dialog - 页脚「关于」弹窗
+// =============================================================================
+
+.about-dialog {
+  .about-project {
+    padding-bottom: $spacing-base;
+    border-bottom: 1px solid $color-gray-200;
+  }
+
+  .about-project-name {
+    font-size: $font-size-xl;
+    font-weight: 700;
+    color: $color-gray-900;
+    font-family: $font-family-title;
+  }
+
+  .about-project-desc {
+    margin: $spacing-sm 0 0;
+    font-size: $font-size-sm;
+    color: $color-gray-600;
+    line-height: 1.7;
+  }
+
+  .about-meta {
+    margin-top: $spacing-base;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
+
+  .about-meta-row {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-sm;
+  }
+
+  .about-meta-label {
+    flex-shrink: 0;
+    width: 36px;
+    color: $color-gray-500;
+  }
+
+  .about-meta-value {
+    color: $color-gray-800;
+    font-weight: 600;
+  }
+
+  .about-repo-link {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    color: $color-info;
+    text-decoration: none;
+    font-weight: 500;
+    word-break: break-all;
+
+    svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+    &:hover { text-decoration: underline; }
+  }
+
+  .about-models {
+    margin-top: $spacing-base;
+  }
+
+  .about-section-title {
+    font-size: $font-size-base;
+    font-weight: 700;
+    color: $color-gray-800;
+  }
+
+  .about-models-desc {
+    margin: $spacing-xs 0 $spacing-sm;
+    font-size: $font-size-sm;
+    color: $color-gray-600;
+  }
+
+  .about-model-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid $color-gray-200;
+    border-radius: $radius-md;
+    overflow: hidden;
+  }
+
+  .about-model-item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-sm $spacing-base;
+    font-size: $font-size-sm;
+    background: $color-white;
+    transition: background $transition-fast;
+
+    &:not(:last-child) { border-bottom: 1px solid $color-gray-100; }
+
+    &:hover { background: $color-primary-lighter; }
+
+    .about-model-name {
+      font-weight: 600;
+      color: $color-gray-800;
+      white-space: nowrap;
+    }
+
+    .about-model-vendor {
+      flex: 1;
+      color: $color-gray-500;
+      font-size: $font-size-xs;
+    }
+
+    .about-model-date {
+      color: $color-gray-500;
+      font-size: $font-size-xs;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+  }
+
+  .about-models-footnote {
+    margin: $spacing-sm 0 0;
+    font-size: $font-size-xs;
+    color: $color-gray-500;
+    text-align: right;
+  }
 }
