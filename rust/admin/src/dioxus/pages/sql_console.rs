@@ -1,4 +1,4 @@
-use chrono::{Timelike, Utc};
+use chrono::{Local, Timelike, Utc};
 use serde_json::Value;
 
 use crate::dioxus::prelude::*;
@@ -142,8 +142,17 @@ pub fn SqlConsolePage() -> Element {
                         onclick: move |_| {
                             let sql = sql_value.read().clone();
                             if !sql.is_empty() {
-                                copy_to_clipboard(&sql);
-                                set_notice(AdminNoticeLevel::Info, "SQL 已复制到剪贴板");
+                                match copy_to_clipboard(&sql) {
+                                    Ok(()) => {
+                                        set_notice(AdminNoticeLevel::Info, "SQL 已复制到剪贴板");
+                                    }
+                                    Err(error) => {
+                                        set_notice(
+                                            AdminNoticeLevel::Error,
+                                            format!("复制失败: {}", error),
+                                        );
+                                    }
+                                }
                             }
                         },
                         "复制 SQL"
@@ -209,11 +218,13 @@ struct SqlResultDetail {
 
 #[component]
 fn SqlHistoryCard(entry: SqlHistoryEntry) -> Element {
+    // 显示时转为浏览器本地时区（存储仍为 UTC）
+    let executed_local = entry.executed_at.with_timezone(&Local);
     let timestamp = format!(
         "{:02}:{:02}:{:02}",
-        entry.executed_at.hour(),
-        entry.executed_at.minute(),
-        entry.executed_at.second()
+        executed_local.hour(),
+        executed_local.minute(),
+        executed_local.second()
     );
     let is_ok = entry.result.is_ok();
     let sql_copy = entry.sql.clone();
@@ -254,7 +265,19 @@ fn SqlHistoryCard(entry: SqlHistoryEntry) -> Element {
                 div { class: "history-toolbar",
                     button {
                         class: "admin-btn admin-btn--ghost",
-                        onclick: move |_| copy_to_clipboard(&sql_copy),
+                        onclick: move |_| {
+                            match copy_to_clipboard(&sql_copy) {
+                                Ok(()) => {
+                                    set_notice(AdminNoticeLevel::Info, "SQL 已复制到剪贴板");
+                                }
+                                Err(error) => {
+                                    set_notice(
+                                        AdminNoticeLevel::Error,
+                                        format!("复制失败: {}", error),
+                                    );
+                                }
+                            }
+                        },
                         "复制 SQL"
                     }
                     if is_ok {

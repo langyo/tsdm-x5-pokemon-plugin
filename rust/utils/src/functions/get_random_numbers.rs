@@ -1,6 +1,18 @@
 pub fn get_random_points_0_to_31() -> [u64; 6] {
+    match try_get_random_points_0_to_31() {
+        Ok(randoms) => randoms,
+        Err(error) => {
+            // RNG 失败不再静默返回全 0（会把全 0 个体值当正常数据发放），
+            // 记录错误后保留确定性回退，调用方可在控制台看到根因。
+            log::error!("获取随机数失败，回退为全 0: {}", error);
+            [0; 6]
+        }
+    }
+}
+
+pub fn try_get_random_points_0_to_31() -> Result<[u64; 6], getrandom::Error> {
     let mut randoms: [u8; 6] = Default::default();
-    getrandom::fill(&mut randoms).unwrap_or(());
+    getrandom::fill(&mut randoms)?;
 
     // 生成六个 0 - 31 的数字
     for item in &mut randoms {
@@ -13,7 +25,7 @@ pub fn get_random_points_0_to_31() -> [u64; 6] {
         randoms_u64[i] = *item as u64;
     }
 
-    randoms_u64
+    Ok(randoms_u64)
 }
 
 #[cfg(test)]

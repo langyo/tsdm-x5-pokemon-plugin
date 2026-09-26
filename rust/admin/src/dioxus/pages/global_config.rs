@@ -1,4 +1,4 @@
-use chrono::{Timelike, Utc};
+use chrono::{Local, Timelike, Utc};
 use std::env::consts;
 
 use crate::dioxus::prelude::*;
@@ -19,6 +19,7 @@ use crate::{
         },
         utils::{
             api::{get_global_config, run_sql, set_global_config},
+            clipboard::copy_to_clipboard,
             json_tree::{ExpandState, JsonTree, JsonTreeMode},
         },
     },
@@ -693,8 +694,17 @@ fn SqlConsoleModal(show: bool, on_close: EventHandler<()>) -> Element {
                             class: "admin-btn",
                             disabled: input.is_empty(),
                             onclick: move |_| {
-                                let _ = copy_to_clipboard(&input_for_copy);
-                                set_notice(AdminNoticeLevel::Info, "SQL 已复制到剪贴板");
+                                match copy_to_clipboard(&input_for_copy) {
+                                    Ok(()) => {
+                                        set_notice(AdminNoticeLevel::Info, "SQL 已复制到剪贴板");
+                                    }
+                                    Err(error) => {
+                                        set_notice(
+                                            AdminNoticeLevel::Error,
+                                            format!("复制失败: {}", error),
+                                        );
+                                    }
+                                }
                             },
                             "复制"
                         }
@@ -749,11 +759,13 @@ fn SqlConsoleModal(show: bool, on_close: EventHandler<()>) -> Element {
 
 #[component]
 fn SqlHistoryModalCard(entry: SqlHistoryEntry) -> Element {
+    // 显示时转为浏览器本地时区（存储仍为 UTC）
+    let executed_local = entry.executed_at.with_timezone(&Local);
     let timestamp = format!(
         "{:02}:{:02}:{:02}",
-        entry.executed_at.hour(),
-        entry.executed_at.minute(),
-        entry.executed_at.second()
+        executed_local.hour(),
+        executed_local.minute(),
+        executed_local.second()
     );
     let is_ok = entry.result.is_ok();
     let sql_copy = entry.sql.clone();
@@ -783,8 +795,17 @@ fn SqlHistoryModalCard(entry: SqlHistoryEntry) -> Element {
                     button {
                         class: "admin-btn admin-btn--ghost",
                         onclick: move |_| {
-                            let _ = copy_to_clipboard(&sql_copy);
-                            set_notice(AdminNoticeLevel::Info, "SQL 已复制到剪贴板");
+                            match copy_to_clipboard(&sql_copy) {
+                                Ok(()) => {
+                                    set_notice(AdminNoticeLevel::Info, "SQL 已复制到剪贴板");
+                                }
+                                Err(error) => {
+                                    set_notice(
+                                        AdminNoticeLevel::Error,
+                                        format!("复制失败: {}", error),
+                                    );
+                                }
+                            }
                         },
                         "复制 SQL"
                     }
@@ -799,8 +820,20 @@ fn SqlHistoryModalCard(entry: SqlHistoryEntry) -> Element {
                                 button {
                                     class: "admin-btn admin-btn--ghost",
                                     onclick: move |_| {
-                                        let _ = copy_to_clipboard(&copy_result);
-                                        set_notice(AdminNoticeLevel::Info, "结果已复制到剪贴板");
+                                        match copy_to_clipboard(&copy_result) {
+                                            Ok(()) => {
+                                                set_notice(
+                                                    AdminNoticeLevel::Info,
+                                                    "结果已复制到剪贴板",
+                                                );
+                                            }
+                                            Err(error) => {
+                                                set_notice(
+                                                    AdminNoticeLevel::Error,
+                                                    format!("复制失败: {}", error),
+                                                );
+                                            }
+                                        }
                                     },
                                     "复制结果"
                                 }
@@ -824,14 +857,6 @@ fn SqlHistoryModalCard(entry: SqlHistoryEntry) -> Element {
             }
         }
     }
-}
-
-fn copy_to_clipboard(text: &str) -> Result<(), String> {
-    let window = web_sys::window().ok_or("无法获取 window 对象")?;
-    let clipboard = window.navigator().clipboard();
-    // write_text 返回 Promise，在 WASM 中异步执行
-    let _ = clipboard.write_text(text);
-    Ok(())
 }
 
 #[component]

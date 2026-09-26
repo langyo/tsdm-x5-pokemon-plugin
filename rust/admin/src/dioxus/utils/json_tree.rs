@@ -4,6 +4,7 @@ use serde_json::Value;
 
 use crate::dioxus::prelude::*;
 
+use crate::dioxus::state::{set_notice, AdminNoticeLevel};
 use crate::dioxus::utils::clipboard::copy_to_clipboard;
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
@@ -776,7 +777,19 @@ fn JsonPrimitiveNode(
                 if !*is_editing.read() && !is_editable {
                     button {
                         class: "json-node__copy",
-                        onclick: move |_| copy_to_clipboard(&value_for_copy),
+                        onclick: move |_| {
+                            match copy_to_clipboard(&value_for_copy) {
+                                Ok(()) => {
+                                    set_notice(AdminNoticeLevel::Info, "已复制到剪贴板");
+                                }
+                                Err(error) => {
+                                    set_notice(
+                                        AdminNoticeLevel::Error,
+                                        format!("复制失败: {}", error),
+                                    );
+                                }
+                            }
+                        },
                         "复制"
                     }
                 }
