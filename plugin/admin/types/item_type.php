@@ -86,7 +86,9 @@ function new_item_effects($query)
 
 function translate_item_tag_id_to_db_raw($obj)
 {
-  if ($obj == 'drug') {
+  // 药品标签在 GET/Rust 端序列化为 {"drug":null}（isset 对 null 失效），
+  // 旧数据亦可能以裸字符串 "drug" 传入，两种形态都接受
+  if ($obj == 'drug' || (is_array($obj) && array_key_exists("drug", $obj))) {
     return [1];
   } else if (isset($obj["ball"])) {
     return [2, intval($obj["ball"])];

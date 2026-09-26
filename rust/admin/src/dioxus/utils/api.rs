@@ -441,6 +441,26 @@ fn get_admin_endpoint() -> Result<String> {
     }
 }
 
+/// Boss 系统走独立的 API 端点（plugin.php?...&endpoint=boss），
+/// 不经过后台 dispatch 路由
+fn get_boss_endpoint() -> Result<String> {
+    let js_code = r#"(() => {
+        const url = new URL(window.location.href);
+        url.hash = '';
+        url.searchParams.set('id', 'pokemon:pokemon');
+        url.searchParams.delete('index');
+        url.searchParams.set('endpoint', 'boss');
+        return url.toString();
+    })()"#
+        .to_string();
+    match js_sys::eval(js_code.as_str()) {
+        Ok(value) => value
+            .as_string()
+            .ok_or_else(|| anyhow!("获取 Boss 接口地址失败")),
+        Err(error) => Err(anyhow!("获取 Boss 接口地址失败")),
+    }
+}
+
 fn strip_script_prefix(mut text: &str) -> &str {
     let script_end = "</script>";
     loop {
@@ -1537,12 +1557,10 @@ struct BossPetInfo {
 
 /// 获取地图的 Boss 配置
 pub async fn get_map_boss_config(map_id: u64) -> Result<MapBossConfig> {
-    let endpoint = get_admin_endpoint()?;
+    let url = get_boss_endpoint()?;
     let client = reqwest::Client::new();
 
     let params = [("action", "get_config"), ("map_id", &map_id.to_string())];
-
-    let url = format!("{}/boss.php", endpoint);
 
     let response = client
         .get(&url)
@@ -1578,12 +1596,10 @@ pub async fn get_map_boss_config(map_id: u64) -> Result<MapBossConfig> {
 
 /// 尝试刷新 Boss
 pub async fn try_spawn_map_boss(map_id: u64) -> Result<Option<MapBoss>> {
-    let endpoint = get_admin_endpoint()?;
+    let url = get_boss_endpoint()?;
     let client = reqwest::Client::new();
 
     let params = [("action", "try_spawn"), ("map_id", &map_id.to_string())];
-
-    let url = format!("{}/boss.php", endpoint);
 
     let response = client
         .get(&url)

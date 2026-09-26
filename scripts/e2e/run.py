@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
-"""E2E test suite for Pokemon Plugin admin API. Run via: python scripts/e2e/run.py"""
-import subprocess, os, json, sys, time, hashlib
+"""E2E test suite for Pokemon Plugin admin API.
+
+Run via: python scripts/e2e/run.py           # dispatch-level tests (needs dev stack)
+         python scripts/e2e/run.py --http    # additionally run HTTP-level tests
+
+The dispatch-level suite drives admin/dispatch.php directly inside the app
+container (no HTTP/auth); the HTTP-level suite logs in as admin over HTTPS and
+exercises the same surface through plugin.php, including the boss endpoint and
+unauthorized-access behavior.
+"""
+import subprocess, os, json, sys, hashlib
+import urllib.request, urllib.parse, http.cookiejar, ssl
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TMP_DIR = os.path.join(PROJECT_ROOT, "scripts", "e2e", ".tmp")
@@ -8,13 +18,27 @@ os.makedirs(TMP_DIR, exist_ok=True)
 
 CONTAINER = "tsdm-app"
 DB_CONTAINER = "tsdm-db"
+HTTP_BASE = os.environ.get("E2E_BASE_URL", "https://localhost:8443")
 
-def sql(sql):
+def sql(sql_str):
     r = subprocess.run(["podman", "exec", "-i", DB_CONTAINER, "mariadb", "-u", "root", "-proot", "discuz"],
-                       input=sql, capture_output=True, text=True, encoding="utf-8")
+                       input=sql_str, capture_output=True, text=True, encoding="utf-8")
     if r.returncode != 0:
         print(f"  SQL ERR: {r.stderr[:100]}")
     return r.stdout
+
+def sql_rows(sql_str):
+    """Run SQL, return rows as lists of strings (batch format, no column names)."""
+    r = subprocess.run(["podman", "exec", "-i", DB_CONTAINER, "mariadb", "-u", "root", "-proot", "-N", "-B", "discuz"],
+                       input=sql_str, capture_output=True, text=True, encoding="utf-8")
+    if r.returncode != 0:
+        print(f"  SQL ERR: {r.stderr[:100]}")
+        return []
+    return [line.split("\t") for line in r.stdout.strip().split("\n") if line.strip()]
+
+def sql_scalar(sql_str):
+    rows = sql_rows(sql_str)
+    return rows[0][0] if rows else None
 
 def run_api(action, params=None):
     """Call a dispatch endpoint and return parsed JSON."""
@@ -107,6 +131,16 @@ def test(name, result, **kwargs):
         print(f"  FAIL {name}: {status}")
         details.append(f"FAIL {name}: {status}")
 
+def check_true(name, condition, detail=""):
+    global passed, failed
+    if condition:
+        passed += 1
+        print(f"  OK  {name}")
+    else:
+        failed += 1
+        print(f"  FAIL {name}: {detail}")
+        details.append(f"FAIL {name}: {detail}")
+
 print("=" * 60)
 print("Pokemon Plugin E2E Test Suite")
 print("=" * 60)
@@ -167,6 +201,347 @@ test("get::pokemon_info", run_api("get::pokemon_info", {"id": "1"}))
 # 9. Item info (2 tests)
 print("\n-- Item Info --")
 test("list::item_info", run_api("list::item_info", {"uid": "1", "from": "0", "count": "2"}))
+
+# ============ 10. Grant pet (发放宠物) — the core regression ============
+print("\n-- Grant Pokemon (发放宠物) --")
+grant_species_id = sql_scalar("SELECT id FROM pm_data ORDER BY id LIMIT 1")
+grant_skill_id = sql_scalar("SELECT id FROM pm_skill ORDER BY id LIMIT 1")
+
+grant_payload = {
+    "id": 0,
+    "type_id": int(grant_species_id or 1),
+    "owner": 1,
+    "name": "E2E_GRANT",
+    "site": "store",
+    "level": 10,
+    "experience": 0,
+    "intimacy": 50,
+    "using_ball_id": 1,
+    "is_shiny": False,
+    "status": "normal",
+    "sex": "male",
+    "statistic": {"hit_points": 20, "attack": 20, "defense": 20,
+                  "special_attack": 20, "special_defense": 20, "speed": 20},
+    "base_points": {"hit_points": 0, "attack": 0, "defense": 0,
+                    "special_attack": 0, "special_defense": 0, "speed": 0},
+    "skills": [{"type_id": int(grant_skill_id or 1), "count": 10}] if grant_skill_id else [],
+    "armor_slots_id": [None, None, None, None],
+}
+res = run_api("insert::pokemon_info", {"data": json.dumps(grant_payload, ensure_ascii=False)})
+test("insert::pokemon_info (grant to uid 1)", res)
+granted_id = None
+if res.get("success") and res.get("data"):
+    granted_id = int(res["data"][0]["id"])
+    check_true("grant returns correct name", res["data"][0].get("name") == "E2E_GRANT", f'got {res["data"][0].get("name")}')
+    check_true("grant returns status label", res["data"][0].get("status") == "normal", f'got {res["data"][0].get("status")}')
+    check_true("grant returns skill list", len(res["data"][0].get("skills", [])) == len(grant_payload["skills"]),
+               f'got {res["data"][0].get("skills")}')
+
+if granted_id:
+    row = sql_rows(f"SELECT pmname, nickname, sx, hp, initialuid, created_at, statetime FROM pm_mypm WHERE id={granted_id}")
+    check_true("DB: pmname populated from species", bool(row) and row[0][0] != "", f"row={row}")
+    check_true("DB: nickname stored", bool(row) and row[0][1] == "E2E_GRANT", f"row={row}")
+    check_true("DB: nature (sx) populated", bool(row) and row[0][2] != "", f"row={row}")
+    check_true("DB: hp computed > 0", bool(row) and int(row[0][3]) > 0, f"row={row}")
+    check_true("DB: initialuid = owner", bool(row) and int(row[0][4]) == 1, f"row={row}")
+    check_true("DB: timestamps set", bool(row) and int(row[0][5]) > 0 and int(row[0][6]) > 0, f"row={row}")
+    if grant_skill_id:
+        n = sql_scalar(f"SELECT COUNT(*) FROM pm_myskill WHERE petid={granted_id} AND uid=1")
+        check_true("DB: skills inserted with correct petid/uid", n == "1", f"count={n}")
+
+# negative grant paths
+bad = dict(grant_payload, type_id=999999)
+test("insert::pokemon_info (unknown species) fails", run_api("insert::pokemon_info", {"data": json.dumps(bad)}), expect_success=False)
+bad = dict(grant_payload, owner=99999999)
+test("insert::pokemon_info (unknown owner) fails", run_api("insert::pokemon_info", {"data": json.dumps(bad)}), expect_success=False)
+
+# edit the granted pet (set path covers the same status translation fix)
+if granted_id:
+    edit = json.loads(json.dumps(grant_payload))
+    edit.update({"id": granted_id, "name": "E2E_RENAME", "status": "happy1", "level": 11})
+    res = run_api("set::pokemon_info", {"data": json.dumps(edit)})
+    test("set::pokemon_info (rename + status happy1)", res)
+    got = run_api("get::pokemon_info", {"id": str(granted_id)})
+    if got.get("success") and got.get("data"):
+        check_true("set: nickname updated", got["data"][0]["name"] == "E2E_RENAME", f'got {got["data"][0]["name"]}')
+        check_true("set: status label roundtrip", got["data"][0]["status"] == "happy1", f'got {got["data"][0]["status"]}')
+        check_true("set: level updated", int(got["data"][0]["level"]) == 11, f'got {got["data"][0]["level"]}')
+
+# ============ 11. Grant money (发放宠物币) ============
+print("\n-- Grant Money (发放宠物币) --")
+res = run_api("set::user_info", {"data": '{"id":1,"money":12345}'})
+test("set::user_info (money=12345)", res)
+got = run_api("get::user_info", {"id": "1"})
+money_ok = got.get("success") and got.get("data") and int(got["data"][0]["money"]) == 12345
+check_true("get::user_info reflects new money", money_ok, f"got={got.get('data')}")
+test("set::user_info (negative money) fails", run_api("set::user_info", {"data": '{"id":1,"money":-5}'}), expect_success=False)
+
+# user search by nickname / uid string (regression for name:null)
+flt = run_api("filter::user_info", {"filters": json.dumps([{"tag": "昵称", "operator": "equal", "value": "admin"}])})
+test("filter::user_info by nickname", flt)
+if flt.get("success") and flt.get("data"):
+    check_true("filter by nickname: name not null", flt["data"][0].get("name") == "admin", f'got {flt["data"][0].get("name")}')
+flt_uid = run_api("filter::user_info", {"filters": json.dumps([{"tag": "昵称", "operator": "equal", "value": "1"}])})
+test("filter::user_info by numeric nickname (uid path)", flt_uid)
+if flt_uid.get("success") and flt_uid.get("data"):
+    check_true("filter by uid string: name not null", flt_uid["data"][0].get("name") == "admin", f'got {flt_uid["data"][0].get("name")}')
+
+# ============ 12. Full grant flow for a brand-new user ============
+print("\n-- New User Grant Flow --")
+sql("INSERT INTO pre_common_member (username, loginname, password, email, groupid, regdate) "
+    "VALUES ('e2e_grant_user', 'e2e_grant_user', '202cb962ac59075b964b07152d234b70', 'e2e@test.local', 10, UNIX_TIMESTAMP()) "
+    "ON DUPLICATE KEY UPDATE username=username")
+new_uid = sql_scalar("SELECT uid FROM pre_common_member WHERE username='e2e_grant_user'")
+if new_uid:
+    new_uid = int(new_uid)
+    sql(f"DELETE FROM pm_usersdata WHERE uid={new_uid}")
+    res = run_api("insert::user_info", {"data": json.dumps({"id": new_uid})})
+    test("insert::user_info (create profile)", res)
+    test("insert::user_info (duplicate) fails", run_api("insert::user_info", {"data": json.dumps({"id": new_uid})}), expect_success=False)
+
+    # grant pet to the new user
+    payload = json.loads(json.dumps(grant_payload))
+    payload.update({"owner": new_uid, "name": "E2E_NEWBIE", "skills": []})
+    res = run_api("insert::pokemon_info", {"data": json.dumps(payload)})
+    test("insert::pokemon_info (new user)", res)
+    new_pet_id = int(res["data"][0]["id"]) if res.get("success") and res.get("data") else None
+
+    # grant coins to the new user
+    res = run_api("set::user_info", {"data": json.dumps({"id": new_uid, "money": 777})})
+    test("set::user_info (new user money=777)", res)
+    check_true("new user money applied", sql_scalar(f"SELECT money FROM pm_usersdata WHERE uid={new_uid}") == "777",
+               f"got {sql_scalar(f'SELECT money FROM pm_usersdata WHERE uid={new_uid}')}")
+
+    # grant items + stacking
+    item_type_id = sql_scalar("SELECT id FROM pm_itemdata ORDER BY id LIMIT 1")
+    res = run_api("insert::item_info", {"data": json.dumps({"owner": new_uid, "type_id": int(item_type_id or 1), "count": 3})})
+    test("insert::item_info (grant x3)", res)
+    res = run_api("insert::item_info", {"data": json.dumps({"owner": new_uid, "type_id": int(item_type_id or 1), "count": 3})})
+    test("insert::item_info (grant x3 again, stacking)", res)
+    got = run_api("list::item_info", {"uid": str(new_uid), "from": "0", "count": "10"})
+    qty = None
+    if got.get("success") and got.get("data"):
+        qtys = [int(i.get("count", 0)) for i in got["data"]]
+        qty = sum(qtys)
+    check_true("item stacking sums to 6", qty == 6, f"quantities={qty}")
+    inv_id = None
+    if got.get("data"):
+        inv_id = int(got["data"][0]["id"])
+    if inv_id:
+        test("delete::item_info", run_api("delete::item_info", {"id": str(inv_id)}))
+
+    # 单只宠物时放生应被拒绝（最后一只宠物不可放生的防护）
+    if new_pet_id:
+        test("delete::pokemon_info (last pet) correctly refused",
+             run_api("delete::pokemon_info", {"id": str(new_pet_id)}), expect_success=False)
+    sql(f"DELETE FROM pm_usersdata WHERE uid={new_uid}")
+    sql(f"DELETE FROM pm_mypm WHERE uid={new_uid}")
+    sql(f"DELETE FROM pm_myskill WHERE uid={new_uid}")
+    sql(f"DELETE FROM pm_myitem WHERE uid={new_uid}")
+    sql(f"DELETE FROM pre_common_member WHERE uid={new_uid}")
+
+# release the pet granted to admin earlier
+if granted_id:
+    test("delete::pokemon_info (cleanup)", run_api("delete::pokemon_info", {"id": str(granted_id)}))
+    check_true("DB: granted pet removed", sql_scalar(f"SELECT COUNT(*) FROM pm_mypm WHERE id={granted_id}") == "0",
+               "row still present")
+
+# ============ 13. Type-entity insert/set/delete roundtrips ============
+print("\n-- Type Entity CRUD Roundtrips --")
+
+def roundtrip(entity, get_id, mutate):
+    res = run_api(f"get::{entity}", {"id": str(get_id)})
+    if not (res.get("success") and res.get("data")):
+        test(f"get::{entity} baseline", res)
+        return
+    obj = res["data"][0]
+    obj.pop("_TYPE", None)
+    obj.pop("map", None)
+    obj.pop("evolution", None)
+    obj.pop("evolutions", None)
+    mutate(obj)
+    obj["id"] = 0
+    res = run_api(f"insert::{entity}", {"data": json.dumps(obj, ensure_ascii=False)})
+    test(f"insert::{entity}", res)
+    if not (res.get("success") and res.get("data")):
+        return
+    new_id = int(res["data"][0]["id"])
+    obj["id"] = new_id
+    mutate(obj)
+    test(f"set::{entity}", run_api(f"set::{entity}", {"data": json.dumps(obj, ensure_ascii=False)}))
+    test(f"delete::{entity}", run_api(f"delete::{entity}", {"id": str(new_id)}))
+    return new_id
+
+roundtrip("pokemon_type", 1, lambda o: o.update({"name": "E2E_TEST_SPECIES"}))
+roundtrip("item_type", 1, lambda o: o.update({"name": "E2E_ITEM"}))
+roundtrip("map_info", 1, lambda o: o.update({"name": "E2E_TEST_MAP"}))
+roundtrip("skill_type", 1, lambda o: o.update({"name": "E2E_TEST_SKILL"}))
+
+# evolution roundtrip needs existing source/target species
+evo_src = sql_scalar("SELECT from_id FROM pm_evolution ORDER BY id LIMIT 1")
+evo_dst = sql_scalar("SELECT to_id FROM pm_evolution ORDER BY id LIMIT 1")
+if evo_src and evo_dst:
+    res = run_api("insert::evolution_info", {"data": json.dumps({
+        "source_id": int(evo_src), "target_id": int(evo_dst),
+        "condition": {"min_level": 99}, "priority": 1})})
+    test("insert::evolution_info", res)
+    if res.get("success") and res.get("data"):
+        evo_id = int(res["data"][0]["id"])
+        test("set::evolution_info", run_api("set::evolution_info", {"data": json.dumps({
+            "id": evo_id, "source_id": int(evo_src), "target_id": int(evo_dst),
+            "condition": {"min_level": 98}, "priority": 2})}))
+        test("delete::evolution_info", run_api("delete::evolution_info", {"id": str(evo_id)}))
+
+# ============ 14. Map wild-pokemon direct actions ============
+print("\n-- Map Wild Pokemon Actions --")
+test("get_wild_pokemons_for_map", run_api("get_wild_pokemons_for_map", {"map_id": "1"}))
+# scratch species to add/remove without polluting seed data
+scratch = json.loads(json.dumps(grant_payload))
+scratch_species_id = None
+base = run_api("get::pokemon_type", {"id": "1"})
+if base.get("success") and base.get("data"):
+    obj = base["data"][0]
+    for k in ("_TYPE", "map", "evolution", "evolutions"):
+        obj.pop(k, None)
+    obj["name"] = "E2E_MAP_SPECIES"
+    obj["id"] = 0
+    obj["map_ids"] = []
+    res = run_api("insert::pokemon_type", {"data": json.dumps(obj, ensure_ascii=False)})
+    test("insert scratch species for map test", res)
+    if res.get("success") and res.get("data"):
+        scratch_species_id = int(res["data"][0]["id"])
+
+if scratch_species_id:
+    test("add_pokemon_to_map", run_api("add_pokemon_to_map", {"map_id": "1", "pokemon_type_id": str(scratch_species_id)}))
+    wild = run_api("get_wild_pokemons_for_map", {"map_id": "1"})
+    in_map = any(int(w["id"]) == scratch_species_id for w in (wild.get("data") or []))
+    check_true("added species appears in wild list", in_map, f"list={[w.get('id') for w in (wild.get('data') or [])]}")
+    test("add_pokemon_to_map (duplicate) fails", run_api("add_pokemon_to_map", {"map_id": "1", "pokemon_type_id": str(scratch_species_id)}), expect_success=False)
+    test("remove_pokemon_from_map", run_api("remove_pokemon_from_map", {"map_id": "1", "pokemon_type_id": str(scratch_species_id)}))
+    wild = run_api("get_wild_pokemons_for_map", {"map_id": "1"})
+    gone = all(int(w["id"]) != scratch_species_id for w in (wild.get("data") or []))
+    check_true("removed species no longer in wild list", gone, f"list={[w.get('id') for w in (wild.get('data') or [])]}")
+    test("remove_pokemon_from_map (not present) fails", run_api("remove_pokemon_from_map", {"map_id": "1", "pokemon_type_id": str(scratch_species_id)}), expect_success=False)
+    run_api("delete::pokemon_type", {"id": str(scratch_species_id)})
+
+# ============ 15. SQL console ============
+print("\n-- SQL Console --")
+res = run_api("run::sql_console", {"sql": "SELECT 1 AS v"})
+test("run::sql_console (SELECT 1)", res)
+if res.get("success") and res.get("data"):
+    raw = str(res["data"][0].get("raw", ""))
+    check_true("sql_console returns row", '"v"' in raw or "1" in raw, f"raw={raw[:120]}")
+test("run::sql_console (bad SQL) fails", run_api("run::sql_console", {"sql": "SELEC nope"}), expect_success=False)
+
+# ============ 16. Dispatch negatives ============
+print("\n-- Dispatch Negatives --")
+test("unknown entity fails", run_api("count::nonexistent_entity"), expect_success=False)
+test("unknown op fails", run_api("dance::pokemon_type"), expect_success=False)
+
+# ============ HTTP-level tests ============
+def http_admin_tests():
+    print("\n" + "=" * 60)
+    print("HTTP-level Admin API Tests")
+    print("=" * 60)
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    cj = http.cookiejar.CookieJar()
+    opener = urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(cj),
+        urllib.request.HTTPSHandler(context=ctx))
+
+    def req(url, data=None, headers=None):
+        r = urllib.request.Request(url, data=data, headers=headers or {})
+        try:
+            resp = opener.open(r, timeout=30)
+            return resp.status, resp.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            return e.code, e.read().decode("utf-8", "replace")
+
+    base = HTTP_BASE
+
+    # login flow (full form with formhash; the legacy lssubmit fast-login
+    # channel is rejected by current X5 builds)
+    import re as _re
+    status, text = req(f"{base}/member.php?mod=logging&action=login")
+    m = _re.search(r'name="formhash" value="([0-9a-f]+)"', text) or _re.search(r'formhash=([0-9a-f]+)', text)
+    formhash = m.group(1) if m else ""
+    body = urllib.parse.urlencode({
+        "formhash": formhash,
+        "username": "admin", "password": "admin123",
+        "questionid": 0, "answer": "", "cookietime": 2592000,
+        "loginsubmit": "yes", "referer": f"{base}/"}).encode()
+    status, text = req(f"{base}/member.php?mod=logging&action=login", data=body)
+    check_true("login as admin", any(c.name.endswith("auth") for c in cj), f"cookies={[c.name for c in cj]}")
+    req(f"{base}/plugin.php?id=pokemon:pokemon")
+
+    def admin_post(action, extra=None):
+        payload = {"action": action}
+        payload.update(extra or {})
+        status, text = req(f"{base}/plugin.php?id=pokemon:pokemon&index=admin",
+                           data=json.dumps(payload).encode(),
+                           headers={"Content-Type": "application/json"})
+        try:
+            return status, json.loads(text)
+        except json.JSONDecodeError:
+            return status, {"_raw": text[:300]}
+
+    # unauthorized access must not return dispatch JSON
+    noauth = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx))
+    try:
+        r = noauth.open(urllib.request.Request(
+            f"{base}/plugin.php?id=pokemon:pokemon&index=admin",
+            data=json.dumps({"action": "count::pokemon_type"}).encode(),
+            headers={"Content-Type": "application/json"}), timeout=30)
+        anon_text = r.read().decode("utf-8", "replace")
+        anon_status = r.status
+    except urllib.error.HTTPError as e:
+        anon_text = e.read().decode("utf-8", "replace")
+        anon_status = e.code
+    check_true("anonymous admin POST rejected (no JSON envelope)",
+               '"success":true' not in anon_text, f"status={anon_status} body={anon_text[:120]!r}")
+
+    # representative dispatch actions over the wire
+    status, out = admin_post("count::pokemon_type")
+    test("HTTP count::pokemon_type", out if isinstance(out, dict) else {"_raw": out})
+    status, out = admin_post("list::user_info", {"from": "0", "count": "2"})
+    test("HTTP list::user_info", out if isinstance(out, dict) else {"_raw": out})
+
+    # grant pet over the wire
+    wire_payload = json.loads(json.dumps(grant_payload))
+    wire_payload["name"] = "E2E_HTTP"
+    wire_payload["skills"] = []
+    status, out = admin_post("insert::pokemon_info", {"data": json.dumps(wire_payload, ensure_ascii=False)})
+    test("HTTP insert::pokemon_info", out if isinstance(out, dict) else {"_raw": out})
+    http_pet_id = int(out["data"][0]["id"]) if out.get("success") and out.get("data") else None
+
+    # grant money over the wire
+    status, out = admin_post("set::user_info", {"data": '{"id":1,"money":23456}'})
+    test("HTTP set::user_info", out if isinstance(out, dict) else {"_raw": out})
+
+    # map direct actions over the wire
+    status, out = admin_post("get_wild_pokemons_for_map", {"map_id": "1"})
+    test("HTTP get_wild_pokemons_for_map", out if isinstance(out, dict) else {"_raw": out})
+
+    # boss endpoint via pokemon.inc.php routing
+    status, text = req(f"{base}/plugin.php?id=pokemon:pokemon&endpoint=boss&action=get_config&map_id=1")
+    try:
+        boss = json.loads(text)
+        ok = isinstance(boss, dict) and boss.get("success") is True and "boss_config" in boss
+    except json.JSONDecodeError:
+        ok = False
+    check_true("HTTP boss get_config", ok, f"status={status} body={text[:120]!r}")
+
+    if http_pet_id:
+        status, out = admin_post("delete::pokemon_info", {"id": str(http_pet_id)})
+        test("HTTP delete::pokemon_info (cleanup)", out if isinstance(out, dict) else {"_raw": out})
+
+if "--http" in sys.argv:
+    http_admin_tests()
+else:
+    print("\n(skipping HTTP-level tests; pass --http to enable)")
 
 # Summary
 total = passed + failed + warned

@@ -235,7 +235,7 @@ function filter_user_info($list)
 
                 $item = new_user_info(
                   $uid,
-                  $query_user['username'],
+                  DB::fetch_first("SELECT * from " . DB::table('common_member') . " where `uid`='$uid'")['username'],
                   intval($query_user['datawin']),
                   intval($query_user['datalost']),
                   intval($query_user['money']),
@@ -252,7 +252,7 @@ function filter_user_info($list)
             }
           }
         // UID 查询无结果或非数字输入，使用昵称模糊搜索
-        if ($name_rows = DB::fetch_all("SELECT * FROM %t WHERE username LIKE %s", ['common_member', "%$value%"])) {
+        if ($name_rows = DB::fetch_all("SELECT * FROM " . DB::table('common_member') . " WHERE username LIKE '%" . addslashes($value) . "%'")) {
           foreach ($name_rows as $query) {
             $uid = intval($query['uid']);
             array_push($query_sql_list, generate_filter_sql('uid', $operator, $uid, 'id'));

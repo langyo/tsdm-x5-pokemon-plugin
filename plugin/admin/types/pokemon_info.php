@@ -91,7 +91,15 @@ function translate_pokemon_status_id_to_label($id)
 
 function translate_pokemon_status_label_to_id($str)
 {
-  switch (intval($str)) {
+  // 兼容直接以数字 ID（1-20）传入的情况
+  if (is_int($str) || (is_string($str) && ctype_digit($str))) {
+    $numeric_id = intval($str);
+    if ($numeric_id >= 1 && $numeric_id <= 20) {
+      return $numeric_id;
+    }
+  }
+
+  switch ($str) {
     case "normal":
       return 1;
     case "sick1":

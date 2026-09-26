@@ -171,7 +171,9 @@ function insert_skill_type($info)
   sort($available_pokemons);
   $available_pokemons = array_values(array_unique($available_pokemons));
 
-  $pmid = implode(',', array_merge(['k', $available_pokemons, 'k']));
+  // array_merge 需将技能种族列表作为独立参数展开，否则嵌套数组会被
+  // implode 当作 "Array" 字符串写入
+  $pmid = implode(',', array_merge(['k'], $available_pokemons, ['k']));
   $txt = strval($info["description"]);
   $lv = intval($info["min_level_limit"]);
   $num = intval($info["use_times_limit"]);

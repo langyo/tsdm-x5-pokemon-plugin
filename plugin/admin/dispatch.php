@@ -18,6 +18,32 @@ $entity_map = [
 
 function admin_dispatch($action, $params) {
     global $entity_map;
+
+    // 无 op::entity 前缀的直连动作（地图野生宠物管理，前端按动作名直接调用）
+    $direct_actions = [
+        "get_wild_pokemons_for_map",
+        "add_pokemon_to_map",
+        "remove_pokemon_from_map",
+    ];
+    if (in_array($action, $direct_actions, true)) {
+        require_once __DIR__ . "/routes/map_data.php";
+        switch ($action) {
+            case "get_wild_pokemons_for_map":
+                $result = get_wild_pokemons_for_map(intval($params["map_id"] ?? 0));
+                break;
+            case "add_pokemon_to_map":
+                add_pokemon_to_map(intval($params["map_id"] ?? 0), intval($params["pokemon_type_id"] ?? 0));
+                $result = [];
+                break;
+            case "remove_pokemon_from_map":
+                remove_pokemon_from_map(intval($params["map_id"] ?? 0), intval($params["pokemon_type_id"] ?? 0));
+                $result = [];
+                break;
+        }
+        echo json_encode(["success"=>true,"data"=>$result], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     $parts = explode("::", $action);
     $op = $parts[0] ?? "";
     $entity = $parts[1] ?? "";
@@ -98,7 +124,7 @@ function admin_dispatch($action, $params) {
         case "run":
             $fn = "run_" . $entity;
             if (!function_exists($fn)) break;
-            $result = call_user_func($fn, $params);
+            $result = call_user_func($fn, strval($params["sql"] ?? $params["data"] ?? ""));
             break;
         default:
             echo json_encode(["success"=>false,"reason"=>"Unknown operation: $op"]);

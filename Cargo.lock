@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "_admin"
-version = "0.1.17"
+version = "0.1.19"
 dependencies = [
  "_utils",
  "anyhow",
@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "_game"
-version = "0.1.17"
+version = "0.1.19"
 dependencies = [
  "_utils",
  "anyhow",
@@ -3972,3 +3972,19 @@ name = "zmij"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
+
+[[patch.unused]]
+name = "plana"
+version = "0.2.1"
+
+[[patch.unused]]
+name = "plana-celestia-config"
+version = "0.1.24"
+
+[[patch.unused]]
+name = "plana-rpc-client"
+version = "0.2.2"
+
+[[patch.unused]]
+name = "plana-rpc-server"
+version = "0.1.0"

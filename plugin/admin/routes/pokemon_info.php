@@ -276,8 +276,9 @@ function insert_pokemon_info($info)
   $equipmentid3 = is_null($info["armor_slots_id"][2]) ? 0 : intval($info["armor_slots_id"][2]);
   $equipmentid4 = is_null($info["armor_slots_id"][3]) ? 0 : intval($info["armor_slots_id"][3]);
 
-  // 提前检查，对应宠物类型必须存在
-  if (!DB::fetch_first("SELECT id from pm_data where id='$pmno'")) {
+  // 提前检查，对应宠物类型必须存在（名称与性格沿用种族数据，与捕捉路径一致）
+  $type_data = DB::fetch_first("SELECT * from pm_data where id='$pmno'");
+  if (!$type_data) {
     $json_ret = [];
     $json_ret["success"] = false;
     $json_ret["reason"] = "未找到宠物类型 #$pmno";
@@ -292,46 +293,58 @@ function insert_pokemon_info($info)
     exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
   }
 
-  $last_id = DB::fetch_first("SELECT id from pm_mypm order by id desc limit 1");
-  $last_id = intval($last_id['id']);
-  $new_id = $last_id + 1;
+  $pmname = addslashes($type_data['name']);
+  $sx = addslashes($type_data['xs']);
+  $nickname = addslashes($nowname);
+  $current_time = time();
 
   DB::query("INSERT into pm_mypm (
-      `id`, `species_id`, `uid`, `nickname`, `site`,
-      `level`, `exp`, `good`,
-      `ballid`, `is_shiny`, `state`, `sex`,
+      `species_id`, `uid`, `pmname`, `nickname`, `site`,
+      `level`, `exp`, `good`, `sex`, `sx`,
+      `ballid`, `is_shiny`, `state`, `statetime`, `gduptime`,
+      `initialuid`, `created_at`,
       `hpg`, `atkg`, `defg`, `spatkg`, `spdefg`, `sdg`,
       `hpn`, `atkn`, `defn`, `spatkn`, `spdefn`, `sdn`,
       `equipmentid1`, `equipmentid2`, `equipmentid3`, `equipmentid4`
     ) values (
-      '$new_id', '$pmno', '$uid', '$nowname', '$site',
-      '$level', '$exp', '$good',
-      '$ballid', '$sg', '$state', '$sex',
+      '$pmno', '$uid', '$pmname', '$nickname', '$site',
+      '$level', '$exp', '$good', '$sex', '$sx',
+      '$ballid', '$sg', '$state', '$current_time', '$current_time',
+      '$uid', '$current_time',
       '$hpg', '$atkg', '$defg', '$spatkg', '$spdefg', '$sdg',
       '$hpn', '$atkn', '$defn', '$spatkn', '$spdefn', '$sdn',
       '$equipmentid1', '$equipmentid2', '$equipmentid3', '$equipmentid4'
     )");
 
-  // 额外更新血量
+  $new_id = intval(DB::insert_id());
 
-  $ajax_pokemon = my_pokemon_data($new_id);
-  $pmno = $ajax_pokemon['species_id'];
-  $pmsdata = pm_data($pmno);
-  list($petmaxhp, $petatk, $petdef, $petspatk, $petspdef, $petsd) = get_pet_stats($pmsdata, $ajax_pokemon);
-  parse_pet_wear_items($ajax_pokemon, false, $petmaxhp, $petatk, $petdef, $petspatk, $petspdef, $petsd);
-  DB::query("UPDATE pm_mypm set `hp`='$petmaxhp' WHERE `id`='$new_id'");
+  // 满血入库，血量口径与 api_calculate_pokemon_max_hp 保持一致
+  $max_hp = api_calculate_pokemon_max_hp(
+    [
+      'species_id' => $pmno,
+      'level' => $level,
+      'hpg' => $hpg,
+      'hpn' => $hpn,
+      'state' => $state,
+      'is_shiny' => $sg,
+      'equipmentid1' => $equipmentid1,
+      'equipmentid2' => $equipmentid2,
+      'equipmentid3' => $equipmentid3,
+      'equipmentid4' => $equipmentid4,
+    ],
+    $type_data
+  );
+  DB::query("UPDATE pm_mypm set `hp`='$max_hp' WHERE `id`='$new_id'");
 
   // 额外更新技能数据表
-  foreach ($info["skills"] as $skill) {
-    $uid = intval($info["uid"]);
-    $petid = intval($info["type_id"]);
+  foreach (($info["skills"] ?? []) as $skill) {
     $skillid = intval($skill["type_id"]);
     $skillnum = intval($skill["count"]);
 
     DB::query("INSERT into pm_myskill (
         `uid`, `petid`, `skillid`, `skillnum`
       ) values (
-        $uid, $petid, $skillid, $skillnum
+        '$uid', '$new_id', '$skillid', '$skillnum'
       )");
   }
 

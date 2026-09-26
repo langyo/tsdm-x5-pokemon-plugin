@@ -21,9 +21,13 @@ require_once __DIR__ . '/constants.php';
 
 global $_G;
 
-// 只在直接访问 boss.php 时处理 action
-// 如果是被其他文件包含（如 battle.php），则不执行
-if (basename($_SERVER['PHP_SELF']) === 'boss.php' || basename($_SERVER['SCRIPT_NAME']) === 'boss.php') {
+// 仅在作为 boss 端点被路由或直接访问时处理 action；
+// 如果是被其他文件包含复用函数（如 battle.php），则不执行
+if (
+    (defined('API_ROUTED') && defined('API_ENDPOINT') && API_ENDPOINT === 'boss')
+    || basename($_SERVER['PHP_SELF']) === 'boss.php'
+    || basename($_SERVER['SCRIPT_NAME']) === 'boss.php'
+) {
     $action = get_param('action', '');
 
     switch ($action) {

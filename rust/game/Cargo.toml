@@ -3,7 +3,7 @@ authors = ["langyo <langyo.china@gmail.com>"]
 edition = "2021"
 name = "_game"
 publish = false
-version = "0.1.18"
+version = "0.1.19"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -4,7 +4,7 @@ defined('IN_DISCUZ') || exit('Access Denied');
 $is_admin = ($_G['adminid'] == 1 || $_G['groupid'] == 1);
 $is_moderator = false;
 if (!$is_admin && $_G['uid']) {
-    $modcheck = DB::result_first("SELECT COUNT(*) FROM " . DB::table('forum_moderator') . " WHERE uid=%d", [$_G['uid']]);
+    $modcheck = DB::result_first("SELECT COUNT(*) FROM " . DB::table('forum_moderator') . " WHERE uid='" . intval($_G['uid']) . "'");
     $is_moderator = $modcheck > 0;
 }
 if (!$is_admin && !$is_moderator) {
@@ -22,9 +22,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $action = $json['action'];
         }
     }
+    $direct_actions = [
+        'get_wild_pokemons_for_map',
+        'add_pokemon_to_map',
+        'remove_pokemon_from_map',
+    ];
     $parts = explode('::', $action);
     $target = $parts[1] ?? '';
-    if ($target) {
+    if ($target || in_array($action, $direct_actions, true)) {
         include __DIR__ . '/admin/dispatch.php';
     } else {
         echo json_encode(['success' => false, 'reason' => 'Invalid action']);

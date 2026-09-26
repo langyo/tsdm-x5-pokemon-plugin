@@ -24,6 +24,7 @@ if (isset($_GET['endpoint'])) {
             'topics' => 'topics.php',
             'admin' => 'admin.php',
             'config' => 'config.php',
+            'boss' => 'boss.php',
             'badge' => 'badge.php',
             'badges' => 'badges.php',
             'avatar' => 'avatar.php',
@@ -33,6 +34,9 @@ if (isset($_GET['endpoint'])) {
             $api_file = __DIR__ . '/api/' . $api_files[$endpoint];
             if (file_exists($api_file)) {
                 define('API_ROUTED', true);
+                // 标记当前路由的 endpoint 名，供 boss.php 等函数被其他端点
+                // 复用的文件区分"作为端点被路由"与"被 battle.php 引入"
+                define('API_ENDPOINT', $endpoint);
                 include_once $api_file;
                 return;
             }

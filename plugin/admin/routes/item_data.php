@@ -103,8 +103,9 @@ function set_item_type($info)
 
     $tag = translate_item_tag_id_to_db_raw($info["tag"]);
     $tag_type = $tag[0];
-    $tag_value = $tag[1];
-    if ($query['type'] != $tag_value) {
+    // 药品标签没有附加值（translator 只返回单元素数组）
+    $tag_value = $tag[1] ?? 0;
+    if ($query['type'] != $tag_type) {
       DB::query("UPDATE pm_itemdata set type=" . $tag_type . " where id=$id");
     }
     switch ($tag_type) {

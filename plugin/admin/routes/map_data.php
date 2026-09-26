@@ -497,14 +497,11 @@ function add_pokemon_to_map($map_id, $pokemon_type_id)
   sort($map_ids, SORT_NUMERIC);
   $new_mapid = implode(',', $map_ids);
 
-  // 更新数据库
+  // 更新数据库（成功时返回数据由 dispatch 统一封装，失败保持错误信封退出）
   $result = DB::query("UPDATE pm_data SET mapid = '{$new_mapid}' WHERE id = {$pokemon_type_id}");
 
   if ($result) {
-    $json_ret = [];
-    $json_ret["success"] = true;
-    $json_ret["data"] = [];
-    exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
+    return [];
   } else {
     $json_ret = [];
     $json_ret["success"] = false;
@@ -550,14 +547,11 @@ function remove_pokemon_from_map($map_id, $pokemon_type_id)
   sort($map_ids, SORT_NUMERIC);
   $new_mapid = implode(',', $map_ids);
 
-  // 更新数据库
+  // 更新数据库（成功时返回数据由 dispatch 统一封装，失败保持错误信封退出）
   $result = DB::query("UPDATE pm_data SET mapid = '{$new_mapid}' WHERE id = {$pokemon_type_id}");
 
   if ($result) {
-    $json_ret = [];
-    $json_ret["success"] = true;
-    $json_ret["data"] = [];
-    exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
+    return [];
   } else {
     $json_ret = [];
     $json_ret["success"] = false;
