@@ -1,13 +1,11 @@
 <?php
 defined('IN_DISCUZ') || exit('Access Denied');
 
+// 管理后台暴露全站配置改写、SQL 控制台与文件读取能力，
+// 仅允许管理员（adminid=1 或管理用户组 groupid=1）进入；
+// 版主（含超级版主）一律拒绝，避免权限放大到论坛本体。
 $is_admin = ($_G['adminid'] == 1 || $_G['groupid'] == 1);
-$is_moderator = false;
-if (!$is_admin && $_G['uid']) {
-    $modcheck = DB::result_first("SELECT COUNT(*) FROM " . DB::table('forum_moderator') . " WHERE uid='" . intval($_G['uid']) . "'");
-    $is_moderator = $modcheck > 0;
-}
-if (!$is_admin && !$is_moderator) {
+if (!$is_admin) {
     showmessage(lang('plugin/pokemon', 'admin_only'));
 }
 

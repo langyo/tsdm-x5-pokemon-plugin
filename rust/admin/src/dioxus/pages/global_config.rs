@@ -10,10 +10,10 @@ use crate::{
             form_fields::NewsAnnouncementsField, icon::IconName, icon_button::IconButton,
             json_panel::JsonPanel,
         },
-        pages::shared::ActionModal,
+        pages::shared::{ActionModal, ConfirmActionModal},
         state::{
             begin_global_config_request, finish_global_config_attempt, finish_global_config_load,
-            push_sql_history, reset_global_config_to_saved, set_busy, set_notice,
+            is_read_only_sql, push_sql_history, reset_global_config_to_saved, set_busy, set_notice,
             set_sql_console_input, update_global_config, AdminNoticeLevel, SqlHistoryEntry,
             ADMIN_BUSY, ADMIN_GLOBAL_CONFIG, ADMIN_SQL_CONSOLE,
         },
@@ -598,12 +598,62 @@ fn SqlConsoleModal(show: bool, on_close: EventHandler<()>) -> Element {
     let input = sql_state.console.clone();
     let input_for_copy = input.clone();
     let history = sql_state.history.clone();
+    // 与 SQL 控制台页面保持一致的安全策略：默认只读，写语句需二次确认。
+    let mut read_only = use_signal(|| true);
+    let mut pending_write = use_signal(|| None::<String>);
+
+    let execute_sql = move |sql: String| {
+        set_busy(true);
+        spawn(async move {
+            let executed_at = Utc::now();
+            match run_sql(sql.clone()).await {
+                Ok(result) => {
+                    push_sql_history(SqlHistoryEntry {
+                        executed_at,
+                        sql,
+                        result: Ok(result),
+                    });
+                    set_notice(AdminNoticeLevel::Success, "SQL 执行完成");
+                }
+                Err(error) => {
+                    push_sql_history(SqlHistoryEntry {
+                        executed_at,
+                        sql,
+                        result: Err(error.to_string()),
+                    });
+                    set_notice(
+                        AdminNoticeLevel::Error,
+                        format!("执行 SQL 时出现错误: {}", error),
+                    );
+                }
+            }
+            set_busy(false);
+        });
+    };
+    let execute_sql_confirmed = execute_sql;
+    let pending_sql = pending_write();
+    let pending_preview = pending_sql.as_ref().map(|sql| {
+        let head: String = sql.chars().take(200).collect();
+        if sql.chars().count() > 200 {
+            format!("{}…", head)
+        } else {
+            head
+        }
+    });
 
     rsx! {
         if show {
             ActionModal { title: "SQL 控制台".to_string(), on_close,
                 div { class: "admin-card admin-sql-editor",
                     label { class: "field-label", "SQL" }
+                    label { class: "sql-readonly-toggle",
+                        input {
+                            r#type: "checkbox",
+                            checked: read_only(),
+                            onchange: move |event| read_only.set(event.checked()),
+                        }
+                        "只读模式（仅允许查询语句）"
+                    }
                     textarea {
                         class: "admin-textarea admin-textarea--code",
                         rows: "6",
@@ -620,31 +670,18 @@ fn SqlConsoleModal(show: bool, on_close: EventHandler<()>) -> Element {
                                 if sql.is_empty() {
                                     return;
                                 }
-                                set_busy(true);
-                                spawn(async move {
-                                    match run_sql(sql.clone()).await {
-                                        Ok(result) => {
-                                            push_sql_history(SqlHistoryEntry {
-                                                executed_at: Utc::now(),
-                                                sql,
-                                                result: Ok(result),
-                                            });
-                                            set_notice(AdminNoticeLevel::Success, "SQL 执行完成");
-                                        }
-                                        Err(error) => {
-                                            push_sql_history(SqlHistoryEntry {
-                                                executed_at: Utc::now(),
-                                                sql,
-                                                result: Err(error.to_string()),
-                                            });
-                                            set_notice(
-                                                AdminNoticeLevel::Error,
-                                                format!("执行 SQL 时出现错误: {}", error),
-                                            );
-                                        }
-                                    }
-                                    set_busy(false);
-                                });
+                                if read_only() && !is_read_only_sql(&sql) {
+                                    set_notice(
+                                        AdminNoticeLevel::Error,
+                                        "只读模式下仅允许 SELECT/SHOW/DESCRIBE/EXPLAIN 查询语句",
+                                    );
+                                    return;
+                                }
+                                if !read_only() {
+                                    pending_write.set(Some(sql));
+                                    return;
+                                }
+                                execute_sql(sql);
                             },
                             if is_busy {
                                 "执行中..."
@@ -686,6 +723,23 @@ fn SqlConsoleModal(show: bool, on_close: EventHandler<()>) -> Element {
                                 }
                             }
                         }
+                    }
+                }
+
+                if let Some(sql) = pending_sql {
+                    ConfirmActionModal {
+                        title: "确认执行写操作".to_string(),
+                        message: format!(
+                            "只读模式已关闭，以下语句可能修改或删除数据，确认执行吗？\n\n{}",
+                            pending_preview.unwrap_or_default(),
+                        ),
+                        confirm_text: "确认执行",
+                        disabled: is_busy,
+                        on_confirm: move |_| {
+                            pending_write.set(None);
+                            execute_sql_confirmed(sql.clone());
+                        },
+                        on_close: move |_| pending_write.set(None),
                     }
                 }
             }

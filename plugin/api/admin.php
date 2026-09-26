@@ -78,7 +78,10 @@ function api_require_admin()
         $uid
     ));
 
-    if ($admin_group == 1 || $admin_group == 2 || $admin_group == 3) {
+    // 测试/管理接口可直接改写资金与玩家数据，仅允许管理员用户组（groupid=1）
+    // 与插件配置中指名的宠物管理员（poke_smgly）；
+    // 版主组（2=超级版主、3=版主）不再放行，避免权限放大。
+    if ($admin_group == 1) {
         return $uid;
     }
 

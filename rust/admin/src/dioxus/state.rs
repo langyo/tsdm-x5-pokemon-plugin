@@ -644,6 +644,35 @@ pub fn set_sql_console_input(value: String) {
     ADMIN_SQL_CONSOLE.write().console = value;
 }
 
+/// SQL 控制台只读模式的语句判定：忽略前导注释与空白后，
+/// 仅放行 SELECT/SHOW/DESCRIBE/DESC/EXPLAIN 起头的语句。
+pub fn is_read_only_sql(sql: &str) -> bool {
+    let mut rest = sql.trim_start();
+    loop {
+        if let Some(tail) = rest.strip_prefix("--") {
+            rest = tail.split_once('\n').map(|(_, r)| r).unwrap_or("");
+        } else if let Some(tail) = rest.strip_prefix('#') {
+            rest = tail.split_once('\n').map(|(_, r)| r).unwrap_or("");
+        } else if let Some(tail) = rest.strip_prefix("/*") {
+            rest = match tail.find("*/") {
+                Some(idx) => &tail[idx + 2..],
+                None => "",
+            };
+        } else {
+            break;
+        }
+        rest = rest.trim_start();
+    }
+    let first_word = rest
+        .split(|c: char| c.is_whitespace() || c == '(')
+        .next()
+        .unwrap_or("");
+    matches!(
+        first_word.to_lowercase().as_str(),
+        "select" | "show" | "describe" | "desc" | "explain"
+    )
+}
+
 pub fn clear_sql_console_input() {
     ADMIN_SQL_CONSOLE.write().console.clear();
 }

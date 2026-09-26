@@ -10,9 +10,10 @@ function run_sql_console($sql)
     exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
   }
 
-  $rows = DB::fetch_all($sql);
+  // 从首次执行的结果集中取行：此前 DB::fetch_all($sql) 会把语句再执行一遍，
+  // 任何 INSERT/UPDATE 都会被双写，这里改为直接消费 $query 结果。
   $result = [];
-  foreach ($rows as $data) {
+  while ($data = DB::fetch($query)) {
     $result[] = $data;
   }
 

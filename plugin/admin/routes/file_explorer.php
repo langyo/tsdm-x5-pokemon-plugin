@@ -29,6 +29,19 @@ function translate_linux_path_to_win_path($path)
     str_replace("/", "\\", substr($path, strpos($path, "/", 1) + 1));
 }
 
+function validate_explorer_path_segment($value)
+{
+  // 拒绝空段、相对路径穿越、分隔符与 NUL：正常目录/文件名不会包含这些内容。
+  // 该校验是 list_file/get_file 的统一入口防线，防止拼出根目录以外的意外路径形态。
+  return is_string($value)
+    && $value !== ''
+    && $value !== '.'
+    && $value !== '..'
+    && strpos($value, '/') === false
+    && strpos($value, "\\") === false
+    && strpos($value, "\0") === false;
+}
+
 function translate_path_array_to_path_raw($list)
 {
   // 在 linux 下与在 windows 下的路径生成是不太一样的
@@ -37,6 +50,9 @@ function translate_path_array_to_path_raw($list)
 
   $path = "/";
   foreach ($list as $value) {
+    if (!validate_explorer_path_segment($value)) {
+      throw new Exception("非法的路径段");
+    }
     $path .= $value . "/";
   }
   $path = substr($path, 0, -1);

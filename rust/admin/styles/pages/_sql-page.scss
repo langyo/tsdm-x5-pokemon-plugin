@@ -28,7 +28,19 @@
 
 #main .sql-editor-actions {
   display: flex;
+  align-items: center;
   gap: variables.$spacing-xs;
+}
+
+#main .sql-readonly-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: variables.$spacing-xs;
+  margin-right: variables.$spacing-sm;
+  font-size: 13px;
+  color: variables.$text-secondary;
+  cursor: pointer;
+  user-select: none;
 }
 
 #main .admin-sql-editor .admin-actions {
