@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde_json::Value;
 use std::{sync::Arc, time::Duration};
 
-use reqwest::{cookie::Jar, Client};
+use reqwest::{cookie::CookieStore, cookie::Jar, Client};
 
 const DEFAULT_BASE_URL: &str = "http://localhost:8888";
 
@@ -531,35 +531,47 @@ async fn login_discuz(base_url: &str) -> Result<Arc<Jar>> {
     println!("🔐 Logging in to Discuz...");
 
     let jar = Arc::new(Jar::default());
-    let client = Client::builder()
+    let client = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .cookie_provider(jar.clone())
         .timeout(Duration::from_secs(30))
         .build()?;
 
+    // 现版 X5 已拒绝 lssubmit 快捷登录，必须走带 formhash 的完整表单
     let login_page = format!("{}/member.php?mod=logging&action=login", base_url);
-    client.get(&login_page).send().await?;
+    let page_html = client.get(&login_page).send().await?.text().await?;
+    let formhash = extract_formhash(&page_html)
+        .ok_or_else(|| anyhow::anyhow!("login page has no formhash"))?;
 
-    let login_url = format!(
-        "{}/member.php?mod=logging&action=login&loginsubmit=yes&infloat=yes&lssubmit=yes&inajax=1",
-        base_url
-    );
-
+    let login_url = format!("{}/member.php?mod=logging&action=login", base_url);
     let params = [
+        ("formhash", formhash.as_str()),
         ("username", "admin"),
         ("password", "admin123"),
         ("questionid", "0"),
         ("answer", ""),
         ("cookietime", "2592000"),
+        ("loginsubmit", "yes"),
+        ("referer", &format!("{}/", base_url)),
     ];
 
     let response = client.post(&login_url).form(&params).send().await?;
     let status = response.status();
+    let _ = response.text().await?;
 
-    if !status.is_success() {
-        anyhow::bail!("Login failed: {}", status);
+    // X5 登录失败也返回 200（错误信息在页面里），唯一可靠的成功信号是
+    // cookie jar 里出现 *_auth 会话 cookie
+    let cookie_header = jar
+        .cookies(&reqwest::Url::parse(base_url)?)
+        .and_then(|value| value.to_str().ok().map(str::to_string))
+        .unwrap_or_default();
+    if !status.is_success() || !cookie_header.contains("_auth") {
+        anyhow::bail!(
+            "Login failed: status={}, cookies=[{}]",
+            status,
+            cookie_header
+        );
     }
-
     println!("   ✅ Login successful");
 
     let plugin_home = format!("{}/plugin.php?id=pokemon:pokemon", base_url);
@@ -567,6 +579,14 @@ async fn login_discuz(base_url: &str) -> Result<Arc<Jar>> {
     println!("   ✅ Plugin session initialized");
 
     Ok(jar)
+}
+
+fn extract_formhash(html: &str) -> Option<String> {
+    let marker = r#"name="formhash" value=""#;
+    let start = html.find(marker)? + marker.len();
+    let rest = &html[start..];
+    let end = rest.find('"')?;
+    Some(rest[..end].to_string())
 }
 
 fn print_separator(title: &str) {
