@@ -151,7 +151,7 @@ impl TestContext {
             .client
             .post(&url)
             .json(&serde_json::json!({
-                "pmno": pmno,
+                "species_id": pmno,
                 "level": level,
                 "is_zd": is_zd,
                 "hp_percent": hp_percent
