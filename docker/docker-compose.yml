@@ -19,13 +19,13 @@ services:
     volumes:
       # 全部使用目录挂载：podman(WSL) 对 Windows 单文件 bind 支持不可靠
       - www_data:/app/public
-      - ./docker:/docker:ro
-      - ./docker/config:/etc/caddy:ro
+      - .:/docker:ro
+      - ./config:/etc/caddy:ro
       # Caddyfile 固定引用 /etc/caddy/certs/localhost.*，证书由 entrypoint
       # 生成到该命名卷，避免写回仓库目录
       - caddy_certs:/etc/caddy/certs
-      - ./plugin:/plugin:ro
-      - ./template:/template:ro
+      - ../plugin:/plugin:ro
+      - ../template:/template:ro
       - caddy_data:/data
       - caddy_config:/config
     entrypoint: ["/bin/bash", "/docker/entrypoint.sh"]
@@ -45,8 +45,8 @@ services:
       MARIADB_PASSWORD: ${DB_PASSWORD:-discuz}
     volumes:
       - db_data:/var/lib/mysql
-      - ./docker/init.d:/docker-entrypoint-initdb.d:ro
-      - ./migrations/from-x3:/migrations:ro
+      - ./init.d:/docker-entrypoint-initdb.d:ro
+      - ../migrations/from-x3:/migrations:ro
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "localhost"]
       interval: 5s
@@ -62,8 +62,8 @@ services:
       app:
         condition: service_started
     volumes:
-      - ./docker:/docker:ro
-      - ./migrations/from-x3:/migrations:ro
+      - .:/docker:ro
+      - ../migrations/from-x3:/migrations:ro
     environment:
       DB_HOST: db
       DB_PORT: 3306
