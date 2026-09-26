@@ -24,6 +24,10 @@ if (defined('API_ROUTED')) {
 
 require_once __DIR__ . '/constants.php';
 
+// 加载 API 工具函数：test_get_state 等需要 api_calculate_pokemon_max_hp，
+// 此前仅经路由访问时未加载 utils.php，调用即 500
+require_once __DIR__ . '/utils.php';
+
 global $_G;
 
 $action = get_param('action', '');
