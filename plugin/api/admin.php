@@ -215,7 +215,7 @@ function api_test_create_pokemon()
         VALUES
         (%d, %d, %s, %s, %d, %d, %d,
          %s, %d, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, %d,
-         %d, 0, 0, 0, 0, %d, %d, 1, %d)",
+         %d, 0, 0, 1, 0, %d, %d, 1, %d)",
         $uid, $pmno, $pmname, $pmname, $level, $exp_for_level, $sex,
          $xs, $current_hp, $site,
          $current_time, $current_time, $uid, $is_shiny));
