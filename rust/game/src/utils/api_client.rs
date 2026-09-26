@@ -9,7 +9,7 @@
 //! 查询串与请求体。
 
 use anyhow::{anyhow, Result};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 
 use gloo_net::http::{Request, Response};
 
@@ -717,16 +717,7 @@ impl Default for NewApiClient {
 
 // 导出类型别名以保持兼容性
 pub use _utils::types::api_pokemon::PokemonListResponse;
-
-/// 治疗响应
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct HealResponse {
-    pub cost: i64,
-    pub message: String,
-    pub pokemon_id: u64,
-    pub current_hp: i64,
-    pub max_hp: i64,
-}
+pub use _utils::types::api_user::HealResponse;
 
 #[cfg(test)]
 mod tests {

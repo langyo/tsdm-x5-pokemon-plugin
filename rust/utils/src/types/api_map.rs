@@ -16,7 +16,12 @@ pub struct BossInfo {
 }
 
 /// 地图模式枚举（用于 API 传输）
-/// 注意：序列化/反序列化由 MapInfo 自定义实现处理，生成扁平化格式
+///
+/// 注意：这是 `pm_map` 表的 **游戏端只读展示模型**；管理端的读写模型是
+/// `_utils::types::map_info`（MapInfo/MapMode 含经验值与 Boss 配置）。
+/// 反序列化忽略 experience / experience_increase_times 字段以兼容管理端形态，
+/// `mode` 标签（wild/boss/hybrid）由双方的金丝雀测试共同钉死。
+/// 序列化/反序列化由 MapInfo 自定义实现处理，生成扁平化格式
 #[derive(Debug, Clone, PartialEq)]
 pub enum MapMode {
     /// 常规野生宠物模式
@@ -314,5 +319,54 @@ impl MapInfo {
         // 由于需要返回引用，这里用一个小技巧
         // 实际使用时应该修改调用方使用 get_bosses()
         &EMPTY
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample(mode: MapMode) -> MapInfo {
+        MapInfo {
+            id: 1,
+            name: "测试地图".to_string(),
+            area_type: "g".to_string(),
+            area_type_name: "草丛".to_string(),
+            region: "kanto".to_string(),
+            pos_x: 1,
+            pos_y: 2,
+            is_enabled: true,
+            min_level: 1,
+            max_level: 10,
+            mode,
+            wild_pokemons: vec![],
+        }
+    }
+
+    /// 金丝雀：钉死游戏端 MapMode 的 wire 标签（含自定义序列化与反序列化回路）。
+    /// map_info.rs 中的同名测试钉死管理端标签，两侧必须始终一致。
+    #[test]
+    fn mode_tags_are_stable() {
+        for (mode, tag) in [
+            (MapMode::Wild, "wild"),
+            (
+                MapMode::Boss {
+                    bosses: vec![BossInfo {
+                        pokemon_type_id: 1,
+                        pokemon_name: "n".to_string(),
+                        level: 5,
+                        boss_multiplier: 1.0,
+                    }],
+                },
+                "boss",
+            ),
+            (MapMode::Hybrid { bosses: vec![] }, "hybrid"),
+        ] {
+            let value = serde_json::to_value(sample(mode.clone())).unwrap();
+            assert_eq!(value["mode"], tag, "serialize tag mismatch for {}", tag);
+            // 反序列化回路：自定义 visitor 必须还原同一标签
+            let back: MapInfo = serde_json::from_value(value).unwrap();
+            assert_eq!(back.mode, mode, "round-trip mismatch for {}", tag);
+        }
     }
 }

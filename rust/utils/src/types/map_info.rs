@@ -53,6 +53,11 @@ pub enum MapAreaType {
 }
 
 /// 地图模式枚举：表示地图的冒险模式类型
+///
+/// 注意：这是 `pm_map` 表的 **管理端读写模型**；游戏前端的只读展示模型是
+/// `_utils::types::api_map`（MapInfo/MapMode 带 Boss 展示信息与坐标）。
+/// 两端通过 wire 上的 `mode` 标签（wild/boss/hybrid）耦合，标签值由
+/// 双方的 `mode_tags_are_stable` 金丝雀测试共同钉死，改动任一侧必须同步另一侧。
 /// 使用外部标记 (tag = "mode") 生成扁平化 JSON 格式：
 /// - Wild: {"mode":"wild","experience":X,"experience_increase_times":Y}
 /// - Boss: {"mode":"boss","bosses":[...]}
@@ -406,5 +411,36 @@ impl Default for MapInfo {
                 experience_increase_times: 0,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 金丝雀：钉死管理端 MapMode 的 wire 标签。
+    /// api_map.rs 中的同名测试钉死游戏端标签，两侧必须始终一致。
+    #[test]
+    fn mode_tags_are_stable() {
+        let wild = serde_json::to_value(MapMode::Wild {
+            experience: 5,
+            experience_increase_times: 2,
+        })
+        .unwrap();
+        assert_eq!(wild["mode"], "wild");
+
+        let boss = serde_json::to_value(MapMode::Boss {
+            bosses: MapBossConfig::default(),
+        })
+        .unwrap();
+        assert_eq!(boss["mode"], "boss");
+
+        let hybrid = serde_json::to_value(MapMode::Hybrid {
+            experience: 5,
+            experience_increase_times: 2,
+            bosses: MapBossConfig::default(),
+        })
+        .unwrap();
+        assert_eq!(hybrid["mode"], "hybrid");
     }
 }

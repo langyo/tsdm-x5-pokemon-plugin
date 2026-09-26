@@ -82,7 +82,7 @@ pub struct InventoryItem {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserStatsResponse {
     #[serde(rename = "pokemon_stats")]
-    pub pokemon_stats: PokemonStats,
+    pub pokemon_stats: PokemonCollectionStats,
     #[serde(rename = "inventory_stats")]
     pub inventory_stats: InventoryStats,
     #[serde(rename = "battle_stats")]
@@ -90,9 +90,9 @@ pub struct UserStatsResponse {
     pub achievements: Achievements,
 }
 
-/// 宝可梦统计
+/// 用户宝可梦收藏统计（与 api_pokemon::PokemonStats 的个体六维无关，仅改名消歧）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct PokemonStats {
+pub struct PokemonCollectionStats {
     #[serde(rename = "total_owned")]
     pub total_owned: u64,
     #[serde(rename = "active_pokemon")]
@@ -248,4 +248,14 @@ pub struct BadgeStatusResponse {
     pub hidden: bool,
     #[serde(default)]
     pub initialized: bool,
+}
+
+/// 治疗响应（heal / heal_and_flee 共用）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HealResponse {
+    pub cost: i64,
+    pub message: String,
+    pub pokemon_id: u64,
+    pub current_hp: i64,
+    pub max_hp: i64,
 }
