@@ -17,7 +17,8 @@ name: E2E
 on:
   workflow_dispatch:
   push:
-    branches: [master]
+    # TEMPORARY: ci/live-stack-e2e is a validation-only entry, removed before the PR opens
+    branches: [master, ci/live-stack-e2e]
 
 concurrency:
   group: e2e-${{ github.ref }}
