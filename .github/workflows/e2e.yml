@@ -25,6 +25,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  # runner 上固定用 docker（rootless podman 探测慢且结果漂移）
+  TSDM_DOCKER_RUNTIME: docker
   APP_HTTP_PORT: "8080"
   APP_HTTPS_PORT: "8443"
   E2E_BASE_URL: https://localhost:8443
@@ -41,9 +43,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-
-      - name: Install podman-compose
-        run: pip install podman-compose
 
       - name: Boot the dev stack
         run: python scripts/docker/dev.py up
