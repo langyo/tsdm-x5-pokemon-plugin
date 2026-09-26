@@ -816,9 +816,11 @@ async fn test_shop_flow(ctx: &TestContext) -> Result<()> {
         state_after.user.money < money_before,
         "Money should decrease after purchase"
     );
+    // 背包条目的 type_id 是物品定义 id（pm_itemdata.id，即商店条目的 id），
+    // 物品类别字段另叫 item_type，两者不要混淆
     assert!(
-        state_after.items.iter().any(|i| i.type_id == item_type),
-        "Should have the purchased item type"
+        state_after.items.iter().any(|i| i.type_id == item_id),
+        "Should have the purchased item in inventory"
     );
 
     println!();
