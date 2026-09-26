@@ -41,7 +41,6 @@ dioxus-config-macros = "0.7"
 dioxus-core-macro = "0.7"
 dioxus-hooks = "0.7"
 dioxus-html = "0.7"
-dioxus-router = "0.7"
 dioxus-signals = "0.7"
 
 # 明确指定 dioxus-web 依赖，禁用 devtools 功能

@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 use crate::components::{
-    common::{AppProviders, ErrorPopup, GlobalModalProvider, ModalProvider, PopupProvider},
+    common::{AppProviders, GlobalModalProvider, PopupProvider},
     layout::Layout,
 };
 
@@ -9,12 +9,9 @@ use crate::components::{
 pub fn App() -> Element {
     rsx! {
         AppProviders {
-            ModalProvider {
-                PopupProvider {
-                    GlobalModalProvider {
-                        Layout {}
-                        ErrorPopup {}
-                    }
+            PopupProvider {
+                GlobalModalProvider {
+                    Layout {}
                 }
             }
         }

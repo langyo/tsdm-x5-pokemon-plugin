@@ -14,10 +14,6 @@ pub use dioxus_elements::{
 };
 pub use dioxus_hooks::*;
 pub use dioxus_html as dioxus_elements;
-pub use dioxus_router::{
-    hooks::*, navigator, use_navigator, GoBackButton, GoForwardButton, Link, NavigationTarget,
-    Outlet, Routable, Router,
-};
 pub use dioxus_signals::*;
 
 // Routable 派生宏生成的代码硬编码 dioxus::config_macros::maybe_wasm_split! 路径，

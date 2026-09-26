@@ -3,7 +3,6 @@ pub mod components;
 mod hooks;
 mod pages;
 pub mod prelude;
-mod router;
 pub mod state;
 pub mod utils;
 #[cfg(target_arch = "wasm32")]

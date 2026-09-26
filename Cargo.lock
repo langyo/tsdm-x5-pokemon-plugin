@@ -54,7 +54,6 @@ dependencies = [
  "dioxus-core-macro",
  "dioxus-hooks",
  "dioxus-html",
- "dioxus-router",
  "dioxus-signals",
  "dioxus-web",
  "getrandom 0.4.3",
