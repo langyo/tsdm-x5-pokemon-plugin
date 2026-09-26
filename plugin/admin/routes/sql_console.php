@@ -10,11 +10,15 @@ function run_sql_console($sql)
     exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
   }
 
-  // 从首次执行的结果集中取行：此前 DB::fetch_all($sql) 会把语句再执行一遍，
-  // 任何 INSERT/UPDATE 都会被双写，这里改为直接消费 $query 结果。
+  // DB::query 已执行过语句；不能用 fetch_all($sql) 无条件取行——那会把语句
+  // 再执行一遍，任何 INSERT/UPDATE 都会被双写。仅对幂等的只读语句
+  // （与前端 is_read_only_sql 同一白名单）回读行集，写语句不取行。
   $result = [];
-  while ($data = DB::fetch($query)) {
-    $result[] = $data;
+  if (preg_match('/^\s*(select|show|describe|desc|explain)/i', $sql)) {
+    $rows = DB::fetch_all($sql);
+    foreach ($rows as $data) {
+      $result[] = $data;
+    }
   }
 
   $encoded = json_encode($result, JSON_UNESCAPED_UNICODE);
