@@ -1,0 +1,85 @@
+# E2E — live-stack end-to-end suite.
+#
+# Cost policy (see AGENTS.md §8): the full check runs ONLY on pushes to
+# master and on manual dispatch. It never runs on PRs or ordinary branch
+# pushes — PRs must pass the basic gate (ci.yml: fmt / clippy / test /
+# PHP static suite) before merging, and this job catches integration
+# regressions on the merge result. Dispatch it manually on a branch when
+# you need a pre-merge full run.
+#
+# The stack mirrors the local dev environment exactly: podman-compose
+# over docker/docker-compose.yml, seeded by docker/init.d, self-signed
+# TLS on https://localhost:8443, admin/admin123. One boot serves both
+# suites; each suite resets its own data via the test_* admin endpoints.
+
+name: E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_HTTP_PORT: "8080"
+  APP_HTTPS_PORT: "8443"
+  E2E_BASE_URL: https://localhost:8443
+  API_BASE_URL: https://localhost:8443
+  CARGO_TERM_COLOR: always
+
+jobs:
+  e2e:
+    name: Live-stack e2e (admin + game suites)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install podman-compose
+        run: pip install podman-compose
+
+      - name: Boot the dev stack
+        run: python scripts/docker/dev.py up
+
+      - name: Wait for the app to serve HTTPS
+        run: |
+          for i in $(seq 1 60); do
+            if curl -kfsS --max-time 5 https://localhost:8443/ -o /dev/null; then
+              echo "app is up after ~$((i * 5))s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::app did not become ready in 300s"
+          podman logs --tail 100 tsdm-app || true
+          exit 1
+
+      - name: Run the admin e2e suite (dispatch + HTTP levels)
+        run: python scripts/e2e/run.py --http
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-e2e-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-e2e-
+
+      # 栈保持运行，cargo 构建期间空闲即可；e2e_full_test 自带数据重置
+      - name: Run the game e2e suite
+        run: cargo run --example e2e_full_test
+        working-directory: rust/game
+
+      - name: Tear the stack down
+        if: always()
+        run: python scripts/docker/dev.py down || true

@@ -17,6 +17,7 @@ async fn login_discuz(base_url: &str) -> Result<Arc<Jar>> {
 
     let jar = Arc::new(Jar::default());
     let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
         .cookie_provider(jar.clone())
         .build()?;
 
@@ -68,6 +69,7 @@ async fn main() -> Result<()> {
     // 登录
     let cookie_jar = login_discuz(&base_url).await?;
     let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
         .cookie_provider(cookie_jar)
         .build()?;
 

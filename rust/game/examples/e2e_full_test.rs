@@ -82,6 +82,7 @@ struct TestContext {
 impl TestContext {
     fn new(base_url: &str, cookie_jar: Arc<Jar>) -> Self {
         let client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
             .cookie_provider(cookie_jar)
             .timeout(Duration::from_secs(30))
             .build()
@@ -505,6 +506,7 @@ async fn login_discuz(base_url: &str) -> Result<Arc<Jar>> {
 
     let jar = Arc::new(Jar::default());
     let client = reqwest::Client::builder()
+        .danger_accept_invalid_certs(true)
         .cookie_provider(jar.clone())
         .timeout(Duration::from_secs(30))
         .build()?;

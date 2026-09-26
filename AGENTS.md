@@ -210,14 +210,24 @@ by `just publish`); do NOT create standalone version-bump PRs.
 
 CI runs on GitHub-hosted runners (`ubuntu-latest`) — the Celestia self-hosted
 runner fleet belongs to another organization and cannot serve this repository.
-Two workflows exist:
+Three workflows exist:
 
-- `ci.yml` — markdown format check, PHP syntax + static tests, Rust
-  fmt/clippy/test. Triggers: `pull_request` types `[opened, reopened,
-  ready_for_review]`, `push` to `master` (post-merge verification), and manual
-  `workflow_dispatch`. PR-push rebuilds are intentionally NOT triggered (PR
-  numbers and minutes are finite); use `workflow_dispatch` before merging when
-  a re-run is needed.
+- `ci.yml` — the **basic gate**: markdown format check, PHP syntax + static
+  tests, Rust fmt/clippy/test. Triggers: `pull_request` types `[opened,
+  reopened, ready_for_review]`, `push` to `master` (post-merge verification),
+  and manual `workflow_dispatch`. PR-push rebuilds are intentionally NOT
+  triggered (PR numbers and minutes are finite); use `workflow_dispatch`
+  before merging when a re-run is needed. **A PR must not merge until every
+  `ci.yml` job is green** (or a failure is demonstrably environmental, see
+  rule 1 below).
+- `e2e.yml` — the **full check**: boots the live dev stack
+  (podman-compose, seeded DB, self-signed TLS) and runs the admin e2e suite
+  (`scripts/e2e/run.py --http`) plus the game e2e suite
+  (`cargo run --example e2e_full_test`). Cost control: it triggers ONLY on
+  `push` to `master` and on manual `workflow_dispatch` — never on PRs or
+  ordinary branch pushes. Dispatch it on a branch (`gh workflow run e2e.yml
+  --ref <branch>`) when a pre-merge full run is warranted, e.g. for changes
+  that touch the PHP API surface, the serde type models, or the stack itself.
 - `commit-msg-lint.yml` — lints the PR title and every commit in the PR against
   §1 via `celestia-devtools commit-msg-lint`.
 
