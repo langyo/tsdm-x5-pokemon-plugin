@@ -13,6 +13,12 @@ import subprocess, os, json, sys, hashlib
 import urllib.request, urllib.parse, http.cookiejar, ssl
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "scripts", "docker"))
+from _docker import docker_cmd
+
+# 容器运行时与 dev.py 的探测保持一致（podman 存活则 podman，否则 docker），
+# 避免栈由 docker compose 启动时 exec 找不到容器
+RUNTIME = docker_cmd()[0]
 TMP_DIR = os.path.join(PROJECT_ROOT, "scripts", "e2e", ".tmp")
 os.makedirs(TMP_DIR, exist_ok=True)
 
@@ -21,7 +27,7 @@ DB_CONTAINER = "tsdm-db"
 HTTP_BASE = os.environ.get("E2E_BASE_URL", "https://localhost:8443")
 
 def sql(sql_str):
-    r = subprocess.run(["podman", "exec", "-i", DB_CONTAINER, "mariadb", "-u", "root", "-proot", "discuz"],
+    r = subprocess.run([RUNTIME, "exec", "-i", DB_CONTAINER, "mariadb", "-u", "root", "-proot", "discuz"],
                        input=sql_str, capture_output=True, text=True, encoding="utf-8")
     if r.returncode != 0:
         print(f"  SQL ERR: {r.stderr[:100]}")
@@ -29,7 +35,7 @@ def sql(sql_str):
 
 def sql_rows(sql_str):
     """Run SQL, return rows as lists of strings (batch format, no column names)."""
-    r = subprocess.run(["podman", "exec", "-i", DB_CONTAINER, "mariadb", "-u", "root", "-proot", "-N", "-B", "discuz"],
+    r = subprocess.run([RUNTIME, "exec", "-i", DB_CONTAINER, "mariadb", "-u", "root", "-proot", "-N", "-B", "discuz"],
                        input=sql_str, capture_output=True, text=True, encoding="utf-8")
     if r.returncode != 0:
         print(f"  SQL ERR: {r.stderr[:100]}")
@@ -78,8 +84,8 @@ echo json_encode($out, JSON_UNESCAPED_UNICODE);
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(php)
 
-    subprocess.run(["podman", "cp", filepath, f"{CONTAINER}:/tmp/t.php"], capture_output=True)
-    r = subprocess.run(["podman", "exec", CONTAINER, "frankenphp", "php-cli", "/tmp/t.php"],
+    subprocess.run([RUNTIME, "cp", filepath, f"{CONTAINER}:/tmp/t.php"], capture_output=True)
+    r = subprocess.run([RUNTIME, "exec", CONTAINER, "frankenphp", "php-cli", "/tmp/t.php"],
                        capture_output=True, text=True, encoding="utf-8")
 
     try:
