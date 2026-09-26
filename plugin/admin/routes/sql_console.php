@@ -14,7 +14,7 @@ function run_sql_console($sql)
   // 再执行一遍，任何 INSERT/UPDATE 都会被双写。仅对幂等的只读语句
   // （与前端 is_read_only_sql 同一白名单）回读行集，写语句不取行。
   $result = [];
-  if (preg_match('/^\s*(select|show|describe|desc|explain)/i', $sql)) {
+  if (preg_match('/^\s*(select|show|describe|desc|explain)\b/i', $sql)) {
     $rows = DB::fetch_all($sql);
     foreach ($rows as $data) {
       $result[] = $data;
