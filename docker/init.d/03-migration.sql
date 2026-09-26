@@ -2,7 +2,9 @@
 -- TSDM Pokemon Plugin - X3 到 X5 数据库迁移脚本
 -- ============================================================
 -- 用途：旧版数据迁移和表结构调整
--- 说明：表结构已由 02-pokemon-schema.sql 创建，此脚本仅做结构修正
+-- 说明：表结构已由 02-pokemon-schema.sql 创建，此脚本仅做结构修正。
+--       全新安装时列为新命名（experience/boss_config），不存在旧列，
+--       以下修正通过 information_schema 判定后执行，天然幂等。
 -- ============================================================
 
 -- 迁移日志表
@@ -16,10 +18,26 @@ CREATE TABLE IF NOT EXISTS `pm_migration_log` (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 -- ============================================================
--- 字段类型标准化（兼容旧数据）
+-- 字段类型标准化（仅旧库存在对应列时执行）
 -- ============================================================
-ALTER TABLE pm_map MODIFY COLUMN `exp` int(10) NOT NULL DEFAULT 0;
-UPDATE pm_map SET `expn` = '' WHERE `expn` IS NULL;
+SET @has_exp := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'pm_map' AND column_name = 'exp'
+);
+SET @stmt := IF(@has_exp > 0,
+    'ALTER TABLE pm_map MODIFY COLUMN `exp` int(10) NOT NULL DEFAULT 0',
+    'SELECT ''03-migration: pm_map.exp 不存在（全新结构），跳过''');
+PREPARE _s FROM @stmt; EXECUTE _s; DEALLOCATE PREPARE _s;
+
+SET @has_expn := (
+    SELECT COUNT(*) FROM information_schema.columns
+    WHERE table_schema = DATABASE() AND table_name = 'pm_map' AND column_name = 'expn'
+);
+SET @stmt := IF(@has_expn > 0,
+    'UPDATE pm_map SET `expn` = '''' WHERE `expn` IS NULL',
+    'SELECT ''03-migration: pm_map.expn 不存在（全新结构），跳过''');
+PREPARE _s FROM @stmt; EXECUTE _s; DEALLOCATE PREPARE _s;
+
 UPDATE pm_map SET `region` = '' WHERE `region` IS NULL;
 
 -- ============================================================

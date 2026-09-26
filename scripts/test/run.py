@@ -200,7 +200,8 @@ def test_stale_columns(schema):
 
 def test_seed_data_columns(schema):
     print("\n=== Seed data column validation ===")
-    seed_files = sorted(SEED_DIR.glob("0[4-9]-*.sql"))
+    seed_files = sorted(list(SEED_DIR.glob("0[4-9]-*.sql"))
+                       + list(SEED_DIR.glob("1[01]-*.sql")))
     if not seed_files:
         warn("no seed data files found")
         return
