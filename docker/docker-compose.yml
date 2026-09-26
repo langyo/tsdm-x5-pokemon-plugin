@@ -21,9 +21,10 @@ services:
       - www_data:/app/public
       - .:/docker:ro
       - ./config:/etc/caddy:ro
-      # Caddyfile 固定引用 /etc/caddy/certs/localhost.*，证书由 entrypoint
-      # 生成到该命名卷，避免写回仓库目录
-      - caddy_certs:/etc/caddy/certs
+      # Caddyfile 固定引用 /caddy_certs/localhost.*，证书由 entrypoint
+      # 生成到该命名卷，避免写回仓库目录；不放在 /etc/caddy 下是因为
+      # 只读绑定内无法为嵌套挂载点创建目录
+      - caddy_certs:/caddy_certs
       - ../plugin:/plugin:ro
       - ../template:/template:ro
       - caddy_data:/data

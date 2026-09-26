@@ -23,12 +23,12 @@ if [ ! -f "$DISCUZ_ROOT/index.php" ] && [ -f /usr/src/discuz/index.php ]; then
 fi
 
 # --- 2. 生成自签 TLS 证书（Caddyfile 固定引用该路径） ---
-if [ ! -f /etc/caddy/certs/localhost.crt ]; then
+if [ ! -f /caddy_certs/localhost.crt ]; then
     echo "[tsdm] generating self-signed TLS certificate..."
-    mkdir -p /etc/caddy/certs
+    mkdir -p /caddy_certs
     openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
-        -keyout /etc/caddy/certs/localhost.key \
-        -out /etc/caddy/certs/localhost.crt \
+        -keyout /caddy_certs/localhost.key \
+        -out /caddy_certs/localhost.crt \
         -subj "/CN=localhost" >/dev/null 2>&1
 fi
 

@@ -56,5 +56,5 @@ localhost {
 	}
 	respond @php_in_upload 403
 
-	tls /etc/caddy/certs/localhost.crt /etc/caddy/certs/localhost.key
+	tls /caddy_certs/localhost.crt /caddy_certs/localhost.key
 }
