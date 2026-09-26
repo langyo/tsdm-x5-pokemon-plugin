@@ -33,14 +33,16 @@ log = "^0.4"
 wasm-bindgen = "0.2.87"
 wasm-bindgen-futures = "^0.4"
 
-# Dioxus (replacing Yew)
-# 禁用 devtools 以避免生成 snippets 调试代码
-dioxus = { version = "0.7.2", default-features = false, features = [
-  "web",
-  "router",
-  "launch",
-  "lib",
-] }
+# Dioxus 细粒度子 crate。不依赖 dioxus 元 crate：元 crate 会把
+# fullstack/server/desktop 的可选依赖（axum、tower、quinn 等）锁入
+# Cargo.lock；本项目后端依托论坛 PHP，不设 Rust 服务端。
+dioxus-core = "0.7"
+dioxus-config-macros = "0.7"
+dioxus-core-macro = "0.7"
+dioxus-hooks = "0.7"
+dioxus-html = "0.7"
+dioxus-router = "0.7"
+dioxus-signals = "0.7"
 
 # 明确指定 dioxus-web 依赖，禁用 devtools 功能
 dioxus-web = { version = "0.7", default-features = false, features = ["mounted", "document"] }

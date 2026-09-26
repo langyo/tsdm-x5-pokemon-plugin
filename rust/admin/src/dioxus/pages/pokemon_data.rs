@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::dioxus::prelude::*;
 
 use crate::dioxus::{
     components::pokemon_editor::PokemonTypeEditorModal,

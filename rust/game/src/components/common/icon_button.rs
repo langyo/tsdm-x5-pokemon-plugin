@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::prelude::*;
 
 #[derive(Props, Clone, PartialEq)]
 pub struct IconButtonProps {

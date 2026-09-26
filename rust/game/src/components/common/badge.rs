@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::prelude::*;
 
 #[derive(Clone, PartialEq, Default, Debug)]
 pub enum BadgeType {

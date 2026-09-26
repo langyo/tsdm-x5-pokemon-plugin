@@ -1,7 +1,7 @@
 use chrono::{Timelike, Utc};
 use std::env::consts;
 
-use dioxus::prelude::*;
+use crate::dioxus::prelude::*;
 
 use crate::{
     config::{CARGO_VERSION, UI_FRAMEWORK},

@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::prelude::*;
 
 #[derive(Clone, PartialEq, Default)]
 #[allow(dead_code)]

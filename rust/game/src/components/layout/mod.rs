@@ -3,7 +3,7 @@ mod header;
 mod page_container;
 mod sidebar;
 
-use dioxus::prelude::*;
+use crate::prelude::*;
 pub use footer::Footer;
 pub use header::{Header, IMG_PATH, IMG_PATH_REMOTE};
 pub use page_container::{LayoutMode, PageContainer};

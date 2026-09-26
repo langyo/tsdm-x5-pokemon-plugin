@@ -1,4 +1,5 @@
-use dioxus::{prelude::*, web::WebEventExt};
+use crate::dioxus::prelude::*;
+use dioxus_web::WebEventExt;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 

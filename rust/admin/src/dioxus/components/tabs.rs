@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::dioxus::prelude::*;
 
 /// 通用的标签页组件 - 使用 modal tabs 样式
 #[component]

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use serde_json::Value;
 
-use dioxus::prelude::*;
+use crate::dioxus::prelude::*;
 
 use crate::dioxus::utils::clipboard::copy_to_clipboard;
 
@@ -241,7 +241,7 @@ fn JsonDropdownMenu(
     // 点击外部关闭菜单
     use_effect(move || {
         if *show_menu.read() {
-            let _ = dioxus::document::eval(
+            let _ = dioxus_document::eval(
                 r#"
                 (event) => {
                     if (!event.target.closest('.json-dropdown')) {

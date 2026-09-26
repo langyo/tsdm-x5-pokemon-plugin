@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use dioxus::prelude::*;
+use crate::dioxus::prelude::*;
 
 use crate::dioxus::utils::{
     clipboard::copy_to_clipboard,

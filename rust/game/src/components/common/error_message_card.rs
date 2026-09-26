@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::prelude::*;
 use gloo_timers::future::TimeoutFuture;
 
 #[derive(Props, Clone, PartialEq)]

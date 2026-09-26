@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::dioxus::prelude::*;
 use gloo_timers::future::TimeoutFuture;
 
 /// 搜索结果项

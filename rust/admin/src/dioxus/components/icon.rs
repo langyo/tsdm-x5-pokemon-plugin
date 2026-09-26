@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::dioxus::prelude::*;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IconName {

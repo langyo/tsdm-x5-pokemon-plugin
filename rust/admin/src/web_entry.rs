@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 use crate::dioxus::app::App;
 
 // 导入 launch 函数
-use dioxus::launch;
+use dioxus_web::{launch::launch_cfg, Config};
 
 #[derive(Clone)]
 #[wasm_bindgen]
@@ -21,8 +21,8 @@ impl WebHandle {
 
     #[wasm_bindgen]
     pub async fn start(&self) -> Result<(), wasm_bindgen::JsValue> {
-        // 使用 dioxus::launch 启动应用
-        launch(App);
+        // 使用 dioxus_web::launch 启动应用
+        launch_cfg(App, Config::default());
         Ok(())
     }
 

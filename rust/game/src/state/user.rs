@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::prelude::*;
 
 use _utils::types::api_user::{InventoryStatsResponse, UserProfileResponse};
 

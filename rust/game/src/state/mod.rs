@@ -4,9 +4,9 @@ mod pokemon;
 mod ui;
 mod user;
 
+use crate::prelude::*;
 pub use app::*;
 pub use battle::*;
-use dioxus::prelude::*;
 pub use pokemon::*;
 pub use ui::*;
 pub use user::*;

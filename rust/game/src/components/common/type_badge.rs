@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::prelude::*;
 
 /// 技能属性标签组件
 /// 显示技能的属性（如火、水、草等）和分类（物攻、特攻、变化）

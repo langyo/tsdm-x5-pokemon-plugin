@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::prelude::*;
 
 use super::{Page, CURRENT_PAGE};
 

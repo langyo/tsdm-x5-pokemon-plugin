@@ -1,4 +1,4 @@
-use dioxus::prelude::*;
+use crate::prelude::*;
 
 use crate::{components::common::Card, utils::api_client::NewApiClient};
 
