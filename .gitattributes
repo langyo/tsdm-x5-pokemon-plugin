@@ -1,0 +1,5 @@
+# Windows 检出（core.autocrlf=true）会把脚本转成 CRLF，导致容器内
+# bash/Caddy 无法解析；这些文件必须保持 LF。
+*.sh text eol=lf
+docker/config/Caddyfile text eol=lf
+justfile text eol=lf

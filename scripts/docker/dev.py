@@ -29,7 +29,23 @@ def up() -> None:
     env = os.environ.copy()
     env["DOCKER_BUILDKIT"] = "0"
     cmd = [*compose_cmd(), "-f", str(compose_file()), "up", "-d", "--build"]
-    subprocess.run(cmd, check=True, env=env)
+    try:
+        subprocess.run(cmd, check=True, env=env)
+    except subprocess.CalledProcessError:
+        if docker_cmd() == ["podman"]:
+            print(
+                "\n[tsdm] podman 起栈失败。若上方日志含 netavark/nftables 错误\n"
+                '      ("nft did not return successfully")，是 WSL 内核不支持\n'
+                "      netavark 的 nft 规则；把防火墙后端切到 iptables 可解：\n"
+                "\n"
+                "        podman machine ssh \"sudo mkdir -p /etc/containers && "
+                "printf '[network]\\nfirewall_driver = \\\"iptables\\\"\\n' "
+                "| sudo tee -a /etc/containers/containers.conf\"\n"
+                "        podman machine stop && podman machine start\n"
+                "\n"
+                "      然后重试 python scripts/docker/dev.py up"
+            )
+        raise
     print("[tsdm] services starting...")
     _wait_healthy("tsdm-db", timeout=30)
     if _container_exists("tsdm-setup"):

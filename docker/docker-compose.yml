@@ -11,15 +11,24 @@ services:
       - SERVER_NAME=:80
       - PUID=${PUID:-1000}
       - PGID=${PGID:-1000}
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_NAME=discuz
+      - DB_USER=discuz
+      - DB_PASSWORD=${DB_PASSWORD:-discuz}
     volumes:
+      # 全部使用目录挂载：podman(WSL) 对 Windows 单文件 bind 支持不可靠
       - www_data:/app/public
-      - ./docker/config/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./docker/entrypoint.sh:/entrypoint.sh:ro
+      - ./docker:/docker:ro
+      - ./docker/config:/etc/caddy:ro
+      # Caddyfile 固定引用 /etc/caddy/certs/localhost.*，证书由 entrypoint
+      # 生成到该命名卷，避免写回仓库目录
+      - caddy_certs:/etc/caddy/certs
       - ./plugin:/plugin:ro
       - ./template:/template:ro
       - caddy_data:/data
       - caddy_config:/config
-    entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    entrypoint: ["/bin/bash", "/docker/entrypoint.sh"]
     command: ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
     depends_on:
       db:
@@ -53,8 +62,7 @@ services:
       app:
         condition: service_started
     volumes:
-      - ./docker/setup.sh:/setup.sh:ro
-      - ./docker/init.d/04-tsdm-theme.sql:/theme.sql:ro
+      - ./docker:/docker:ro
       - ./migrations/from-x3:/migrations:ro
     environment:
       DB_HOST: db
@@ -62,7 +70,7 @@ services:
       DB_NAME: discuz
       DB_USER: discuz
       DB_PASSWORD: ${DB_PASSWORD:-discuz}
-    entrypoint: ["/bin/bash", "/setup.sh"]
+    entrypoint: ["/bin/bash", "/docker/setup.sh"]
     restart: "no"
 
 volumes:
@@ -70,3 +78,4 @@ volumes:
   www_data:
   caddy_data:
   caddy_config:
+  caddy_certs:

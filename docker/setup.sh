@@ -12,9 +12,9 @@ for i in $(seq 1 30); do
 done
 
 echo "[tsdm-setup] registering tsdm_newWing theme style..."
-mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < /theme.sql 2>/dev/null || true
+mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < /docker/init.d/04-tsdm-theme.sql 2>/dev/null || true
 
-for f in /migrations/from-x3/*.sql; do
+for f in /migrations/*.sql; do
     if [ -f "$f" ]; then
         echo "[tsdm-setup] applying migration: $(basename "$f")"
         mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" < "$f" 2>/dev/null || true

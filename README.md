@@ -26,6 +26,24 @@ python scripts/docker/dev.py up
 
 默认管理员: `admin` / `admin123`
 
+首次启动时 `entrypoint.sh` 会自动完成：从镜像内置源码引导 Discuz、按
+`DB_*` 环境变量生成 `config/config_global.php` 与独立模式
+`config/config_ucenter.php`、落 `data/install.lock`、生成自签 TLS 证书
+（写入 `caddy_certs` 卷，不进仓库）、安装插件与模板。数据库结构及种子
+由 `docker/init.d/` 在 db 卷首次初始化时导入。
+
+## Troubleshooting（Windows + Podman/WSL）
+
+- **起栈报 netavark/nftables 错误**（`nft did not return successfully`）：
+  WSL 内核不支持 netavark 生成的 nft 规则。执行
+  `podman machine ssh "sudo mkdir -p /etc/containers && printf '[network]\nfirewall_driver = \"iptables\"\n' | sudo tee -a /etc/containers/containers.conf"`
+  后 `podman machine stop && podman machine start` 再重试。
+- **容器内 bash/Caddy 报 `\r` 或语法错误**：检出时行尾被转成 CRLF，
+  仓库已通过 `.gitattributes` 强制 `*.sh`/`Caddyfile`/`justfile` 保持
+  LF；旧检出需重新 checkout 或手动转换行尾。
+- **端口占用**：用 `APP_HTTP_PORT=8080 APP_HTTPS_PORT=8443
+  python scripts/docker/dev.py up` 换端口。
+
 ## Just Recipes
 
 ```bash
