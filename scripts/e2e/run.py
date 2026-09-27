@@ -471,17 +471,33 @@ def http_admin_tests():
     # login flow (full form with formhash; the legacy lssubmit fast-login
     # channel is rejected by current X5 builds)
     import re as _re
-    status, text = req(f"{base}/member.php?mod=logging&action=login")
-    m = _re.search(r'name="formhash" value="([0-9a-f]+)"', text) or _re.search(r'formhash=([0-9a-f]+)', text)
-    formhash = m.group(1) if m else ""
-    body = urllib.parse.urlencode({
-        "formhash": formhash,
-        "username": "admin", "password": "admin123",
-        "questionid": 0, "answer": "", "cookietime": 2592000,
-        "loginsubmit": "yes", "referer": f"{base}/"}).encode()
-    status, text = req(f"{base}/member.php?mod=logging&action=login", data=body)
-    check_true("login as admin", any(c.name.endswith("auth") for c in cj), f"cookies={[c.name for c in cj]}")
-    req(f"{base}/plugin.php?id=pokemon:pokemon")
+    import hashlib as _hashlib
+
+    def _discuz_login(username, password, cookie_jar, label):
+        opener2 = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(cookie_jar),
+            urllib.request.HTTPSHandler(context=ctx))
+        def req2(url, data=None, headers=None):
+            r = urllib.request.Request(url, data=data, headers=headers or {})
+            try:
+                resp = opener2.open(r, timeout=30)
+                return resp.status, resp.read().decode("utf-8", "replace")
+            except urllib.error.HTTPError as e:
+                return e.code, e.read().decode("utf-8", "replace")
+        _, text = req2(f"{base}/member.php?mod=logging&action=login")
+        m = _re.search(r'name="formhash" value="([0-9a-f]+)"', text) or _re.search(r'formhash=([0-9a-f]+)', text)
+        formhash = m.group(1) if m else ""
+        body = urllib.parse.urlencode({
+            "formhash": formhash,
+            "username": username, "password": password,
+            "questionid": 0, "answer": "", "cookietime": 2592000,
+            "loginsubmit": "yes", "referer": f"{base}/"}).encode()
+        _, text = req2(f"{base}/member.php?mod=logging&action=login", data=body)
+        check_true(f"login as {label}", any(c.name.endswith("auth") for c in cookie_jar),
+                   f"cookies={[c.name for c in cookie_jar]}")
+        req2(f"{base}/plugin.php?id=pokemon:pokemon")
+
+    _discuz_login("admin", "admin123", cj, "admin")
 
     def admin_post(action, extra=None):
         payload = {"action": action}
@@ -508,6 +524,70 @@ def http_admin_tests():
         anon_status = e.code
     check_true("anonymous admin POST rejected (no JSON envelope)",
                '"success":true' not in anon_text, f"status={anon_status} body={anon_text[:120]!r}")
+
+    # ---- 宠物中心版主准入回归：板块版主可进后台，普通用户仍被拒 ----
+    sql("INSERT INTO pre_forum_forum (fid, name, type, status, level) VALUES (990, '宠物中心', 'forum', 1, 0) "
+        "ON DUPLICATE KEY UPDATE name='宠物中心'")
+    _salt = "e2esalt"
+    _pw_hash = _hashlib.md5((_hashlib.md5("e2emod123".encode()).hexdigest() + _salt).encode()).hexdigest()
+    sql("INSERT INTO pre_common_member (username, loginname, password, email, groupid, regdate, salt) "
+        f"VALUES ('e2e_center_mod', 'e2e_center_mod', '{_pw_hash}', 'mod@test.local', 10, UNIX_TIMESTAMP(), '{_salt}') "
+        "ON DUPLICATE KEY UPDATE username=username")
+    mod_uid = sql_scalar("SELECT uid FROM pre_common_member WHERE username='e2e_center_mod'")
+    if mod_uid:
+        sql(f"DELETE FROM pre_forum_moderator WHERE uid={mod_uid}")
+        sql(f"INSERT INTO pre_forum_moderator (uid, fid) VALUES ({mod_uid}, 990)")
+
+        mod_cj = http.cookiejar.CookieJar()
+        _discuz_login("e2e_center_mod", "e2emod123", mod_cj, "center moderator")
+        mod_opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(mod_cj),
+            urllib.request.HTTPSHandler(context=ctx))
+        try:
+            r = mod_opener.open(urllib.request.Request(
+                f"{base}/plugin.php?id=pokemon:pokemon&index=admin",
+                data=json.dumps({"action": "count::pokemon_type"}).encode(),
+                headers={"Content-Type": "application/json"}), timeout=30)
+            mod_text = r.read().decode("utf-8", "replace")
+            mod_status = r.status
+        except urllib.error.HTTPError as e:
+            mod_text = e.read().decode("utf-8", "replace")
+            mod_status = e.code
+        check_true("center-board moderator can dispatch admin API (JSON envelope)",
+                   '"success":true' in mod_text,
+                   f"status={mod_status} body={mod_text[:120]!r}")
+        try:
+            mod_json = json.loads(mod_text)
+            check_true("center-board moderator count returns data", isinstance(mod_json.get("data"), list),
+                       f"body={mod_text[:120]!r}")
+        except json.JSONDecodeError:
+            pass
+
+    # 普通用户（非版主、非管理员）必须仍被拒
+    _pw2 = _hashlib.md5((_hashlib.md5("e2euser123".encode()).hexdigest() + _salt).encode()).hexdigest()
+    sql("INSERT INTO pre_common_member (username, loginname, password, email, groupid, regdate, salt) "
+        f"VALUES ('e2e_plain_user', 'e2e_plain_user', '{_pw2}', 'plain@test.local', 10, UNIX_TIMESTAMP(), '{_salt}') "
+        "ON DUPLICATE KEY UPDATE username=username")
+    plain_uid = sql_scalar("SELECT uid FROM pre_common_member WHERE username='e2e_plain_user'")
+    if plain_uid:
+        sql(f"DELETE FROM pre_forum_moderator WHERE uid={plain_uid}")
+        plain_cj = http.cookiejar.CookieJar()
+        _discuz_login("e2e_plain_user", "e2euser123", plain_cj, "plain user")
+        plain_opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor(plain_cj),
+            urllib.request.HTTPSHandler(context=ctx))
+        try:
+            r = plain_opener.open(urllib.request.Request(
+                f"{base}/plugin.php?id=pokemon:pokemon&index=admin",
+                data=json.dumps({"action": "count::pokemon_type"}).encode(),
+                headers={"Content-Type": "application/json"}), timeout=30)
+            plain_text = r.read().decode("utf-8", "replace")
+            plain_status = r.status
+        except urllib.error.HTTPError as e:
+            plain_text = e.read().decode("utf-8", "replace")
+            plain_status = e.code
+        check_true("plain member admin POST rejected (no JSON envelope)",
+                   '"success":true' not in plain_text, f"status={plain_status} body={plain_text[:120]!r}")
 
     # representative dispatch actions over the wire
     status, out = admin_post("count::pokemon_type")

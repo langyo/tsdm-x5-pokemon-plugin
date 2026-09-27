@@ -1,11 +1,36 @@
 <?php
 defined('IN_DISCUZ') || exit('Access Denied');
 
-// 管理后台暴露全站配置改写、SQL 控制台与文件读取能力，
-// 仅允许管理员（adminid=1 或管理用户组 groupid=1）进入；
-// 版主（含超级版主）一律拒绝，避免权限放大到论坛本体。
+// 管理后台暴露全站配置改写、SQL 控制台与文件读取能力，入口仅限：
+// 1. 管理员（adminid=1 或管理用户组 groupid=1）；
+// 2. 「宠物中心」板块的版主——按板块名查 fid 后核对 forum_moderator，
+//    其它板块的版主与超级版主不放行，避免权限放大到论坛本体；
+// 3. 插件配置 poke_smgly 中指名的宠物管理员（板块更名或未设版主时的后备）。
 $is_admin = ($_G['adminid'] == 1 || $_G['groupid'] == 1);
-if (!$is_admin) {
+
+$is_pokemon_staff = false;
+if (!$is_admin && $_G['uid']) {
+    $uid = intval($_G['uid']);
+
+    $center_fids = array();
+    foreach (DB::fetch_all("SELECT fid FROM " . DB::table('forum_forum') . " WHERE name='宠物中心'") as $row) {
+        $center_fids[] = intval($row['fid']);
+    }
+    if ($center_fids) {
+        $is_pokemon_staff = DB::result_first(
+            "SELECT COUNT(*) FROM " . DB::table('forum_moderator') .
+            " WHERE uid='" . $uid . "' AND fid IN (" . implode(',', $center_fids) . ")"
+        ) > 0;
+    }
+
+    if (!$is_pokemon_staff) {
+        $settings = isset($_G['cache']['plugin']['pokemon']) ? $_G['cache']['plugin']['pokemon'] : array();
+        $staff = isset($settings['poke_smgly']) ? explode(',', $settings['poke_smgly']) : array();
+        $is_pokemon_staff = in_array($_G['member']['username'], $staff);
+    }
+}
+
+if (!$is_admin && !$is_pokemon_staff) {
     showmessage(lang('plugin/pokemon', 'admin_only'));
 }
 
