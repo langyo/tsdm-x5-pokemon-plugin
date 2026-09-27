@@ -200,12 +200,14 @@ CSS_ENTRIES = [
 
 
 def compile_css():
-    if shutil.which("sass") is None:
+    # 解析完整路径：Windows 上 sass 是 npm 的 .CMD 垫片，subprocess 找不到裸命令名
+    sass = shutil.which("sass")
+    if sass is None:
         sys.exit("[publish] error: sass is not installed (npm install -g sass)")
     for entry, out_name in CSS_ENTRIES:
         if not entry.exists():
             sys.exit(f"[publish] error: SCSS entry not found: {entry}")
-        run(["sass", "--style=compressed", "--no-source-map", "--quiet", str(entry), str(WASM / out_name)])
+        run([sass, "--style=compressed", "--no-source-map", "--quiet", str(entry), str(WASM / out_name)])
     missing = [out for _, out in CSS_ENTRIES if not (WASM / out).exists() or (WASM / out).stat().st_size == 0]
     if missing:
         sys.exit(f"[publish] error: CSS compilation produced empty output: {', '.join(missing)}")
