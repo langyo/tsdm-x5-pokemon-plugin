@@ -190,6 +190,27 @@ def build_wasm():
         ])
 
 
+# SCSS 入口 → plugin/wasm 下的编译产物样式表。
+# styles-core/ 是共享设计变量目录（.gitignore 排除），只在维护机存在，
+# 所以 CSS 始终以预编译产物形式入库、随包发布。
+CSS_ENTRIES = [
+    (ROOT / "rust" / "game" / "styles" / "main.scss", "game.css"),
+    (ROOT / "rust" / "admin" / "styles" / "main.scss", "admin.css"),
+]
+
+
+def compile_css():
+    if shutil.which("sass") is None:
+        sys.exit("[publish] error: sass is not installed (npm install -g sass)")
+    for entry, out_name in CSS_ENTRIES:
+        if not entry.exists():
+            sys.exit(f"[publish] error: SCSS entry not found: {entry}")
+        run(["sass", "--style=compressed", "--no-source-map", "--quiet", str(entry), str(WASM / out_name)])
+    missing = [out for _, out in CSS_ENTRIES if not (WASM / out).exists() or (WASM / out).stat().st_size == 0]
+    if missing:
+        sys.exit(f"[publish] error: CSS compilation produced empty output: {', '.join(missing)}")
+
+
 def check_runtime_wasm():
     missing = [f for f in RUNTIME_WASM_FILES if not (WASM / f).exists() or (WASM / f).stat().st_size == 0]
     if missing:
@@ -354,8 +375,10 @@ def main():
 
     if args.build_wasm:
         build_wasm()
+        compile_css()
         return
 
+    compile_css()
     if not args.skip_build:
         build_wasm()
     check_runtime_wasm()

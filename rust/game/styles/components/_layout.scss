@@ -709,46 +709,91 @@
 }
 
 // =============================================================================
-// About Dialog - 页脚「关于」弹窗
+// About Dialog - 页脚「关于」弹窗（居中卡片式，设计参考 wowsp AboutModal）
 // =============================================================================
 
 .about-dialog {
-  .about-project {
-    padding-bottom: $spacing-base;
-    border-bottom: 1px solid $color-gray-200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: $spacing-base;
+
+  p { margin: 0; }
+
+  .about-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-sm;
   }
 
-  .about-project-name {
+  .about-hero-logo {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+
+  .about-hero-name {
     font-size: $font-size-xl;
-    font-weight: 700;
-    color: $color-gray-900;
+    font-weight: 800;
+    color: $color-primary;
     font-family: $font-family-title;
+    line-height: 1.3;
   }
 
-  .about-project-desc {
-    margin: $spacing-sm 0 0;
+  .about-hero-version {
+    padding: 1px 10px;
+    border-radius: 999px;
+    background: $color-primary-lighter;
+    color: $color-primary;
+    font-size: $font-size-xs;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .about-hero-desc {
+    margin: 0;
+    max-width: 26rem;
     font-size: $font-size-sm;
     color: $color-gray-600;
     line-height: 1.7;
   }
 
-  .about-meta {
-    margin-top: $spacing-base;
+  .about-tech {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: $spacing-xs;
+    margin-top: $spacing-xs;
   }
 
-  .about-meta-row {
+  .about-tech-tag {
+    padding: 2px 10px;
+    border-radius: $radius-sm;
+    background: $color-primary-lighter;
+    color: $color-primary;
+    font-size: $font-size-xs;
+    line-height: 1.6;
+  }
+
+  .about-meta {
     display: flex;
     align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
     gap: $spacing-sm;
     font-size: $font-size-sm;
   }
 
+  .about-meta-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: $spacing-xs;
+  }
+
   .about-meta-label {
-    flex-shrink: 0;
-    width: 36px;
     color: $color-gray-500;
   }
 
@@ -757,40 +802,63 @@
     font-weight: 600;
   }
 
+  .about-meta-dot {
+    color: $color-gray-300;
+  }
+
   .about-repo-link {
     display: inline-flex;
     align-items: center;
-    gap: $spacing-xs;
+    gap: 4px;
     color: $color-info;
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
     word-break: break-all;
 
-    svg { width: 12px; height: 12px; flex-shrink: 0; }
+    svg { flex-shrink: 0; }
 
-    &:hover { text-decoration: underline; }
+    &:hover {
+      text-decoration: underline;
+    }
   }
 
   .about-models {
-    margin-top: $spacing-base;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-sm;
+    width: 100%;
   }
 
   .about-section-title {
-    font-size: $font-size-base;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    width: 100%;
+    font-size: $font-size-xs;
     font-weight: 700;
-    color: $color-gray-800;
+    color: $color-gray-500;
+    letter-spacing: 0.08em;
+
+    &::before,
+    &::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: $color-gray-200;
+    }
   }
 
   .about-models-desc {
-    margin: $spacing-xs 0 $spacing-sm;
-    font-size: $font-size-sm;
-    color: $color-gray-600;
+    font-size: $font-size-xs;
+    color: $color-gray-500;
   }
 
   .about-model-list {
     margin: 0;
     padding: 0;
     list-style: none;
+    width: 100%;
     border: 1px solid $color-gray-200;
     border-radius: $radius-md;
     overflow: hidden;
@@ -817,6 +885,7 @@
 
     .about-model-vendor {
       flex: 1;
+      text-align: left;
       color: $color-gray-500;
       font-size: $font-size-xs;
     }
@@ -830,9 +899,7 @@
   }
 
   .about-models-footnote {
-    margin: $spacing-sm 0 0;
     font-size: $font-size-xs;
     color: $color-gray-500;
-    text-align: right;
   }
 }
