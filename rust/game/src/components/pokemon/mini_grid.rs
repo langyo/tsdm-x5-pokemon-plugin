@@ -37,7 +37,11 @@ impl MiniPokemonInfo {
 
     /// 是否处于负面状态
     pub fn has_negative_state(&self) -> bool {
-        matches!(self.state, 0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15)
+        // 与 utils::is_negative_state 保持一致：20-22 为虚弱状态，同样需要提示
+        matches!(
+            self.state,
+            0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15 | 20 | 21 | 22
+        )
     }
 }
 

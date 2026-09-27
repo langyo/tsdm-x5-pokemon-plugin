@@ -62,7 +62,8 @@ impl PokemonState {
 }
 
 fn is_negative_state(state: u8) -> bool {
-    matches!(state, 0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15)
+    // 与 utils::is_negative_state 保持一致：20-22 为虚弱状态，同样需要治疗
+    matches!(state, 0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15 | 20 | 21 | 22)
 }
 
 pub fn use_pokemon_state() {
@@ -138,3 +139,24 @@ pub static MY_POKEMON_TAB: GlobalSignal<MyPokemonTab> = Signal::global(MyPokemon
 pub static EQUIPMENT_BONUSES: GlobalSignal<Vec<(String, i64)>> = Signal::global(Vec::new);
 pub static SELECTED_ITEM: GlobalSignal<Option<SelectedItem>> = Signal::global(|| None);
 pub static SELECTED_POKEMON_INDEX: GlobalSignal<Option<u64>> = Signal::global(|| None);
+
+#[cfg(test)]
+mod tests {
+    use super::is_negative_state;
+
+    #[test]
+    fn weak_states_count_as_negative() {
+        assert!(is_negative_state(20));
+        assert!(is_negative_state(21));
+        assert!(is_negative_state(22));
+    }
+
+    #[test]
+    fn healthy_and_positive_states_are_not_negative() {
+        assert!(!is_negative_state(1));
+        assert!(!is_negative_state(8));
+        assert!(!is_negative_state(12));
+        assert!(!is_negative_state(16));
+        assert!(!is_negative_state(18));
+    }
+}

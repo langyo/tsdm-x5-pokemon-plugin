@@ -479,7 +479,8 @@ function api_heal_pokemon()
     // 15 = 惊慌（负面，需要治疗）
     // 16-17 = 自恋（中性，不治疗）
     // 18-19 = 愤怒（中性，不治疗）
-    $negative_states = [0, 2, 3, 4, 5, 6, 7, 11, 15];
+    // 20-22 = 虚弱（负面，需要治疗）
+    $negative_states = [0, 2, 3, 4, 5, 6, 7, 11, 15, 20, 21, 22];
 
     // 检查是否需要治疗状态
     if ($pokemon_data['hp'] <= 0) {
@@ -600,8 +601,8 @@ function api_heal_and_flee()
     $state_sql = '';
     $needs_healing = false;
 
-    // 负面状态列表（需要治疗的异常状态）
-    $negative_states = [0, 2, 3, 4, 5, 6, 7, 11, 15];
+    // 负面状态列表（需要治疗的异常状态，20-22 为虚弱状态）
+    $negative_states = [0, 2, 3, 4, 5, 6, 7, 11, 15, 20, 21, 22];
 
     // 检查是否需要治疗状态
     if ($pokemon_data['hp'] <= 0) {
