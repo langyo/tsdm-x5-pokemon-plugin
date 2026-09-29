@@ -1796,17 +1796,22 @@ function api_capture_pokemon()
             $site = $active_count >= 6 ? 3 : 2;
         }
 
+        // 捕获保留野生等级，经验必须同步取该等级在经验表中的下限；
+        // 写 0 会让 exp 低于当前等级门槛，经验条 saturating_sub 后永远显示 0
+        require_once __DIR__ . '/pokemon_utils.php';
+        $initial_exp = calculate_initial_exp((int) $npc['id'], (int) $npc_level);
+
         // 插入新宠物（itemevolve 是 pm_mypm 的列而 pm_data 没有，固定写 0）
         DB::query(pm_sql("INSERT INTO " . pm_table('pm_mypm') . "
             (uid, pmname, nickname, species_id, level, exp, sex, sx, hp,
              hpg, atkg, defg, spatkg, spdefg, sdg,
              good, itemevolve, ballid, site, state, statetime, gduptime, initialuid)
             VALUES (
-                %d, %s, %s, %d, %d, 0, %d, %s,
+                %d, %s, %s, %d, %d, %d, %d, %s,
                 %d, %d, %d, %d, %d, %d, %d,
                 70, 0, %d, %d, 1, %d, %d, %d
             )",
-            $_G['uid'], $npc['name'], $npc['name'], $npc['id'], $npc_level, $sex, $npc['xs'],
+            $_G['uid'], $npc['name'], $npc['name'], $npc['id'], $npc_level, $initial_exp, $sex, $npc['xs'],
             $npc_hp, $hpg, $atkg, $defg, $spatkg, $spdefg, $sdg,
             $my_ball['ballid'], $site, time(), time(), $_G['uid']
         ));
