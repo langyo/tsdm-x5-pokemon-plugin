@@ -48,10 +48,12 @@ CREATE TEMPORARY TABLE pm_exp_level_threshold (
 INSERT INTO pm_exp_level_threshold (lvl, threshold) VALUES
 {rows};
 
--- level=1 时 level-1=0 越界，GREATEST 归位到 lvl=1（门槛 0，不受影响）
+-- level 是 UNSIGNED 列：蛋等数据存在 level=0，先夹到 2 再减 1，
+-- 避免 level-1 在无符号运算下溢出（MySQL error 1690）。
+-- level<=1 归位到 lvl=1（门槛 0，不受影响）。
 UPDATE `pm_mypm` pm
 JOIN pm_exp_level_threshold t
-  ON t.lvl = GREATEST(1, pm.level - 1)
+  ON t.lvl = GREATEST(pm.level, 2) - 1
 SET pm.exp = GREATEST(pm.exp, t.threshold)
 WHERE pm.exp < t.threshold;
 
