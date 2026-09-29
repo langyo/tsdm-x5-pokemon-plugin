@@ -15,6 +15,12 @@ pub struct BattleScene {
     pub status: BattleStatus,
     #[serde(default)]
     pub message: String,
+    /// 战斗是否已在服务端真正结束（状态已清空）。
+    /// status 在「我方宠物倒下但还有替补」时仍为 defeat（兼容旧客户端），
+    /// 此时 battle_over=false，客户端应依据 can_continue_switch 弹出换宠。
+    pub battle_over: bool,
+    /// 宠物倒下但战斗继续，客户端应弹出换宠选择。
+    pub can_continue_switch: bool,
     pub rewards: Option<BattleRewards>,
     pub level_up: Option<LevelUpInfo>,
 }
@@ -49,6 +55,8 @@ impl<'de> Deserialize<'de> for BattleScene {
                 let mut wild_pokemon: Option<WildPokemon> = None;
                 let mut status: Option<BattleStatus> = None;
                 let mut message: Option<String> = None;
+                let mut battle_over: Option<bool> = None;
+                let mut can_continue_switch: Option<bool> = None;
                 let mut rewards: Option<BattleRewards> = None;
                 let mut level_up: Option<LevelUpInfo> = None;
 
@@ -78,6 +86,12 @@ impl<'de> Deserialize<'de> for BattleScene {
                         "message" => {
                             message = Some(map.next_value()?);
                         }
+                        "battle_over" => {
+                            battle_over = Some(map.next_value()?);
+                        }
+                        "can_continue_switch" => {
+                            can_continue_switch = Some(map.next_value()?);
+                        }
                         "rewards" => {
                             rewards = Some(map.next_value()?);
                         }
@@ -102,6 +116,11 @@ impl<'de> Deserialize<'de> for BattleScene {
                     wild_pokemon.ok_or_else(|| serde::de::Error::missing_field("wild_pokemon"))?;
                 let status = status.ok_or_else(|| serde::de::Error::missing_field("status"))?;
                 let message = message.unwrap_or_default();
+                // 旧服务端不回这两个字段：battle_over 按 status 推断
+                // （Active 之外一律视为已结束），can_continue_switch 默认 false，
+                // 与旧客户端行为完全一致
+                let battle_over = battle_over.unwrap_or(status != BattleStatus::Active);
+                let can_continue_switch = can_continue_switch.unwrap_or(false);
 
                 Ok(BattleScene {
                     battle_id,
@@ -112,6 +131,8 @@ impl<'de> Deserialize<'de> for BattleScene {
                     wild_pokemon,
                     status,
                     message,
+                    battle_over,
+                    can_continue_switch,
                     rewards,
                     level_up,
                 })

@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "_admin"
-version = "0.1.22"
+version = "0.1.23"
 dependencies = [
  "_utils",
  "anyhow",
@@ -41,7 +41,7 @@ dependencies = [
 
 [[package]]
 name = "_game"
-version = "0.1.22"
+version = "0.1.23"
 dependencies = [
  "_utils",
  "anyhow",
@@ -2887,7 +2887,7 @@ version = "0.2.1"
 
 [[patch.unused]]
 name = "plana-celestia-config"
-version = "0.1.28"
+version = "0.1.29"
 
 [[patch.unused]]
 name = "plana-rpc-client"

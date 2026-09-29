@@ -6,9 +6,10 @@ use crate::{
         layout::{IMG_PATH, IMG_PATH_REMOTE},
     },
     state::{
-        refresh_pokemon_list, show_error, show_success, start_global_loading, stop_global_loading,
-        update_pokemon_hp, use_battle_state, use_pokemon_state, MyPokemonTab, SelectedItem,
-        EQUIPMENT_BONUSES, MY_POKEMON_TAB, POKEMON_STATE, SELECTED_ITEM, SELECTED_POKEMON_INDEX,
+        refresh_pokemon_list, show_error, show_success, show_warning, start_global_loading,
+        stop_global_loading, update_pokemon_hp, use_battle_state, use_pokemon_state, MyPokemonTab,
+        SelectedItem, EQUIPMENT_BONUSES, MY_POKEMON_TAB, POKEMON_STATE, SELECTED_ITEM,
+        SELECTED_POKEMON_INDEX,
     },
     utils::{
         api_client::NewApiClient,
@@ -1557,22 +1558,14 @@ pub fn SkillsTabContent(
         spawn(async move {
             start_global_loading("学习技能中...");
             let api = NewApiClient::new();
-            match api.learn_skill(pokemon_id, skill_id, None).await {
+            match api.learn_skill(pokemon_id, skill_id).await {
                 Ok(_) => {
                     show_success("技能学习成功");
                     refresh_trigger += 1;
                 }
                 Err(e) => {
-                    let error_msg = e.to_string();
-                    if error_msg.contains("battle") {
-                        show_error("战斗状态下无法学习技能");
-                    } else if error_msg.contains("Level requirement") {
-                        show_error("等级不足，无法学习该技能");
-                    } else if error_msg.contains("Skill slots are full") {
-                        show_error("技能槽已满，请先遗忘一个技能");
-                    } else {
-                        show_error(format!("学习技能失败: {}", e));
-                    }
+                    // 服务端已统一返回中文错误信息，直接展示
+                    show_error(format!("学习技能失败：{}", e));
                 }
             }
             stop_global_loading();
@@ -1614,6 +1607,15 @@ pub fn SkillsTabContent(
                                             onclick: move |_| {
                                                 popup_for_close.close();
                                                 if skill_for_menu.type_id > 0 {
+                                                    // 遗忘要求PP为满：can_forget=false 时提前提示，
+                                                    // 不再让玩家点了才收到服务端报错
+                                                    if !skill_for_menu.can_forget {
+                                                        show_warning(format!(
+                                                            "该技能PP未满（{}/{}），需先用PP恢复道具补满后才能遗忘",
+                                                            skill_for_menu.pp, skill_for_menu.max_pp
+                                                        ));
+                                                        return;
+                                                    }
                                                     let pokemon_id = pokemon_id_for_forget;
                                                     let skill_id = skill_for_menu.type_id;
                                                     spawn(async move {
@@ -1625,14 +1627,9 @@ pub fn SkillsTabContent(
                                                                 refresh_trigger_for_forget += 1;
                                                             }
                                                             Err(e) => {
-                                                                let error_msg = e.to_string();
-                                                                if error_msg.contains("battle") {
-                                                                    show_error("战斗状态下无法遗忘技能");
-                                                                } else if error_msg.contains("PP not full") {
-                                                                    show_error("PP 值未满，无法遗忘技能");
-                                                                } else {
-                                                                    show_error(format!("遗忘技能失败: {}", e));
-                                                                }
+                                                                // 服务端已统一返回中文错误信息（如
+                                                                // PP 未满需先补满才能遗忘），直接展示
+                                                                show_error(format!("遗忘技能失败：{}", e));
                                                             }
                                                         }
                                                         stop_global_loading();

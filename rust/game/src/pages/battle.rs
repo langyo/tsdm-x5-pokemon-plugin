@@ -61,16 +61,17 @@ pub fn BattlePage(
         battle_event.set(Some(BattleEvent::SwitchPokemon));
     }
 
-    // 检查宠物是否倒下（HP <= 0)，且战斗状态为 Active
-    // 注意：Defeat 状态不在这里处理，而是在下面的战斗结束检测中处理
-    let pokemon_fainted = battle.my_pokemon.hp <= 0 && battle.status == BattleStatus::Active;
+    // 检查宠物是否倒下（HP <= 0）且战斗仍在继续。
+    // 服务端约定：宠物倒下但还有替补时 status 报 defeat 而 battle_over=false、
+    // can_continue_switch=true，此时应弹换宠而不是当作终局
+    let pokemon_fainted = battle.my_pokemon.hp <= 0 && !battle.battle_over;
 
-    // 组件挂载时检查：如果战斗已经结束（非 Active 状态），直接显示结束弹窗
+    // 组件挂载时检查：如果战斗已经结束（battle_over），直接显示结束弹窗
     // 解决页面切换后返回战斗页面时弹窗不显示的问题
     {
-        let status = battle.status.clone();
+        let battle_over = battle.battle_over;
         use_effect(move || {
-            if status != BattleStatus::Active && battle_event.read().is_none() {
+            if battle_over && battle_event.read().is_none() {
                 battle_event.set(Some(BattleEvent::BattleEnd));
             }
         });
@@ -126,9 +127,9 @@ pub fn BattlePage(
         was_fainted.set(false);
     }
 
-    // 检查战斗是否结束（非 Active 状态）
-    // 包括：Victory, Defeat, Fled, Captured
-    let battle_ended = battle.status != BattleStatus::Active;
+    // 检查战斗是否真正结束（battle_over）：胜利/逃脱/捕捉成功/无替补战败。
+    // defeat 但 battle_over=false 表示宠物倒下、战斗继续（走上面的换宠流程）
+    let battle_ended = battle.battle_over;
     let mut was_battle_ended = use_signal(|| false);
     let just_ended = battle_ended && !*was_battle_ended.read();
     if just_ended {

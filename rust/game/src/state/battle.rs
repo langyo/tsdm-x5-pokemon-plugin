@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use web_sys::window;
 
-use _utils::types::api_battle::{BattleScene, BattleStatus};
+use _utils::types::api_battle::BattleScene;
 
 #[derive(Clone, PartialEq, Default)]
 pub struct BattleState {
@@ -50,15 +50,15 @@ pub fn set_battle_scene(scene: Option<BattleScene>) {
     crate::state::BATTLE_STATE.write().scene = scene.clone();
 
     // 如果战斗中有宠物倒下且需要替换，持久化状态
-    // 注意：只在 Active 状态时才保存 replace 状态，Defeat 状态应该直接显示战斗结束
+    // 依据服务端的 battle_over：宠物倒下但还有替补时 status 会是 defeat 而
+    // battle_over=false（战斗继续，应弹换宠）；只有 battle_over=true 才算终局
     if let Some(scene) = &scene {
         // 开战响应带 map_id，此时记下来供"继续战斗"使用
         if scene.status == _utils::types::api_battle::BattleStatus::Active {
             remember_map_id(scene.map_id);
         }
 
-        let needs_replace = scene.my_pokemon.hp <= 0
-            && scene.status == _utils::types::api_battle::BattleStatus::Active;
+        let needs_replace = scene.my_pokemon.hp <= 0 && !scene.battle_over;
 
         // 检查是否有可用替换宠物
         let has_replacements = crate::state::POKEMON_STATE
@@ -89,7 +89,9 @@ pub fn use_battle_state() -> bool {
         .read()
         .scene
         .as_ref()
-        .map(|scene| scene.status == BattleStatus::Active)
+        // 宠物倒下但还有替补时战斗并未结束（status 可能是 defeat），
+        // 以 battle_over 为准
+        .map(|scene| !scene.battle_over)
         .unwrap_or(false)
 }
 

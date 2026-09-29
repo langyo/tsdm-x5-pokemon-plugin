@@ -638,15 +638,19 @@ function api_get_pokemon_detail()
     $skills = [];
 
     foreach ($skill_rows as $sk) {
+        $max_pp = (int) $sk['max_pp'];
+        $current_pp = (int) $sk['skillnum'];
         $skills[] = [
             'type_id' => (int) $sk['skillid'],
-            'pp' => (int) $sk['skillnum'],
+            'pp' => $current_pp,
             'name' => $sk['skill_name'] ? $sk['skill_name'] : '',
             'skill_type' => $sk['element'] ? $sk['element'] : '',
             'category' => $sk['category'] ? $sk['category'] : '',
             'level' => (int) $sk['level_required'],
             'power' => (int) $sk['power'],
-            'max_pp' => (int) $sk['max_pp'],
+            'max_pp' => $max_pp,
+            // 遗忘接口要求PP为满才能遗忘；max_uses=0 视为不限PP恒可遗忘
+            'can_forget' => ($max_pp === 0 || $current_pp >= $max_pp),
         ];
     }
 
@@ -659,7 +663,8 @@ function api_get_pokemon_detail()
             'category' => '',
             'level' => 0,
             'power' => 0,
-            'max_pp' => 0
+            'max_pp' => 0,
+            'can_forget' => false
         ];
     }
 
@@ -706,6 +711,9 @@ function api_get_pokemon_detail()
         'affection' => $pm_affection,
         'stats' => $stats,
         'skills' => $skills,
+        // 遗忘规则声明：遗忘技能要求该技能PP为满（can_forget 已按技能给出），
+        // 客户端据此提前禁用/提示，而不是等玩家点了才收到报错
+        'forget_requires_full_pp' => true,
         'base_info' => [
             'id' => $pmno,
             'name' => $info ? $info['name'] : '???',
@@ -1041,7 +1049,7 @@ function api_forget_skill()
     $user_data = DB::fetch_first(pm_sql("SELECT npcid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d", $uid));
 
     if ($user_data && !empty($user_data['npcid']) && $user_data['npcid'] > 0) {
-        api_error('Cannot forget skill during battle', 400);
+        api_error('战斗中不能遗忘技能', 400, null, 'skill_battle_restricted');
     }
 
     // 验证宠物归属
@@ -1064,7 +1072,7 @@ WHERE petid=%d AND skillid=%d",
     ));
 
     if (!$myskill) {
-        api_error('Skill not found on this pokemon', 404);
+        api_error('该宠物没有学会这个技能', 404, null, 'skill_not_learned');
     }
 
     // 检查 PP 值是否已满（必须满 PP 才能遗忘）
@@ -1073,7 +1081,12 @@ WHERE petid=%d AND skillid=%d",
     $max_pp = $skill_info ? (int) $skill_info['max_uses'] : 0;
 
     if ($current_pp < $max_pp) {
-        api_error('Cannot forget skill with PP not full. Current PP: ' . $current_pp . '/' . $max_pp, 400);
+        api_error(
+            "技能PP未满，无法遗忘（当前PP：{$current_pp}/{$max_pp}，需先用PP恢复道具补满后才能遗忘）",
+            400,
+            null,
+            'skill_pp_not_full'
+        );
     }
 
     // 删除技能
@@ -1084,7 +1097,7 @@ WHERE petid=%d AND skillid=%d",
         $skill_id
     ));
 
-    api_success(null);
+    api_success(['message' => '技能遗忘成功']);
 }
 
 /**
@@ -1108,9 +1121,6 @@ function api_learn_skill()
 
     $skill_id = validate_id($input['skill_id'], 'skill_id');
 
-    // 可选：槽位索引（0-3），默认自动选择第一个空槽
-    $slot_index = isset($input['slot_index']) ? (int) $input['slot_index'] : -1;
-
     global $_G;
     $uid = validate_uid($_G['uid']);
 
@@ -1118,7 +1128,7 @@ function api_learn_skill()
     $user_data = DB::fetch_first(pm_sql("SELECT npcid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d", $uid));
 
     if ($user_data && !empty($user_data['npcid']) && $user_data['npcid'] > 0) {
-        api_error('Cannot learn skill during battle', 400);
+        api_error('战斗中不能学习技能', 400, null, 'skill_battle_restricted');
     }
 
     // 验证宠物归属
@@ -1142,14 +1152,14 @@ function api_learn_skill()
     ));
 
     if (!$skill) {
-        api_error('Skill not found', 404);
+        api_error('技能不存在', 404, null, 'skill_not_found');
     }
 
     // 检查等级是否满足
     $required_level = (int) $skill['level_required'];
 
     if ($pet_level < $required_level) {
-        api_error("Level requirement not met. Required: Lv {$required_level}", 400);
+        api_error("等级不足，需要达到 Lv {$required_level} 才能学习这个技能", 400, null, 'skill_level_not_met');
     }
 
     // 检查宠物是否可以学习这个技能（种族或全局）
@@ -1161,7 +1171,7 @@ function api_learn_skill()
     }
 
     if (!$can_learn) {
-        api_error('This skill cannot be learned by this pokemon', 400);
+        api_error('该宠物无法学习这个技能', 400, null, 'skill_not_learnable');
     }
 
     // 检查是否已学习该技能
@@ -1173,17 +1183,18 @@ WHERE petid=%d AND skillid=%d",
     ));
 
     if ($existing) {
-        api_error('Skill already learned', 400);
+        api_error('已经学会了这个技能', 400, null, 'skill_already_learned');
     }
 
-    // 检查技能槽是否已满
+    // 检查技能槽是否已满（pm_myskill 无槽位列，技能按插入顺序生效；
+    // 如需替换技能，客户端需先调用遗忘接口，遗忘要求技能PP为满）
     $current_skills_count = DB::result_first(pm_sql(
         "SELECT COUNT(*) FROM " . pm_table('pm_myskill') . " WHERE petid = %d",
         $pet_id
     ));
 
     if ($current_skills_count >= 4) {
-        api_error('Skill slots are full. Please forget a skill first.', 400);
+        api_error('技能槽已满，请先遗忘一个技能', 400, null, 'skill_slots_full');
     }
 
     // 学习技能
@@ -1194,7 +1205,7 @@ WHERE petid=%d AND skillid=%d",
     );
 
     api_success([
-        'message' => 'Skill learned successfully',
+        'message' => '技能学习成功',
         'pokemon_id' => $pet_id,
         'skill' => [
             'type_id' => $skill_id,

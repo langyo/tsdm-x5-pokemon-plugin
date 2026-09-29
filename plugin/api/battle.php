@@ -338,6 +338,8 @@ function api_use_skill()
 
     $damage_log = [];
     $battle_status = 'active';
+    $battle_ended = false;
+    $can_switch = false;
     $rewards = null;
     $level_up_info = null;
 
@@ -409,6 +411,8 @@ function api_use_skill()
             $battle['status'] = $battle_status;
             $battle['message'] = implode("\n", $damage_log);
             $battle['turn'] = 0;
+            $battle['battle_over'] = true;
+            $battle['can_continue_switch'] = false;
 
             if ($rewards) {
                 $battle['rewards'] = $rewards;
@@ -460,16 +464,10 @@ function api_use_skill()
                 $battle_status = 'defeat';
                 $damage_log[] = "{$mypokemon['nickname']}倒下了...";
 
-                // 检查是否还有可用的替补宠物
-                $available_count = DB::result_first(pm_sql(
-                    "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . "
-                    WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0",
-                    $_G['uid']
-                ));
-
-                // 只有当没有可用替补时才清除战斗状态
-                if ($available_count == 0) {
-                    clear_battle_state($_G['uid']);
+                // 还有可用替补时战斗继续（保留战斗状态供换宠），否则才真正结束
+                list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+                if ($can_switch) {
+                    $damage_log[] = '还有可用的替补宠物，请更换宠物继续战斗！';
                 }
             }
         }
@@ -534,6 +532,8 @@ function api_use_skill()
                 $battle['status'] = $battle_status;
                 $battle['message'] = implode("\n", $damage_log);
                 $battle['turn'] = 0;
+                $battle['battle_over'] = true;
+                $battle['can_continue_switch'] = false;
 
                 if ($rewards) {
                     $battle['rewards'] = $rewards;
@@ -582,16 +582,10 @@ function api_use_skill()
                 $battle_status = 'defeat';
                 $damage_log[] = "{$mypokemon['nickname']}倒下了...";
 
-                // 检查是否还有可用的替补宠物
-                $available_count = DB::result_first(pm_sql(
-                    "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . "
-                    WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0",
-                    $_G['uid']
-                ));
-
-                // 只有当没有可用替补时才清除战斗状态
-                if ($available_count == 0) {
-                    clear_battle_state($_G['uid']);
+                // 还有可用替补时战斗继续（保留战斗状态供换宠），否则才真正结束
+                list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+                if ($can_switch) {
+                    $damage_log[] = '还有可用的替补宠物，请更换宠物继续战斗！';
                 }
             }
         }
@@ -632,6 +626,10 @@ function api_use_skill()
     $battle['status'] = $battle_status;
     $battle['message'] = implode("\n", $damage_log);
     $battle['turn'] = ($battle_status === 'active') ? 1 : 0;
+    // defeat 且还有替补时战斗并未结束（battle_over=false），
+    // 客户端应依据 can_continue_switch 弹出换宠选择，而不是把 defeat 当终局
+    $battle['battle_over'] = $battle_ended;
+    $battle['can_continue_switch'] = $can_switch;
 
     if ($rewards) {
         $battle['rewards'] = $rewards;
@@ -666,6 +664,8 @@ function api_flee()
         $battle['status'] = 'fled';
         $battle['message'] = '战斗已经结束。';
         $battle['turn'] = 0;
+        $battle['battle_over'] = true;
+        $battle['can_continue_switch'] = false;
         api_success($battle);
     }
 
@@ -705,6 +705,8 @@ function api_flee()
         $battle['status'] = $status;
         $battle['message'] = $message;
         $battle['turn'] = 0;
+        $battle['battle_over'] = true;
+        $battle['can_continue_switch'] = false;
 
         api_success($battle);
         return;
@@ -751,7 +753,25 @@ function api_flee()
             $status = 'defeat';
             $message .= "\n{$mypokemon['nickname']}倒下了...";
 
-            // 保存野怪信息，用于失败响应
+            // 与 use_skill 保持一致：还有可用替补时战斗继续，供换宠接口接管
+            list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+
+            if ($can_switch) {
+                $message .= "\n还有可用的替补宠物，请更换宠物继续战斗！";
+
+                // 战斗状态保留，直接用当前数据构建响应
+                $battle = build_battle_response($myusersdata, $mypokemon);
+                $battle['status'] = $status;
+                $battle['message'] = $message;
+                $battle['turn'] = 0;
+                $battle['battle_over'] = false;
+                $battle['can_continue_switch'] = true;
+
+                api_success($battle);
+                return;
+            }
+
+            // 没有替补，战斗真正结束；保存野怪信息，用于失败响应
             $defeat_npc_id = $myusersdata['npcid'];
             $defeat_npc_name = $npc['name'];
             $defeat_npc_level = $myusersdata['level'];
@@ -774,6 +794,8 @@ function api_flee()
             $battle['status'] = $status;
             $battle['message'] = $message;
             $battle['turn'] = 0;
+            $battle['battle_over'] = true;
+            $battle['can_continue_switch'] = false;
 
             api_success($battle);
             return;
@@ -787,6 +809,8 @@ function api_flee()
     $battle['status'] = $status;
     $battle['message'] = $message;
     $battle['turn'] = 0;
+    $battle['battle_over'] = false;
+    $battle['can_continue_switch'] = false;
 
     api_success($battle);
 }
@@ -1201,6 +1225,34 @@ function clear_battle_state($uid)
 }
 
 /**
+ * 我方宠物倒下时的统一判定。
+ *
+ * 还有可用替补（site<3 且 hp>0 且 state!=0，排除当前宠物）时战斗继续：
+ * 保留 pm_usersdata 里的战斗状态，交给换宠/替换接口接管；
+ * 没有任何可用替补才真正结束（清空战斗状态）。
+ *
+ * 返回 [battle_over, can_continue_switch]：
+ * - battle_over：战斗是否已在服务端结束；
+ * - can_continue_switch：宠物倒下但战斗继续，客户端应弹出换宠选择。
+ */
+function handle_my_pokemon_fainted($uid, $current_pet_id)
+{
+    $available_count = DB::result_first(pm_sql(
+        "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . "
+        WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0 AND id != %d",
+        $uid,
+        $current_pet_id
+    ));
+
+    if ($available_count > 0) {
+        return [false, true];
+    }
+
+    clear_battle_state($uid);
+    return [true, false];
+}
+
+/**
  * 构建战斗响应
  * @param array $myusersdata 用户数据
  * @param array $mypokemon 宠物数据
@@ -1250,6 +1302,10 @@ function build_battle_response($myusersdata, $mypokemon, $map = null, $is_boss =
         'map_name' => $map ? $map['name'] : '',
         'turn' => $is_in_battle ? 1 : 0,
         'status' => $is_in_battle ? 'active' : 'idle',
+        // 明确的结束/换宠语义：status 在「宠物倒下但还有替补」时仍报 defeat（兼容旧客户端），
+        // 但 battle_over=false 且 can_continue_switch=true 表示战斗仍在继续、应弹换宠
+        'battle_over' => !$is_in_battle,
+        'can_continue_switch' => false,
         'message' => '',
         'my_pokemon' => [
             'id' => (int)$mypokemon['species_id'],
@@ -1361,6 +1417,18 @@ function api_recover_battle()
 
     // 构建战斗响应
     $response = build_battle_response($myusersdata, $mypokemon);
+
+    // 恢复的是一场当前宠物已倒下的战斗时，明确告知客户端需要换宠
+    if ((int)$mypokemon['hp'] <= 0) {
+        list(, $can_switch) = handle_my_pokemon_fainted($uid, intval($mypokemon['id']));
+        // 战斗仍在（npcid>0），helper 若无替补会顺手清掉状态——此时响应降级为无战斗
+        if ($can_switch) {
+            $response['can_continue_switch'] = true;
+        } else {
+            $response = build_battle_response(api_my_usersdata($uid), $mypokemon);
+        }
+    }
+
     api_success($response);
 }
 
@@ -1397,15 +1465,19 @@ function api_get_maps()
     $map_table = pm_table('pm_map');
     $data_table = pm_table('pm_data');
 
-    // 检查表是否有新字段
-    $has_region_field = false;
-    try {
-        $column_result = DB::fetch_first("SHOW COLUMNS FROM {$map_table} LIKE 'region'");
-        if ($column_result) {
-            $has_region_field = true;
-        }
-    } catch (Exception $e) {
+    // 检查表是否有新字段（静态缓存：同一请求内只探测一次，
+    // 避免多次调用时重复 SHOW COLUMNS 往返）
+    static $has_region_field = null;
+    if ($has_region_field === null) {
         $has_region_field = false;
+        try {
+            $column_result = DB::fetch_first("SHOW COLUMNS FROM {$map_table} LIKE 'region'");
+            if ($column_result) {
+                $has_region_field = true;
+            }
+        } catch (Exception $e) {
+            $has_region_field = false;
+        }
     }
 
     // 根据字段情况选择查询
@@ -1425,29 +1497,40 @@ function api_get_maps()
     $final_sql = pm_sql_v($sql, $where_params);
     $maps_rows = DB::fetch_all($final_sql);
 
+    // 一次查出全部种族的地图分布，再在 PHP 内按地图分组。
+    // 此前对每张地图各执行一次 FIND_IN_SET 查询，地图越多越慢（N+1）。
+    // mapid 为逗号分隔的整数串（如 "102,103"），与原 SQL 的
+    // FIND_IN_SET/LIKE 组合等价；ORDER BY id 保持原先 LIMIT 10 的取序。
+    $wild_by_map = [];
+    $all_species = DB::fetch_all(
+        "SELECT id, name, mapid FROM {$data_table} ORDER BY id ASC"
+    );
+    foreach ($all_species as $species) {
+        $raw_mapid = isset($species['mapid']) ? trim((string)$species['mapid']) : '';
+        if ($raw_mapid === '') {
+            continue;
+        }
+        foreach (explode(',', $raw_mapid) as $map_token) {
+            $map_token = trim($map_token);
+            if ($map_token === '' || !ctype_digit($map_token)) {
+                continue;
+            }
+            $wild_by_map[(int)$map_token][] = [
+                'id' => (int)$species['id'],
+                'name' => $species['name'],
+            ];
+        }
+    }
+
     $maps = [];
     foreach ($maps_rows as $row) {
         $map_id = (int)$row['id'];
 
-        $map_id_str = strval($map_id);
-        $pokemon_rows = DB::fetch_all(pm_sql(
-            "SELECT id, name FROM {$data_table}
-            WHERE FIND_IN_SET(%d, mapid) > 0
-               OR mapid LIKE CONCAT('%%,', %s, ',%%')
-               OR mapid LIKE CONCAT(%s, ',%%')
-               OR mapid LIKE CONCAT('%%,', %s)
-               OR mapid = %d
-            LIMIT 10",
-            $map_id, $map_id_str, $map_id_str, $map_id_str, $map_id
-        ));
-
-        $pokemon_names = [];
-        foreach ($pokemon_rows as $pokemon) {
-            $pokemon_names[] = [
-                'id' => (int)$pokemon['id'],
-                'name' => $pokemon['name']
-            ];
-        }
+        $pokemon_names = array_slice(
+            isset($wild_by_map[$map_id]) ? $wild_by_map[$map_id] : [],
+            0,
+            10
+        );
 
         $area_type_name = translate_map_alpha_to_full_name($row['site']);
 
@@ -1750,6 +1833,8 @@ function api_capture_pokemon()
 
     $message = '';
     $status = 'active';
+    $battle_ended = false;
+    $can_switch = false;
 
     // 扣除精灵球（使用正确的 myitem_id）
     if ($my_ball['nums'] == 1) {
@@ -1861,7 +1946,11 @@ function api_capture_pokemon()
         if ($my_hp <= 0) {
             $status = 'defeat';
             $message .= "\n{$mypokemon['nickname']}倒下了...";
-            clear_battle_state($_G['uid']);
+            // 还有可用替补时战斗继续，供换宠接口接管
+            list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+            if ($can_switch) {
+                $message .= "\n还有可用的替补宠物，请更换宠物继续战斗！";
+            }
         }
     }
 
@@ -1872,6 +1961,8 @@ function api_capture_pokemon()
     $battle['status'] = $status;
     $battle['message'] = $message;
     $battle['turn'] = 0;
+    $battle['battle_over'] = ($status === 'captured') ? true : $battle_ended;
+    $battle['can_continue_switch'] = $can_switch;
 
     api_success($battle);
 }
@@ -1923,6 +2014,8 @@ function api_use_item_in_battle()
     $item_module = api_get_item_module($item_data);
     $message = '';
     $status = 'active';
+    $battle_ended = false;
+    $can_switch = false;
 
     // PP 恢复道具：迁移数据中 type=1（回复药），必须先于类型分支按模块路由，
     // 否则会被回复药分支当作 0 点回复消耗掉
@@ -2050,7 +2143,11 @@ function api_use_item_in_battle()
     if ($my_hp <= 0) {
         $status = 'defeat';
         $message .= "\n{$mypokemon['nickname']}倒下了...";
-        clear_battle_state($_G['uid']);
+        // 还有可用替补时战斗继续，供换宠接口接管
+        list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+        if ($can_switch) {
+            $message .= "\n还有可用的替补宠物，请更换宠物继续战斗！";
+        }
     }
 
     $myusersdata = api_my_usersdata($_G['uid']);
@@ -2060,6 +2157,8 @@ function api_use_item_in_battle()
     $battle['status'] = $status;
     $battle['message'] = $message;
     $battle['turn'] = 0;
+    $battle['battle_over'] = $battle_ended;
+    $battle['can_continue_switch'] = $can_switch;
 
     api_success($battle);
 }
@@ -2201,11 +2300,17 @@ function api_use_item_on_skill_in_battle()
 
     $message = "成功使用{$item_data['name']}，恢复了{$restore_amount}点PP！\n{$npc['name']}攻击了{$mypokemon['nickname']}，造成了{$counter_damage}点伤害！";
     $status = 'active';
+    $battle_ended = false;
+    $can_switch = false;
 
     if ($my_hp <= 0) {
         $status = 'defeat';
         $message .= "\n{$mypokemon['nickname']}倒下了...";
-        clear_battle_state($_G['uid']);
+        // 还有可用替补时战斗继续，供换宠接口接管
+        list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+        if ($can_switch) {
+            $message .= "\n还有可用的替补宠物，请更换宠物继续战斗！";
+        }
     }
 
     $myusersdata = api_my_usersdata($_G['uid']);
@@ -2215,6 +2320,8 @@ function api_use_item_on_skill_in_battle()
     $battle['status'] = $status;
     $battle['message'] = $message;
     $battle['turn'] = 0;
+    $battle['battle_over'] = $battle_ended;
+    $battle['can_continue_switch'] = $can_switch;
 
     api_success($battle);
 }
@@ -2424,6 +2531,8 @@ function api_switch_pokemon()
                 $battle['status'] = 'active';
                 $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message . "\n{$next_pokemon['nickname']}倒下了...";
                 $battle['turn'] = 0;
+                $battle['battle_over'] = false;
+                $battle['can_continue_switch'] = true;
 
                 api_success($battle);
             } else {
@@ -2450,6 +2559,8 @@ function api_switch_pokemon()
                 $battle['status'] = 'defeat';
                 $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message . "\n{$next_pokemon['nickname']}倒下了...";
                 $battle['turn'] = 0;
+                $battle['battle_over'] = true;
+                $battle['can_continue_switch'] = false;
 
                 api_success($battle);
             }
@@ -2464,6 +2575,8 @@ function api_switch_pokemon()
     $battle['status'] = 'active';
     $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message;
     $battle['turn'] = 0;
+    $battle['battle_over'] = false;
+    $battle['can_continue_switch'] = false;
 
     api_success($battle);
 }
@@ -2551,6 +2664,8 @@ function api_replace_pokemon()
     $battle['status'] = 'active';
     $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！";
     $battle['turn'] = 0;
+    $battle['battle_over'] = false;
+    $battle['can_continue_switch'] = false;
 
     api_success($battle);
 }

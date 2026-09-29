@@ -104,7 +104,7 @@ function api_success($data = null)
     exit;
 }
 
-function api_error($message, $code = 400, $debug_info = null)
+function api_error($message, $code = 400, $debug_info = null, $error_code = null)
 {
     http_response_code($code);
     $response = [
@@ -113,6 +113,11 @@ function api_error($message, $code = 400, $debug_info = null)
         'code' => $code,
         'timestamp' => time()
     ];
+    // 稳定的机器可读错误码（如 skill_slots_full），供第三方客户端
+    // 做本地化映射；不传则不输出该字段，保持旧响应形状
+    if ($error_code !== null) {
+        $response['error_code'] = $error_code;
+    }
     if ($debug_info !== null) {
         $response['debug'] = $debug_info;
     }

@@ -117,6 +117,9 @@ pub struct PokemonSkillSlot {
     /// 最大PP
     #[serde(default)]
     pub max_pp: u64,
+    /// 是否满足遗忘条件（遗忘要求PP为满；max_uses=0 恒可遗忘）
+    #[serde(default)]
+    pub can_forget: bool,
 }
 
 /// 宠物基础信息(从pm_data表)
@@ -196,8 +199,6 @@ pub struct ForgetSkillRequest {
 pub struct LearnSkillRequest {
     pub pokemon_id: u64,
     pub skill_id: u64,
-    #[serde(default)]
-    pub slot_index: Option<i32>,
 }
 
 /// 学习技能响应

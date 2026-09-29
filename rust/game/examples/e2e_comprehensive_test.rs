@@ -267,10 +267,10 @@ impl TestContext {
         Ok(json.get("data").cloned().unwrap_or(Value::Null))
     }
 
-    async fn learn_skill(&self, pokemon_id: u64, skill_id: u64, slot_index: u64) -> Result<()> {
+    async fn learn_skill(&self, pokemon_id: u64, skill_id: u64) -> Result<()> {
         println!(
-            "   📚 Learning skill {} for pokemon {} at slot {}...",
-            skill_id, pokemon_id, slot_index
+            "   📚 Learning skill {} for pokemon {}...",
+            skill_id, pokemon_id
         );
         let url = api_url(&self.api_base, "pokemon", "learn_skill");
         let response = self
@@ -278,8 +278,7 @@ impl TestContext {
             .post(&url)
             .json(&serde_json::json!({
                 "pokemon_id": pokemon_id,
-                "skill_id": skill_id,
-                "slot_index": slot_index
+                "skill_id": skill_id
             }))
             .send()
             .await?;
@@ -1211,7 +1210,7 @@ async fn test_skill_system(ctx: &TestContext) -> Result<()> {
                 .unwrap_or("Unknown");
             println!("   📖 Attempting to learn: {}", skill_name);
 
-            match ctx.learn_skill(pokemon_id, skill_id, 0).await {
+            match ctx.learn_skill(pokemon_id, skill_id).await {
                 Ok(_) => println!("   ✅ Skill learned successfully"),
                 Err(e) => println!("   ℹ️  Could not learn skill: {}", e),
             }

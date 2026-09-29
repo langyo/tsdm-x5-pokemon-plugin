@@ -274,13 +274,9 @@ impl NewApiClient {
         .await
     }
 
-    /// 学习新技能
-    pub async fn learn_skill(
-        &self,
-        pokemon_id: u64,
-        skill_id: u64,
-        slot_index: Option<i32>,
-    ) -> Result<LearnSkillResponse> {
+    /// 学习新技能（pm_myskill 无槽位列，技能按插入顺序生效；
+    /// 替换技能需先调用遗忘接口）
+    pub async fn learn_skill(&self, pokemon_id: u64, skill_id: u64) -> Result<LearnSkillResponse> {
         self.post(
             "pokemon",
             "learn_skill",
@@ -288,7 +284,6 @@ impl NewApiClient {
             &LearnSkillRequest {
                 pokemon_id,
                 skill_id,
-                slot_index,
             },
         )
         .await
