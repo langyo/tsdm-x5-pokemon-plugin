@@ -222,27 +222,36 @@ function quality($petid, $itemname)
 
 /**
  * 容量箱子 - 增加背包容量
+ *
+ * 线上/种子数据的模块名在 sitemname 列（box9），module 列为空，
+ * api_get_item_module() 会把 sitemname 当模块名返回，因此 box9 也
+ * 必须注册为可调用函数，否则 api_use_item 报“物品功能未实现”。
  */
 function box($petid, $itemname)
+{
+    return _increase_box_capacity(9);
+}
+
+function box9($petid, $itemname)
+{
+    return _increase_box_capacity(9);
+}
+
+/**
+ * 内部函数：增加宠物盒子容量
+ *
+ * 容量判定读的是 pm_usersdata.boxnum（battle.php / shop.php），
+ * 物品行里的 sitemid 列在 X5 表结构中已不存在，不能再用它取增量。
+ */
+function _increase_box_capacity($amount)
 {
     global $_G;
 
     $uid = $_G['uid'];
 
-    // 获取物品数据
-    $item = DB::fetch_first(pm_sql(
-        "SELECT * FROM " . pm_table('pm_itemdata') . " WHERE module = 'box' LIMIT 1"
-    ));
-
-    if (!$item) {
-        return 1;
-    }
-
-    $capacity_increase = isset($item['sitemid']) ? (int)$item['sitemid'] : 9;
-
     // 获取用户数据
     $user_data = DB::fetch_first(pm_sql(
-        "SELECT * FROM " . pm_table('pm_usersdata') . " WHERE uid = %d",
+        "SELECT boxnum FROM " . pm_table('pm_usersdata') . " WHERE uid = %d",
         $uid
     ));
 
@@ -251,12 +260,10 @@ function box($petid, $itemname)
         DB::query(pm_sql(
             "INSERT INTO " . pm_table('pm_usersdata') . " (uid, boxnum) VALUES (%d, %d)",
             $uid,
-            $capacity_increase
+            $amount
         ));
     } else {
-        // 增加容量：容量判定读的是 boxnum（battle.php / shop.php），写 boxcapacity 不会生效
-        $current_capacity = isset($user_data['boxnum']) ? (int)$user_data['boxnum'] : 0;
-        $new_capacity = $current_capacity + $capacity_increase;
+        $new_capacity = (int) $user_data['boxnum'] + $amount;
 
         DB::query(pm_sql(
             "UPDATE " . pm_table('pm_usersdata') . " SET boxnum = %d WHERE uid = %d",
