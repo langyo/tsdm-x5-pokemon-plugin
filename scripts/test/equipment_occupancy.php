@@ -30,6 +30,9 @@ class DB
     public static $pets = [];
     public static $items = [];
     public static $writes = [];
+    public static $affected = 0;
+    // 模拟并发竞争：在原子占位语句求值前变更数据，模拟另一请求抢先写入
+    public static $on_claim;
 
     public static function fetch_first($sql)
     {
@@ -74,22 +77,52 @@ class DB
     public static function query($sql)
     {
         $sql = preg_replace('/\s+/', ' ', trim($sql));
-        if (preg_match('/^UPDATE pm_mypm SET (equipmentid[1-4])=(\d+) WHERE id=(\d+) AND uid=(\d+)$/', $sql, $match)) {
-            foreach (self::$pets as &$pet) {
-                if ($pet['id'] === (int) $match[3] && $pet['uid'] === (int) $match[4]) {
-                    $pet[$match[1]] = (int) $match[2];
+        self::$affected = 0;
+        if (preg_match('/^UPDATE pm_mypm SET (equipmentid[1-4])=(\d+) WHERE id=(\d+) AND uid=(\d+) AND (equipmentid[1-4])=0 AND NOT EXISTS \(SELECT 1 FROM \(SELECT id FROM pm_mypm WHERE uid=(\d+) AND \(equipmentid1=(\d+) OR equipmentid2=(\d+) OR equipmentid3=(\d+) OR equipmentid4=(\d+)\)\) AS occupied\)$/', $sql, $match)) {
+            if ($match[1] !== $match[5]) {
+                throw new RuntimeException('Claim targets a different slot in SET and WHERE: ' . $sql);
+            }
+            if (self::$on_claim) {
+                $interpose = self::$on_claim;
+                self::$on_claim = null;
+                $interpose();
+            }
+            $item_id = (int) $match[2];
+            $occupied = false;
+            foreach (self::$pets as $other) {
+                if ($other['uid'] !== (int) $match[6]) {
+                    continue;
+                }
+                for ($slot = 1; $slot <= 4; $slot++) {
+                    if ((int) $other['equipmentid' . $slot] === $item_id) {
+                        $occupied = true;
+                    }
                 }
             }
+            foreach (self::$pets as &$pet) {
+                if (!$occupied && $pet['id'] === (int) $match[3] && $pet['uid'] === (int) $match[4] && (int) $pet[$match[1]] === 0) {
+                    $pet[$match[1]] = $item_id;
+                    self::$affected = 1;
+                    self::$writes[] = $sql;
+                }
+            }
+            unset($pet);
         } elseif (preg_match('/^UPDATE pm_mypm SET hp = (\d+) WHERE id = (\d+)$/', $sql, $match)) {
             foreach (self::$pets as &$pet) {
                 if ($pet['id'] === (int) $match[2]) {
                     $pet['hp'] = (int) $match[1];
                 }
             }
+            self::$affected = 1;
+            self::$writes[] = $sql;
         } else {
             throw new RuntimeException('Unexpected write: ' . $sql);
         }
-        self::$writes[] = $sql;
+    }
+
+    public static function affected_rows()
+    {
+        return self::$affected;
     }
 }
 
@@ -178,13 +211,14 @@ function verify($condition, $message)
     }
 }
 
-function run_case($name, $input, $pets, $items, $expected_error = null, $expected_slot = null)
+function run_case($name, $input, $pets, $items, $expected_error = null, $expected_slot = null, $expected_status = null)
 {
     global $passed, $failed;
     $GLOBALS['input'] = $input;
     DB::$pets = $pets;
     DB::$items = $items;
     DB::$writes = [];
+    DB::$on_claim = null;
     try {
         try {
             api_equip_item();
@@ -193,7 +227,10 @@ function run_case($name, $input, $pets, $items, $expected_error = null, $expecte
             verify($response->success === ($expected_error === null), 'Unexpected response: ' . $response->getMessage());
             if ($expected_error !== null) {
                 verify($response->data === $expected_error, 'Unexpected error: ' . $response->data);
-                verify($response->status === (strpos($expected_error, 'not found') !== false ? 404 : 400), 'Unexpected HTTP status');
+                if ($expected_status === null) {
+                    $expected_status = strpos($expected_error, 'not found') !== false ? 404 : 400;
+                }
+                verify($response->status === $expected_status, 'Unexpected HTTP status');
                 verify(DB::$writes === [], 'Rejected action wrote to the database');
                 verify(DB::$pets === $pets && DB::$items === $items, 'Rejected action changed inventory or pets');
             } else {
@@ -276,6 +313,68 @@ run_case('Reject a non-equipment item', $request, [$pet], [$ordinary_item], 'Thi
 $foreign_pet = $pet;
 $foreign_pet['uid'] = 2;
 run_case('Reject another user pet', $request, [$foreign_pet], [$item], 'Pokemon not found');
+
+// 并发竞争：占用预检已经通过，另一请求在原子占位求值前抢先写入。
+// 预检面对的是竞态前的数据，只有条件 UPDATE 能挡住这类请求。
+function claim_race_case($name, $input, $pets, $items, $interpose, $expected_error, $expected_status, $assert_state)
+{
+    global $passed, $failed;
+    $GLOBALS['input'] = $input;
+    DB::$pets = $pets;
+    DB::$items = $items;
+    DB::$writes = [];
+    DB::$on_claim = $interpose;
+    try {
+        try {
+            api_equip_item();
+            throw new RuntimeException('Endpoint did not return a response');
+        } catch (EquipmentResponse $response) {
+            verify($response->success === false, 'Unexpected success in race case');
+            verify($response->data === $expected_error, 'Unexpected error: ' . $response->data);
+            verify($response->status === $expected_status, 'Unexpected HTTP status');
+            verify(DB::$writes === [], 'Lost race still wrote the claim');
+            $assert_state();
+        }
+        $passed++;
+        echo "PASS $name\n";
+    } catch (Throwable $error) {
+        $failed++;
+        echo "FAIL $name: {$error->getMessage()}\n";
+    }
+}
+
+claim_race_case('Concurrent equip onto another pet loses the race', $request, [$pet], [$item],
+    function () use ($pet) {
+        $rival = $pet;
+        $rival['id'] = 8;
+        $rival['nickname'] = 'Rival pet';
+        $rival['equipmentid2'] = 9;
+        DB::$pets[] = $rival;
+    },
+    'Equipment conflict, please retry', 409,
+    function () {
+        verify(DB::$pets[0]['equipmentid1'] === 0, 'Losing request still occupied the slot');
+        verify(count(DB::$pets) === 2 && DB::$pets[1]['equipmentid2'] === 9, 'Rival request state was disturbed');
+    });
+
+claim_race_case('Concurrent equip of the same item onto the same pet loses the race', $request, [$pet], [$item],
+    function () {
+        DB::$pets[0]['equipmentid4'] = 9;
+    },
+    'Equipment conflict, please retry', 409,
+    function () {
+        verify(DB::$pets[0]['equipmentid1'] === 0 && DB::$pets[0]['equipmentid4'] === 9, 'Losing request still occupied a slot');
+    });
+
+claim_race_case('Concurrent takeover of the explicit target slot loses the race',
+    $request + ['slot_index' => 1], [$pet], [$item],
+    function () {
+        DB::$pets[0]['equipmentid2'] = 50;
+    },
+    'Equipment conflict, please retry', 409,
+    function () {
+        verify(DB::$pets[0]['equipmentid2'] === 50, 'Losing request overwrote the rival equipment');
+    });
 
 echo "Equipment occupancy tests: $passed passed, $failed failed.\n";
 exit($failed === 0 ? 0 : 1);
