@@ -2213,7 +2213,7 @@ function get_state_multipliers($state)
 
 /**
  * 移动宝可梦到指定位置
- * 
+ *
  * site: 1=首位, 2=背包, 3=仓库
  */
 function api_move_pokemon()
@@ -2230,7 +2230,7 @@ function api_move_pokemon()
         api_error('Invalid site value', 400);
     }
 
-    // 验证宠物所有权
+    // 验证宠物所有权（快速路径）
     $pokemon = DB::fetch_first(pm_sql(
         "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
         $pokemon_id,
@@ -2241,83 +2241,128 @@ function api_move_pokemon()
         api_error('宝可梦不存在或不属于您', 403);
     }
 
-    $current_site = (int) $pokemon['site'];
-
-    // 如果已经在目标位置，无需移动
-    if ($current_site === $target_site) {
+    if ((int) $pokemon['site'] === $target_site) {
         api_success(['message' => '宝可梦已在目标位置']);
         return;
     }
 
-    // 检查用户是否在战斗中且这是首位宠物
-    $user_data = api_my_usersdata($uid);
-    if (!empty($user_data['npcid']) && $user_data['npcid'] > 0 && $current_site === 1) {
-        api_error('战斗中的首位宠物无法移动', 400);
-    }
-
-    // 检查目标位置是否已满
-    if ($target_site === 1) {
-        // 首位只能有一只宠物，需要先交换
-        $existing_first = DB::fetch_first(pm_sql(
-            "SELECT * FROM " . pm_table('pm_mypm') . " WHERE uid = %d AND site = 1",
+    // 队伍 site 变更（移动/交换/设首位）与战斗换宠共用 pm_usersdata 行锁：
+    // 同账号的 site 变更在锁内串行化，多步移动（让位、补位、容量检查）
+    // 作为一个整体提交或回滚，不会与其他请求交错出一半。
+    DB::query("START TRANSACTION");
+    // 事务体内的任何异常（含数据库错误）都要显式回滚：常驻 worker 的连接
+    // 不随请求关闭，未提交事务和行锁不能泄漏到下一个请求。
+    try {
+        $owner = DB::fetch_first(pm_sql(
+            "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
             $uid
         ));
-        if ($existing_first) {
-            // 交换位置
-            DB::query(pm_sql(
-                "UPDATE " . pm_table('pm_mypm') . " SET site = %d WHERE id = %d",
-                $current_site,
-                intval($existing_first['id'])
-            ));
-        }
-    }
-
-    // 如果移动到仓库，需要确保背包至少有一个宠物（首位）
-    if ($target_site === 3 && ($current_site === 1 || $current_site === 2)) {
-        // 检查移动后背包是否还有宠物
-        $bag_count = DB::result_first(
-            "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . " WHERE uid = $uid AND site IN (1, 2)"
-        );
-        if ($bag_count <= 1) {
-            api_error('背包至少需要保留一只宠物', 400);
+        if (!$owner) {
+            pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
         }
 
-        // 如果移动的是首位宠物，需要自动指定新的首位
-        if ($current_site === 1) {
-            $next_first = DB::fetch_first(pm_sql(
-                "SELECT id FROM " . pm_table('pm_mypm') . " WHERE uid = %d AND site = 2 LIMIT 1",
+        // 锁内重读最新位置
+        $pokemon = DB::fetch_first(pm_sql(
+            "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
+            $pokemon_id,
+            $uid
+        ));
+        if (!$pokemon) {
+            pm_abort_battle_transaction('宝可梦不存在或不属于您', 403);
+        }
+
+        $current_site = (int) $pokemon['site'];
+
+        // 如果已经在目标位置，无需移动
+        if ($current_site === $target_site) {
+            DB::query("COMMIT");
+            api_success(['message' => '宝可梦已在目标位置']);
+        }
+
+        // 检查用户是否在战斗中且这是首位宠物
+        $user_data = api_my_usersdata($uid);
+        if (!empty($user_data['npcid']) && $user_data['npcid'] > 0 && $current_site === 1) {
+            pm_abort_battle_transaction('战斗中的首位宠物无法移动');
+        }
+
+        // 检查目标位置是否已满
+        if ($target_site === 1) {
+            // 首位只能有一只宠物，需要先交换
+            $existing_first = DB::fetch_first(pm_sql(
+                "SELECT * FROM " . pm_table('pm_mypm') . " WHERE uid = %d AND site = 1",
                 $uid
             ));
-            if ($next_first) {
+            if ($existing_first) {
+                // 交换位置
                 DB::query(pm_sql(
-                    "UPDATE " . pm_table('pm_mypm') . " SET site = 1 WHERE id = %d",
-                    intval($next_first['id'])
+                    "UPDATE " . pm_table('pm_mypm') . " SET site = %d WHERE id = %d AND uid = %d",
+                    $current_site,
+                    intval($existing_first['id']),
+                    $uid
                 ));
             }
         }
-    }
 
-    // 如果从仓库移到背包，需要检查背包是否已满（最多6只）
-    // 旧版数据用 site 3..N 表示多个箱子，仓库判定不能只认 site === 3
-    if ($current_site >= 3 && ($target_site === 1 || $target_site === 2)) {
-        $bag_count = DB::result_first(
-            "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . " WHERE uid = $uid AND site IN (1, 2)"
-        );
-        if ($bag_count >= 6) {
-            api_error('背包已满（最多6只），请先将背包宠物放入仓库', 400);
+        // 如果移动到仓库，需要确保背包至少有一个宠物（首位）
+        if ($target_site === 3 && ($current_site === 1 || $current_site === 2)) {
+            // 检查移动后背包是否还有宠物
+            $bag_count = DB::result_first(
+                "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . " WHERE uid = $uid AND site IN (1, 2)"
+            );
+            if ($bag_count <= 1) {
+                pm_abort_battle_transaction('背包至少需要保留一只宠物');
+            }
+
+            // 如果移动的是首位宠物，需要自动指定新的首位
+            if ($current_site === 1) {
+                $next_first = DB::fetch_first(pm_sql(
+                    "SELECT id FROM " . pm_table('pm_mypm') . " WHERE uid = %d AND site = 2 LIMIT 1",
+                    $uid
+                ));
+                if ($next_first) {
+                    DB::query(pm_sql(
+                        "UPDATE " . pm_table('pm_mypm') . " SET site = 1 WHERE id = %d AND uid = %d AND site = 2",
+                        intval($next_first['id']),
+                        $uid
+                    ));
+                }
+            }
         }
-    }
 
-    // 移动宠物到目标位置
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET site = %d WHERE id = %d",
-        $target_site,
-        $pokemon_id
-    ));
+        // 如果从仓库移到背包，需要检查背包是否已满（最多6只）
+        // 旧版数据用 site 3..N 表示多个箱子，仓库判定不能只认 site === 3
+        if ($current_site >= 3 && ($target_site === 1 || $target_site === 2)) {
+            $bag_count = DB::result_first(
+                "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . " WHERE uid = $uid AND site IN (1, 2)"
+            );
+            if ($bag_count >= 6) {
+                pm_abort_battle_transaction('背包已满（最多6只），请先将背包宠物放入仓库');
+            }
+        }
+
+        // 移动宠物到目标位置；带上锁内读到的原位置作守卫（防御性，
+        // 正常并发路径已被行锁串行化），位置意外变化时整体回滚
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_mypm') . " SET site = %d WHERE id = %d AND uid = %d AND site = %d",
+            $target_site,
+            $pokemon_id,
+            $uid,
+            $current_site
+        ));
+        if (!DB::affected_rows()) {
+            pm_abort_battle_transaction('宝可梦位置已变化，请刷新后重试', 409);
+        }
+
+        $old_site = $current_site;
+        DB::query("COMMIT");
+    } catch (Throwable $txn_error) {
+        DB::query("ROLLBACK");
+        throw $txn_error;
+    }
 
     api_success([
         'pokemon_id' => $pokemon_id,
-        'old_site' => $current_site,
+        'old_site' => $old_site,
         'new_site' => $target_site,
         'message' => '宝可梦移动成功'
     ]);
@@ -2340,7 +2385,7 @@ function api_swap_pokemon()
         api_error('不能交换同一个宝可梦', 400);
     }
 
-    // 验证两只宠物都属于当前用户
+    // 验证两只宠物都属于当前用户（快速路径）
     $pokemon_1 = DB::fetch_first(pm_sql(
         "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
         $pokemon_id_1,
@@ -2359,20 +2404,60 @@ function api_swap_pokemon()
         api_error('第二个宝可梦不存在或不属于您', 403);
     }
 
-    $site_1 = (int) $pokemon_1['site'];
-    $site_2 = (int) $pokemon_2['site'];
+    // 交换是两笔互逆写入：与移动/设首位/战斗换宠共用 pm_usersdata 行锁，
+    // 两个并发的交叉交换（A↔B 与 B↔C）不会丢失任何一次交换
+    DB::query("START TRANSACTION");
+    try {
+        $owner = DB::fetch_first(pm_sql(
+            "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
+            $uid
+        ));
+        if (!$owner) {
+            pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
+        }
 
-    // 交换位置
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET site = %d WHERE id = %d",
-        $site_2,
-        $pokemon_id_1
-    ));
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET site = %d WHERE id = %d",
-        $site_1,
-        $pokemon_id_2
-    ));
+        // 锁内重读最新位置
+        $pokemon_1 = DB::fetch_first(pm_sql(
+            "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
+            $pokemon_id_1,
+            $uid
+        ));
+        $pokemon_2 = DB::fetch_first(pm_sql(
+            "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
+            $pokemon_id_2,
+            $uid
+        ));
+        if (!$pokemon_1) {
+            pm_abort_battle_transaction('第一个宝可梦不存在或不属于您', 403);
+        }
+        if (!$pokemon_2) {
+            pm_abort_battle_transaction('第二个宝可梦不存在或不属于您', 403);
+        }
+
+        $site_1 = (int) $pokemon_1['site'];
+        $site_2 = (int) $pokemon_2['site'];
+
+        // 交换位置：写入带 uid 与锁内读到的原位置作守卫
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_mypm') . " SET site = %d WHERE id = %d AND uid = %d AND site = %d",
+            $site_2,
+            $pokemon_id_1,
+            $uid,
+            $site_1
+        ));
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_mypm') . " SET site = %d WHERE id = %d AND uid = %d AND site = %d",
+            $site_1,
+            $pokemon_id_2,
+            $uid,
+            $site_2
+        ));
+
+        DB::query("COMMIT");
+    } catch (Throwable $txn_error) {
+        DB::query("ROLLBACK");
+        throw $txn_error;
+    }
 
     api_success([
         'pokemon_id_1' => $pokemon_id_1,
@@ -2387,10 +2472,10 @@ function api_swap_pokemon()
 
 /**
  * 设置首只宝可梦（插队式）
- * 
+ *
  * 将指定的宝可梦设为首位（site=1）
  * 原首位宝可梦降为普通背包宠物（site=2）
- * 
+ *
  * 例如：原顺序 1(首位),2,3,4,5,6，设置5为首位后变成 5(首位),1,2,3,4,6
  */
 function api_set_first_pokemon()
@@ -2402,7 +2487,7 @@ function api_set_first_pokemon()
 
     $pokemon_id = validate_id(get_param('pokemon_id', 0), 'pokemon_id');
 
-    // 验证宠物所有权
+    // 验证宠物所有权（快速路径）
     $pokemon = DB::fetch_first(pm_sql(
         "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
         $pokemon_id,
@@ -2421,27 +2506,67 @@ function api_set_first_pokemon()
         return;
     }
 
-    // 如果宠物在仓库（site >= 3，旧数据 3..N 表示多个箱子），不允许直接设为首位
-    if ($current_site >= 3) {
-        api_error('请先将宝可梦移出仓库再设为首位', 400);
-        return;
+    // 与其他 site 变更共用 pm_usersdata 行锁：两个并发的「设首位」
+    // 串行执行，不会同时降位/升位出两个首位
+    DB::query("START TRANSACTION");
+    try {
+        $owner = DB::fetch_first(pm_sql(
+            "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
+            $uid
+        ));
+        if (!$owner) {
+            pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
+        }
+
+        // 锁内重读最新位置
+        $pokemon = DB::fetch_first(pm_sql(
+            "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
+            $pokemon_id,
+            $uid
+        ));
+        if (!$pokemon) {
+            pm_abort_battle_transaction('宝可梦不存在或不属于您', 403);
+        }
+
+        $current_site = (int) $pokemon['site'];
+
+        if ($current_site === 1) {
+            DB::query("COMMIT");
+            api_success(['message' => '该宝可梦已是首位']);
+        }
+
+        // 如果宠物在仓库（site >= 3，旧数据 3..N 表示多个箱子），不允许直接设为首位
+        if ($current_site >= 3) {
+            pm_abort_battle_transaction('请先将宝可梦移出仓库再设为首位');
+        }
+
+        // 将当前首位宝可梦降为普通背包宠物（site=2）
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_mypm') . " SET site = 2 WHERE uid = %d AND site = 1",
+            $uid
+        ));
+
+        // 将指定宝可梦设为首位；带上锁内读到的原位置作守卫，位置意外
+        // 变化（正常并发路径已被行锁串行化）时整体回滚
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_mypm') . " SET site = 1 WHERE id = %d AND uid = %d AND site = 2",
+            $pokemon_id,
+            $uid
+        ));
+        if (!DB::affected_rows()) {
+            pm_abort_battle_transaction('宝可梦位置已变化，请刷新后重试', 409);
+        }
+
+        $old_site = $current_site;
+        DB::query("COMMIT");
+    } catch (Throwable $txn_error) {
+        DB::query("ROLLBACK");
+        throw $txn_error;
     }
-
-    // 将当前首位宝可梦降为普通背包宠物（site=2）
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET site = 2 WHERE uid = %d AND site = 1",
-        $uid
-    ));
-
-    // 将指定宝可梦设为首位
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET site = 1 WHERE id = %d",
-        $pokemon_id
-    ));
 
     api_success([
         'pokemon_id' => $pokemon_id,
-        'old_site' => $current_site,
+        'old_site' => $old_site,
         'new_site' => 1,
         'message' => '已设为首位宝可梦'
     ]);

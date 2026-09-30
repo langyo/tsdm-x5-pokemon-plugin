@@ -362,6 +362,23 @@ def test_active_pokemon_switch():
         ok("active switch regression")
 
 
+def test_party_pokemon_moves():
+    print("\n=== Party Pokemon moves regression ===")
+    import shutil
+    import subprocess
+    php = shutil.which("php")
+    if not php:
+        fail("php CLI not installed — party moves tests are required")
+        return
+    suite = ROOT / "scripts" / "test" / "party_pokemon_moves.php"
+    result = subprocess.run([php, str(suite)], capture_output=True, text=True)
+    print(result.stdout.rstrip())
+    if result.returncode:
+        fail("party moves regression", result.stderr.strip())
+    else:
+        ok("party moves regression")
+
+
 def main():
     print("TSDM Pokemon Plugin — Static Test Suite")
     print("=" * 60)
@@ -372,6 +389,7 @@ def main():
         test_seed_data_columns(schema)
     test_passive_pokemon_replacement()
     test_active_pokemon_switch()
+    test_party_pokemon_moves()
     test_migration_coverage()
     test_learned_skill_authorization()
     test_php_syntax()
