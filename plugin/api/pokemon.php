@@ -1504,12 +1504,16 @@ WHERE (equipmentid1=%d OR equipmentid2=%d OR equipmentid3=%d OR equipmentid4=%d)
     // 原子占用：只有目标槽位仍为空、且该背包记录未被同账号任何宠物（含当前宠物）占用时才写入。
     // 上方的占用预检只负责给出友好的错误提示，并发窗口由这里的条件 UPDATE 关闭：
     // 抢占失败的请求不会写入任何数据。
+    // 注意不能用括号子查询（NOT EXISTS (SELECT ...)）：Discuz querysafe 拦截 "(select"
+    // （见 user.php 背包列表的同类规避），这里用自连接反连接实现同一守卫。
     DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . "
-SET $slot_field=%d WHERE id=%d AND uid=%d AND $slot_field=0
-AND NOT EXISTS (SELECT 1 FROM (SELECT id FROM " . pm_table('pm_mypm') . "
-WHERE uid=%d AND (equipmentid1=%d OR equipmentid2=%d OR equipmentid3=%d OR equipmentid4=%d)) AS occupied)",
-        $myitem_id, $pet_id, $uid, $uid, $myitem_id, $myitem_id, $myitem_id, $myitem_id
+        "UPDATE " . pm_table('pm_mypm') . " pet
+LEFT JOIN " . pm_table('pm_mypm') . " occupier
+    ON occupier.uid = pet.uid
+   AND (occupier.equipmentid1=%d OR occupier.equipmentid2=%d OR occupier.equipmentid3=%d OR occupier.equipmentid4=%d)
+SET pet.$slot_field=%d
+WHERE pet.id=%d AND pet.uid=%d AND pet.$slot_field=0 AND occupier.id IS NULL",
+        $myitem_id, $myitem_id, $myitem_id, $myitem_id, $myitem_id, $pet_id, $uid
     ));
 
     if (!DB::affected_rows()) {

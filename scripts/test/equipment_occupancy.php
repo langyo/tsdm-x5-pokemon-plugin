@@ -78,8 +78,11 @@ class DB
     {
         $sql = preg_replace('/\s+/', ' ', trim($sql));
         self::$affected = 0;
-        if (preg_match('/^UPDATE pm_mypm SET (equipmentid[1-4])=(\d+) WHERE id=(\d+) AND uid=(\d+) AND (equipmentid[1-4])=0 AND NOT EXISTS \(SELECT 1 FROM \(SELECT id FROM pm_mypm WHERE uid=(\d+) AND \(equipmentid1=(\d+) OR equipmentid2=(\d+) OR equipmentid3=(\d+) OR equipmentid4=(\d+)\)\) AS occupied\)$/', $sql, $match)) {
-            if ($match[1] !== $match[5]) {
+        if (preg_match('/^UPDATE pm_mypm pet LEFT JOIN pm_mypm occupier ON occupier\.uid = pet\.uid AND \(occupier\.equipmentid1=(\d+) OR occupier\.equipmentid2=(\d+) OR occupier\.equipmentid3=(\d+) OR occupier\.equipmentid4=(\d+)\) SET pet\.(equipmentid[1-4])=(\d+) WHERE pet\.id=(\d+) AND pet\.uid=(\d+) AND pet\.(equipmentid[1-4])=0 AND occupier\.id IS NULL$/', $sql, $match)) {
+            if ($match[1] !== $match[2] || $match[2] !== $match[3] || $match[3] !== $match[4]) {
+                throw new RuntimeException('Occupier join checks different inventory rows: ' . $sql);
+            }
+            if ($match[5] !== $match[9]) {
                 throw new RuntimeException('Claim targets a different slot in SET and WHERE: ' . $sql);
             }
             if (self::$on_claim) {
@@ -87,10 +90,10 @@ class DB
                 self::$on_claim = null;
                 $interpose();
             }
-            $item_id = (int) $match[2];
+            $item_id = (int) $match[6];
             $occupied = false;
             foreach (self::$pets as $other) {
-                if ($other['uid'] !== (int) $match[6]) {
+                if ($other['uid'] !== (int) $match[8]) {
                     continue;
                 }
                 for ($slot = 1; $slot <= 4; $slot++) {
@@ -100,8 +103,8 @@ class DB
                 }
             }
             foreach (self::$pets as &$pet) {
-                if (!$occupied && $pet['id'] === (int) $match[3] && $pet['uid'] === (int) $match[4] && (int) $pet[$match[1]] === 0) {
-                    $pet[$match[1]] = $item_id;
+                if (!$occupied && $pet['id'] === (int) $match[7] && $pet['uid'] === (int) $match[8] && (int) $pet[$match[5]] === 0) {
+                    $pet[$match[5]] = $item_id;
                     self::$affected = 1;
                     self::$writes[] = $sql;
                 }
