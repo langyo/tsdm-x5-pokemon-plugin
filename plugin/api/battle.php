@@ -262,6 +262,23 @@ function api_start_battle()
 }
 
 /**
+ * 归还 api_use_skill 预扣的技能 PP。
+ *
+ * PP 在进入战斗计算前原子预扣；攻击被闪避、或后手时宠物未及出手就倒下
+ * 的回合按原有语义不消耗 PP，这两类路径在此处原路退还。
+ */
+function pm_refund_reserved_skill_pp($skill_id, $uid, $pet_id, $max_uses)
+{
+    if ($skill_id > 0 && $max_uses != 0) {
+        DB::query(pm_sql("UPDATE " . pm_table('pm_myskill') . "
+            SET skillnum = skillnum + 1
+            WHERE skillid = %d AND uid = %d AND petid = %d",
+            $skill_id, $uid, $pet_id
+        ));
+    }
+}
+
+/**
  * 使用技能攻击
  */
 function api_use_skill()
@@ -282,7 +299,10 @@ function api_use_skill()
         api_error('No active battle found', 400);
     }
 
-    // 先确认当前宠物已学会技能且 PP 可用，再进入战斗计算。
+    // 先确认当前宠物已学会技能，并原子预扣 PP，再进入战斗计算。
+    // 预扣是条件 UPDATE（skillnum > 0 才扣减）：并发请求只有一个能扣到，
+    // 扣不到说明 PP 已被并发回合消耗，直接拒绝，不产生任何战斗写入。
+    // 攻击被闪避或未及出手的回合由 pm_refund_reserved_skill_pp() 退还。
     $skilldata = null;
     $myskill = null;
     if ($skill_id > 0) {
@@ -301,6 +321,16 @@ function api_use_skill()
         }
         if ($myskill['skillnum'] <= 0 && $skilldata['max_uses'] != 0) {
             api_error('Skill PP is depleted', 400);
+        }
+        if ($skilldata['max_uses'] != 0) {
+            DB::query(pm_sql("UPDATE " . pm_table('pm_myskill') . "
+                SET skillnum = skillnum - 1
+                WHERE skillid = %d AND uid = %d AND petid = %d AND skillnum > 0",
+                $skill_id, $_G['uid'], $mypokemon['id']
+            ));
+            if (!DB::affected_rows()) {
+                api_error('Skill PP is depleted', 400);
+            }
         }
     }
 
@@ -369,19 +399,12 @@ function api_use_skill()
         // 检查闪避
         if (($npcsd - $msd) >= 10 && rand(1, 20) <= 4) {
             $damage_log[] = "{$npc['name']}避开了{$mypokemon['nickname']}的攻击！";
+            // 攻击未命中，归还预扣的 PP
+            pm_refund_reserved_skill_pp($skill_id, $_G['uid'], $mypokemon['id'], $skilldata ? $skilldata['max_uses'] : 0);
         } else {
             $npc_hp -= $damage;
             if ($npc_hp < 0) $npc_hp = 0;
             $damage_log[] = "{$mypokemon['nickname']}使用了{$skillname}，对{$npc['name']}造成了{$damage}点伤害！";
-
-            // 扣除PP
-            if ($skill_id > 0 && $myskill && $skilldata['max_uses'] != 0) {
-                DB::query(pm_sql("UPDATE " . pm_table('pm_myskill') . "
-                    SET skillnum = skillnum - 1
-                    WHERE skillid = %d AND uid = %d AND petid = %d",
-                    $skill_id, $_G['uid'], $mypokemon['id']
-                ));
-            }
         }
 
         // 检查野怪是否倒下
@@ -497,18 +520,12 @@ function api_use_skill()
 
             if (($npcsd - $msd) >= 10 && rand(1, 20) <= 4) {
                 $damage_log[] = "{$npc['name']}避开了{$mypokemon['nickname']}的攻击！";
+                // 攻击未命中，归还预扣的 PP
+                pm_refund_reserved_skill_pp($skill_id, $_G['uid'], $mypokemon['id'], $skilldata ? $skilldata['max_uses'] : 0);
             } else {
                 $npc_hp -= $damage;
                 if ($npc_hp < 0) $npc_hp = 0;
                 $damage_log[] = "{$mypokemon['nickname']}使用了{$skillname}，对{$npc['name']}造成了{$damage}点伤害！";
-
-                if ($skill_id > 0 && $myskill && $skilldata['max_uses'] != 0) {
-                    DB::query(pm_sql("UPDATE " . pm_table('pm_myskill') . "
-                        SET skillnum = skillnum - 1
-                        WHERE skillid = %d AND uid = %d AND petid = %d",
-                        $skill_id, $_G['uid'], $mypokemon['id']
-                    ));
-                }
             }
 
             if ($npc_hp <= 0) {
@@ -556,6 +573,9 @@ function api_use_skill()
                 api_success($battle);
                 return;
             }
+        } elseif (!$my_first) {
+            // 野怪先手将我方打倒，宠物未及出手，归还预扣的 PP
+            pm_refund_reserved_skill_pp($skill_id, $_G['uid'], $mypokemon['id'], $skilldata ? $skilldata['max_uses'] : 0);
         }
 
         // 我方先手后野怪反击

@@ -10,7 +10,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
 });
 
 // Load actual endpoint functions without running the Discuz dispatcher.
-$wanted = ['api_use_skill', 'api_normalize_skill_category'];
+$wanted = ['api_use_skill', 'api_normalize_skill_category', 'pm_refund_reserved_skill_pp'];
 $tokens = token_get_all(file_get_contents(__DIR__ . '/../../plugin/api/battle.php'));
 for ($i = 0; $i < count($tokens); $i++) {
     if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) continue;
@@ -90,6 +90,9 @@ class DB
     public static $skills;
     public static $learned;
     public static $writes;
+    public static $affected = 0;
+    // 模拟并发竞争：在 PP 预扣语句求值前变更数据，模拟另一请求抢先扣减
+    public static $on_claim;
 
     public static function fetch_first($sql)
     {
@@ -111,24 +114,54 @@ class DB
     public static function query($sql)
     {
         $sql = preg_replace('/\s+/', ' ', trim($sql));
-        if (preg_match('/^UPDATE pm_myskill SET skillnum = skillnum - 1 WHERE skillid = (\d+) AND uid = (\d+) AND petid = (\d+)$/', $sql, $match)) {
+        self::$affected = 0;
+        if (preg_match('/^UPDATE pm_myskill SET skillnum = skillnum - 1 WHERE skillid = (\d+) AND uid = (\d+) AND petid = (\d+) AND skillnum > 0$/', $sql, $match)) {
+            if (self::$on_claim) {
+                $interpose = self::$on_claim;
+                self::$on_claim = null;
+                $interpose();
+            }
+            foreach (self::$learned as &$row) {
+                if ((int) $row['skillid'] === (int) $match[1] && (int) $row['uid'] === (int) $match[2] && (int) $row['petid'] === (int) $match[3] && (int) $row['skillnum'] > 0) {
+                    $row['skillnum'] = (int) $row['skillnum'] - 1;
+                    self::$affected = 1;
+                }
+            }
+            unset($row);
+            if (self::$affected) {
+                self::$writes[] = $sql;
+            }
+        } elseif (preg_match('/^UPDATE pm_myskill SET skillnum = skillnum \+ 1 WHERE skillid = (\d+) AND uid = (\d+) AND petid = (\d+)$/', $sql, $match)) {
             foreach (self::$learned as &$row) {
                 if ((int) $row['skillid'] === (int) $match[1] && (int) $row['uid'] === (int) $match[2] && (int) $row['petid'] === (int) $match[3]) {
-                    $row['skillnum'] = (int) $row['skillnum'] - 1;
+                    $row['skillnum'] = (int) $row['skillnum'] + 1;
+                    self::$affected = 1;
                 }
+            }
+            unset($row);
+            if (self::$affected) {
+                self::$writes[] = $sql;
             }
         } elseif (preg_match('/^UPDATE pm_mypm SET hp = (\d+) WHERE id = (\d+)$/', $sql, $match)) {
             if (self::$pet['id'] === (int) $match[2]) {
                 self::$pet['hp'] = (int) $match[1];
             }
+            self::$affected = 1;
+            self::$writes[] = $sql;
         } elseif (preg_match('/^UPDATE pm_usersdata SET hp = (\d+) WHERE uid = (\d+)$/', $sql, $match)) {
             if ($GLOBALS['_G']['uid'] === (int) $match[2]) {
                 $GLOBALS['user']['hp'] = (int) $match[1];
             }
+            self::$affected = 1;
+            self::$writes[] = $sql;
         } else {
             throw new RuntimeException('Unexpected write: ' . $sql);
         }
-        self::$writes[] = $sql;
+    }
+
+    public static function affected_rows()
+    {
+        return self::$affected;
     }
 }
 
@@ -144,6 +177,7 @@ function reset_battle()
     DB::$skills = [4 => ['id' => 4, 'name' => 'Learned move', 'power' => 40, 'max_uses' => 10, 'element' => 'normal', 'category' => '物攻']];
     DB::$learned = [['id' => 20, 'skillid' => 4, 'uid' => 7, 'petid' => 10, 'skillnum' => 2]];
     DB::$writes = [];
+    DB::$on_claim = null;
 }
 function check($condition, $message)
 {
@@ -270,6 +304,30 @@ run_case('Pet defeated before its attack keeps learned PP', function () {
     check($data['status'] === 'defeat' && $data['can_continue_switch'] === true && $data['battle_over'] === false, 'Defeat response changed');
     check(DB::$learned[0]['skillnum'] === 2 && $GLOBALS['calls']['damage'] === 0 && $GLOBALS['calls']['counter'] === 1, 'Defeated pet attacked or consumed PP');
     check(DB::$pet['hp'] === 0 && $GLOBALS['calls']['fainted'] === 1 && $GLOBALS['calls']['apply'] === 0, 'Defeat effects incorrect');
+});
+run_case('Concurrent PP exhaustion is rejected before combat', function () {
+    $GLOBALS['speed'] = 20;
+    DB::$learned[0]['skillnum'] = 1;
+    // 预检读到 1 点 PP；预扣求值前，并发回合抢先把它扣到 0
+    DB::$on_claim = function () {
+        DB::$learned[0]['skillnum'] = 0;
+    };
+    $data = response(400, 'Skill PP is depleted');
+    check($data === null, 'Rejected turn returned battle data');
+    check(array_sum($GLOBALS['calls']) === 0, 'Losing PP race still entered combat');
+    check(DB::$writes === [], 'Losing PP race still wrote');
+    check(DB::$pet['hp'] === 100 && $GLOBALS['user']['hp'] === 100, 'Losing PP race changed combat state');
+});
+run_case("Evaded second attack refunds the reserved PP", function () {
+    // 闪避只可能出现在野怪更快时（npcsd - msd >= 10 且 rand <= 4），此时我方必为后手
+    $GLOBALS['speed'] = 5;
+    srand(42); // 固定种子使 rand(1, 20) = 3 <= 4，必闪避
+    $data = response(200);
+    check(strpos($data['message'], '避开') !== false, 'Expected an evaded attack');
+    check(DB::$learned[0]['skillnum'] === 2, 'Evaded attack did not refund the reserved PP');
+    check($GLOBALS['user']['hp'] === 100 && $data['wild_pokemon']['hp'] === 100, 'Evaded attack still dealt damage');
+    check($GLOBALS['calls']['counter'] === 1 && DB::$pet['hp'] === 99, 'Counterattack behavior changed');
+    check(count(DB::$writes) === 4, 'Expected claim, HP and refund writes');
 });
 run_case('No active battle retains existing error', function () {
     $GLOBALS['user']['npcid'] = 0;
