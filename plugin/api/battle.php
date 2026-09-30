@@ -2435,192 +2435,217 @@ function api_switch_pokemon()
     $pokemon_id = isset($input['pokemon_id']) ? intval($input['pokemon_id']) : 0;
 
     $myusersdata = api_my_usersdata($_G['uid']);
-    $mypokemon = api_my_pokemon($_G['username']);
 
     if (empty($myusersdata['npcid']) || $myusersdata['npcid'] <= 0) {
         api_error('没有进行中的战斗', 400);
     }
 
-    $current_pet_id = intval($mypokemon['id']);
-
-    // 如果指定了 pokemon_id，验证该宠物是否可用
-    if ($pokemon_id > 0) {
-        // 检查指定的宠物是否存在且可用
-        $specified_pet = DB::fetch_first(pm_sql(
-            "SELECT * FROM " . pm_table('pm_mypm') . "
-            WHERE uid = %d AND id = %d AND site < 3 AND hp > 0 AND state != 0",
-            $_G['uid'],
-            $pokemon_id
-        ));
-
-        if (!$specified_pet) {
-            api_error('指定的宠物不可用', 400);
-        }
-
-        if ($specified_pet['id'] == $current_pet_id) {
-            api_error('不能切换到当前上场的宠物', 400);
-        }
-
-        $next_pokemon = $specified_pet;
-    } else {
-        // 没有指定 pokemon_id，自动选择第一个可用宠物
-        // 获取用户的所有宠物（按 site 排序，site=1 是首发，site=2 是替补，site=3 是箱子）
-        $all_pokemon_rows = DB::fetch_all(pm_sql(
-            "SELECT * FROM " . pm_table('pm_mypm') . "
-            WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0
-            ORDER BY site ASC, id ASC",
+    // 与被动替换相同的串行化：以 pm_usersdata 战斗状态行的排他锁串行化
+    // 同账号的换宠与战斗结算，两笔 site 写入与野怪反击在同一个事务里生效，
+    // 观察者不会看到「换了一半」或反击打到已经下场的宠物。
+    DB::query("START TRANSACTION");
+    // 事务体内的任何异常（含数据库错误）都要显式回滚：常驻 worker 的连接
+    // 不随请求关闭，未提交事务和行锁泄漏会阻塞该用户后续的所有战斗操作。
+    // api_error() 走 exit 语义，其回滚由 pm_abort_battle_transaction() 负责。
+    $battle = null;
+    try {
+        $battle_owner = DB::fetch_first(pm_sql(
+            "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
             $_G['uid']
         ));
-
-        $available_pokemon = [];
-
-        foreach ($all_pokemon_rows as $pet) {
-            $pet_id = intval($pet['id']);
-            // 排除当前上场的宠物
-            if ($pet_id !== $current_pet_id) {
-                $available_pokemon[] = $pet;
-            }
+        if (!$battle_owner) {
+            pm_abort_battle_transaction('没有进行中的战斗');
         }
 
-        if (empty($available_pokemon)) {
-            api_error('没有可用的替补宠物', 400);
+        // 锁内重读：并发请求可能已在本请求预检后改变了战斗或上场宠物
+        $myusersdata = api_my_usersdata($_G['uid']);
+        if (empty($myusersdata['npcid']) || $myusersdata['npcid'] <= 0) {
+            pm_abort_battle_transaction('没有进行中的战斗');
+        }
+        $mypokemon = api_my_pokemon($_G['username']);
+        if (!$mypokemon) {
+            pm_abort_battle_transaction('没有上场宠物');
         }
 
-        // 选择第一个可用的宠物（通常是 site=2 的第一个）
-        $next_pokemon = $available_pokemon[0];
-    }
+        $current_pet_id = intval($mypokemon['id']);
 
-    // 交换 site 值：当前宠物变为 site=2，新宠物变为 site=1
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET site = 2 WHERE id = %d",
-        $current_pet_id
-    ));
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_mypm') . " SET site = 1 WHERE id = %d",
-        intval($next_pokemon['id'])
-    ));
-
-    // 野怪反击（30%概率）
-    $npc = pm_data($myusersdata['npcid']);
-    $counter_damage = 0;
-    $counter_message = '';
-
-    if (rand(1, 100) <= 30) {
-        list(, $npcatk,, $npcspatk,,) = battle_calc_npc_stats(
-            $npc,
-            $myusersdata,
-            $myusersdata['strength'] * $npc['strength']
-        );
-
-        // 使用新宠物的数据计算防御（而不是旧宠物）
-        $next_pokemon_data = pm_data($next_pokemon['species_id']);
-        list(, $next_hp,, $next_mdef,, $next_mspdef,) = battle_calc_my_stats($next_pokemon_data, $next_pokemon);
-
-        $counter_damage = calculate_counter_damage_legacy(
-            $myusersdata['level'],
-            $npcatk,
-            $next_mdef,
-            $npcspatk,
-            $next_mspdef,
-            $npc
-        );
-
-        // 使用新宠物的 HP 作为起点
-        $my_hp = $next_hp - $counter_damage;
-        if ($my_hp < 0) $my_hp = 0;
-
-        // 验证并纠正 HP
-        $next_pokemon['hp'] = strval($my_hp);
-        $max_hp_for_validate = api_calculate_pokemon_max_hp($next_pokemon);
-        $hp_validation = api_validate_and_correct_hp($next_pokemon, $my_hp, $max_hp_for_validate);
-        $my_hp = $hp_validation['hp'];
-
-        DB::query(pm_sql(
-            "UPDATE " . pm_table('pm_mypm') . " SET hp = %d WHERE id = %d",
-            intval($my_hp),
-            intval($next_pokemon['id'])
-        ));
-
-        $counter_message = "\n野怪抓住了机会！{$npc['name']}攻击了{$next_pokemon['nickname']}，造成了{$counter_damage}点伤害！";
-
-        if ($my_hp <= 0) {
-            // 新宠物倒下，但不立即结束战斗
-            // 检查是否还有可用替换宠物
-            $has_replacements = DB::result(pm_sql(
-                "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . "
-                WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0 AND id != %d",
+        // 如果指定了 pokemon_id，验证该宠物是否可用
+        if ($pokemon_id > 0) {
+            // 检查指定的宠物是否存在且可用
+            $specified_pet = DB::fetch_first(pm_sql(
+                "SELECT * FROM " . pm_table('pm_mypm') . "
+                WHERE uid = %d AND id = %d AND site < 3 AND hp > 0 AND state != 0",
                 $_G['uid'],
+                $pokemon_id
+            ));
+
+            if (!$specified_pet) {
+                pm_abort_battle_transaction('指定的宠物不可用');
+            }
+
+            if ($specified_pet['id'] == $current_pet_id) {
+                pm_abort_battle_transaction('不能切换到当前上场的宠物');
+            }
+
+            $next_pokemon = $specified_pet;
+        } else {
+            // 没有指定 pokemon_id，自动选择第一个可用宠物
+            // 获取用户的所有宠物（按 site 排序，site=1 是首发，site=2 是替补，site=3 是箱子）
+            $all_pokemon_rows = DB::fetch_all(pm_sql(
+                "SELECT * FROM " . pm_table('pm_mypm') . "
+                WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0
+                ORDER BY site ASC, id ASC",
+                $_G['uid']
+            ));
+
+            $available_pokemon = [];
+
+            foreach ($all_pokemon_rows as $pet) {
+                $pet_id = intval($pet['id']);
+                // 排除当前上场的宠物
+                if ($pet_id !== $current_pet_id) {
+                    $available_pokemon[] = $pet;
+                }
+            }
+
+            if (empty($available_pokemon)) {
+                pm_abort_battle_transaction('没有可用的替补宠物');
+            }
+
+            // 选择第一个可用的宠物（通常是 site=2 的第一个）
+            $next_pokemon = $available_pokemon[0];
+        }
+
+        // 交换 site 值：当前宠物变为 site=2，新宠物变为 site=1。
+        // 两笔写入都带资格条件（同被动替换）：读到宠物之后、写入之前，
+        // 宠物可能被并发操作装箱、打倒或移动；升位失败会整体回滚。
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_mypm') . "
+SET site = 2 WHERE id = %d AND uid = %d AND site = 1",
+            $current_pet_id,
+            $_G['uid']
+        ));
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_mypm') . "
+SET site = 1 WHERE id = %d AND uid = %d AND site < 3 AND hp > 0 AND state != 0",
+            intval($next_pokemon['id']),
+            $_G['uid']
+        ));
+        if (!DB::affected_rows()) {
+            pm_abort_battle_transaction($pokemon_id > 0 ? '指定的宠物不可用' : '没有可用的替补宠物');
+        }
+
+        // 野怪反击（30%概率），与新宠物的血量结算同处一个事务
+        $npc = pm_data($myusersdata['npcid']);
+        $counter_damage = 0;
+        $counter_message = "\n野怪没有反应过来！";
+
+        if (rand(1, 100) <= 30) {
+            list(, $npcatk,, $npcspatk,,) = battle_calc_npc_stats(
+                $npc,
+                $myusersdata,
+                $myusersdata['strength'] * $npc['strength']
+            );
+
+            // 使用新宠物的数据计算防御（而不是旧宠物）
+            $next_pokemon_data = pm_data($next_pokemon['species_id']);
+            list(, $next_hp,, $next_mdef,, $next_mspdef,) = battle_calc_my_stats($next_pokemon_data, $next_pokemon);
+
+            $counter_damage = calculate_counter_damage_legacy(
+                $myusersdata['level'],
+                $npcatk,
+                $next_mdef,
+                $npcspatk,
+                $next_mspdef,
+                $npc
+            );
+
+            // 使用新宠物的 HP 作为起点
+            $my_hp = $next_hp - $counter_damage;
+            if ($my_hp < 0) $my_hp = 0;
+
+            // 验证并纠正 HP
+            $next_pokemon['hp'] = strval($my_hp);
+            $max_hp_for_validate = api_calculate_pokemon_max_hp($next_pokemon);
+            $hp_validation = api_validate_and_correct_hp($next_pokemon, $my_hp, $max_hp_for_validate);
+            $my_hp = $hp_validation['hp'];
+
+            DB::query(pm_sql(
+                "UPDATE " . pm_table('pm_mypm') . " SET hp = %d WHERE id = %d",
+                intval($my_hp),
                 intval($next_pokemon['id'])
-            )) > 0;
+            ));
 
-            if ($has_replacements) {
-                // 还有可用宠物，保留战斗状态让前端处理替换
-                // 不调用 clear_battle_state，让战斗继续
-                $new_mypokemon = api_my_pokemon($_G['username']);
-                $battle = build_battle_response($myusersdata, $new_mypokemon);
-                $battle['status'] = 'active';
-                $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message . "\n{$next_pokemon['nickname']}倒下了...";
-                $battle['turn'] = 0;
-                $battle['battle_over'] = false;
-                $battle['can_continue_switch'] = true;
+            $counter_message = "\n野怪抓住了机会！{$npc['name']}攻击了{$next_pokemon['nickname']}，造成了{$counter_damage}点伤害！";
 
-                api_success($battle);
-            } else {
-                // 没有可用替换宠物，战斗失败
-                // 先获取当前的野怪数据，用于构建最终响应
-                $final_npc_id = $myusersdata['npcid'];
-                $final_npc_hp = $myusersdata['hp'];
-                $final_npc_max_hp = $myusersdata['hpg'];
-                $final_npc_level = $myusersdata['level'];
+            if ($my_hp <= 0) {
+                // 新宠物倒下，但不立即结束战斗
+                // 检查是否还有可用替换宠物
+                $has_replacements = DB::result_first(pm_sql(
+                    "SELECT COUNT(*) FROM " . pm_table('pm_mypm') . "
+                    WHERE uid = %d AND site < 3 AND hp > 0 AND state != 0 AND id != %d",
+                    $_G['uid'],
+                    intval($next_pokemon['id'])
+                )) > 0;
 
-                clear_battle_state($_G['uid']);
+                if ($has_replacements) {
+                    // 还有可用宠物，保留战斗状态让前端处理替换
+                    // 不调用 clear_battle_state，让战斗继续
+                    $new_mypokemon = api_my_pokemon($_G['username']);
+                    $battle = build_battle_response($myusersdata, $new_mypokemon);
+                    $battle['status'] = 'active';
+                    $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message . "\n{$next_pokemon['nickname']}倒下了...";
+                    $battle['turn'] = 0;
+                    $battle['battle_over'] = false;
+                    $battle['can_continue_switch'] = true;
+                } else {
+                    // 没有可用替换宠物，战斗失败
+                    // 先获取当前的野怪数据，用于构建最终响应
+                    $final_npc_id = $myusersdata['npcid'];
+                    $final_npc_hp = $myusersdata['hp'];
+                    $final_npc_max_hp = $myusersdata['hpg'];
+                    $final_npc_level = $myusersdata['level'];
 
-                // 重新获取新宠物数据构建响应
-                $new_mypokemon = api_my_pokemon($_G['username']);
-                $new_myusersdata = api_my_usersdata($_G['uid']);
+                    clear_battle_state($_G['uid']);
 
-                // 临时设置野怪数据以便 build_battle_response 能正确构建响应
-                $new_myusersdata['npcid'] = $final_npc_id;
-                $new_myusersdata['hp'] = $final_npc_hp;
-                $new_myusersdata['hpg'] = $final_npc_max_hp;
-                $new_myusersdata['level'] = $final_npc_level;
+                    // 重新获取新宠物数据构建响应
+                    $new_mypokemon = api_my_pokemon($_G['username']);
+                    $new_myusersdata = api_my_usersdata($_G['uid']);
 
-                $battle = build_battle_response($new_myusersdata, $new_mypokemon);
-                $battle['status'] = 'defeat';
-                $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message . "\n{$next_pokemon['nickname']}倒下了...";
-                $battle['turn'] = 0;
-                $battle['battle_over'] = true;
-                $battle['can_continue_switch'] = false;
+                    // 临时设置野怪数据以便 build_battle_response 能正确构建响应
+                    $new_myusersdata['npcid'] = $final_npc_id;
+                    $new_myusersdata['hp'] = $final_npc_hp;
+                    $new_myusersdata['hpg'] = $final_npc_max_hp;
+                    $new_myusersdata['level'] = $final_npc_level;
 
-                api_success($battle);
+                    $battle = build_battle_response($new_myusersdata, $new_mypokemon);
+                    $battle['status'] = 'defeat';
+                    $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message . "\n{$next_pokemon['nickname']}倒下了...";
+                    $battle['turn'] = 0;
+                    $battle['battle_over'] = true;
+                    $battle['can_continue_switch'] = false;
+                }
             }
         }
-    } else {
-        $counter_message = "\n野怪没有反应过来！";
-    }
 
-    // 重新获取数据构建响应
-    $new_mypokemon = api_my_pokemon($_G['username']);
-    $battle = build_battle_response($myusersdata, $new_mypokemon);
-    $battle['status'] = 'active';
-    $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message;
-    $battle['turn'] = 0;
-    $battle['battle_over'] = false;
-    $battle['can_continue_switch'] = false;
+        if ($battle === null) {
+            // 重新获取数据构建响应
+            $new_mypokemon = api_my_pokemon($_G['username']);
+            $battle = build_battle_response($myusersdata, $new_mypokemon);
+            $battle['status'] = 'active';
+            $battle['message'] = "成功切换为 {$next_pokemon['nickname']}！" . $counter_message;
+            $battle['turn'] = 0;
+            $battle['battle_over'] = false;
+            $battle['can_continue_switch'] = false;
+        }
+
+        DB::query("COMMIT");
+    } catch (Throwable $txn_error) {
+        DB::query("ROLLBACK");
+        throw $txn_error;
+    }
 
     api_success($battle);
-}
-
-/**
- * 回滚 api_replace_pokemon 的事务并以给定错误终止请求。
- *
- * api_error() 会直接 exit；宿主若为常驻进程（如 FrankenPHP worker），
- * 连接不会随请求关闭，未提交事务必须在此显式回滚，不能依赖连接断开。
- */
-function pm_abort_battle_transaction($message, $status = 400)
-{
-    DB::query("ROLLBACK");
-    api_error($message, $status);
 }
 
 /**

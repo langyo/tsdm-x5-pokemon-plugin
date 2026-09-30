@@ -579,3 +579,19 @@ function api_validate_and_correct_hp(&$pm, $current_hp = null, $max_hp = null, $
         'corrected' => $corrected
     ];
 }
+
+/**
+ * 回滚以 pm_usersdata 行锁串行化的事务并以给定错误终止请求。
+ *
+ * 战斗侧（替换/切换）与队伍整理侧（移动/交换/设首位）的 site 变更都先对
+ * 该用户的 pm_usersdata 行（每用户一行）加 FOR UPDATE 排他锁再读写，
+ * 本助手负责其中的错误出口。
+ *
+ * api_error() 会直接 exit；宿主若为常驻进程（如 FrankenPHP worker），
+ * 连接不会随请求关闭，未提交事务必须在此显式回滚，不能依赖连接断开。
+ */
+function pm_abort_battle_transaction($message, $status = 400)
+{
+    DB::query("ROLLBACK");
+    api_error($message, $status);
+}

@@ -345,6 +345,23 @@ def test_equipment_occupancy():
         ok("equipment occupancy regression")
 
 
+def test_active_pokemon_switch():
+    print("\n=== Active Pokemon switch regression ===")
+    import shutil
+    import subprocess
+    php = shutil.which("php")
+    if not php:
+        fail("php CLI not installed — active switch tests are required")
+        return
+    suite = ROOT / "scripts" / "test" / "active_pokemon_switch.php"
+    result = subprocess.run([php, str(suite)], capture_output=True, text=True)
+    print(result.stdout.rstrip())
+    if result.returncode:
+        fail("active switch regression", result.stderr.strip())
+    else:
+        ok("active switch regression")
+
+
 def main():
     print("TSDM Pokemon Plugin — Static Test Suite")
     print("=" * 60)
@@ -354,6 +371,7 @@ def main():
         test_stale_columns(schema)
         test_seed_data_columns(schema)
     test_passive_pokemon_replacement()
+    test_active_pokemon_switch()
     test_migration_coverage()
     test_learned_skill_authorization()
     test_php_syntax()

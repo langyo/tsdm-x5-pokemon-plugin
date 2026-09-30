@@ -1,8 +1,8 @@
 <?php
 /**
- * Execute the real passive replacement endpoint against in-memory pet rows.
- * No live forum, combat formulas or concurrent requests are exercised.
- * Run: php scripts/test/passive_pokemon_replacement.php
+ * Execute the real active-switch endpoint against in-memory pet rows.
+ * No live forum is needed; the counterattack roll is made deterministic via srand.
+ * Run: php scripts/test/active_pokemon_switch.php
  */
 error_reporting(E_ALL);
 set_error_handler(function ($severity, $message, $file, $line) {
@@ -11,7 +11,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
 
 // Load actual endpoint functions without running the Discuz dispatcher.
 // pm_abort_battle_transaction lives in utils.php and is mocked below.
-$wanted = ['api_replace_pokemon'];
+$wanted = ['api_switch_pokemon'];
 $tokens = token_get_all(file_get_contents(__DIR__ . '/../../plugin/api/battle.php'));
 for ($i = 0; $i < count($tokens); $i++) {
     if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) continue;
@@ -39,7 +39,7 @@ foreach ($wanted as $name) {
     if (!function_exists($name)) throw new RuntimeException("Function not loaded: $name");
 }
 
-class ReplacementResponse extends RuntimeException
+class SwitchResponse extends RuntimeException
 {
     public $data;
     public function __construct($message, $code, $data = null)
@@ -48,8 +48,9 @@ class ReplacementResponse extends RuntimeException
         $this->data = $data;
     }
 }
-function api_error($message, $code) { throw new ReplacementResponse($message, $code); }
-function api_success($data) { throw new ReplacementResponse('success', 200, $data); }
+
+function api_error($message, $code) { throw new SwitchResponse($message, $code); }
+function api_success($data) { throw new SwitchResponse('success', 200, $data); }
 // 与 utils.php 中的生产版本一致：回滚未提交事务后以错误终止
 function pm_abort_battle_transaction($message, $status = 400)
 {
@@ -68,8 +69,32 @@ function api_my_pokemon($username)
     }
     return false;
 }
-function build_battle_response($user, $pokemon) { return ['my_pokemon' => $pokemon]; }
-function calculate_counter_damage_legacy(...$args) { $GLOBALS['counter_calls']++; return 10; }
+function pm_data($id)
+{
+    $GLOBALS['calls']['pm_data']++;
+    return ['name' => 'Wild', 'strength' => 1, 'xs' => 'normal'];
+}
+function battle_calc_my_stats($data, $pokemon)
+{
+    return [150, 100, 20, 20, 20, 20];
+}
+function battle_calc_npc_stats($data, $user, $strength)
+{
+    return [100, 30, 20, 20, 20, 20];
+}
+function calculate_counter_damage_legacy(...$args) { $GLOBALS['calls']['counter']++; return $GLOBALS['counter_damage']; }
+function api_calculate_pokemon_max_hp($pokemon) { return 100; }
+function api_validate_and_correct_hp($pokemon, $hp, $max_hp) { return ['hp' => $hp]; }
+function build_battle_response($user, $pokemon) { return ['my_pokemon' => $pokemon, 'wild_pokemon' => ['hp' => $user['hp']]]; }
+function clear_battle_state($uid)
+{
+    $GLOBALS['calls']['clear']++;
+    $GLOBALS['user'] = array_merge($GLOBALS['user'], [
+        'npcid' => 0, 'level' => 0, 'hp' => 0, 'hpg' => 0,
+        'atkg' => 0, 'defg' => 0, 'spatkg' => 0, 'spdefg' => 0, 'sdg' => 0,
+        'allure' => 0, 'capture' => 0,
+    ]);
+}
 
 class DB
 {
@@ -85,9 +110,8 @@ class DB
     private static $pending = null;
     private static $pending_writes = [];
 
-    // REPEATABLE READ 语义：事务的读视图在行锁之后第一次一致性读时建立（惰性快照），
-    // 行锁前提交的并发改动可见；读视图建立后再变更 $pets 视为不可见的并发提交，
-    // 只会体现在 UPDATE 对最新已提交版本的求值上。
+    // 与被动替换套件相同的 REPEATABLE READ 建模：锁后首次读建立快照，
+    // 写入缓冲到 COMMIT，UPDATE 按最新已提交版本求值 WHERE。
     public static function rows()
     {
         if (self::$in_txn && self::$pending === null) {
@@ -110,7 +134,6 @@ class DB
                 self::$on_lock = null;
                 $interpose();
             }
-            // pm_usersdata 行存在与否跟随战斗状态：无战斗视为行缺失
             return !empty($GLOBALS['user']['npcid']) ? ['uid' => (int) $match[1]] : false;
         }
         self::$reads++;
@@ -137,6 +160,19 @@ class DB
         });
         return $pets;
     }
+    public static function result_first($sql)
+    {
+        self::$reads++;
+        $sql = preg_replace('/\s+/', ' ', trim($sql));
+        if (!preg_match('/^SELECT COUNT\(\*\) FROM pm_mypm WHERE uid = (\d+) AND site < 3 AND hp > 0 AND state != 0 AND id != (\d+)$/', $sql, $match)) {
+            throw new RuntimeException('Unexpected scalar: ' . $sql);
+        }
+        $count = 0;
+        foreach (self::rows() as $pet) {
+            if ((int) $pet['id'] !== (int) $match[2] && self::eligible($pet, $match[1])) $count++;
+        }
+        return $count;
+    }
     public static function query($sql)
     {
         $sql = preg_replace('/\s+/', ' ', trim($sql));
@@ -162,8 +198,7 @@ class DB
             self::$pending_writes = [];
             self::$txn[] = $sql;
         } elseif ($sql === 'ROLLBACK') {
-            // 真实 MySQL 里无事务时 ROLLBACK 是无害告警；幂等处理且不留痕，
-            // 兼容「abort 回滚后异常继续冒泡再被兜底回滚一次」的路径
+            // 真实 MySQL 里无事务时 ROLLBACK 是无害告警；幂等处理且不留痕
             if (self::$in_txn) {
                 self::$in_txn = false;
                 self::$pending = null;
@@ -185,8 +220,6 @@ class DB
                 self::$on_promote = null;
                 $interpose();
             }
-            // InnoDB 的 UPDATE 按最新已提交行版本求值 WHERE（本事务读视图未覆盖的
-            // 并发提交仍生效），命中后写入落在事务副本上
             $rows = &self::pending_rows();
             foreach (self::$pets as $index => $latest) {
                 if ((int) $latest['id'] === (int) $match[1] && self::eligible($latest, $match[2])) {
@@ -199,6 +232,15 @@ class DB
             }
             unset($rows);
             if (self::$affected) self::$pending_writes[] = $sql;
+        } elseif (preg_match('/^UPDATE pm_mypm SET hp = (\d+) WHERE id = (\d+)$/', $sql, $match)) {
+            foreach (self::pending_rows() as &$pet) {
+                if ((int) $pet['id'] === (int) $match[2]) {
+                    $pet['hp'] = (int) $match[1];
+                }
+            }
+            unset($pet);
+            self::$affected = 1;
+            self::$pending_writes[] = $sql;
         } else {
             throw new RuntimeException('Unexpected write: ' . $sql);
         }
@@ -216,7 +258,6 @@ class DB
         self::$pending_writes = [];
     }
 
-    // 事务内的写入落到待提交副本；无事务时直接落表（本套件不应出现）
     private static function &pending_rows()
     {
         if (!self::$in_txn) {
@@ -233,11 +274,13 @@ function reset_battle()
 {
     $GLOBALS['_G'] = ['uid' => 7, 'username' => 'test-player'];
     $GLOBALS['input'] = ['pokemon_id' => 11];
-    $GLOBALS['user'] = ['npcid' => 25, 'hp' => 90];
-    $GLOBALS['counter_calls'] = 0;
+    $GLOBALS['user'] = ['npcid' => 25, 'level' => 10, 'hp' => 90, 'hpg' => 100, 'strength' => 1];
+    $GLOBALS['counter_damage'] = 10;
+    $GLOBALS['calls'] = array_fill_keys(['pm_data', 'counter', 'clear'], 0);
+    srand(3); // rand(1, 100) = 87 > 30，默认不触发反击
     DB::$pets = [
-        ['id' => 10, 'uid' => 7, 'hp' => 0, 'state' => 1, 'site' => 1, 'nickname' => 'Active'],
-        ['id' => 11, 'uid' => 7, 'hp' => 80, 'state' => 1, 'site' => 2, 'nickname' => 'Reserve'],
+        ['id' => 10, 'uid' => 7, 'hp' => 100, 'state' => 1, 'site' => 1, 'species_id' => 1, 'nickname' => 'Active'],
+        ['id' => 11, 'uid' => 7, 'hp' => 80, 'state' => 1, 'site' => 2, 'species_id' => 1, 'nickname' => 'Reserve'],
     ];
     DB::$writes = [];
     DB::$reads = 0;
@@ -246,44 +289,26 @@ function reset_battle()
     DB::$on_lock = null;
     DB::$on_promote = null;
     DB::reset_txn();
-}function check($condition, $message) { if (!$condition) throw new RuntimeException($message); }
+}
+function check($condition, $message) { if (!$condition) throw new RuntimeException($message); }
 function response($code, $message = null)
 {
     try {
-        api_replace_pokemon();
-    } catch (ReplacementResponse $response) {
+        api_switch_pokemon();
+    } catch (SwitchResponse $response) {
         check($response->getCode() === $code, 'Unexpected response: ' . $response->getMessage());
         if ($message !== null) check($response->getMessage() === $message, 'Unexpected response message');
         return $response->data;
     }
     throw new RuntimeException('Endpoint did not respond');
 }
-// $expected_reads：拒绝前允许的 pm_mypm 读取次数（null 为不检查）；
-// 事务内的拒绝必须回滚且不留任何已提交写入。
-function rejected($message, $expected_reads = null)
+function rejected($message)
 {
     $snapshot = [DB::$pets, $GLOBALS['user']];
     response(400, $message);
-    check(DB::$writes === [] && [DB::$pets, $GLOBALS['user']] === $snapshot, 'Rejected replacement changed state');
-    check($GLOBALS['counter_calls'] === 0, 'Rejected replacement caused a counterattack');
-    check(DB::$txn === ['START TRANSACTION', 'ROLLBACK'], 'Rejected replacement did not roll its transaction back');
-    if ($expected_reads !== null) check(DB::$reads === $expected_reads, 'Rejected replacement queried reserve pets');
-}
-function replaced($expected_id)
-{
-    $snapshot = DB::$pets;
-    $user = $GLOBALS['user'];
-    $data = response(200);
-    check((int) $data['my_pokemon']['id'] === $expected_id, 'Wrong replacement pet');
-    check($data['status'] === 'active' && $data['turn'] === 0 && $data['battle_over'] === false
-        && $data['can_continue_switch'] === false, 'Replacement response changed');
-    foreach ($snapshot as &$pet) {
-        if ((int) $pet['id'] === 10) $pet['site'] = 2;
-        if ((int) $pet['id'] === $expected_id) $pet['site'] = 1;
-    }
-    check(DB::$pets === $snapshot && count(DB::$writes) === 2, 'Replacement changed more than the two site fields');
-    check(DB::$txn === ['START TRANSACTION', 'COMMIT'], 'Successful replacement did not commit its transaction');
-    check($GLOBALS['user'] === $user && $GLOBALS['counter_calls'] === 0, 'Replacement changed wild state or caused a counterattack');
+    check(DB::$writes === [] && [DB::$pets, $GLOBALS['user']] === $snapshot, 'Rejected switch changed state');
+    check(DB::$txn === ['START TRANSACTION', 'ROLLBACK'], 'Rejected switch did not roll its transaction back');
+    check($GLOBALS['calls']['counter'] === 0, 'Rejected switch resolved a counterattack');
 }
 $passed = 0;
 $failed = 0;
@@ -300,114 +325,100 @@ function run_case($name, $test)
         echo "FAIL $name: {$error->getMessage()}\n";
     }
 }
-
-foreach ([11, 0] as $target) {
-    foreach ([1, 100, '1', '100'] as $hp) {
-        run_case('Healthy pet HP ' . var_export($hp, true) . " rejects target $target", function () use ($target, $hp) {
-            $GLOBALS['input']['pokemon_id'] = $target;
-            DB::$pets[0]['hp'] = $hp;
-            rejected('当前宠物尚未倒下，请使用主动切换', 0);
-        });
+// 断言完成一次换位：恰好一个 site=1，且是 $expected_id
+function switched_to($expected_id, $hp_writes)
+{
+    $data = response(200);
+    check((int) $data['my_pokemon']['id'] === $expected_id, 'Wrong active pet after switch');
+    check($data['status'] === 'active' && $data['battle_over'] === false && $data['turn'] === 0, 'Switch response changed');
+    $actives = 0;
+    foreach (DB::$pets as $pet) {
+        if ((int) $pet['site'] === 1) $actives++;
     }
-    run_case("Current pet state zero with positive HP rejects target $target", function () use ($target) {
-        $GLOBALS['input']['pokemon_id'] = $target;
-        DB::$pets[0]['hp'] = 100;
-        DB::$pets[0]['state'] = 0;
-        rejected('当前宠物尚未倒下，请使用主动切换', 0);
-    });
-    foreach ([false, true] as $strings) {
-        run_case(($strings ? 'Numeric string' : 'Integer') . " fainted pet replaces with target $target", function () use ($target, $strings) {
-            $GLOBALS['input']['pokemon_id'] = $target;
-            if ($strings) {
-                foreach (DB::$pets as &$pet) {
-                    foreach (['id', 'uid', 'hp', 'state', 'site'] as $field) $pet[$field] = (string) $pet[$field];
-                }
-            }
-            replaced(11);
-        });
-    }
-    run_case("Missing active pet rejects target $target", function () use ($target) {
-        $GLOBALS['input']['pokemon_id'] = $target;
-        DB::$pets[0]['site'] = 2;
-        rejected('没有上场宠物', 0);
-    });
-    run_case("No active battle error precedes pet eligibility for target $target", function () use ($target) {
-        $GLOBALS['input']['pokemon_id'] = $target;
-        $GLOBALS['user']['npcid'] = 0;
-        if ($target === 0) DB::$pets[0]['site'] = 2;
-        else DB::$pets[0]['hp'] = 100;
-        $snapshot = [DB::$pets, $GLOBALS['user']];
-        response(400, '没有进行中的战斗');
-        check(DB::$writes === [] && [DB::$pets, $GLOBALS['user']] === $snapshot, 'Rejected replacement changed state');
-        check(DB::$txn === [], 'Rejection before the battle check still opened a transaction');
-        check(DB::$reads === 0, 'Rejected replacement queried reserve pets');
-    });
-    $invalid = ['another user' => ['uid', 8], 'box' => ['site', 3], 'fainted' => ['hp', 0], 'state zero' => ['state', 0]];
-    foreach ($invalid as $name => $change) {
-        run_case("Reject $name reserve with target $target", function () use ($target, $change) {
-            $GLOBALS['input']['pokemon_id'] = $target;
-            DB::$pets[1][$change[0]] = $change[1];
-            rejected($target === 0 ? '没有可用的替补宠物' : '指定的宠物不可用', 1);
-        });
-    }
+    check($actives === 1, 'Switch left more than one active pet');
+    check(DB::$txn === ['START TRANSACTION', 'COMMIT'], 'Switch did not commit its transaction');
+    check(count(DB::$writes) === 2 + $hp_writes, 'Unexpected number of writes for the switch');
 }
-run_case('Automatic replacement rejects no reserves', function () {
+
+run_case('Specified switch without counterattack', function () {
+    switched_to(11, 0);
+    check(strpos($GLOBALS['calls']['counter'] === 0 ? '' : 'x', 'x') === false, 'Counter resolved without a roll');
+    check((int) DB::$pets[0]['site'] === 2 && (int) DB::$pets[1]['site'] === 1, 'Sites not swapped');
+});
+run_case('Automatic switch picks the first reserve', function () {
+    $GLOBALS['input']['pokemon_id'] = 0;
+    switched_to(11, 0);
+});
+run_case('Switch with surviving counterattack damages the new pet', function () {
+    srand(7); // rand(1, 100) = 16 <= 30，触发反击
+    switched_to(11, 1);
+    check($GLOBALS['calls']['counter'] === 1 && (int) DB::$pets[1]['hp'] === 90, 'Counter damage not applied to the new pet');
+});
+run_case('Counterattack defeats the new pet with reserves left', function () {
+    srand(7);
+    $GLOBALS['counter_damage'] = 200;
+    $data = response(200);
+    check($data['status'] === 'active' && $data['battle_over'] === false && $data['can_continue_switch'] === true, 'Defeat-with-reserves response changed');
+    check((int) DB::$pets[1]['hp'] === 0, 'Defeated new pet kept HP');
+    check($GLOBALS['calls']['clear'] === 0, 'Battle state cleared although reserves remain');
+    check(DB::$txn === ['START TRANSACTION', 'COMMIT'], 'Defeat-with-reserves did not commit');
+});
+run_case('Counterattack defeats the last pet and ends the battle', function () {
+    srand(7);
+    $GLOBALS['counter_damage'] = 200;
+    // 旧上场宠物已倒下：新宠物被反击打倒后再无可用宠物
+    DB::$pets[0]['hp'] = 0;
+    $data = response(200);
+    check($data['status'] === 'defeat' && $data['battle_over'] === true && $data['can_continue_switch'] === false, 'Defeat response changed');
+    check((int) DB::$pets[1]['hp'] === 0, 'Defeated new pet kept HP');
+    check($GLOBALS['calls']['clear'] === 1 && $GLOBALS['user']['npcid'] === 0, 'Battle state not cleared on final defeat');
+    check(DB::$txn === ['START TRANSACTION', 'COMMIT'], 'Final defeat did not commit');
+});
+run_case('Switching to the current pet is rejected', function () {
+    $GLOBALS['input']['pokemon_id'] = 10;
+    rejected('不能切换到当前上场的宠物');
+});
+run_case('Switching to a missing reserve is rejected', function () {
+    $GLOBALS['input']['pokemon_id'] = 99;
+    rejected('指定的宠物不可用');
+});
+run_case('Switching without any reserve is rejected', function () {
     $GLOBALS['input']['pokemon_id'] = 0;
     DB::$pets = [DB::$pets[0]];
-    rejected('没有可用的替补宠物', 1);
+    rejected('没有可用的替补宠物');
 });
-run_case('Specified missing reserve is rejected', function () {
-    $GLOBALS['input']['pokemon_id'] = 99;
-    rejected('指定的宠物不可用', 1);
+run_case('Missing active pet is rejected under the lock', function () {
+    DB::$pets[0]['site'] = 2;
+    rejected('没有上场宠物');
 });
-run_case('Specified fainted current pet is not an eligible replacement', function () {
-    $GLOBALS['input']['pokemon_id'] = 10;
-    rejected('指定的宠物不可用', 1);
-});
-run_case('Automatic replacement filters invalid pets and orders numeric string IDs', function () {
-    $GLOBALS['input']['pokemon_id'] = 0;
-    $reserve = DB::$pets[1];
-    $reserve['id'] = '9';
-    DB::$pets[] = $reserve;
-    foreach (['uid' => 8, 'site' => 3, 'hp' => 0, 'state' => 0] as $field => $value) {
-        $invalid = $reserve;
-        $invalid['id'] = count(DB::$pets) - 2;
-        $invalid[$field] = $value;
-        DB::$pets[] = $invalid;
-    }
-    replaced(9);
-});
-run_case('Automatic replacement orders site before ID', function () {
-    $GLOBALS['input']['pokemon_id'] = 0;
-    // Existing query permits another site=1 row; preserve its ordering rule.
-    $reserve = DB::$pets[1];
-    $reserve['id'] = '90';
-    $reserve['site'] = '1';
-    DB::$pets[] = $reserve;
-    replaced(90);
+run_case('No active battle is rejected before the lock', function () {
+    $GLOBALS['user']['npcid'] = 0;
+    $snapshot = [DB::$pets, $GLOBALS['user']];
+    response(400, '没有进行中的战斗');
+    check(DB::$writes === [] && [DB::$pets, $GLOBALS['user']] === $snapshot, 'Rejected switch changed state');
+    check(DB::$txn === [], 'Rejection before the battle check still opened a transaction');
 });
 
-// 并发竞争：模拟另一请求在行锁释放后、本请求取得锁前完成了一整套替换。
-run_case('Second concurrent replacement is rejected under the battle lock', function () {
-    $GLOBALS['input']['pokemon_id'] = 11;
-    $expected = DB::$pets;
-    $expected[0]['site'] = 2;
-    $expected[1]['site'] = 1;
+// 并发竞争：另一请求已在本请求取得锁前完成了一整套切换。
+run_case('Switch after a concurrent switch stays consistent', function () {
+    $GLOBALS['input']['pokemon_id'] = 0;
     DB::$on_lock = function () {
-        // 第一个替换请求已提交：原上场宠物退到替补，新宠物已上场且健康
+        // 第一个切换请求已提交：10 退到替补，11 上场且健康
         DB::$pets[0]['site'] = 2;
         DB::$pets[1]['site'] = 1;
     };
-    response(400, '当前宠物尚未倒下，请使用主动切换');
-    // 本请求零写入；并发替换的提交结果原样保留
-    check(DB::$pets === $expected && DB::$writes === [], 'Rejected replacement changed state');
-    check(DB::$txn === ['START TRANSACTION', 'ROLLBACK'], 'Rejected replacement did not roll its transaction back');
-    check(DB::$reads === 0, 'Rejected replacement queried reserve pets');
-    check($GLOBALS['counter_calls'] === 0, 'Rejected replacement caused a counterattack');
+    // 本请求锁内重读后：上场是 11，自动选择替补 10 并换回
+    $data = response(200);
+    check((int) $data['my_pokemon']['id'] === 10, 'Wrong active pet after the second switch');
+    $actives = 0;
+    foreach (DB::$pets as $pet) {
+        if ((int) $pet['site'] === 1) $actives++;
+    }
+    check($actives === 1, 'Concurrent switches left more than one active pet');
+    check((int) DB::$pets[0]['site'] === 1 && (int) DB::$pets[1]['site'] === 2, 'Sites not swapped for the second switch');
+    check(DB::$txn === ['START TRANSACTION', 'COMMIT'], 'Second switch did not commit');
 });
-
-// 并发竞争：替补在读取之后、升位写入之前被并发操作装箱（site=3）。
-run_case('Reserve boxed before promotion rolls the replacement back', function () {
+run_case('Reserve boxed before promotion rolls the switch back', function () {
     $GLOBALS['input']['pokemon_id'] = 11;
     DB::$on_promote = function () {
         DB::$pets[1]['site'] = 3;
@@ -415,13 +426,9 @@ run_case('Reserve boxed before promotion rolls the replacement back', function (
     $expected = DB::$pets;
     $expected[1]['site'] = 3;
     response(400, '指定的宠物不可用');
-    // 回滚生效：并发装箱保留，本请求的降位/升位都不落地
     check(DB::$pets === $expected && DB::$writes === [], 'Failed promotion still wrote site changes');
     check(DB::$txn === ['START TRANSACTION', 'ROLLBACK'], 'Failed promotion did not roll back');
-    check($GLOBALS['counter_calls'] === 0, 'Failed promotion caused a counterattack');
 });
-
-// 事务体内数据库异常：兜底 catch 必须回滚并把异常原样抛出（常驻 worker 防锁泄漏）。
 run_case('Mid-transaction database error rolls back and rethrows', function () {
     $GLOBALS['input']['pokemon_id'] = 11;
     DB::$on_promote = function () {
@@ -430,7 +437,7 @@ run_case('Mid-transaction database error rolls back and rethrows', function () {
     $snapshot = DB::$pets;
     $thrown = null;
     try {
-        api_replace_pokemon();
+        api_switch_pokemon();
     } catch (RuntimeException $error) {
         $thrown = $error;
     }
@@ -439,5 +446,5 @@ run_case('Mid-transaction database error rolls back and rethrows', function () {
     check(DB::$txn === ['START TRANSACTION', 'ROLLBACK'], 'Failed transaction did not roll back');
 });
 
-echo "Passive replacement tests: $passed passed, $failed failed.\n";
+echo "Active switch tests: $passed passed, $failed failed.\n";
 exit($failed === 0 ? 0 : 1);
