@@ -91,8 +91,9 @@ class DB
     public static $learned;
     public static $writes;
     public static $affected = 0;
-    // 模拟并发竞争：在 PP 预扣语句求值前变更数据，模拟另一请求抢先扣减
+    // 模拟并发竞争：$on_claim 在 PP 预扣求值前、$on_refund 在退还求值前触发
     public static $on_claim;
+    public static $on_refund;
 
     public static function fetch_first($sql)
     {
@@ -131,9 +132,14 @@ class DB
             if (self::$affected) {
                 self::$writes[] = $sql;
             }
-        } elseif (preg_match('/^UPDATE pm_myskill SET skillnum = skillnum \+ 1 WHERE skillid = (\d+) AND uid = (\d+) AND petid = (\d+)$/', $sql, $match)) {
+        } elseif (preg_match('/^UPDATE pm_myskill SET skillnum = skillnum \+ 1 WHERE skillid = (\d+) AND uid = (\d+) AND petid = (\d+) AND skillnum < (\d+)$/', $sql, $match)) {
+            if (self::$on_refund) {
+                $interpose = self::$on_refund;
+                self::$on_refund = null;
+                $interpose();
+            }
             foreach (self::$learned as &$row) {
-                if ((int) $row['skillid'] === (int) $match[1] && (int) $row['uid'] === (int) $match[2] && (int) $row['petid'] === (int) $match[3]) {
+                if ((int) $row['skillid'] === (int) $match[1] && (int) $row['uid'] === (int) $match[2] && (int) $row['petid'] === (int) $match[3] && (int) $row['skillnum'] < (int) $match[4]) {
                     $row['skillnum'] = (int) $row['skillnum'] + 1;
                     self::$affected = 1;
                 }
@@ -178,6 +184,7 @@ function reset_battle()
     DB::$learned = [['id' => 20, 'skillid' => 4, 'uid' => 7, 'petid' => 10, 'skillnum' => 2]];
     DB::$writes = [];
     DB::$on_claim = null;
+    DB::$on_refund = null;
 }
 function check($condition, $message)
 {
@@ -328,6 +335,18 @@ run_case("Evaded second attack refunds the reserved PP", function () {
     check($GLOBALS['user']['hp'] === 100 && $data['wild_pokemon']['hp'] === 100, 'Evaded attack still dealt damage');
     check($GLOBALS['calls']['counter'] === 1 && DB::$pet['hp'] === 99, 'Counterattack behavior changed');
     check(count(DB::$writes) === 4, 'Expected claim, HP and refund writes');
+});
+run_case('Refund never exceeds the skill PP cap', function () {
+    // 预扣（2→1）之后、退还之前，并发 PP 道具把 skillnum 回满到 max_uses
+    $GLOBALS['speed'] = 5;
+    srand(42);
+    DB::$skills[4]['max_uses'] = 2;
+    DB::$on_refund = function () {
+        DB::$learned[0]['skillnum'] = 2;
+    };
+    $data = response(200);
+    check(strpos($data['message'], '避开') !== false, 'Expected an evaded attack');
+    check(DB::$learned[0]['skillnum'] === 2, 'Refund pushed PP past the cap');
 });
 run_case('No active battle retains existing error', function () {
     $GLOBALS['user']['npcid'] = 0;

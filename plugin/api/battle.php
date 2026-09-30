@@ -266,14 +266,16 @@ function api_start_battle()
  *
  * PP 在进入战斗计算前原子预扣；攻击被闪避、或后手时宠物未及出手就倒下
  * 的回合按原有语义不消耗 PP，这两类路径在此处原路退还。
+ * skillnum < max_uses 封顶：预扣与退还之间若有并发的回满操作（PP 道具），
+ * 退还不越过上限。
  */
 function pm_refund_reserved_skill_pp($skill_id, $uid, $pet_id, $max_uses)
 {
     if ($skill_id > 0 && $max_uses != 0) {
         DB::query(pm_sql("UPDATE " . pm_table('pm_myskill') . "
             SET skillnum = skillnum + 1
-            WHERE skillid = %d AND uid = %d AND petid = %d",
-            $skill_id, $uid, $pet_id
+            WHERE skillid = %d AND uid = %d AND petid = %d AND skillnum < %d",
+            $skill_id, $uid, $pet_id, $max_uses
         ));
     }
 }
