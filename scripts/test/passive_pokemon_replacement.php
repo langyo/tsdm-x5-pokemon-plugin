@@ -155,16 +155,17 @@ class DB
             self::$pending_writes = [];
             self::$txn[] = $sql;
         } elseif ($sql === 'ROLLBACK') {
-            if (!self::$in_txn) {
-                throw new RuntimeException('Rollback outside a transaction');
+            // 真实 MySQL 里无事务时 ROLLBACK 是无害告警；幂等处理且不留痕，
+            // 兼容「abort 回滚后异常继续冒泡再被兜底回滚一次」的路径
+            if (self::$in_txn) {
+                self::$in_txn = false;
+                self::$pending = null;
+                self::$pending_writes = [];
+                self::$txn[] = $sql;
             }
-            self::$in_txn = false;
-            self::$pending = null;
-            self::$pending_writes = [];
-            self::$txn[] = $sql;
-        } elseif (preg_match('/^UPDATE pm_mypm SET site = 2 WHERE id = (\d+) AND uid = (\d+)$/', $sql, $match)) {
+        } elseif (preg_match('/^UPDATE pm_mypm SET site = 2 WHERE id = (\d+) AND uid = (\d+) AND site = 1$/', $sql, $match)) {
             foreach (self::pending_rows() as &$pet) {
-                if ((int) $pet['id'] === (int) $match[1] && (int) $pet['uid'] === (int) $match[2]) {
+                if ((int) $pet['id'] === (int) $match[1] && (int) $pet['uid'] === (int) $match[2] && (int) $pet['site'] === 1) {
                     $pet['site'] = 2;
                     self::$affected = 1;
                 }
@@ -411,6 +412,24 @@ run_case('Reserve boxed before promotion rolls the replacement back', function (
     check(DB::$pets === $expected && DB::$writes === [], 'Failed promotion still wrote site changes');
     check(DB::$txn === ['START TRANSACTION', 'ROLLBACK'], 'Failed promotion did not roll back');
     check($GLOBALS['counter_calls'] === 0, 'Failed promotion caused a counterattack');
+});
+
+// 事务体内数据库异常：兜底 catch 必须回滚并把异常原样抛出（常驻 worker 防锁泄漏）。
+run_case('Mid-transaction database error rolls back and rethrows', function () {
+    $GLOBALS['input']['pokemon_id'] = 11;
+    DB::$on_promote = function () {
+        throw new RuntimeException('simulated driver failure');
+    };
+    $snapshot = DB::$pets;
+    $thrown = null;
+    try {
+        api_replace_pokemon();
+    } catch (RuntimeException $error) {
+        $thrown = $error;
+    }
+    check($thrown !== null && $thrown->getMessage() === 'simulated driver failure', 'Driver failure was swallowed');
+    check(DB::$pets === $snapshot && DB::$writes === [], 'Failed transaction left changes behind');
+    check(DB::$txn === ['START TRANSACTION', 'ROLLBACK'], 'Failed transaction did not roll back');
 });
 
 echo "Passive replacement tests: $passed passed, $failed failed.\n";
