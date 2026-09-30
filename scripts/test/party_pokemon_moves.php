@@ -63,7 +63,14 @@ function pm_sql($sql, ...$args) { return vsprintf($sql, $args); }
 function validate_id($value, $name = 'ID') { return (int) $value; }
 function validate_uid($value) { return (int) $value; }
 function get_param($key, $default = null) { return isset($GLOBALS['params'][$key]) ? $GLOBALS['params'][$key] : $default; }
-function api_my_usersdata($uid) { return $GLOBALS['user']; }
+function api_my_usersdata($uid)
+{
+    // 模拟 utils.php 的行为：行不存在时懒创建（INSERT 后重读）
+    if (empty($GLOBALS['user'])) {
+        $GLOBALS['user'] = ['npcid' => 0, 'hp' => 0];
+    }
+    return $GLOBALS['user'];
+}
 
 class DB
 {
@@ -461,6 +468,25 @@ run_case('Mid-transaction database error rolls back and rethrows', function () {
     check($thrown !== null && $thrown->getMessage() === 'simulated driver failure', 'Driver failure was swallowed');
     check(DB::$pets === $snapshot && DB::$writes === [], 'Failed transaction left changes behind');
     check(DB::$txn === ['START TRANSACTION', 'ROLLBACK'], 'Failed transaction did not roll back');
+});
+
+// 旧版账号可能领过宠物但没有 usersdata 行：锁内懒创建后操作照常成功（与旧版行为一致）。
+run_case('Legacy account without usersdata can still move', function () {
+    $GLOBALS['user'] = null;
+    call_endpoint('api_move_pokemon', 200);
+    check(site_of(11) === 3 && DB::$txn === ['START TRANSACTION', 'COMMIT'], 'Legacy move failed');
+});
+run_case('Legacy account without usersdata can still swap', function () {
+    $GLOBALS['user'] = null;
+    $GLOBALS['params'] = ['pokemon_id_1' => 10, 'pokemon_id_2' => 11];
+    call_endpoint('api_swap_pokemon', 200);
+    check(site_of(10) === 2 && site_of(11) === 1 && DB::$txn === ['START TRANSACTION', 'COMMIT'], 'Legacy swap failed');
+});
+run_case('Legacy account without usersdata can still set first', function () {
+    $GLOBALS['user'] = null;
+    $GLOBALS['params'] = ['pokemon_id' => 11];
+    call_endpoint('api_set_first_pokemon', 200);
+    check(site_of(11) === 1 && site_of(10) === 2 && DB::$txn === ['START TRANSACTION', 'COMMIT'], 'Legacy set-first failed');
 });
 
 echo "Party moves tests: $passed passed, $failed failed.\n";

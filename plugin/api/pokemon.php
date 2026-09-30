@@ -2258,7 +2258,16 @@ function api_move_pokemon()
             $uid
         ));
         if (!$owner) {
-            pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
+            // 旧版账号可能通过旧系统领过宠物但没有 usersdata 行（与 user.php 的
+            // 兜底同理）：api_my_usersdata 会在事务内补建该行，随后重取行锁
+            api_my_usersdata($uid);
+            $owner = DB::fetch_first(pm_sql(
+                "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
+                $uid
+            ));
+            if (!$owner) {
+                pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
+            }
         }
 
         // 锁内重读最新位置
@@ -2413,7 +2422,16 @@ function api_swap_pokemon()
             $uid
         ));
         if (!$owner) {
-            pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
+            // 旧版账号可能通过旧系统领过宠物但没有 usersdata 行（与 user.php 的
+            // 兜底同理）：api_my_usersdata 会在事务内补建该行，随后重取行锁
+            api_my_usersdata($uid);
+            $owner = DB::fetch_first(pm_sql(
+                "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
+                $uid
+            ));
+            if (!$owner) {
+                pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
+            }
         }
 
         // 锁内重读最新位置
@@ -2515,7 +2533,16 @@ function api_set_first_pokemon()
             $uid
         ));
         if (!$owner) {
-            pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
+            // 旧版账号可能通过旧系统领过宠物但没有 usersdata 行（与 user.php 的
+            // 兜底同理）：api_my_usersdata 会在事务内补建该行，随后重取行锁
+            api_my_usersdata($uid);
+            $owner = DB::fetch_first(pm_sql(
+                "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
+                $uid
+            ));
+            if (!$owner) {
+                pm_abort_battle_transaction('用户状态不存在，请刷新后重试', 500);
+            }
         }
 
         // 锁内重读最新位置
