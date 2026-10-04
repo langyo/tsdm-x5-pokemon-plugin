@@ -26,6 +26,7 @@ $wanted = [
     'battle_persist_state', 'battle_mirror_legacy', 'battle_resolve_engine_counter',
     'battle_render_counter_messages',
     'battle_skill_effects',
+    'battle_pick_enemy_move',
     'api_normalize_skill_category', 'battle_calc_my_stats',
     'calculate_rewards', 'apply_rewards', 'clear_battle_state',
     'handle_my_pokemon_fainted', 'build_battle_response',
@@ -138,6 +139,7 @@ class DB
     public static $myskills = [];
     public static $items = [];
     public static $myitems = [];
+    public static $enemy_skills = [];
     public static $affected = 0;
     public static $next_id = 500;
 
@@ -473,7 +475,9 @@ class DB
                 return (int)$u['battle_id'] === $bid;
             }));
         }
-        // build_battle_response skills query
+        if (strpos($sql, 'FIND_IN_SET') !== false && strpos($sql, 'FROM pm_skill') !== false) {
+            return self::$enemy_skills;
+        }
         if (preg_match('/FROM pm_myskill ms/', $sql) && preg_match('/WHERE ms.petid = (\d+) AND ms.uid = (\d+)/', $sql, $m)) {
             $out = [];
             foreach (self::$myskills as $s) {
@@ -571,7 +575,7 @@ function run_turn($skill_id = 5)
  * Seed a fresh battle through the real start-state shape (as api_start_battle
  * would persist it), then hand-adjust enemy/ally fixtures per scenario.
  */
-function seed_battle($enemy_hp, $enemy_atk, $enemy_speed, $seed, $ally_hp = 100)
+function seed_battle($enemy_hp, $enemy_atk, $enemy_speed, $seed, $ally_hp = 100, $enemy_level = 15)
 {
     DB::reset();
     $state = battle_core_initial_state([
@@ -587,7 +591,7 @@ function seed_battle($enemy_hp, $enemy_atk, $enemy_speed, $seed, $ally_hp = 100)
         ]],
         'enemies' => [[
             'species_id' => 129, 'name' => '鲤鱼王', 'species_name' => '鲤鱼王',
-            'level' => 15, 'hp' => $enemy_hp,
+            'level' => $enemy_level, 'hp' => $enemy_hp,
             'stats' => ['max_hp' => 80, 'atk' => $enemy_atk, 'def' => 30, 'spatk' => 15, 'spdef' => 30, 'speed' => $enemy_speed],
             'types' => ['水'], 'gender' => 0, 'is_shiny' => false, 'capture_rate' => 150,
         ]],
@@ -1064,6 +1068,60 @@ check('status move still consumed PP', (function () {
     return false;
 })());
 check('status-move message rendered', strpos($mb['message'], '鲤') !== false && strpos($mb['message'], '命中降低了') !== false);
+
+
+
+echo "=== scenario N: wild fights back with a real AI move ===" . PHP_EOL;
+// scan a seed whose AI chance roll (draw #1 after any earlier draws) picks best
+$ai_seed = null;
+for ($s = 1; $s < 5000; $s++) {
+    // draw order: idx0 AI pick chance (needs <=70 to take the best move), then
+    // in-turn (ally acts first at speed 55 vs 30): idx1 ally miss, idx2 ally
+    // damage roll, idx3 ally crit, idx4 enemy miss (must hit), idx5 enemy damage
+    if (1 + (battle_core_rng_step($s, 0) % 100) <= 70
+        && 1 + (battle_core_rng_step($s, 1) % 100) > 20
+        && 1 + (battle_core_rng_step($s, 4) % 100) > 20) {
+        $ai_seed = $s;
+        break;
+    }
+}
+check('AI-best seed found', $ai_seed !== null);
+seed_battle(80, 15, 30, $ai_seed, 100, 18); // level 18: fresh AI cache key
+seed_pet_and_party(100, 0);
+DB::$myskills = [['skillid' => 5, 'uid' => 1, 'petid' => 11, 'skillnum' => 35]];
+DB::$enemy_skills = [
+        ['id' => 91, 'name' => '泥巴射击', 'power' => 40, 'element' => '地面', 'category' => '物攻', 'effect_id' => 0, 'max_uses' => 35, 'skillnum' => 35],
+        ['id' => 92, 'name' => '水枪', 'power' => 40, 'element' => '水', 'category' => '特攻', 'effect_id' => 0, 'max_uses' => 35, 'skillnum' => 35],
+];
+$r = run_turn();
+$nb = $r->data;
+check('AI turn succeeds', $r->getCode() === 200 && $nb['status'] === 'active');
+check('enemy used its best (super-effective) move', (function () use ($nb) {
+    foreach ((array)$nb['events'] as $e) {
+        if ($e['type'] === 'move' && $e['payload']['side'] === 'enemy') {
+            return $e['payload']['skill']['name'] === '泥巴射击';
+        }
+    }
+    return false;
+})());
+check('AI hit produced a damage event, not a counter', (function () use ($nb) {
+    $has_damage = false;
+    $has_counter = false;
+    foreach ((array)$nb['events'] as $e) {
+        if ($e['type'] === 'damage' && $e['payload']['side'] === 'enemy') $has_damage = true;
+        if ($e['type'] === 'counter') $has_counter = true;
+    }
+    return $has_damage && !$has_counter;
+})());
+check('ground move hit the electric pet super-effectively', (function () use ($nb) {
+    foreach ((array)$nb['events'] as $e) {
+        if ($e['type'] === 'damage' && $e['payload']['side'] === 'enemy') {
+            return $e['payload']['effectiveness'] === 2.0;
+        }
+    }
+    return false;
+})());
+check('AI message mentions the enemy move', strpos($nb['message'], '泥巴射击') !== false);
 
 
 echo "\n";

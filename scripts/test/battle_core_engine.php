@@ -607,6 +607,79 @@ check('enemy HP reflects hit plus poison tick', $enemy_after === 300 - $my_hit -
 check('battle continues after the tick', $r_ko['state']['phase'] === 'active');
 
 
+
+echo "=== rules v2: AI move scoring and picking ===" . PHP_EOL;
+$st_ai = make_test_state(41, 50, 30, 100, 300);
+$enemy_ai = $st_ai['sides']['enemy'][0];
+$ally_ai = $st_ai['sides']['ally'][0];
+$mud_shot = ['id' => 91, 'name' => '泥巴射击', 'power' => 40, 'type' => '地面', 'category' => 0];
+$water_gun = ['id' => 92, 'name' => '水枪', 'power' => 40, 'type' => '水', 'category' => 0];
+$sand = ['id' => 28, 'name' => '泼沙', 'power' => 0, 'type' => '地面', 'category' => 0];
+check('super-effective move scores higher', battle_core_ai_score_move($enemy_ai, $ally_ai, $mud_shot) > battle_core_ai_score_move($enemy_ai, $ally_ai, $water_gun));
+check('status move scores low', battle_core_ai_score_move($enemy_ai, $ally_ai, $sand) < battle_core_ai_score_move($enemy_ai, $ally_ai, $water_gun));
+$best_rng = function ($min, $max) { return $min; }; // chance roll 1 <= 70 => best
+$picked = battle_core_ai_pick_move($st_ai, [$water_gun, $mud_shot, $sand], $best_rng, 70);
+check('AI picks the best move when the roll hits', $picked['id'] === 91);
+$lucky_rng = function ($min, $max) { return $max; }; // 100 > 70 => random slot
+$rand_pick = battle_core_ai_pick_move($st_ai, [$water_gun, $mud_shot], $lucky_rng, 70);
+check('random fallback still returns a candidate move', $rand_pick['id'] === 92 || $rand_pick['id'] === 91);
+check('empty candidates return null', battle_core_ai_pick_move($st_ai, [], null) === null);
+check('boss difficulty is deterministic-best', (function () {
+    $st = make_test_state(42, 50, 30, 100, 300);
+    $m = ['id' => 91, 'name' => 'X', 'power' => 40, 'type' => '地面', 'category' => 0];
+    $w = ['id' => 92, 'name' => 'Y', 'power' => 40, 'type' => '水', 'category' => 0];
+    for ($i = 0; $i < 5; $i++) {
+        $p = battle_core_ai_pick_move($st, [$w, $m], function ($min, $max) { return $max; }, 100);
+        if ($p['id'] !== 91) return false; // 100% best regardless of roll
+    }
+    return true;
+})());
+
+echo "=== rules v2: enemy_move runs a real move instead of the fixed counter ===" . PHP_EOL;
+$st_em = make_test_state(43, 50, 30, 100, 300);
+$flat_rng = function ($min, $max) {
+    if ($min === 85) return 100;
+    if ($min === 1) return 100; // no miss, no crit
+    return $min;
+};
+$r_em = battle_core_apply_action($st_em, ['type' => 'struggle', 'enemy_move' => $mud_shot], $flat_rng);
+$em_types = [];
+foreach ($r_em['events'] as $e) {
+    $em_types[] = $e['type'];
+}
+check('enemy move emits a move event for the enemy side', (function () use ($r_em) {
+    foreach ($r_em['events'] as $e) {
+        if ($e['type'] === 'move' && $e['payload']['side'] === 'enemy' && $e['payload']['skill']['name'] === '泥巴射击') {
+            return true;
+        }
+    }
+    return false;
+})());
+check('enemy move emits damage instead of a counter event', in_array('damage', $em_types, true) && !in_array('counter', $em_types, true));
+check('enemy move applies type effectiveness (ground vs electric = 2x)', (function () use ($r_em) {
+    foreach ($r_em['events'] as $e) {
+        if ($e['type'] === 'damage' && $e['payload']['side'] === 'enemy') {
+            return $e['payload']['effectiveness'] === 2.0;
+        }
+    }
+    return false;
+})());
+$st_v1c = make_test_state(44, 50, 30, 100, 300);
+$st_v1c['rules_version'] = 1;
+$r_v1c = battle_core_apply_action($st_v1c, ['type' => 'struggle', 'enemy_move' => $mud_shot], $flat_rng);
+$v1c_types = [];
+foreach ($r_v1c['events'] as $e) {
+    $v1c_types[] = $e['type'];
+}
+$v1_enemy_damage = false;
+foreach ($r_v1c['events'] as $e) {
+    if ($e['type'] === 'damage' && $e['payload']['side'] === 'enemy') {
+        $v1_enemy_damage = true;
+    }
+}
+check('v1 ignores enemy_move and keeps the fixed counter', in_array('counter', $v1c_types, true) && !$v1_enemy_damage);
+
+
 echo "\n";
 if ($failures > 0) {
     echo "FAILED: {$failures} of {$checks} checks failed\n";

@@ -15,6 +15,7 @@ require __DIR__ . '/../../plugin/api/battle_core.php';
 
 // Load actual endpoint functions without running the Discuz dispatcher.
 $wanted = ['api_use_skill', 'api_normalize_skill_category', 'pm_refund_reserved_skill_pp', 'battle_skill_effects',
+    'battle_pick_enemy_move',
     'battle_ensure_tables', 'battle_load_active', 'battle_inject_ally_fresh_state',
     'battle_persist_state', 'battle_mirror_legacy'];
 $tokens = token_get_all(file_get_contents(__DIR__ . '/../../plugin/api/battle.php'));
@@ -210,6 +211,11 @@ class DB
         } else {
             throw new RuntimeException('Unexpected write: ' . $sql);
         }
+    }
+
+    public static function fetch_all($sql)
+    {
+        return []; // no enemy move pool in this suite: AI picker falls back to the fixed counter
     }
 
     public static function affected_rows()

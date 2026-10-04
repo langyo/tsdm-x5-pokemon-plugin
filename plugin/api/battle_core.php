@@ -983,11 +983,136 @@ function battle_core_resolve_statuses(&$state, &$events, $rng = null)
 /**
  * 回合末统一收尾：on_turn_end 钩子 -> 异常结算 -> 剥离一次性效果。
  */
-function battle_core_finish_turn(&$state, &$events, $ally_slot, $mounted, $rng = null)
+function battle_core_finish_turn(&$state, &$events, $ally_slot, $mounted, $rng = null, $enemy_mounted = null)
 {
     battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally_slot]);
     battle_core_resolve_statuses($state, $events, $rng);
     battle_core_strip_mounted_effects($state, $mounted);
+    battle_core_strip_mounted_enemy_effects($state, $enemy_mounted);
+}
+
+/**
+ * 解析指定方（当前仅敌方 AI）传入的招式为标准 move（轻解析：字段补全）。
+ */
+function battle_core_resolve_move_for_side($state, $side, $raw)
+{
+    $unit = battle_core_active_unit($state, $side);
+    $fallback_type = $unit ? $unit['types'][0] : '普通';
+    return [
+        'id' => isset($raw['id']) ? intval($raw['id']) : 0,
+        'name' => isset($raw['name']) ? strval($raw['name']) : '',
+        'power' => array_key_exists('power', $raw) && $raw['power'] !== null && $raw['power'] !== '' ? intval($raw['power']) : 40,
+        'type' => isset($raw['type']) && $raw['type'] !== '' ? strval($raw['type']) : $fallback_type,
+        'category' => isset($raw['category']) ? intval($raw['category']) : 0,
+        'effects' => isset($raw['effects']) && is_array($raw['effects']) ? $raw['effects'] : [],
+    ];
+}
+
+/**
+ * AI 选招评分（rules_version 2）：威力 x 相克 x STAB；变化技固定低分。
+ * 评分纯数据驱动，供 battle_core_ai_pick_move 排序。
+ */
+function battle_core_ai_score_move($attacker, $defender, $move)
+{
+    $power = intval($move['power']);
+    if ($power <= 0) {
+        return 10; // 变化技基准分（有附加效果时由调用方加分）
+    }
+    $effectiveness = battle_core_type_effectiveness($move['type'], $defender['types']);
+    $stab = in_array($move['type'], $attacker['types'], true) ? 1.5 : 1.0;
+    $category = intval($move['category']);
+    $atk = $category !== 1 ? $attacker['stats']['atk'] : $attacker['stats']['spatk'];
+    $def = $category !== 1 ? $defender['stats']['def'] : $defender['stats']['spdef'];
+    return $power * $effectiveness * $stab * ($atk / max(1, $def));
+}
+
+/**
+ * AI 选招（rules_version 2）：
+ * - 难度 chance_best（0-100）：选出评分最高招的概率，其余回合在候选中
+ *   按 rng 随机（低强度野怪会"打偏"，Boss 可配 100 恒定最优）；
+ * - 候选为空时返回 null（调用方回退到固定反击）。
+ *
+ * @param array $moves [{id,name,power,type,category,effects?}..]
+ * @return array|null 选中的招
+ */
+function battle_core_ai_pick_move(&$state, $moves, $rng = null, $chance_best = 70)
+{
+    if (empty($moves)) {
+        return null;
+    }
+    $enemy = battle_core_active_unit($state, 'enemy');
+    $ally = battle_core_active_unit($state, 'ally');
+    if ($enemy === null || $ally === null) {
+        return null;
+    }
+    $scored = [];
+    foreach ($moves as $i => $move) {
+        $scored[] = ['index' => $i, 'score' => battle_core_ai_score_move($enemy, $ally, $move)];
+    }
+    usort($scored, function ($a, $b) {
+        if ($b['score'] === $a['score']) {
+            return $a['index'] - $b['index'];
+        }
+        return $b['score'] > $a['score'] ? 1 : -1;
+    });
+    $take_best = $chance_best >= 100 || battle_core_rand($state, $rng, 1, 100) <= $chance_best;
+    if ($take_best) {
+        return $moves[$scored[0]['index']];
+    }
+    $pick = battle_core_rand($state, $rng, 0, count($scored) - 1);
+    return $moves[$scored[$pick]['index']];
+}
+
+/**
+ * 解析敌方本回合行动（rules_version 2）：action.enemy_move 提供时走真出招
+ * （含效果挂载），否则回退固定反击（v1 行为，数值兼容）。
+ *
+ * @return string 'move' | 'counter'
+ */
+function battle_core_enemy_action_kind(&$state, $action)
+{
+    if ((int)$state['rules_version'] < 2 || empty($action['enemy_move'])) {
+        return 'counter';
+    }
+    return 'move';
+}
+
+/**
+ * 把敌方招式的效果临时挂到敌方出招单位（回合末剥离）。
+ * @return array|null mounted 标记（同 ally 挂载）
+ */
+function battle_core_mount_enemy_effects(&$state, $enemy_move)
+{
+    $effects = isset($enemy_move['effects']) && is_array($enemy_move['effects']) ? $enemy_move['effects'] : [];
+    if (empty($effects)) {
+        return null;
+    }
+    $enemy = battle_core_active_unit($state, 'enemy');
+    if ($enemy === null) {
+        return null;
+    }
+    foreach ($state['sides']['enemy'] as $i => $u) {
+        if ($u['slot'] === $enemy['slot']) {
+            $mounted = [$i, count($state['sides']['enemy'][$i]['effects'])];
+            foreach ($effects as $eff) {
+                if (battle_core_validate_effect($eff) === true) {
+                    $state['sides']['enemy'][$i]['effects'][] = $eff;
+                }
+            }
+            return $mounted;
+        }
+    }
+    return null;
+}
+
+function battle_core_strip_mounted_enemy_effects(&$state, $mounted)
+{
+    if ($mounted === null || !isset($state['sides']['enemy'][$mounted[0]])) {
+        return;
+    }
+    $state['sides']['enemy'][$mounted[0]]['effects'] = array_slice(
+        $state['sides']['enemy'][$mounted[0]]['effects'], 0, $mounted[1]
+    );
 }
 
 /**
@@ -1053,51 +1178,68 @@ function battle_core_apply_action($state, $action, $rng = null)
 
     $my_first = battle_core_effective_speed($state, $ally) >= battle_core_effective_speed($state, $enemy);
 
+    // rules_version 2：AI 招（敌方真出招，含效果挂载）；v1 保持固定反击
+    $enemy_move = null;
+    $enemy_mounted = null;
+    if (battle_core_enemy_action_kind($state, $action) === 'move') {
+        $enemy_move = battle_core_resolve_move_for_side($state, 'enemy', $action['enemy_move']);
+        $enemy_mounted = battle_core_mount_enemy_effects($state, $enemy_move);
+    }
+
+    /** 敌方行动（先手/后手路径共用） */
+    $enemy_act = function () use (&$state, &$events, $rng, $enemy_move) {
+        if ($enemy_move !== null) {
+            battle_core_actor_move($state, $events, $rng, 'enemy', $enemy_move);
+        } else {
+            battle_core_counter_attack($state, $events, $rng);
+        }
+    };
+
     if ($my_first) {
         // rules_version 2：行动前异常判定（睡眠/冰冻/麻痹可能无法出招，PP 不退）
         if (battle_core_pre_move_status($state, $events, $rng, 'ally')) {
-            battle_core_counter_attack($state, $events, $rng);
+            $enemy_act();
             if ($state['phase'] === 'awaiting_switch') {
-                battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+                battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
                 return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
             }
-            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         if (battle_core_pre_move_status($state, $events, $rng, 'ally')) {
-            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         battle_core_actor_move($state, $events, $rng, 'ally', $move);
         if ($state['phase'] === 'ended') {
             // 先手击倒：回合结束（旧版此时野怪不再反击）
-            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         if (battle_core_events_has($events, 'miss')) {
             $pp_refund = true;
         }
-        battle_core_counter_attack($state, $events, $rng);
+        $enemy_act();
         if ($state['phase'] === 'awaiting_switch') {
-            // 我方倒下待换宠：反击已发生，回合结算交还给端点
-            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            // 我方倒下待换宠：敌方行动已发生，回合结算交还给端点
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
     } else {
-        battle_core_counter_attack($state, $events, $rng);
+        $enemy_act();
         if ($state['phase'] === 'awaiting_switch') {
             // 后手被击倒、未及出手：按旧版语义退还 PP
             $pp_refund = true;
-            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         if (battle_core_pre_move_status($state, $events, $rng, 'ally')) {
-            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         battle_core_actor_move($state, $events, $rng, 'ally', $move);
         if ($state['phase'] === 'ended') {
-            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         if (battle_core_events_has($events, 'miss')) {
@@ -1105,7 +1247,7 @@ function battle_core_apply_action($state, $action, $rng = null)
         }
     }
 
-    battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+    battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng, $enemy_mounted);
     return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
 }
 
@@ -1166,8 +1308,8 @@ function battle_core_render_messages($events, $names)
         $p = $e['payload'];
         switch ($e['type']) {
             case 'move':
-                // 我方出招声明：记录技能名，与后续 damage/miss 合并成一条文案
-                if ($p['side'] === 'ally') {
+                // 出招声明：记录技能名，与后续 damage/miss 合并成一条文案
+                if ($p['side'] === 'ally' || $p['side'] === 'enemy') {
                     $pending_skill_name = ($p['skill'] && $p['skill']['name'] !== null && $p['skill']['name'] !== '')
                         ? $p['skill']['name'] : '普通攻击';
                 }
@@ -1176,6 +1318,9 @@ function battle_core_render_messages($events, $names)
                 if ($p['side'] === 'ally') {
                     $skill_name = $pending_skill_name !== null ? $pending_skill_name : '普通攻击';
                     $out[] = "{$ally_name}使用了{$skill_name}，对{$enemy_name}造成了{$p['amount']}点伤害！";
+                } elseif ($pending_skill_name !== null) {
+                    // AI 招（rules_version 2）：显示技能名
+                    $out[] = "{$enemy_name}使用了{$pending_skill_name}，对{$ally_name}造成了{$p['amount']}点伤害！";
                 } else {
                     $out[] = "{$enemy_name}攻击了{$ally_name}，造成了{$p['amount']}点伤害！";
                 }

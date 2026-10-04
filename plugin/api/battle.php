@@ -345,6 +345,54 @@ function battle_inject_ally_fresh_state(&$state, $mypokemon, $mydata)
 }
 
 /**
+ * 敌方 AI 选招（rules_version 2）：按 pm_skill.available_pokemons 匹配野怪
+ * 种族（FIND_IN_SET 容忍 k 哨兵），level_required <= 野怪等级，取前 4 招
+ * 评分选择。Boss 恒定最优，普通野怪 70% 最优（难度分级）。
+ * v1 战斗或无可用技能返回 null（核心回退固定反击，数值兼容）。
+ */
+function battle_pick_enemy_move(&$state)
+{
+    if ((int)$state['rules_version'] < 2) {
+        return null;
+    }
+    $enemy = battle_core_active_unit($state, 'enemy');
+    if ($enemy === null) {
+        return null;
+    }
+    static $cache = [];
+    $species_id = (int)$enemy['species_id'];
+    $level = (int)$enemy['level'];
+    $key = $species_id . ':' . $level;
+    if (!isset($cache[$key])) {
+        $rows = DB::fetch_all(pm_sql(
+            "SELECT s.id, s.name, s.power, s.element, s.category, s.effect_id
+             FROM " . pm_table('pm_skill') . " s
+             WHERE FIND_IN_SET(%d, REPLACE(s.available_pokemons, '|', ',')) > 0
+               AND s.level_required <= %d
+             ORDER BY s.id LIMIT 4",
+            $species_id, $level
+        ));
+        $moves = [];
+        foreach ((array)$rows as $row) {
+            $moves[] = [
+                'id' => (int)$row['id'],
+                'name' => $row['name'],
+                'power' => (int)$row['power'],
+                'type' => $row['element'] ?: '',
+                'category' => api_normalize_skill_category($row['category']),
+                'effects' => battle_skill_effects($row),
+            ];
+        }
+        $cache[$key] = $moves;
+    }
+    if (empty($cache[$key])) {
+        return null;
+    }
+    $chance = ($state['kind'] === 'boss') ? 100 : 70;
+    return battle_core_ai_pick_move($state, $cache[$key], null, $chance);
+}
+
+/**
  * 技能效果装载：pm_skill.effect_id -> pm_effect 行 -> 核心效果声明。
  * params_json 内嵌核心效果 code 与参数；声明经 battle_core_validate_effect
  * 严格校验，未知/坏数据直接丢弃（返回空），不进入战斗。
@@ -894,6 +942,12 @@ function api_use_skill()
             ));
         } else {
             $action = array('type' => 'struggle', 'fallback_type' => $mydata['xs']);
+        }
+
+        // 敌方 AI 选招（v2）：野怪从自身种族可用技能里选招，而非固定反击
+        $enemy_move = battle_pick_enemy_move($state);
+        if ($enemy_move !== null) {
+            $action['enemy_move'] = $enemy_move;
         }
 
         // ===== 纯核心计算一整回合（先手判定 -> 出招 -> 反击 -> 胜负）=====
