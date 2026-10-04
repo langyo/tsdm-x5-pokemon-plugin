@@ -17,6 +17,7 @@
  * - GET  ?action=get_battle_items 获取战斗可用物品
  * - GET  ?action=maps          获取地图列表
  * - GET  ?action=recover       恢复战斗状态
+ * - GET  ?action=battle_log   查询战报（事件流 + 可分享 BBCode）
  */
 
 // 加载 API 辅助函数（包含 get_param, api_error 等）
@@ -31,6 +32,14 @@ global $_G;
 $settings = isset($_G['cache']['plugin']['pokemon']) ? $_G['cache']['plugin']['pokemon'] : array();
 
 $action = get_param('action', '');
+
+// battle_log 只依赖战斗核心与持久化帮助函数
+if ($action === 'battle_log') {
+    require_once __DIR__ . '/index.php';
+    require_once __DIR__ . '/battle_core.php';
+    battle_api_get_battle_log();
+    exit;
+}
 
 // maps 接口不需要加载额外的依赖
 if ($action === 'maps') {
@@ -225,6 +234,15 @@ function battle_ensure_tables()
  */
 function battle_load_active($uid, $myusersdata, $mypokemon)
 {
+    // 生命周期：超过 24h 无更新的进行中战斗视为超时放弃（惰性清理 + 镜像清零）
+    DB::query(pm_sql(
+        "UPDATE " . pm_table('pm_battle') . "
+        SET phase = 'ended', result = 'abandoned', updated_at = %d
+        WHERE uid = %d AND phase IN ('active', 'awaiting_switch')
+          AND updated_at > 0 AND updated_at < %d",
+        time(), $uid, time() - 86400
+    ));
+
     $row = DB::fetch_first(pm_sql(
         "SELECT * FROM " . pm_table('pm_battle') . "
         WHERE uid = %d AND phase IN ('active', 'awaiting_switch')
@@ -634,6 +652,87 @@ function battle_render_counter_messages($events, $mypokemon, $enemy_name, $can_s
     ));
 }
 
+/**
+ * 查询战报（GET ?action=battle_log&battle_id=N）。
+ *
+ * 返回事件流（版本化）、按事件渲染的逐行文案，以及可直接粘贴到帖子的
+ * BBCode 摘要（对局信息 + 逐回合战报）。只能查询本人参与的对局。
+ */
+function battle_api_get_battle_log()
+{
+    require_login();
+    battle_ensure_tables();
+
+    global $_G;
+    $battle_id = intval(get_param('battle_id', 0));
+    if ($battle_id <= 0) {
+        api_error('Invalid battle_id', 400);
+    }
+
+    $battle = DB::fetch_first(pm_sql(
+        "SELECT * FROM " . pm_table('pm_battle') . " WHERE id = %d AND uid = %d",
+        $battle_id, $_G['uid']
+    ));
+    if (!$battle) {
+        api_error('Battle not found', 404);
+    }
+    $units = DB::fetch_all(pm_sql(
+        "SELECT * FROM " . pm_table('pm_battle_unit') . " WHERE battle_id = %d",
+        $battle_id
+    ));
+    $event_rows = DB::fetch_all(pm_sql(
+        "SELECT turn, seq, type, payload_json FROM " . pm_table('pm_battle_event') . "
+        WHERE battle_id = %d ORDER BY seq ASC",
+        $battle_id
+    ));
+
+    $events = [];
+    foreach ((array)$event_rows as $row) {
+        $events[] = [
+            'turn' => (int)$row['turn'],
+            'seq' => (int)$row['seq'],
+            'type' => strval($row['type']),
+            'payload' => json_decode($row['payload_json'], true),
+        ];
+    }
+
+    // 显示名：从单位快照取（我方显示名/野怪种族名）
+    $names = ['ally' => '我方', 'enemy' => '野怪'];
+    foreach ((array)$units as $u) {
+        if ($u['side'] === 'ally') {
+            $names['ally'] = $u['name'] ?: $u['species_name'];
+        } else {
+            $names['enemy'] = $u['species_name'] ?: $u['name'];
+        }
+    }
+    $lines = battle_core_render_messages($events, $names);
+
+    // BBCode：可直接分享到帖子
+    $bbcode = "[quote]" . ($battle['kind'] === 'boss' ? '[BOSS战]' : '[野外战斗]') . " 回合数 {$battle['turn']}
+";
+    $bbcode .= "{$names['ally']} vs {$names['enemy']}
+";
+    foreach ($lines as $line) {
+        $bbcode .= $line . "
+";
+    }
+    $bbcode .= "[/quote]";
+
+    api_success([
+        'battle_id' => (int)$battle_id,
+        'kind' => strval($battle['kind']),
+        'turn' => (int)$battle['turn'],
+        'phase' => strval($battle['phase']),
+        'result' => strval($battle['result']),
+        'rules_version' => (int)$battle['rules_version'],
+        'schema_version' => BATTLE_EVENT_SCHEMA_VERSION,
+        'names' => $names,
+        'lines' => $lines,
+        'events' => $events,
+        'bbcode' => $bbcode,
+    ]);
+}
+
 switch ($action) {
     case 'start':
     case 'start':
@@ -754,6 +853,18 @@ function api_start_battle()
         WHERE uid = %d AND phase IN ('active', 'awaiting_switch')",
         time(), $_G['uid']
     ));
+
+    // 战报保留 30 天：清理该用户过期的已结束对局与事件（战报留存期）
+    $stale = DB::fetch_all(pm_sql(
+        "SELECT id FROM " . pm_table('pm_battle') . "
+        WHERE uid = %d AND phase = 'ended' AND updated_at > 0 AND updated_at < %d",
+        $_G['uid'], time() - 2592000
+    ));
+    foreach ((array)$stale as $stale_row) {
+        DB::query(pm_sql("DELETE FROM " . pm_table('pm_battle_event') . " WHERE battle_id = %d", intval($stale_row['id'])));
+        DB::query(pm_sql("DELETE FROM " . pm_table('pm_battle_unit') . " WHERE battle_id = %d", intval($stale_row['id'])));
+        DB::query(pm_sql("DELETE FROM " . pm_table('pm_battle') . " WHERE id = %d", intval($stale_row['id'])));
+    }
 
     $mydata = pm_data($mypokemon['species_id']);
     list($mpmhp, $matk, $mdef, $mspatk, $mspdef, $msd) = battle_calc_my_stats($mydata, $mypokemon);

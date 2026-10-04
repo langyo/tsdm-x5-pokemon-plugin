@@ -27,6 +27,7 @@ $wanted = [
     'battle_render_counter_messages',
     'battle_skill_effects',
     'battle_pick_enemy_move',
+    'battle_api_get_battle_log',
     'api_normalize_skill_category', 'battle_calc_my_stats',
     'calculate_rewards', 'apply_rewards', 'clear_battle_state',
     'handle_my_pokemon_fainted', 'build_battle_response',
@@ -77,6 +78,10 @@ function pm_abort_battle_transaction($message, $status = 400)
 function api_success($data) { throw new BattleApiResponse('success', 200, $data); }
 function require_login() {}
 function get_json_input() { return $GLOBALS['input']; }
+function get_param($key, $default = null)
+{
+    return isset($GLOBALS['input'][$key]) ? $GLOBALS['input'][$key] : $default;
+}
 function pm_table($name) { return $name; }
 function pm_sql($sql, ...$args)
 {
@@ -194,6 +199,11 @@ class DB
             return;
         }
         // pm_battle UPDATE from persist
+        // lifecycle timeout sweep: fixtures are fresh, so it must be a no-op here
+        if (preg_match('/^UPDATE pm_battle\b.*?updated_at </s', $sql)) {
+            self::$affected = 0;
+            return;
+        }
         if (preg_match('/^UPDATE pm_battle\b.*?SET/s', $sql)) {
             if (preg_match("/WHERE id = (\d+)/", $sql, $m) && isset(self::$battles[(int)$m[1]])) {
                 $row = &self::$battles[(int)$m[1]];
@@ -246,7 +256,16 @@ class DB
             return;
         }
         if (preg_match('/^INSERT INTO pm_battle_event\b/', $sql)) {
-            self::$events[] = $sql;
+            if (preg_match('/VALUES \((.*)\)$/s', $sql, $vm)) {
+                $vals = str_getcsv($vm[1], ',', chr(39), chr(92));
+                self::$events[] = [
+                    'battle_id' => (int)(isset($vals[0]) ? $vals[0] : 0),
+                    'turn' => (int)(isset($vals[1]) ? $vals[1] : 0),
+                    'seq' => (int)(isset($vals[2]) ? $vals[2] : 0),
+                    'type' => isset($vals[3]) ? trim($vals[3], chr(39) . ' ') : '',
+                    'payload_json' => isset($vals[4]) ? trim($vals[4], chr(39) . ' ') : '{}',
+                ];
+            }
             self::$affected = 1;
             return;
         }
@@ -370,6 +389,9 @@ class DB
         if (strpos($sql, 'FOR UPDATE') !== false) {
             return ['uid' => 1];
         }
+        if (preg_match('/FROM pm_battle\b.*?WHERE id = (\d+) AND uid = \d+/s', $sql, $m)) {
+            return isset(self::$battles[(int)$m[1]]) ? self::$battles[(int)$m[1]] : false;
+        }
         if (preg_match('/FROM pm_battle\b.*?WHERE uid = \d+ AND phase IN/s', $sql)) {
             $cands = array_values(array_filter(self::$battles, function ($b) {
                 return $b['uid'] === 1 && in_array($b['phase'], ['active', 'awaiting_switch'], true);
@@ -461,6 +483,11 @@ class DB
 
     public static function fetch_all($sql)
     {
+        if (preg_match('/FROM pm_battle_event\b.*?WHERE battle_id = (\d+)/s', $sql, $m)) {
+            return array_values(array_filter(self::$events, function ($e) use ($m) {
+                return (int)$e['battle_id'] === (int)$m[1];
+            }));
+        }
         if (preg_match('/FROM pm_mypm\b.*?site < 3 AND hp > 0 AND state != 0\s+ORDER BY/s', $sql)) {
             $rows = array_values(array_filter(self::$mypm, function ($pm) {
                 return (int)$pm['site'] < 3 && (int)$pm['hp'] > 0 && (int)$pm['state'] != 0;
@@ -1122,6 +1149,42 @@ check('ground move hit the electric pet super-effectively', (function () use ($n
     return false;
 })());
 check('AI message mentions the enemy move', strpos($nb['message'], '泥巴射击') !== false);
+
+
+
+echo "=== scenario O: battle log query and share BBCode ===" . PHP_EOL;
+seed_battle(80, 15, 30, 42);
+seed_pet_and_party(100, 0);
+$r = run_turn();
+$ob = $r->data;
+$battle_id = null;
+foreach (DB::$battles as $row) {
+    if (in_array($row['phase'], ['active', 'awaiting_switch'], true)) {
+        $battle_id = (int)$row['id'];
+    }
+}
+check('an active battle id exists', $battle_id !== null);
+$GLOBALS['input'] = ['battle_id' => $battle_id];
+$log = null;
+try {
+    battle_api_get_battle_log();
+} catch (BattleApiResponse $orr) {
+    $log = $orr->data;
+}
+check('battle log responds', isset($log) && $log !== null && $log['battle_id'] === $battle_id);
+check('log carries the event stream', is_array($log['events']) && count($log['events']) >= 3);
+check('log renders legacy-style lines', is_array($log['lines']) && count($log['lines']) >= 1);
+check('log exposes shareable bbcode', strpos($log['bbcode'], '[quote]') === 0 && strpos($log['bbcode'], '[/quote]') !== false);
+check('log reports the rules version', $log['rules_version'] === 2);
+// ownership: someone else's battle id must 404
+$GLOBALS['input'] = ['battle_id' => $battle_id + 9999];
+$denied = null;
+try {
+    battle_api_get_battle_log();
+} catch (BattleApiResponse $orr2) {
+    $denied = $orr2->getCode();
+}
+check('foreign battle log rejected', $denied === 404);
 
 
 echo "\n";
