@@ -242,6 +242,71 @@ CREATE TABLE IF NOT EXISTS `pm_pc` (
     KEY `idx_uid` (`uid`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+
+-- 战斗引擎 2.0 对局表 (X5 新增)
+CREATE TABLE IF NOT EXISTS `pm_battle` (
+    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    `uid` mediumint(8) unsigned NOT NULL,
+    `kind` varchar(10) NOT NULL DEFAULT 'wild',
+    `map_id` int(10) unsigned NOT NULL DEFAULT 0,
+    `turn` int(10) unsigned NOT NULL DEFAULT 0,
+    `phase` varchar(20) NOT NULL DEFAULT 'active',
+    `result` varchar(10) NOT NULL DEFAULT '',
+    `rng_seed` bigint(20) NOT NULL DEFAULT 0,
+    `rng_counter` int(10) unsigned NOT NULL DEFAULT 0,
+    `event_seq` int(10) unsigned NOT NULL DEFAULT 0,
+    `rules_version` int(10) unsigned NOT NULL DEFAULT 1,
+    `state_version` int(10) unsigned NOT NULL DEFAULT 2,
+    `field_json` text NOT NULL,
+    `created_at` int(10) unsigned NOT NULL DEFAULT 0,
+    `updated_at` int(10) unsigned NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    KEY `idx_uid` (`uid`),
+    KEY `idx_uid_phase` (`uid`, `phase`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- 战斗引擎 2.0 参战单位表 (X5 新增)
+CREATE TABLE IF NOT EXISTS `pm_battle_unit` (
+    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    `battle_id` bigint(20) unsigned NOT NULL,
+    `side` varchar(5) NOT NULL DEFAULT 'ally',
+    `slot` tinyint(3) unsigned NOT NULL DEFAULT 0,
+    `instance_id` int(10) unsigned NOT NULL DEFAULT 0,
+    `species_id` mediumint(8) unsigned NOT NULL DEFAULT 0,
+    `name` varchar(60) NOT NULL DEFAULT '',
+    `species_name` varchar(60) NOT NULL DEFAULT '',
+    `level` smallint(5) unsigned NOT NULL DEFAULT 1,
+    `stats_json` text NOT NULL,
+    `types_json` text NOT NULL,
+    `hp` int(10) NOT NULL DEFAULT 0,
+    `stages_json` text NOT NULL,
+    `status_json` text NOT NULL,
+    `volatile_json` text NOT NULL,
+    `buffs_json` text NOT NULL,
+    `effects_json` text NOT NULL,
+    `fainted` tinyint(1) NOT NULL DEFAULT 0,
+    `gender` tinyint(1) NOT NULL DEFAULT 0,
+    `is_shiny` tinyint(1) NOT NULL DEFAULT 0,
+    `capture_rate` smallint(5) unsigned NOT NULL DEFAULT 0,
+    `boss_multiplier` float NOT NULL DEFAULT 1,
+    PRIMARY KEY (`id`),
+    KEY `idx_battle` (`battle_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- 战斗引擎 2.0 战报事件表 (X5 新增)
+CREATE TABLE IF NOT EXISTS `pm_battle_event` (
+    `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    `battle_id` bigint(20) unsigned NOT NULL,
+    `turn` int(10) unsigned NOT NULL DEFAULT 0,
+    `seq` int(10) unsigned NOT NULL DEFAULT 0,
+    `type` varchar(30) NOT NULL DEFAULT '',
+    `payload_json` text NOT NULL,
+    `schema_version` smallint(5) unsigned NOT NULL DEFAULT 1,
+    `created_at` int(10) unsigned NOT NULL DEFAULT 0,
+    PRIMARY KEY (`id`),
+    KEY `idx_battle_turn` (`battle_id`, `turn`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
 ALTER TABLE pre_common_member_field_forum ADD COLUMN IF NOT EXISTS pokemon TEXT AFTER medals;
 
 EOF;

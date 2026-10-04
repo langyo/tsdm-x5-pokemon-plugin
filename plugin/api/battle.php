@@ -42,6 +42,9 @@ if ($action === 'maps') {
 // 加载 API 工具函数（包含经验计算、状态修正等）
 require_once __DIR__ . '/utils.php';
 
+// 加载战斗引擎 2.0 纯函数核心（issue #75 第一阶段）
+require_once __DIR__ . '/battle_core.php';
+
 // 加载 Boss 系统 API 函数
 require_once __DIR__ . '/boss.php';
 
@@ -106,6 +109,313 @@ function pm_data($id)
         return false;
     }
     return DB::fetch_first(pm_sql("SELECT * FROM " . pm_table('pm_data') . " WHERE id = %d", $id));
+}
+
+/* ======================================================================
+ * 战斗引擎 2.0 持久化层（issue #75 第一阶段）
+ *
+ * 权威状态在 pm_battle / pm_battle_unit / pm_battle_event；pm_usersdata
+ * 旧列（npcid/level/hp/...）作为镜像投影继续写入：尚未迁移到新引擎的
+ * 端点（capture / use_item / switch / replace）与 build_battle_response
+ * 都读旧列，镜像保证它们行为不变。后续阶段逐端点迁移后再废弃旧列。
+ * ==================================================================== */
+
+/**
+ * 惰性建表（老站点升级路径，幂等）。
+ * DDL 与 docker/init.d/02-pokemon-schema.sql、plugin/install.php 保持一致。
+ */
+function battle_ensure_tables()
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_battle') . " (
+        `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        `uid` mediumint(8) unsigned NOT NULL,
+        `kind` varchar(10) NOT NULL DEFAULT 'wild',
+        `map_id` int(10) unsigned NOT NULL DEFAULT 0,
+        `turn` int(10) unsigned NOT NULL DEFAULT 0,
+        `phase` varchar(20) NOT NULL DEFAULT 'active',
+        `result` varchar(10) NOT NULL DEFAULT '',
+        `rng_seed` bigint(20) NOT NULL DEFAULT 0,
+        `rng_counter` int(10) unsigned NOT NULL DEFAULT 0,
+        `event_seq` int(10) unsigned NOT NULL DEFAULT 0,
+        `rules_version` int(10) unsigned NOT NULL DEFAULT 1,
+        `state_version` int(10) unsigned NOT NULL DEFAULT 2,
+        `field_json` text NOT NULL,
+        `created_at` int(10) unsigned NOT NULL DEFAULT 0,
+        `updated_at` int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY (`id`),
+        KEY `idx_uid` (`uid`),
+        KEY `idx_uid_phase` (`uid`, `phase`)
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci");
+    DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_battle_unit') . " (
+        `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        `battle_id` bigint(20) unsigned NOT NULL,
+        `side` varchar(5) NOT NULL DEFAULT 'ally',
+        `slot` tinyint(3) unsigned NOT NULL DEFAULT 0,
+        `instance_id` int(10) unsigned NOT NULL DEFAULT 0,
+        `species_id` mediumint(8) unsigned NOT NULL DEFAULT 0,
+        `name` varchar(60) NOT NULL DEFAULT '',
+        `species_name` varchar(60) NOT NULL DEFAULT '',
+        `level` smallint(5) unsigned NOT NULL DEFAULT 1,
+        `stats_json` text NOT NULL,
+        `types_json` text NOT NULL,
+        `hp` int(10) NOT NULL DEFAULT 0,
+        `stages_json` text NOT NULL,
+        `status_json` text NOT NULL,
+        `volatile_json` text NOT NULL,
+        `buffs_json` text NOT NULL,
+        `effects_json` text NOT NULL,
+        `fainted` tinyint(1) NOT NULL DEFAULT 0,
+        `gender` tinyint(1) NOT NULL DEFAULT 0,
+        `is_shiny` tinyint(1) NOT NULL DEFAULT 0,
+        `capture_rate` smallint(5) unsigned NOT NULL DEFAULT 0,
+        `boss_multiplier` float NOT NULL DEFAULT 1,
+        PRIMARY KEY (`id`),
+        KEY `idx_battle` (`battle_id`)
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci");
+    DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_battle_event') . " (
+        `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        `battle_id` bigint(20) unsigned NOT NULL,
+        `turn` int(10) unsigned NOT NULL DEFAULT 0,
+        `seq` int(10) unsigned NOT NULL DEFAULT 0,
+        `type` varchar(30) NOT NULL DEFAULT '',
+        `payload_json` text NOT NULL,
+        `schema_version` smallint(5) unsigned NOT NULL DEFAULT 1,
+        `created_at` int(10) unsigned NOT NULL DEFAULT 0,
+        PRIMARY KEY (`id`),
+        KEY `idx_battle_turn` (`battle_id`, `turn`)
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci");
+}
+
+/**
+ * 载入用户进行中的战斗（新表优先）。
+ *
+ * 升级部署瞬间进行中的老战斗（pm_usersdata.npcid>0、新表无行）在此惰性
+ * 迁移：旧列快照升级为引擎状态并落库，之后按新表走，客户端无感知。
+ *
+ * @return array|null 引擎状态；无进行中战斗返回 null
+ */
+function battle_load_active($uid, $myusersdata, $mypokemon)
+{
+    $row = DB::fetch_first(pm_sql(
+        "SELECT * FROM " . pm_table('pm_battle') . "
+        WHERE uid = %d AND phase IN ('active', 'awaiting_switch')
+        ORDER BY id DESC LIMIT 1",
+        $uid
+    ));
+    if ($row) {
+        $units = DB::fetch_all(pm_sql(
+            "SELECT * FROM " . pm_table('pm_battle_unit') . " WHERE battle_id = %d",
+            $row['id']
+        ));
+        return battle_state_from_rows($row, $units);
+    }
+
+    // 惰性迁移：旧列里有进行中的战斗
+    if (empty($myusersdata['npcid']) || $myusersdata['npcid'] <= 0) {
+        return null;
+    }
+    $npc = pm_data($myusersdata['npcid']);
+    if (!$npc) {
+        return null;
+    }
+
+    $mydata = pm_data($mypokemon['species_id']);
+    if (!$mydata) {
+        return null;
+    }
+    list($mpmhp, $matk, $mdef, $mspatk, $mspdef, $msd) = battle_calc_my_stats($mydata, $mypokemon);
+
+    $state = battle_core_state_from_legacy(
+        $myusersdata,
+        [
+            'instance_id' => intval($mypokemon['id']),
+            'species_id' => intval($mypokemon['species_id']),
+            'name' => $mypokemon['nickname'] ?: $mypokemon['pmname'],
+            'species_name' => $mypokemon['pmname'],
+            'level' => intval($mypokemon['level']),
+            'hp' => intval($mypokemon['hp']),
+            'stats' => [
+                'max_hp' => $mpmhp, 'atk' => $matk, 'def' => $mdef,
+                'spatk' => $mspatk, 'spdef' => $mspdef, 'speed' => $msd,
+            ],
+            'types' => [$mydata['xs'], $mydata['xs2']],
+        ],
+        [
+            'species_name' => $npc['name'],
+            'types' => [$npc['xs'], $npc['xs2']],
+            // 旧列未存地图（start 未落库 map_id），迁移后 map_id=0 与 recover 行为一致
+            'map_id' => 0,
+            'rng_seed' => mt_rand(1, 2147483647),
+            'is_boss' => false,
+            'boss_multiplier' => 1.0,
+        ]
+    );
+    $state['uid'] = intval($uid);
+
+    $events = [];
+    battle_core_emit($state, $events, 'battle_start', ['kind' => $state['kind'], 'map_id' => 0, 'migrated' => true]);
+    return battle_persist_state($state, $events);
+}
+
+/**
+ * 每回合把我方最新状态注入引擎单位（HP/等级/六维）。
+ *
+ * 与旧版"每回合 battle_calc_my_stats 现算"的行为一致：战斗中治疗、升级、
+ * 换装都会在下一回合生效；野怪六维是开战快照（旧版同样直接读旧列）。
+ */
+function battle_inject_ally_fresh_state(&$state, $mypokemon, $mydata)
+{
+    list($mpmhp, $matk, $mdef, $mspatk, $mspdef, $msd) = battle_calc_my_stats($mydata, $mypokemon);
+    $fresh = [
+        'level' => intval($mypokemon['level']),
+        'hp' => intval($mypokemon['hp']),
+        'stats' => [
+            'max_hp' => $mpmhp, 'atk' => $matk, 'def' => $mdef,
+            'spatk' => $mspatk, 'spdef' => $mspdef, 'speed' => $msd,
+        ],
+    ];
+    foreach ($state['sides']['ally'] as $i => $unit) {
+        if ($unit['instance_id'] !== intval($mypokemon['id'])) {
+            continue;
+        }
+        $state['sides']['ally'][$i] = array_merge($unit, $fresh);
+        $state['sides']['ally'][$i]['fainted'] = ((int)$mypokemon['hp'] <= 0);
+        return;
+    }
+    // 上场宠物不在战斗单位里（主动/被动换宠后 instance_id 变了）：
+    // 优先替换倒下位（被动替换），否则替换当前行动位（主动切换，旧宠物可能仍存活）。
+    // 若不替换，回合会按旧宠物快照结算、并把旧宠物的反击后 HP 写进新宠物的 pm_mypm 行。
+    $replace_index = null;
+    foreach ($state['sides']['ally'] as $i => $unit) {
+        if ($unit['fainted']) {
+            $replace_index = $i;
+            break;
+        }
+    }
+    if ($replace_index === null) {
+        foreach ($state['sides']['ally'] as $i => $unit) {
+            if (!$unit['fainted']) {
+                $replace_index = $i;
+                break;
+            }
+        }
+    }
+    if ($replace_index !== null) {
+        $state['sides']['ally'][$replace_index] = battle_core_make_unit([
+            'slot' => $state['sides']['ally'][$replace_index]['slot'],
+            'instance_id' => intval($mypokemon['id']),
+            'species_id' => intval($mypokemon['species_id']),
+            'name' => $mypokemon['nickname'] ?: $mypokemon['pmname'],
+            'species_name' => $mypokemon['pmname'],
+            'level' => intval($mypokemon['level']),
+            'hp' => intval($mypokemon['hp']),
+            'stats' => $fresh['stats'],
+            'types' => [$mydata['xs'], $mydata['xs2']],
+        ]);
+    }
+}
+
+/**
+ * 引擎状态落库（pm_battle + pm_battle_unit + pm_battle_event + 旧列镜像）。
+ *
+ * 单位行用 DELETE + 重插（单位数 <=2、回合级调用，简单可靠）；事件只追加。
+ * ended 状态由 battle_finish / clear_battle_state 负责清镜像，这里不重复。
+ *
+ * @param array $state
+ * @param array $new_events 本回合新增事件（写 pm_battle_event）
+ * @return array 落库后的状态（battle_id 回填）
+ */
+function battle_persist_state($state, $new_events = [])
+{
+    $rows = battle_state_to_rows($state);
+    $b = $rows['battle'];
+    $now = time();
+
+    if (!empty($state['battle_id'])) {
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_battle') . " SET
+                kind = %s, map_id = %d, turn = %d, phase = %s, result = %s,
+                rng_seed = %d, rng_counter = %d, event_seq = %d,
+                rules_version = %d, state_version = %d, field_json = %s, updated_at = %d
+            WHERE id = %d",
+            $b['kind'], $b['map_id'], $b['turn'], $b['phase'], $b['result'],
+            $b['rng_seed'], $b['rng_counter'], $b['event_seq'],
+            $b['rules_version'], $b['state_version'], $b['field_json'], $now,
+            $state['battle_id']
+        ));
+    } else {
+        DB::query(pm_sql(
+            "INSERT INTO " . pm_table('pm_battle') . "
+                (uid, kind, map_id, turn, phase, result, rng_seed, rng_counter,
+                 event_seq, rules_version, state_version, field_json, created_at, updated_at)
+            VALUES (%d, %s, %d, %d, %s, %s, %d, %d, %d, %d, %d, %s, %d, %d)",
+            $b['uid'], $b['kind'], $b['map_id'], $b['turn'], $b['phase'], $b['result'],
+            $b['rng_seed'], $b['rng_counter'], $b['event_seq'],
+            $b['rules_version'], $b['state_version'], $b['field_json'], $now, $now
+        ));
+        $state['battle_id'] = intval(DB::insert_id());
+    }
+
+    DB::query(pm_sql("DELETE FROM " . pm_table('pm_battle_unit') . " WHERE battle_id = %d", $state['battle_id']));
+    foreach ($rows['units'] as $u) {
+        DB::query(pm_sql(
+            "INSERT INTO " . pm_table('pm_battle_unit') . "
+                (battle_id, side, slot, instance_id, species_id, name, species_name, level,
+                 stats_json, types_json, hp, stages_json, status_json, volatile_json,
+                 buffs_json, effects_json, fainted, gender, is_shiny, capture_rate, boss_multiplier)
+            VALUES (%d, %s, %d, %d, %d, %s, %s, %d, %s, %s, %d, %s, %s, %s, %s, %s, %d, %d, %d, %d, %s)",
+            $state['battle_id'], $u['side'], $u['slot'], $u['instance_id'], $u['species_id'],
+            $u['name'], $u['species_name'], $u['level'], $u['stats_json'], $u['types_json'],
+            $u['hp'], $u['stages_json'], $u['status_json'], $u['volatile_json'],
+            $u['buffs_json'], $u['effects_json'], $u['fainted'], $u['gender'],
+            $u['is_shiny'], $u['capture_rate'], sprintf('%.4F', $u['boss_multiplier'])
+        ));
+    }
+
+    foreach ($new_events as $e) {
+        DB::query(pm_sql(
+            "INSERT INTO " . pm_table('pm_battle_event') . "
+                (battle_id, turn, seq, type, payload_json, schema_version, created_at)
+            VALUES (%d, %d, %d, %s, %s, %d, %d)",
+            $state['battle_id'], intval($e['turn']), intval($e['seq']),
+            strval($e['type']), json_encode($e['payload']), BATTLE_EVENT_SCHEMA_VERSION, $now
+        ));
+    }
+
+    if ($state['phase'] !== 'ended') {
+        battle_mirror_legacy($state);
+    }
+    return $state;
+}
+
+/**
+ * 把引擎状态镜像写入 pm_usersdata 旧列（兼容投影，见文件头说明）。
+ * 野怪信息取敌方第一个单位；allure 编码与旧版一致 (gender<<1)|is_shiny。
+ */
+function battle_mirror_legacy($state)
+{
+    if (empty($state['sides']['enemy'])) {
+        return;
+    }
+    $enemy = $state['sides']['enemy'][0];
+    $allure = (((int)$enemy['gender']) << 1) | ($enemy['is_shiny'] ? 1 : 0);
+    DB::query(pm_sql(
+        "UPDATE " . pm_table('pm_usersdata') . " SET
+            npcid = %d, level = %d, hp = %d, hpg = %d,
+            atkg = %d, defg = %d, spatkg = %d, spdefg = %d, sdg = %d,
+            capture = %d, allure = %d
+        WHERE uid = %d",
+        $enemy['species_id'], $enemy['level'], $enemy['hp'], $enemy['stats']['max_hp'],
+        $enemy['stats']['atk'], $enemy['stats']['def'],
+        $enemy['stats']['spatk'], $enemy['stats']['spdef'], $enemy['stats']['speed'],
+        $enemy['capture_rate'], $allure,
+        $state['uid']
+    ));
 }
 
 switch ($action) {
@@ -217,33 +527,52 @@ function api_start_battle()
     // 编码到 allure 字段: (gender << 1) | (is_shiny ? 1 : 0)
     $allure_value = ($gender << 1) | ($is_shiny ? 1 : 0);
 
-    // 保存战斗状态到 pm_usersdata（不存储 is_boss 和 boss_multiplier，这些是运行时状态）
-    DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . " SET
-        npcid=%d,
-        level=%d,
-        hp=%d,
-        hpg=%d,
-        atkg=%d,
-        defg=%d,
-        spatkg=%d,
-        spdefg=%d,
-        sdg=%d,
-        capture=%d,
-        allure=%d
-        WHERE uid=%d",
-        $wild['npcid'],
-        $wild['level'],
-        $npcmhp,
-        $npcmhp,
-        $npcatk,
-        $npcdef,
-        $npcspatk,
-        $npcspdef,
-        $npcsd,
-        $wild['capture'],
-        $allure_value,
-        $_G['uid']
-    ));
+    // ===== 战斗引擎 2.0：状态入 pm_battle/pm_battle_unit，旧列作为镜像投影 =====
+    battle_ensure_tables();
+
+    $mydata = pm_data($mypokemon['species_id']);
+    list($mpmhp, $matk, $mdef, $mspatk, $mspdef, $msd) = battle_calc_my_stats($mydata, $mypokemon);
+
+    $state = battle_core_initial_state([
+        'uid' => intval($_G['uid']),
+        'kind' => $is_boss ? 'boss' : 'wild',
+        'map_id' => $map_id,
+        // 每场一个随机种子，回合内随机全部由 seed+counter 推导（可确定性重放）
+        'rng_seed' => mt_rand(1, 2147483647),
+        'allies' => [[
+            'instance_id' => intval($mypokemon['id']),
+            'species_id' => intval($mypokemon['species_id']),
+            'name' => $mypokemon['nickname'] ?: $mypokemon['pmname'],
+            'species_name' => $mypokemon['pmname'],
+            'level' => intval($mypokemon['level']),
+            'hp' => intval($mypokemon['hp']),
+            'stats' => [
+                'max_hp' => $mpmhp, 'atk' => $matk, 'def' => $mdef,
+                'spatk' => $mspatk, 'spdef' => $mspdef, 'speed' => $msd,
+            ],
+            'types' => [$mydata['xs'], $mydata['xs2']],
+        ]],
+        'enemies' => [[
+            'species_id' => intval($wild['npcid']),
+            'name' => $npc['name'],
+            'species_name' => $npc['name'],
+            'level' => intval($wild['level']),
+            'hp' => intval($npcmhp),
+            'stats' => [
+                'max_hp' => $npcmhp, 'atk' => $npcatk, 'def' => $npcdef,
+                'spatk' => $npcspatk, 'spdef' => $npcspdef, 'speed' => $npcsd,
+            ],
+            'types' => [$npc['xs'], $npc['xs2']],
+            'gender' => $gender,
+            'is_shiny' => $is_shiny,
+            'capture_rate' => intval($wild['capture']),
+            'boss_multiplier' => $boss_multiplier,
+        ]],
+    ]);
+
+    $start_events = [];
+    battle_core_emit($state, $start_events, 'battle_start', ['kind' => $state['kind'], 'map_id' => $map_id]);
+    $state = battle_persist_state($state, $start_events);
 
     // 重新获取用户数据
     $myusersdata = api_my_usersdata($_G['uid']);
@@ -282,6 +611,10 @@ function pm_refund_reserved_skill_pp($skill_id, $uid, $pet_id, $max_uses)
 
 /**
  * 使用技能攻击
+ *
+ * 战斗引擎 2.0：一回合一个事务（pm_usersdata 行锁串行化，沿用 #69-71
+ * 锁策略）。端点只做载入 -> battle_core_apply_action 纯核心 -> 落库 +
+ * 组响应；伤害/会心/闪避/先手公式与响应字段与旧版逐项一致。
  */
 function api_use_skill()
 {
@@ -309,357 +642,189 @@ function api_use_skill()
         api_error('当前宠物已倒下，请先更换宠物', 400);
     }
 
-    // 先确认当前宠物已学会技能，并原子预扣 PP，再进入战斗计算。
-    // 预扣是条件 UPDATE（skillnum > 0 才扣减）：并发请求只有一个能扣到，
-    // 扣不到说明 PP 已被并发回合消耗，直接拒绝，不产生任何战斗写入。
-    // 攻击被闪避或未及出手的回合由 pm_refund_reserved_skill_pp() 退还。
-    $skilldata = null;
-    $myskill = null;
-    if ($skill_id > 0) {
-        $skilldata = DB::fetch_first(pm_sql("SELECT * FROM " . pm_table('pm_skill') . " WHERE id = %d", $skill_id));
-        if (!$skilldata) {
-            api_error('技能不存在', 404);
-        }
+    battle_ensure_tables();
 
-        $myskill = DB::fetch_first(pm_sql(
-            "SELECT * FROM " . pm_table('pm_myskill') . "
-            WHERE skillid = %d AND uid = %d AND petid = %d",
-            $skill_id, $_G['uid'], $mypokemon['id']
+    // ===== 一回合一个事务 =====
+    // 以 pm_usersdata 战斗状态行的排他锁串行化同账号并发回合（#69-71 同款锁点）。
+    // api_error() 走 exit 语义，事务内的错误出口统一走 pm_abort_battle_transaction()。
+    DB::query("START TRANSACTION");
+    try {
+        DB::fetch_first(pm_sql(
+            "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
+            $_G['uid']
         ));
-        if (!$myskill) {
-            api_error('当前宠物尚未学会该技能', 400);
-        }
-        if ($myskill['skillnum'] <= 0 && $skilldata['max_uses'] != 0) {
-            api_error('Skill PP is depleted', 400);
-        }
-        if ($skilldata['max_uses'] != 0) {
-            DB::query(pm_sql("UPDATE " . pm_table('pm_myskill') . "
-                SET skillnum = skillnum - 1
-                WHERE skillid = %d AND uid = %d AND petid = %d AND skillnum > 0",
+
+        // 先确认当前宠物已学会技能，并原子预扣 PP，再进入战斗计算。
+        // 预扣是条件 UPDATE（skillnum > 0 才扣减）：并发请求只有一个能扣到，
+        // 扣不到说明 PP 已被并发回合消耗，直接拒绝，不产生任何战斗写入。
+        // 攻击被闪避或未及出手的回合由 pm_refund_reserved_skill_pp() 退还。
+        $skilldata = null;
+        $myskill = null;
+        if ($skill_id > 0) {
+            $skilldata = DB::fetch_first(pm_sql("SELECT * FROM " . pm_table('pm_skill') . " WHERE id = %d", $skill_id));
+            if (!$skilldata) {
+                pm_abort_battle_transaction('技能不存在', 404);
+            }
+
+            $myskill = DB::fetch_first(pm_sql(
+                "SELECT * FROM " . pm_table('pm_myskill') . "
+                WHERE skillid = %d AND uid = %d AND petid = %d",
                 $skill_id, $_G['uid'], $mypokemon['id']
             ));
-            if (!DB::affected_rows()) {
-                api_error('Skill PP is depleted', 400);
+            if (!$myskill) {
+                pm_abort_battle_transaction('当前宠物尚未学会该技能', 400);
+            }
+            if ($myskill['skillnum'] <= 0 && $skilldata['max_uses'] != 0) {
+                pm_abort_battle_transaction('Skill PP is depleted', 400);
+            }
+            if ($skilldata['max_uses'] != 0) {
+                DB::query(pm_sql("UPDATE " . pm_table('pm_myskill') . "
+                    SET skillnum = skillnum - 1
+                    WHERE skillid = %d AND uid = %d AND petid = %d AND skillnum > 0",
+                    $skill_id, $_G['uid'], $mypokemon['id']
+                ));
+                if (!DB::affected_rows()) {
+                    pm_abort_battle_transaction('Skill PP is depleted', 400);
+                }
             }
         }
-    }
 
-    // 获取地图信息
-    $map = null;
+        // ===== 载入战斗（新表优先；升级部署前的老战斗在此惰性迁移）=====
+        $myusersdata = api_my_usersdata($_G['uid']);
+        $state = battle_load_active($_G['uid'], $myusersdata, $mypokemon);
+        if ($state === null) {
+            pm_abort_battle_transaction('No active battle found', 400);
+        }
 
-    // 获取野怪信息
-    $npcid = $myusersdata['npcid'];
-    $npc_level = $myusersdata['level'];
-    $npc_hp = $myusersdata['hp'];
-    $npc_max_hp = $myusersdata['hpg'];
-    $npc = pm_data($npcid);
+        // 我方属性每回合现算注入（装备/治疗/换宠下一回合生效，与旧版行为一致）
+        $mydata = pm_data($mypokemon['species_id']);
+        if (!$mydata) {
+            pm_abort_battle_transaction('宠物数据异常', 500);
+        }
+        battle_inject_ally_fresh_state($state, $mypokemon, $mydata);
 
-    // 获取我方宠物基础数据
-    $mydata = pm_data($mypokemon['species_id']);
-
-    // 计算属性（已包含装备加成）
-    list($mpmhp, $matk, $mdef, $mspatk, $mspdef, $msd) = battle_calc_my_stats($mydata, $mypokemon);
-
-    list($npcmhp, $npcatk, $npcdef, $npcspatk, $npcspdef, $npcsd) = battle_calc_npc_stats(
-        $npc,
-        $myusersdata,
-        $myusersdata['strength'] * $npc['strength']
-    );
-
-    // 获取技能信息
-    $skillname = '普通攻击';
-    $power = 30;
-    $skill_type = $mydata['xs'];
-    $skill_category = 0;
-
-    if ($skill_id > 0) {
-        $skillname = $skilldata['name'];
-        $power = intval($skilldata['power']) ?: 40;
-        // pm_skill 的属性列是 element（曾误用不存在的 sx 列导致技能属性恒为宠物自身属性）
-        $skill_type = $skilldata['element'] ?: $mydata['xs'];
-        // pm_skill.category 存中文（'物攻'/'特攻'），intval 恒为 0，需按字符串判断
-        $skill_category = api_normalize_skill_category($skilldata['category']);
-    }
-
-    // 决定先手
-    $my_first = ($msd >= $npcsd);
-
-    $damage_log = [];
-    $battle_status = 'active';
-    $battle_ended = false;
-    $can_switch = false;
-    $rewards = null;
-    $level_up_info = null;
-
-    // 我方攻击
-    if ($my_first) {
-        $damage = calculate_damage_legacy(
-            $mypokemon['level'],
-            $matk,
-            $npcdef,
-            $mspatk,
-            $npcspdef,
-            $power,
-            $skill_type,
-            $skill_category,
-            $mydata,
-            $npc
-        );
-
-        // 检查闪避
-        if (($npcsd - $msd) >= 10 && rand(1, 20) <= 4) {
-            $damage_log[] = "{$npc['name']}避开了{$mypokemon['nickname']}的攻击！";
-            // 攻击未命中，归还预扣的 PP
-            pm_refund_reserved_skill_pp($skill_id, $_G['uid'], $mypokemon['id'], $skilldata ? $skilldata['max_uses'] : 0);
+        // 构造行动（技能规约与旧版一致：power 空/0 回退 40、element 回退宠物 xs、中文 category 归一化）
+        if ($skill_id > 0) {
+            $action = array('type' => 'move', 'skill' => array(
+                'id' => intval($skilldata['id']),
+                'name' => $skilldata['name'],
+                // 旧语义：power=0 的变化技在 rules_version 1 下仍按 40 威力攻击结算（数值兼容）
+                'power' => intval($skilldata['power']) ?: 40,
+                'type' => $skilldata['element'] ?: $mydata['xs'],
+                'category' => api_normalize_skill_category($skilldata['category']),
+            ));
         } else {
-            $npc_hp -= $damage;
-            if ($npc_hp < 0) $npc_hp = 0;
-            $damage_log[] = "{$mypokemon['nickname']}使用了{$skillname}，对{$npc['name']}造成了{$damage}点伤害！";
+            $action = array('type' => 'struggle', 'fallback_type' => $mydata['xs']);
         }
 
-        // 检查野怪是否倒下
-        if ($npc_hp <= 0) {
-            $battle_status = 'victory';
-            $damage_log[] = "{$npc['name']}倒下了！";
+        // ===== 纯核心计算一整回合（先手判定 -> 出招 -> 反击 -> 胜负）=====
+        $result = battle_core_apply_action($state, $action);
+        $state = $result['state'];
+        $turn_events = $result['events'];
 
-            // 计算奖励
-            $rewards = calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map);
-
-            // 保存野怪信息，用于胜利响应
-            $victory_npc_id = $myusersdata['npcid'];
-            $victory_npc_name = $npc['name'];
-            $victory_npc_level = $myusersdata['level'];
-            $victory_npc_hp = 0;
-            $victory_npc_max_hp = $myusersdata['hpg'];
-
-            // 清理战斗状态
-            clear_battle_state($_G['uid']);
-
-            // 应用奖励并获取升级信息
-            $level_up_info = apply_rewards($_G['uid'], $mypokemon, $rewards);
-
-            // 重新获取数据
-            $myusersdata = api_my_usersdata($_G['uid']);
-            $mypokemon = api_my_pokemon($_G['username']);
-
-            // 构建响应（临时恢复野怪信息以便正确显示）
-            $myusersdata['npcid'] = $victory_npc_id;
-            $myusersdata['level'] = $victory_npc_level;
-            $myusersdata['hp'] = $victory_npc_hp;
-            $myusersdata['hpg'] = $victory_npc_max_hp;
-
-            $battle = build_battle_response($myusersdata, $mypokemon);
-            $battle['status'] = $battle_status;
-            $battle['message'] = implode("\n", $damage_log);
-            $battle['turn'] = 0;
-            $battle['battle_over'] = true;
-            $battle['can_continue_switch'] = false;
-
-            if ($rewards) {
-                $battle['rewards'] = $rewards;
-            }
-
-            if ($level_up_info && $level_up_info['level_up']) {
-                $battle['level_up'] = $level_up_info;
-                $pokemon_name = $mypokemon['nickname'] ?: $mypokemon['pmname'];
-                $battle['message'] .= "\n🎉 {$pokemon_name}升级了！Lv.{$level_up_info['old_level']} → Lv.{$level_up_info['new_level']}";
-            }
-
-            api_success($battle);
-            return;
-        }
-    }
-
-    // 野怪攻击（如果我方没赢且不是我先手，或者我方先手但野怪没死）
-    if ($battle_status === 'active') {
-        if (!$my_first) {
-            // 野怪先攻击
-            $counter_damage = calculate_counter_damage_legacy(
-                $npc_level,
-                $npcatk,
-                $mdef,
-                $npcspatk,
-                $mspdef,
-                $npc
-            );
-
-            $my_hp = $mypokemon['hp'] - $counter_damage;
-            if ($my_hp < 0) $my_hp = 0;
-
-            $damage_log[] = "{$npc['name']}攻击了{$mypokemon['nickname']}，造成了{$counter_damage}点伤害！";
-
-            // 验证并纠正 HP（确保 HP 在 [0, max_hp] 范围内）
-            $mypokemon['hp'] = strval($my_hp);
-            $max_hp_for_validate = api_calculate_pokemon_max_hp($mypokemon);
-            $hp_validation = api_validate_and_correct_hp($mypokemon, $my_hp, $max_hp_for_validate);
-            $my_hp = $hp_validation['hp'];
-
-            // 更新我方HP
-            DB::query(pm_sql(
-                "UPDATE " . pm_table('pm_mypm') . " SET hp = %d WHERE id = %d",
-                intval($my_hp),
-                intval($mypokemon['id'])
-            ));
-
-            if ($my_hp <= 0) {
-                $battle_status = 'defeat';
-                $damage_log[] = "{$mypokemon['nickname']}倒下了...";
-
-                // 还有可用替补时战斗继续（保留战斗状态供换宠），否则才真正结束
-                list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
-                if ($can_switch) {
-                    $damage_log[] = '还有可用的替补宠物，请更换宠物继续战斗！';
-                }
-            }
-        }
-
-        // 我方后手攻击
-        if (!$my_first && $battle_status === 'active') {
-            $damage = calculate_damage_legacy(
-                $mypokemon['level'],
-                $matk,
-                $npcdef,
-                $mspatk,
-                $npcspdef,
-                $power,
-                $skill_type,
-                $skill_category,
-                $mydata,
-                $npc
-            );
-
-            if (($npcsd - $msd) >= 10 && rand(1, 20) <= 4) {
-                $damage_log[] = "{$npc['name']}避开了{$mypokemon['nickname']}的攻击！";
-                // 攻击未命中，归还预扣的 PP
-                pm_refund_reserved_skill_pp($skill_id, $_G['uid'], $mypokemon['id'], $skilldata ? $skilldata['max_uses'] : 0);
-            } else {
-                $npc_hp -= $damage;
-                if ($npc_hp < 0) $npc_hp = 0;
-                $damage_log[] = "{$mypokemon['nickname']}使用了{$skillname}，对{$npc['name']}造成了{$damage}点伤害！";
-            }
-
-            if ($npc_hp <= 0) {
-                $battle_status = 'victory';
-                $damage_log[] = "{$npc['name']}倒下了！";
-
-                // 保存野怪信息，用于胜利响应
-                $victory_npc_id = $myusersdata['npcid'];
-                $victory_npc_name = $npc['name'];
-                $victory_npc_level = $myusersdata['level'];
-                $victory_npc_hp = 0;
-                $victory_npc_max_hp = $myusersdata['hpg'];
-
-                $rewards = calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map);
-                clear_battle_state($_G['uid']);
-                $level_up_info = apply_rewards($_G['uid'], $mypokemon, $rewards);
-
-                // 重新获取数据
-                $myusersdata = api_my_usersdata($_G['uid']);
-                $mypokemon = api_my_pokemon($_G['username']);
-
-                // 构建响应（临时恢复野怪信息以便正确显示）
-                $myusersdata['npcid'] = $victory_npc_id;
-                $myusersdata['level'] = $victory_npc_level;
-                $myusersdata['hp'] = $victory_npc_hp;
-                $myusersdata['hpg'] = $victory_npc_max_hp;
-
-                $battle = build_battle_response($myusersdata, $mypokemon);
-                $battle['status'] = $battle_status;
-                $battle['message'] = implode("\n", $damage_log);
-                $battle['turn'] = 0;
-                $battle['battle_over'] = true;
-                $battle['can_continue_switch'] = false;
-
-                if ($rewards) {
-                    $battle['rewards'] = $rewards;
-                }
-
-                if ($level_up_info && $level_up_info['level_up']) {
-                    $battle['level_up'] = $level_up_info;
-                    $pokemon_name = $mypokemon['nickname'] ?: $mypokemon['pmname'];
-                    $battle['message'] .= "\n🎉 {$pokemon_name}升级了！Lv.{$level_up_info['old_level']} → Lv.{$level_up_info['new_level']}";
-                }
-
-                api_success($battle);
-                return;
-            }
-        } elseif (!$my_first) {
-            // 野怪先手将我方打倒，宠物未及出手，归还预扣的 PP
+        // 攻击被闪避或未及出手：退还预扣 PP（#68 语义不变）
+        if ($result['pp_refund']) {
             pm_refund_reserved_skill_pp($skill_id, $_G['uid'], $mypokemon['id'], $skilldata ? $skilldata['max_uses'] : 0);
         }
 
-        // 我方先手后野怪反击
-        if ($my_first && $battle_status === 'active') {
-            $counter_damage = calculate_counter_damage_legacy(
-                $npc_level,
-                $npcatk,
-                $mdef,
-                $npcspatk,
-                $mspdef,
-                $npc
-            );
-
-            $my_hp = $mypokemon['hp'] - $counter_damage;
-            if ($my_hp < 0) $my_hp = 0;
-
-            $damage_log[] = "{$npc['name']}攻击了{$mypokemon['nickname']}，造成了{$counter_damage}点伤害！";
-
-            // 验证并纠正 HP（确保 HP 在 [0, max_hp] 范围内）
-            $mypokemon['hp'] = strval($my_hp);
-            $max_hp_for_validate = api_calculate_pokemon_max_hp($mypokemon);
-            $hp_validation = api_validate_and_correct_hp($mypokemon, $my_hp, $max_hp_for_validate);
-            $my_hp = $hp_validation['hp'];
-
-            DB::query(pm_sql(
-                "UPDATE " . pm_table('pm_mypm') . " SET hp = %d WHERE id = %d",
-                intval($my_hp),
-                intval($mypokemon['id'])
-            ));
-
-            if ($my_hp <= 0) {
-                $battle_status = 'defeat';
-                $damage_log[] = "{$mypokemon['nickname']}倒下了...";
-
-                // 还有可用替补时战斗继续（保留战斗状态供换宠），否则才真正结束
-                list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
-                if ($can_switch) {
-                    $damage_log[] = '还有可用的替补宠物，请更换宠物继续战斗！';
-                }
+        // 我方 HP 落库（反击伤害写回 pm_mypm，含 [0, max_hp] 范围校正）
+        $target_ally = null;
+        foreach ($state['sides']['ally'] as $u) {
+            if ($u['instance_id'] === intval($mypokemon['id'])) {
+                $target_ally = $u;
+                break;
             }
         }
+        if ($target_ally === null) {
+            $target_ally = battle_core_active_unit($state, 'ally');
+        }
+        if ($target_ally !== null) {
+            $mypokemon['hp'] = strval($target_ally['hp']);
+            $max_hp_for_validate = api_calculate_pokemon_max_hp($mypokemon);
+            $hp_validation = api_validate_and_correct_hp($mypokemon, intval($target_ally['hp']), $max_hp_for_validate);
+            DB::query(pm_sql(
+                "UPDATE " . pm_table('pm_mypm') . " SET hp = %d WHERE id = %d",
+                intval($hp_validation['hp']), intval($mypokemon['id'])
+            ));
+        }
+
+        // ===== 结果分类（语义与旧版一一对应）=====
+        $battle_status = 'active';
+        $battle_ended = false;
+        $can_switch = false;
+        $rewards = null;
+        $level_up_info = null;
+
+        $enemy_unit = !empty($state['sides']['enemy']) ? $state['sides']['enemy'][0] : null;
+        // 落库前的野怪显示快照（战斗结束后镜像清零，响应组装时临时恢复）
+        $display_npc = $enemy_unit ? array(
+            'npcid' => intval($enemy_unit['species_id']),
+            'level' => intval($enemy_unit['level']),
+            'hp' => intval($enemy_unit['hp']),
+            'hpg' => intval($enemy_unit['stats']['max_hp']),
+        ) : null;
+
+        if ($state['phase'] === 'ended' && $state['result'] === 'victory') {
+            // 胜利：结算奖励并结束
+            $battle_status = 'victory';
+            $battle_ended = true;
+
+            $npc = pm_data($enemy_unit['species_id']);
+            $rewards = calculate_rewards($mypokemon, $myusersdata, $npc, $enemy_unit['level'], null);
+
+            $state = battle_persist_state($state, $turn_events);
+            // 清镜像旧列（新行已 ended，clear 的联动更新幂等不命中）
+            clear_battle_state($_G['uid']);
+            $level_up_info = apply_rewards($_G['uid'], $mypokemon, $rewards);
+            $display_npc['hp'] = 0;
+        } elseif ($state['phase'] !== 'active') {
+            // 我方被反击打倒（awaiting_switch）：有替补时战斗继续，无替补才真正结束
+            $battle_status = 'defeat';
+            list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+            if (!$can_switch) {
+                $state['phase'] = 'ended';
+                $state['result'] = 'defeat';
+            }
+            $state = battle_persist_state($state, $turn_events);
+            if (!$can_switch) {
+                // handle 内部已 clear 过一次；重复调用幂等，确保镜像与事件一致
+                clear_battle_state($_G['uid']);
+            }
+        } else {
+            // 战斗继续：落库（镜像野怪 HP，含等待替补时保留已造成的伤害）
+            $state = battle_persist_state($state, $turn_events);
+        }
+
+        DB::query("COMMIT");
+    } catch (Throwable $txn_error) {
+        DB::query("ROLLBACK");
+        throw $txn_error;
     }
 
-    // 等待替补上场也是同一场战斗，必须保留首发倒下前已造成的伤害。
-    if ($battle_status === 'active' || $can_switch) {
-        DB::query(pm_sql(
-            "UPDATE " . pm_table('pm_usersdata') . " SET hp = %d WHERE uid = %d",
-            intval($npc_hp),
-            intval($_G['uid'])
-        ));
+    // ===== 响应组装（字段与旧版完全一致）=====
+    $render_events = $turn_events;
+    if ($battle_status === 'defeat' && !$can_switch) {
+        // 无替补时过滤 switch_required：核心无法预知替补，端点判定后修正文案
+        $render_events = array_values(array_filter($render_events, function ($e) {
+            return $e['type'] !== 'switch_required';
+        }));
     }
+    $damage_log = battle_core_render_messages($render_events, array(
+        'ally' => $mypokemon['nickname'] ?: $mypokemon['pmname'],
+        'enemy' => $enemy_unit['species_name'],
+    ));
 
-    // 重新获取数据
     $myusersdata = api_my_usersdata($_G['uid']);
     $mypokemon = api_my_pokemon($_G['username']);
 
-    // 如果战斗结束（胜利/失败），需要恢复野怪信息以便正确显示
-    if ($battle_status !== 'active') {
-        // 保存野怪信息（使用之前保存的值或当前值）
-        if (!isset($victory_npc_id)) {
-            $victory_npc_id = $myusersdata['npcid'] ?: $npcid;
-            $victory_npc_level = $myusersdata['level'] ?: $npc_level;
-            $victory_npc_hp = $myusersdata['hp'];
-            $victory_npc_max_hp = $myusersdata['hpg'];
-        }
-
-        // 临时恢复野怪信息
-        $myusersdata['npcid'] = $victory_npc_id;
-        $myusersdata['level'] = $victory_npc_level;
-        $myusersdata['hp'] = isset($victory_npc_hp) ? $victory_npc_hp : 0;
-        $myusersdata['hpg'] = $victory_npc_max_hp;
+    if ($battle_status !== 'active' && $display_npc) {
+        // 临时恢复野怪信息以便正确显示（旧版模式）
+        $myusersdata['npcid'] = $display_npc['npcid'];
+        $myusersdata['level'] = $display_npc['level'];
+        $myusersdata['hp'] = $display_npc['hp'];
+        $myusersdata['hpg'] = $display_npc['hpg'];
     }
 
-    // 构建响应
     $battle = build_battle_response($myusersdata, $mypokemon);
     $battle['status'] = $battle_status;
     $battle['message'] = implode("\n", $damage_log);
@@ -668,6 +833,12 @@ function api_use_skill()
     // 客户端应依据 can_continue_switch 弹出换宠选择，而不是把 defeat 当终局
     $battle['battle_over'] = $battle_ended;
     $battle['can_continue_switch'] = $can_switch;
+    // 引擎 2.0 新增可选字段：真实回合数与本回合事件流（老客户端可安全忽略）
+    $battle['battle_turn'] = intval($state['turn']);
+    $battle['events'] = array();
+    foreach ($turn_events as $e) {
+        $battle['events'][] = array('turn' => $e['turn'], 'seq' => $e['seq'], 'type' => $e['type'], 'payload' => $e['payload']);
+    }
 
     if ($rewards) {
         $battle['rewards'] = $rewards;
@@ -684,6 +855,8 @@ function api_use_skill()
 
 /**
  * 逃跑
+ *
+ * 判定与失败反击走引擎核心，同样在一个事务内完成（#69-71 锁策略）。
  */
 function api_flee()
 {
@@ -696,8 +869,7 @@ function api_flee()
 
     if (empty($myusersdata['npcid']) || $myusersdata['npcid'] <= 0) {
         // 服务端已无进行中的战斗（例如胜利后前端仍停在战斗界面）。
-        // 此前返回 400 "No active battle found" 会让玩家卡死在战斗画面，
-        // 改为幂等返回 fled，前端据此正常收尾。
+        // 幂等返回 fled，前端据此正常收尾。
         $battle = build_battle_response($myusersdata, $mypokemon);
         $battle['status'] = 'fled';
         $battle['message'] = '战斗已经结束。';
@@ -707,148 +879,136 @@ function api_flee()
         api_success($battle);
     }
 
-    $npc = pm_data($myusersdata['npcid']);
+    battle_ensure_tables();
 
-    // 计算逃跑成功率
-    $flee_chance = 0.5 + ($mypokemon['level'] - $myusersdata['level']) * 0.05;
-    $flee_chance = max(0.1, min(0.9, $flee_chance));
-
-    $message = '';
-    $status = 'active';
-
-    if (rand(1, 100) / 100 <= $flee_chance) {
-        $status = 'fled';
-        $message = '成功逃脱了！';
-
-        // 保存野怪信息，用于逃脱响应
-        $flee_npc_id = $myusersdata['npcid'];
-        $flee_npc_name = $npc['name'];
-        $flee_npc_level = $myusersdata['level'];
-        $flee_npc_hp = $myusersdata['hp'];
-        $flee_npc_max_hp = $myusersdata['hpg'];
-
-        clear_battle_state($_G['uid']);
-
-        // 重新获取数据
-        $myusersdata = api_my_usersdata($_G['uid']);
-        $mypokemon = api_my_pokemon($_G['username']);
-
-        // 构建响应（临时恢复野怪信息以便正确显示）
-        $myusersdata['npcid'] = $flee_npc_id;
-        $myusersdata['level'] = $flee_npc_level;
-        $myusersdata['hp'] = $flee_npc_hp;
-        $myusersdata['hpg'] = $flee_npc_max_hp;
-
-        $battle = build_battle_response($myusersdata, $mypokemon);
-        $battle['status'] = $status;
-        $battle['message'] = $message;
-        $battle['turn'] = 0;
-        $battle['battle_over'] = true;
-        $battle['can_continue_switch'] = false;
-
-        api_success($battle);
-        return;
-    } else {
-        $message = '逃跑失败！';
-
-        // 野怪攻击
-        list($npcmhp, $npcatk, $npcdef, $npcspatk, $npcspdef, $npcsd) = battle_calc_npc_stats(
-            $npc,
-            $myusersdata,
-            $myusersdata['strength'] * $npc['strength']
-        );
-
-        $mydata = pm_data($mypokemon['species_id']);
-        list(, $matk, $mdef, $mspatk, $mspdef, $msd) = battle_calc_my_stats($mydata, $mypokemon);
-
-        $counter_damage = calculate_counter_damage_legacy(
-            $myusersdata['level'],
-            $npcatk,
-            $mdef,
-            $npcspatk,
-            $mspdef,
-            $npc
-        );
-
-        $my_hp = $mypokemon['hp'] - $counter_damage;
-        if ($my_hp < 0) $my_hp = 0;
-
-        // 验证并纠正 HP（确保 HP 在 [0, max_hp] 范围内）
-        $mypokemon['hp'] = strval($my_hp);
-        $max_hp_for_validate = api_calculate_pokemon_max_hp($mypokemon);
-        $hp_validation = api_validate_and_correct_hp($mypokemon, $my_hp, $max_hp_for_validate);
-        $my_hp = $hp_validation['hp'];
-
-        DB::query(pm_sql(
-            "UPDATE " . pm_table('pm_mypm') . " SET hp = %d WHERE id = %d",
-            intval($my_hp),
-            intval($mypokemon['id'])
+    DB::query("START TRANSACTION");
+    try {
+        DB::fetch_first(pm_sql(
+            "SELECT uid FROM " . pm_table('pm_usersdata') . " WHERE uid = %d FOR UPDATE",
+            $_G['uid']
         ));
 
-        $message .= "\n{$npc['name']}攻击了{$mypokemon['nickname']}，造成了{$counter_damage}点伤害！";
+        $myusersdata = api_my_usersdata($_G['uid']);
+        $state = battle_load_active($_G['uid'], $myusersdata, $mypokemon);
+        if ($state === null) {
+            pm_abort_battle_transaction('No active battle found', 400);
+        }
 
-        if ($my_hp <= 0) {
-            $status = 'defeat';
-            $message .= "\n{$mypokemon['nickname']}倒下了...";
+        $mydata = pm_data($mypokemon['species_id']);
+        if (!$mydata) {
+            pm_abort_battle_transaction('宠物数据异常', 500);
+        }
+        battle_inject_ally_fresh_state($state, $mypokemon, $mydata);
 
-            // 与 use_skill 保持一致：还有可用替补时战斗继续，供换宠接口接管
-            list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+        // ===== 逃跑判定（纯核心，公式与旧版一致）=====
+        $flee = battle_core_try_flee($state);
+        $state = $flee['state'];
+        $turn_events = $flee['events'];
 
-            if ($can_switch) {
-                $message .= "\n还有可用的替补宠物，请更换宠物继续战斗！";
+        $enemy_unit = !empty($state['sides']['enemy']) ? $state['sides']['enemy'][0] : null;
+        $display_npc = $enemy_unit ? array(
+            'npcid' => intval($enemy_unit['species_id']),
+            'level' => intval($enemy_unit['level']),
+            'hp' => intval($enemy_unit['hp']),
+            'hpg' => intval($enemy_unit['stats']['max_hp']),
+        ) : null;
 
-                // 战斗状态保留，直接用当前数据构建响应
-                $battle = build_battle_response($myusersdata, $mypokemon);
-                $battle['status'] = $status;
-                $battle['message'] = $message;
-                $battle['turn'] = 0;
-                $battle['battle_over'] = false;
-                $battle['can_continue_switch'] = true;
+        $message = '';
+        $status = 'active';
+        $battle_ended = false;
+        $can_switch = false;
 
-                api_success($battle);
-                return;
+        if ($flee['fled']) {
+            $status = 'fled';
+            $message = '成功逃脱了！';
+            $battle_ended = true;
+
+            $state = battle_persist_state($state, $turn_events);
+            clear_battle_state($_G['uid']);
+        } else {
+            $message = '逃跑失败！';
+
+            // 野怪反击（纯核心 counter）
+            battle_core_counter_attack($state, $turn_events);
+
+            // 我方 HP 落库（含范围校正）
+            $target_ally = null;
+            foreach ($state['sides']['ally'] as $u) {
+                if ($u['instance_id'] === intval($mypokemon['id'])) {
+                    $target_ally = $u;
+                    break;
+                }
+            }
+            if ($target_ally !== null) {
+                $mypokemon['hp'] = strval($target_ally['hp']);
+                $max_hp_for_validate = api_calculate_pokemon_max_hp($mypokemon);
+                $hp_validation = api_validate_and_correct_hp($mypokemon, intval($target_ally['hp']), $max_hp_for_validate);
+                DB::query(pm_sql(
+                    "UPDATE " . pm_table('pm_mypm') . " SET hp = %d WHERE id = %d",
+                    intval($hp_validation['hp']), intval($mypokemon['id'])
+                ));
             }
 
-            // 没有替补，战斗真正结束；保存野怪信息，用于失败响应
-            $defeat_npc_id = $myusersdata['npcid'];
-            $defeat_npc_name = $npc['name'];
-            $defeat_npc_level = $myusersdata['level'];
-            $defeat_npc_hp = $myusersdata['hp'];
-            $defeat_npc_max_hp = $myusersdata['hpg'];
+            if ($state['phase'] === 'awaiting_switch') {
+                // 反击致死：与 use_skill 保持一致，有替补继续、无替补结束
+                $status = 'defeat';
+                list($battle_ended, $can_switch) = handle_my_pokemon_fainted($_G['uid'], $mypokemon['id']);
+                if (!$can_switch) {
+                    $state['phase'] = 'ended';
+                    $state['result'] = 'defeat';
+                }
+            }
 
-            clear_battle_state($_G['uid']);
-
-            // 重新获取数据
-            $myusersdata = api_my_usersdata($_G['uid']);
-            $mypokemon = api_my_pokemon($_G['username']);
-
-            // 构建响应（临时恢复野怪信息以便正确显示）
-            $myusersdata['npcid'] = $defeat_npc_id;
-            $myusersdata['level'] = $defeat_npc_level;
-            $myusersdata['hp'] = $defeat_npc_hp;
-            $myusersdata['hpg'] = $defeat_npc_max_hp;
-
-            $battle = build_battle_response($myusersdata, $mypokemon);
-            $battle['status'] = $status;
-            $battle['message'] = $message;
-            $battle['turn'] = 0;
-            $battle['battle_over'] = true;
-            $battle['can_continue_switch'] = false;
-
-            api_success($battle);
-            return;
+            $state = battle_persist_state($state, $turn_events);
+            if (!$can_switch && $status === 'defeat' && $battle_ended) {
+                clear_battle_state($_G['uid']);
+            }
         }
+
+        DB::query("COMMIT");
+    } catch (Throwable $txn_error) {
+        DB::query("ROLLBACK");
+        throw $txn_error;
+    }
+
+    // 响应文案：逃跑结果 + 反击/倒下（渲染覆盖倒下/替补提示，不重复手动拼接）
+    $extra = '';
+    if (!$flee['fled']) {
+        $render_events = $turn_events;
+        if ($status === 'defeat' && !$can_switch) {
+            // 无替补时过滤 switch_required：核心无法预知替补，端点判定后修正文案
+            $render_events = array_values(array_filter($render_events, function ($e) {
+                return $e['type'] !== 'switch_required';
+            }));
+        }
+        $rendered = battle_core_render_messages($render_events, array(
+            'ally' => $mypokemon['nickname'] ?: $mypokemon['pmname'],
+            'enemy' => $enemy_unit['species_name'],
+        ));
+        $extra = implode("\n", $rendered);
     }
 
     $myusersdata = api_my_usersdata($_G['uid']);
     $mypokemon = api_my_pokemon($_G['username']);
 
+    if ($status !== 'active' && $display_npc) {
+        $myusersdata['npcid'] = $display_npc['npcid'];
+        $myusersdata['level'] = $display_npc['level'];
+        $myusersdata['hp'] = $display_npc['hp'];
+        $myusersdata['hpg'] = $display_npc['hpg'];
+    }
+
     $battle = build_battle_response($myusersdata, $mypokemon);
     $battle['status'] = $status;
-    $battle['message'] = $message;
+    $battle['message'] = $extra !== '' ? ($message . "\n" . $extra) : $message;
     $battle['turn'] = 0;
-    $battle['battle_over'] = false;
-    $battle['can_continue_switch'] = false;
+    $battle['battle_over'] = $battle_ended;
+    $battle['can_continue_switch'] = $can_switch;
+    $battle['battle_turn'] = intval($state['turn']);
+    $battle['events'] = array();
+    foreach ($turn_events as $e) {
+        $battle['events'][] = array('turn' => $e['turn'], 'seq' => $e['seq'], 'type' => $e['type'], 'payload' => $e['payload']);
+    }
 
     api_success($battle);
 }
@@ -1254,6 +1414,16 @@ function apply_rewards($uid, $mypokemon, $rewards)
  */
 function clear_battle_state($uid)
 {
+    // 同步结束新引擎的进行中战斗（capture/use_item/switch 等路径收尾时联动）。
+    // 已有 result 的战斗（fled/victory 已由新引擎路径写入）不覆盖 result；
+    // 无 result 的（旧路径清状态）记为 abandoned。
+    battle_ensure_tables();
+    DB::query(pm_sql(
+        "UPDATE " . pm_table('pm_battle') . "
+        SET phase = 'ended', result = IF(result = '', 'abandoned', result), updated_at = %d
+        WHERE uid = %d AND phase IN ('active', 'awaiting_switch')",
+        time(), $uid
+    ));
     // 这些列均为整数类型：写入 '' 在 MariaDB 严格模式(STRICT_TRANS_TABLES)下会直接报错，
     // 导致战斗状态无法清除（用户卡在战斗中），必须写 0
     DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . "
@@ -2447,6 +2617,7 @@ function api_switch_pokemon()
     // 与被动替换相同的串行化：以 pm_usersdata 战斗状态行的排他锁串行化
     // 同账号的换宠与战斗结算，两笔 site 写入与野怪反击在同一个事务里生效，
     // 观察者不会看到「换了一半」或反击打到已经下场的宠物。
+    battle_ensure_tables(); // 事务前建表：CREATE TABLE 在事务内会触发隐式提交（clear_battle_state 的联动更新需要 pm_battle）
     DB::query("START TRANSACTION");
     // 事务体内的任何异常（含数据库错误）都要显式回滚：常驻 worker 的连接
     // 不随请求关闭，未提交事务和行锁泄漏会阻塞该用户后续的所有战斗操作。
@@ -2675,6 +2846,7 @@ function api_replace_pokemon()
     // 两个并发替换只有一个能完成换位，另一个在锁内重读时会发现上场宠物
     // 已被换成健康的新宠物而走「尚未倒下」拒绝；野怪的战斗结算（如
     // clear_battle_state）也要先写这一行，同样被此锁挡在事务之外。
+    battle_ensure_tables(); // 事务前建表：CREATE TABLE 在事务内会触发隐式提交（clear_battle_state 的联动更新需要 pm_battle）
     DB::query("START TRANSACTION");
     // 事务体内的任何异常（含数据库错误）都要显式回滚：常驻 worker 的连接
     // 不随请求关闭，未提交事务和行锁泄漏会阻塞该用户后续的所有战斗操作。

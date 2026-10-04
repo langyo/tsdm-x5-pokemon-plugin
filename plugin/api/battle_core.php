@@ -1,0 +1,1071 @@
+<?php
+
+/**
+ * 战斗引擎 2.0 —— 纯函数核心（issue #75 第一阶段 / E0 契约）
+ *
+ * 本文件是"和传输无关"的战斗核心：不碰 DB / HTTP / session / 全局状态，
+ * 只做数组变换：apply_action(state, action, rng) -> {state, events}。
+ * 端点（battle.php）只负责三件事：载入状态 -> 调核心 -> 落库 + 组响应。
+ *
+ * E0 契约（本阶段固化、后续阶段不返工的部分）：
+ *  1. 状态支持多单位（sides.ally[] / sides.enemy[]），字段一开始就含
+ *     能力等级 stages / 异常 status / 易失 volatile / buffs / 天气场地 field，
+ *     为换宠、双打、团本铺路；
+ *  2. 核心是纯函数，端点不写战斗逻辑；
+ *  3. RNG 可注入（rng 回调），内建确定性 PRNG 以 seed+counter 驱动，
+ *     每场持久化 rng_seed / rng_counter，同 seed + 同 action 序列 => 同结果（可重放）；
+ *  4. 事件流格式固定、版本化（EVENT_SCHEMA_VERSION），战报/回放共用；
+ *  5. 效果引擎的钩子集合与 params schema 在此定死，本阶段内置 1 个效果
+ *     （stages_boost，变化技升降能力等级）打通端到端管线。
+ *
+ * 数值兼容：本阶段（rules_version 1）伤害/会心/闪避/先手公式与旧版
+ * calculate_damage_legacy / calculate_counter_damage_legacy 逐项一致，
+ * 客户端响应字段与文案不变；能力等级暂只记录（stage_change 事件），
+ * 不改伤害公式，待后续规则版本切换。
+ *
+ * 持久化编解码同样是纯函数：
+ *  battle_state_to_rows(state) / battle_state_from_rows() 与
+ *  pm_battle + pm_battle_unit 行互转；battle_core_state_from_legacy()
+ *  把 pm_usersdata 旧列里进行中的战斗升级为新状态（惰性迁移）。
+ */
+
+defined('IN_DISCUZ') || exit('Access Denied');
+
+/** 引擎状态结构版本（state.version，结构不兼容变更时 +1 并写迁移） */
+define('BATTLE_STATE_VERSION', 2);
+
+/** 规则版本：数值规则（伤害公式/能力等级语义等）变更时 +1，老战斗按老规则收尾 */
+define('BATTLE_RULES_VERSION', 1);
+
+/** 事件流 schema 版本（事件类型集合 / payload 字段变更时 +1） */
+define('BATTLE_EVENT_SCHEMA_VERSION', 1);
+
+/**
+ * 事件类型集合（固定格式：type + payload 纯数据，无文案；文案由渲染层生成）
+ */
+function battle_core_event_types()
+{
+    return [
+        'battle_start',    // 开战 {kind, map_id}
+        'turn_start',      // 回合开始 {turn}
+        'move',            // 出招 {side, slot, skill|null, target_side, target_slot}
+        'miss',            // 未命中 {side, slot, target_side, target_slot}
+        'damage',          // 造成伤害 {side, slot, target_side, target_slot, amount, effectiveness, crit, stat}
+        'counter',         // 野怪反击 {side, slot, target_side, target_slot, amount}
+        'stage_change',    // 能力等级变化 {side, slot, stat, delta, stages}
+        'faint',           // 单位倒下 {side, slot}
+        'switch_required', // 我方倒下但有替补，等待换宠 {side}
+        'battle_end',      // 战斗结束 {result}
+        'message',         // 兜底文案事件 {text}
+    ];
+}
+
+/**
+ * 效果引擎：钩子集合（move/ability/item/weather/field/status 共用同一套）
+ */
+function battle_core_effect_hooks()
+{
+    return [
+        'on_battle_start',   // 战斗开始（入场效果/天气场地挂载）
+        'on_switch_in',      // 单位入场
+        'on_switch_out',     // 单位退场
+        'on_before_move',    // 出招前（可拦截/改招）
+        'on_damage_calc',    // 伤害计算（修正倍率）
+        'on_hit',            // 命中后（附加效果/异常）
+        'on_after_move',     // 出招后（变化技主效果在此生效）
+        'on_turn_end',       // 回合末结算（持续伤害/自然解除）
+        'on_faint',          // 单位倒下
+    ];
+}
+
+/**
+ * 效果 params schema：code => [param => 类型描述]
+ * 数据校验（battle_core_validate_effect）按此拒绝未知/坏数据。
+ */
+function battle_core_effect_schema()
+{
+    return [
+        'stages_boost' => [
+            'stat' => 'atk|def|spatk|spdef|speed|accuracy|evasion',
+            'stages' => 'int -6..+6 相对变化量',
+        ],
+    ];
+}
+
+/**
+ * 校验效果声明（避免"存了不支持的效果把数据搞坏"）。
+ *
+ * 效果声明结构：{code, kind: move|ability|item|weather|field|status,
+ * hooks: [..], params: {..}, version: int}
+ *
+ * @param array $effect
+ * @return true|string true 合法；否则错误说明
+ */
+function battle_core_validate_effect($effect)
+{
+    if (!is_array($effect)) {
+        return 'effect must be an array';
+    }
+    if (!isset($effect['code']) || !is_string($effect['code'])) {
+        return 'effect.code missing';
+    }
+    $schema = battle_core_effect_schema();
+    if (!isset($schema[$effect['code']])) {
+        return "unknown effect code: {$effect['code']}";
+    }
+    if (!isset($effect['kind']) || !in_array($effect['kind'], ['move', 'ability', 'item', 'weather', 'field', 'status'], true)) {
+        return "invalid effect kind";
+    }
+    if (!isset($effect['hooks']) || !is_array($effect['hooks'])) {
+        return 'effect.hooks missing';
+    }
+    $known_hooks = battle_core_effect_hooks();
+    foreach ($effect['hooks'] as $hook) {
+        if (!in_array($hook, $known_hooks, true)) {
+            return "unknown hook: {$hook}";
+        }
+    }
+    if (!isset($effect['params']) || !is_array($effect['params'])) {
+        return 'effect.params missing';
+    }
+    if ($effect['code'] === 'stages_boost') {
+        $stat = isset($effect['params']['stat']) ? $effect['params']['stat'] : '';
+        if (!in_array($stat, ['atk', 'def', 'spatk', 'spdef', 'speed', 'accuracy', 'evasion'], true)) {
+            return 'stages_boost.params.stat invalid';
+        }
+        $stages = isset($effect['params']['stages']) ? intval($effect['params']['stages']) : 0;
+        if (abs($stages) < 1 || abs($stages) > 6) {
+            return 'stages_boost.params.stages out of range';
+        }
+    }
+    if (!isset($effect['version']) || intval($effect['version']) < 1) {
+        return 'effect.version missing';
+    }
+    return true;
+}
+
+/**
+ * 32 位安全乘法（PHP int 是 64 位，直接乘会溢出成 float 丢失低位、
+ * 破坏 PRNG 雪崩特性），返回 (a*b) mod 2^32。
+ */
+function battle_core_mul32($a, $b)
+{
+    $a &= 0xFFFFFFFF;
+    $b &= 0xFFFFFFFF;
+    $ll = ($a & 0xFFFF) * ($b & 0xFFFF);
+    $lh = ($a & 0xFFFF) * ($b >> 16);
+    $hl = ($a >> 16) * ($b & 0xFFFF);
+    $mid = $lh + $hl;
+    return ($ll + (($mid & 0xFFFF) << 16)) & 0xFFFFFFFF;
+}
+
+/**
+ * mulberry32：确定性 PRNG，(seed, counter) -> [0, 2^32) 均匀分布。
+ * 每次 draw 消耗一个 counter，counter 随状态持久化，支持断点重放。
+ */
+function battle_core_rng_step($seed, $counter)
+{
+    $t = battle_core_mul32(((int)$seed) + battle_core_mul32((int)$counter, 0x9E3779B9), 1);
+    // mulberry32 标准混合
+    $t = $t ^ ($t >> 15);
+    $t = battle_core_mul32($t, 0x85EBCA6B);
+    $t = $t ^ ($t >> 13);
+    $t = battle_core_mul32($t, 0xC2B2AE35);
+    $t = $t ^ ($t >> 16);
+    return $t & 0xFFFFFFFF;
+}
+
+/**
+ * 取一次随机数 [min, max] 闭区间。
+ *
+ * 优先使用注入的 $rng 回调（callable($min, $max)），此时不消耗内建
+ * counter；未注入时走内建确定性 PRNG 并推进 state.rng_counter。
+ *
+ * @param array &$state 引用仅为内部推进 rng_counter，对外仍是纯变换
+ * @param callable|null $rng
+ * @return int
+ */
+function battle_core_rand(&$state, $rng, $min, $max)
+{
+    if ($max < $min) {
+        $tmp = $min;
+        $min = $max;
+        $max = $tmp;
+    }
+    if (is_callable($rng)) {
+        return intval(call_user_func($rng, $min, $max));
+    }
+    $span = $max - $min + 1;
+    $v = battle_core_rng_step($state['rng_seed'], $state['rng_counter']);
+    $state['rng_counter'] = ((int)$state['rng_counter']) + 1;
+    return $min + ($v % $span);
+}
+
+/**
+ * 构造参战单位（E0：字段一次到位）
+ *
+ * @return array unit
+ */
+function battle_core_make_unit($opts)
+{
+    $stats = array_merge(
+        ['max_hp' => 1, 'atk' => 1, 'def' => 1, 'spatk' => 1, 'spdef' => 1, 'speed' => 1],
+        isset($opts['stats']) && is_array($opts['stats']) ? $opts['stats'] : []
+    );
+    $types = [];
+    foreach ((isset($opts['types']) && is_array($opts['types']) ? $opts['types'] : []) as $t) {
+        if ($t !== '' && $t !== null) {
+            $types[] = $t;
+        }
+    }
+    $effects = [];
+    if (isset($opts['effects']) && is_array($opts['effects'])) {
+        foreach ($opts['effects'] as $eff) {
+            if (battle_core_validate_effect($eff) === true) {
+                $effects[] = $eff;
+            }
+        }
+    }
+    return [
+        'slot' => isset($opts['slot']) ? intval($opts['slot']) : 0,
+        'instance_id' => isset($opts['instance_id']) ? intval($opts['instance_id']) : 0,
+        'species_id' => isset($opts['species_id']) ? intval($opts['species_id']) : 0,
+        'species_name' => isset($opts['species_name']) ? strval($opts['species_name']) : '',
+        'name' => isset($opts['name']) ? strval($opts['name']) : '',
+        'level' => isset($opts['level']) ? intval($opts['level']) : 1,
+        'stats' => $stats,
+        'hp' => isset($opts['hp']) ? intval($opts['hp']) : intval($stats['max_hp']),
+        'types' => $types,
+        // 能力等级 -6..+6（命中/闪避等级同表；本规则版本只记录不改公式）
+        'stages' => ['atk' => 0, 'def' => 0, 'spatk' => 0, 'spdef' => 0, 'speed' => 0, 'accuracy' => 0, 'evasion' => 0],
+        // 异常状态占位：{'code' => 'poison'|..., 'turns_left' => int}，行为数据后续阶段入 pm_status
+        'status' => null,
+        // 易失状态（混乱/束缚等，只活在这一场）
+        'volatile' => [],
+        // buff/ debuff 叠层占位
+        'buffs' => [],
+        // 挂载的效果声明（钩子由 battle_core_apply_effects 派发）
+        'effects' => $effects,
+        'fainted' => false,
+        'gender' => isset($opts['gender']) ? intval($opts['gender']) : 0,
+        'is_shiny' => !empty($opts['is_shiny']),
+        'capture_rate' => isset($opts['capture_rate']) ? intval($opts['capture_rate']) : 0,
+        'boss_multiplier' => isset($opts['boss_multiplier']) ? floatval($opts['boss_multiplier']) : 1.0,
+    ];
+}
+
+/**
+ * 构造初始战斗状态
+ *
+ * @param array $opts {kind, map_id, rng_seed, allies: [unit..], enemies: [unit..], field}
+ * @return array state
+ */
+function battle_core_initial_state($opts)
+{
+    $state = [
+        'version' => BATTLE_STATE_VERSION,
+        'rules_version' => BATTLE_RULES_VERSION,
+        'kind' => in_array(isset($opts['kind']) ? $opts['kind'] : 'wild', ['wild', 'boss'], true) ? $opts['kind'] : 'wild',
+        'map_id' => isset($opts['map_id']) ? intval($opts['map_id']) : 0,
+        // battle_id 由端点持久化后回填；纯核心不关心
+        'battle_id' => null,
+        'uid' => isset($opts['uid']) ? intval($opts['uid']) : 0,
+        'turn' => 0,
+        'phase' => 'active',
+        'result' => null,
+        'rng_seed' => isset($opts['rng_seed']) ? intval($opts['rng_seed']) : 0,
+        'rng_counter' => 0,
+        'event_seq' => 0,
+        // E0：天气/场地引用占位（入场效果挂载点），null = 无
+        'field' => array_merge(['weather' => null, 'terrain' => null], isset($opts['field']) && is_array($opts['field']) ? $opts['field'] : []),
+        'sides' => [
+            'ally' => [],
+            'enemy' => [],
+        ],
+    ];
+    foreach (['ally', 'enemy'] as $side) {
+        $key = $side === 'ally' ? 'allies' : 'enemies';
+        $slot = 0;
+        foreach ((isset($opts[$key]) && is_array($opts[$key]) ? $opts[$key] : []) as $unit) {
+            $unit['slot'] = $slot++;
+            $state['sides'][$side][] = battle_core_make_unit($unit);
+        }
+    }
+    return $state;
+}
+
+/**
+ * 取某侧第一个未倒下的单位（本阶段双方都只有一个有效行动位）
+ *
+ * @return array|null 按 PHP 数组值语义返回（修改需写回）
+ */
+function battle_core_active_unit($state, $side)
+{
+    foreach ($state['sides'][$side] as $unit) {
+        if (!$unit['fainted'] && $unit['hp'] > 0) {
+            return $unit;
+        }
+    }
+    return null;
+}
+
+function battle_core_emit(&$state, &$events, $type, $payload)
+{
+    $state['event_seq'] = ((int)$state['event_seq']) + 1;
+    $events[] = [
+        'turn' => (int)$state['turn'],
+        'seq' => (int)$state['event_seq'],
+        'type' => $type,
+        'payload' => $payload,
+    ];
+}
+
+/**
+ * 属性相克表（攻击属性 => {effective, resisted, immune}，中文属性名与 pm_data.xs 一致）
+ * 自旧版 get_pet_type_effectiveness 移植，数据驱动：调用方可传自定义 chart 覆盖。
+ */
+function battle_core_type_chart()
+{
+    return [
+        '普通' => ['effective' => [], 'resisted' => ['岩石', '钢'], 'immune' => ['幽灵']],
+        '格斗' => ['effective' => ['普通', '岩石', '钢', '冰', '恶'], 'resisted' => ['飞行', '超能', '妖精'], 'immune' => ['幽灵']],
+        '飞行' => ['effective' => ['格斗', '虫', '草'], 'resisted' => ['岩石', '电', '钢'], 'immune' => []],
+        '毒' => ['effective' => ['草', '妖精'], 'resisted' => ['毒', '地面', '岩石', '幽灵'], 'immune' => ['钢']],
+        '地面' => ['effective' => ['火', '电', '毒', '岩石', '钢'], 'resisted' => ['草', '虫'], 'immune' => ['飞行']],
+        '岩石' => ['effective' => ['飞行', '虫', '火', '冰'], 'resisted' => ['格斗', '地面', '钢'], 'immune' => []],
+        '虫' => ['effective' => ['草', '超能', '恶'], 'resisted' => ['飞行', '格斗', '毒', '幽灵', '钢', '火', '妖精'], 'immune' => []],
+        '幽灵' => ['effective' => ['超能', '幽灵'], 'resisted' => ['恶'], 'immune' => ['普通']],
+        '钢' => ['effective' => ['岩石', '冰', '妖精'], 'resisted' => ['火', '水', '电', '钢'], 'immune' => ['毒']],
+        '火' => ['effective' => ['草', '冰', '虫', '钢'], 'resisted' => ['火', '水', '龙'], 'immune' => []],
+        '水' => ['effective' => ['火', '地面', '岩石'], 'resisted' => ['水', '草', '龙'], 'immune' => []],
+        '草' => ['effective' => ['水', '地面', '岩石'], 'resisted' => ['飞行', '草', '毒', '虫', '钢', '火', '龙'], 'immune' => []],
+        '电' => ['effective' => ['水', '飞行'], 'resisted' => ['电', '草', '龙'], 'immune' => ['地面']],
+        '超能' => ['effective' => ['格斗', '毒'], 'resisted' => ['超能', '钢'], 'immune' => ['恶']],
+        '冰' => ['effective' => ['草', '地面', '飞行', '龙'], 'resisted' => ['火', '水', '冰', '钢'], 'immune' => []],
+        '龙' => ['effective' => ['龙'], 'resisted' => ['钢'], 'immune' => ['妖精']],
+        '恶' => ['effective' => ['超能', '幽灵'], 'resisted' => ['格斗', '恶', '妖精'], 'immune' => []],
+        '妖精' => ['effective' => ['格斗', '龙', '恶'], 'resisted' => ['火', '毒', '钢'], 'immune' => ['龙']],
+    ];
+}
+
+/**
+ * 单条属性相克倍率（0 免疫 / 0.5 抵抗 / 1 正常 / 2 拔群）
+ */
+function battle_core_type_match($attack_type, $defend_type, $chart)
+{
+    if (!isset($chart[$attack_type])) {
+        return 1.0;
+    }
+    if (in_array($defend_type, $chart[$attack_type]['immune'])) {
+        return 0.0;
+    }
+    if (in_array($defend_type, $chart[$attack_type]['resisted'])) {
+        return 0.5;
+    }
+    if (in_array($defend_type, $chart[$attack_type]['effective'])) {
+        return 2.0;
+    }
+    return 1.0;
+}
+
+/**
+ * 攻击属性对防守方（可双属性）的合计相克倍率
+ */
+function battle_core_type_effectiveness($attack_type, $defender_types, $chart = null)
+{
+    $chart = $chart !== null ? $chart : battle_core_type_chart();
+    $total = 1.0;
+    foreach ((array)$defender_types as $defend_type) {
+        if ($defend_type === '' || $defend_type === null) {
+            continue;
+        }
+        $total *= battle_core_type_match($attack_type, $defend_type, $chart);
+    }
+    return $total;
+}
+
+/**
+ * 我方出招伤害（rules_version 1：与旧版 calculate_damage_legacy 逐项一致）
+ *
+ * move: {power, type, category(0 物理/1 特殊), name, id}
+ * 返回 {amount, effectiveness, crit, stat}
+ */
+function battle_core_calc_damage(&$state, $attacker, $defender, $move, $rng = null)
+{
+    $level = intval($attacker['level']);
+    $power = intval($move['power']);
+    $category = intval($move['category']);
+
+    if ($category !== 1) {
+        $base = (($level * 0.4 + 2) * $power * $attacker['stats']['atk'] / $defender['stats']['def'] / 50 + 2);
+    } else {
+        $base = (($level * 0.4 + 2) * $power * $attacker['stats']['spatk'] / $defender['stats']['spdef'] / 50 + 2);
+    }
+
+    // 属性相克（on_damage_calc 钩子的注入点之一：效果可修正倍率）
+    $effectiveness = battle_core_type_effectiveness($move['type'], $defender['types']);
+    $damage = $base * $effectiveness;
+
+    // 属性一致加成（STAB）
+    if (in_array($move['type'], $attacker['types'], true)) {
+        $damage *= 1.5;
+    }
+
+    // 随机因子 85%..100%
+    $damage *= battle_core_rand($state, $rng, 85, 100) / 100;
+
+    // 会心 1/20
+    $crit = (battle_core_rand($state, $rng, 1, 20) === 1);
+    if ($crit) {
+        $damage *= 2;
+    }
+
+    return [
+        'amount' => intval(max(1, floor($damage))),
+        'effectiveness' => $effectiveness,
+        'crit' => $crit,
+        'stat' => $category !== 1 ? 'atk' : 'spatk',
+    ];
+}
+
+/**
+ * 野怪反击伤害（rules_version 1：与旧版 calculate_counter_damage_legacy 一致：
+ * 固定威力 40、物理线、不吃属性相克、无会心）
+ */
+function battle_core_calc_counter_damage(&$state, $attacker, $defender, $rng = null)
+{
+    $level = intval($attacker['level']);
+    $power = 40;
+    $damage = (($level * 0.4 + 2) * $power * $attacker['stats']['atk'] / $defender['stats']['def'] / 50 + 2);
+    $damage *= battle_core_rand($state, $rng, 85, 100) / 100;
+    return intval(max(1, floor($damage)));
+}
+
+/**
+ * 命中判定（rules_version 1：防守方速度高出 >=10 时 20% 闪避，与旧版一致）
+ */
+function battle_core_try_miss(&$state, $rng, $attacker, $defender)
+{
+    if (((int)$defender['stats']['speed']) - ((int)$attacker['stats']['speed']) < 10) {
+        return false;
+    }
+    return battle_core_rand($state, $rng, 1, 20) <= 4;
+}
+
+/**
+ * 派发一个钩子：遍历双方所有单位挂载的效果，触发声明了该钩子的效果。
+ *
+ * 本阶段实现 stages_boost（on_after_move）：调整出招方能力等级并发出
+ * stage_change 事件。其余效果码已在 schema 校验处拒绝，不会走到这里。
+ *
+ * @param array &$state
+ * @param array &$events
+ * @param string $hook
+ * @param array $ctx {actor_side, actor_slot}
+ */
+function battle_core_apply_effects(&$state, &$events, $hook, $ctx)
+{
+    if (!in_array($hook, battle_core_effect_hooks(), true)) {
+        return;
+    }
+    foreach (['ally', 'enemy'] as $side) {
+        foreach ($state['sides'][$side] as $i => $unit) {
+            foreach ($unit['effects'] as $effect) {
+                if (!in_array($hook, $effect['hooks'], true)) {
+                    continue;
+                }
+                if ($effect['code'] === 'stages_boost') {
+                    // 只对出招单位自身生效
+                    if ($side !== $ctx['actor_side'] || $unit['slot'] !== $ctx['actor_slot']) {
+                        continue;
+                    }
+                    $stat = $effect['params']['stat'];
+                    $delta = intval($effect['params']['stages']);
+                    $old = intval($unit['stages'][$stat]);
+                    $new = max(-6, min(6, $old + $delta));
+                    if ($new === $old) {
+                        continue;
+                    }
+                    $state['sides'][$side][$i]['stages'][$stat] = $new;
+                    battle_core_emit($state, $events, 'stage_change', [
+                        'side' => $side,
+                        'slot' => $unit['slot'],
+                        'stat' => $stat,
+                        'delta' => $new - $old,
+                        'stages' => $new,
+                    ]);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 我方单位对敌方单位出一次招（move 或普通攻击）。
+ *
+ * 返回 true 若战斗因敌方全倒而结束（victory）。
+ * PP 不在核心内管理（资源由端点预扣/退还，miss 与"未及出手"由事件标记）。
+ */
+function battle_core_actor_move(&$state, &$events, $rng, $side, $move)
+{
+    $actor_side_key = $side;
+    $target_side_key = $side === 'ally' ? 'enemy' : 'ally';
+    $actor = battle_core_active_unit($state, $actor_side_key);
+    $target = battle_core_active_unit($state, $target_side_key);
+    if ($actor === null || $target === null) {
+        return false;
+    }
+
+    battle_core_emit($state, $events, 'move', [
+        'side' => $actor_side_key,
+        'slot' => $actor['slot'],
+        'skill' => isset($move['id']) || isset($move['name']) ? [
+            'id' => isset($move['id']) ? intval($move['id']) : 0,
+            'name' => isset($move['name']) ? $move['name'] : '',
+            'power' => intval($move['power']),
+            'type' => $move['type'],
+            'category' => intval($move['category']),
+        ] : null,
+        'target_side' => $target_side_key,
+        'target_slot' => $target['slot'],
+    ]);
+    battle_core_apply_effects($state, $events, 'on_before_move', ['actor_side' => $actor_side_key, 'actor_slot' => $actor['slot']]);
+
+    // 变化技（威力 0）：不造成伤害，主效果走 on_after_move 钩子（如 stages_boost）
+    if (intval($move['power']) <= 0) {
+        battle_core_apply_effects($state, $events, 'on_after_move', ['actor_side' => $actor_side_key, 'actor_slot' => $actor['slot']]);
+        return false;
+    }
+
+    // 命中判定
+    if (battle_core_try_miss($state, $rng, $actor, $target)) {
+        battle_core_emit($state, $events, 'miss', [
+            'side' => $actor_side_key,
+            'slot' => $actor['slot'],
+            'target_side' => $target_side_key,
+            'target_slot' => $target['slot'],
+        ]);
+        return false;
+    }
+
+    $result = battle_core_calc_damage($state, $actor, $target, $move, $rng);
+    $new_hp = intval(max(0, ((int)$target['hp']) - $result['amount']));
+
+    battle_core_emit($state, $events, 'damage', [
+        'side' => $actor_side_key,
+        'slot' => $actor['slot'],
+        'target_side' => $target_side_key,
+        'target_slot' => $target['slot'],
+        'amount' => $result['amount'],
+        'effectiveness' => $result['effectiveness'],
+        'crit' => $result['crit'],
+        'stat' => $result['stat'],
+    ]);
+
+    // 写回目标 HP
+    foreach ($state['sides'][$target_side_key] as $i => $u) {
+        if ($u['slot'] === $target['slot']) {
+            $state['sides'][$target_side_key][$i]['hp'] = $new_hp;
+            break;
+        }
+    }
+    battle_core_apply_effects($state, $events, 'on_hit', ['actor_side' => $actor_side_key, 'actor_slot' => $actor['slot']]);
+
+    if ($new_hp <= 0) {
+        foreach ($state['sides'][$target_side_key] as $i => $u) {
+            if ($u['slot'] === $target['slot']) {
+                $state['sides'][$target_side_key][$i]['fainted'] = true;
+                break;
+            }
+        }
+        battle_core_emit($state, $events, 'faint', ['side' => $target_side_key, 'slot' => $target['slot']]);
+        battle_core_apply_effects($state, $events, 'on_faint', ['actor_side' => $target_side_key, 'actor_slot' => $target['slot']]);
+        if (battle_core_active_unit($state, $target_side_key) === null) {
+            $state['phase'] = 'ended';
+            $state['result'] = $actor_side_key === 'ally' ? 'victory' : 'defeat';
+            battle_core_emit($state, $events, 'battle_end', ['result' => $state['result']]);
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * 野怪反击（固定威力 40 的物理攻击，不吃属性相克）
+ */
+function battle_core_counter_attack(&$state, &$events, $rng = null)
+{
+    $enemy = battle_core_active_unit($state, 'enemy');
+    $ally = battle_core_active_unit($state, 'ally');
+    if ($enemy === null || $ally === null) {
+        return;
+    }
+
+    $amount = battle_core_calc_counter_damage($state, $enemy, $ally, $rng);
+    $new_hp = intval(max(0, ((int)$ally['hp']) - $amount));
+
+    battle_core_emit($state, $events, 'counter', [
+        'side' => 'enemy',
+        'slot' => $enemy['slot'],
+        'target_side' => 'ally',
+        'target_slot' => $ally['slot'],
+        'amount' => $amount,
+    ]);
+
+    foreach ($state['sides']['ally'] as $i => $u) {
+        if ($u['slot'] === $ally['slot']) {
+            $state['sides']['ally'][$i]['hp'] = $new_hp;
+            break;
+        }
+    }
+
+    if ($new_hp <= 0) {
+        foreach ($state['sides']['ally'] as $i => $u) {
+            if ($u['slot'] === $ally['slot']) {
+                $state['sides']['ally'][$i]['fainted'] = true;
+                break;
+            }
+        }
+        battle_core_emit($state, $events, 'faint', ['side' => 'ally', 'slot' => $ally['slot']]);
+        battle_core_apply_effects($state, $events, 'on_faint', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
+        // 有替补时战斗进入等待换宠（是否真有替补由端点判库，事件仅提示语义）；
+        // phase 在端点确认无替补后才落为 ended/defeat。
+        $state['phase'] = 'awaiting_switch';
+        battle_core_emit($state, $events, 'switch_required', ['side' => 'ally']);
+    }
+}
+
+/**
+ * 解析一次行动为我方出招数据（普通攻击 = struggle，威力 30、属性取自身）
+ *
+ * action: {type: 'move'|'struggle', skill?: {id, name, power, type, category}, fallback_type?: string}
+ */
+function battle_core_resolve_move($state, $action)
+{
+    $ally = battle_core_active_unit($state, 'ally');
+    $fallback_type = isset($action['fallback_type']) && $action['fallback_type'] !== '' ? $action['fallback_type'] : ($ally ? $ally['types'][0] : '普通');
+    if (!isset($action['type']) || $action['type'] !== 'move' || empty($action['skill'])) {
+        return [
+            'id' => 0,
+            'name' => null, // null => 普通攻击（渲染层给默认名）
+            'power' => 30,
+            'type' => $fallback_type,
+            'category' => 0,
+        ];
+    }
+    $skill = $action['skill'];
+    // 威力语义：power 键缺失/空 => 旧数据无威力，回退 40；显式传 0 => 变化技
+    // （造成 0 伤害、主效果走 on_after_move 钩子）。第一阶段端点按旧语义
+    // `intval($power) ?: 40` 构造 action（power=0 的技能仍按 40 威力攻击结算，
+    // 数值兼容），变化技分支由 rules_version 2 的端点启用。
+    if (!array_key_exists('power', $skill) || $skill['power'] === null || $skill['power'] === '') {
+        $power = 40;
+    } else {
+        $power = intval($skill['power']);
+    }
+    return [
+        'id' => isset($skill['id']) ? intval($skill['id']) : 0,
+        'name' => isset($skill['name']) ? strval($skill['name']) : '',
+        'power' => $power,
+        'type' => isset($skill['type']) && $skill['type'] !== '' ? strval($skill['type']) : $fallback_type,
+        'category' => isset($skill['category']) ? intval($skill['category']) : 0,
+        'effects' => isset($skill['effects']) && is_array($skill['effects']) ? $skill['effects'] : [],
+    ];
+}
+
+/**
+ * 剥离本回合行动临时挂载到出招单位的效果（一次性 move 效果不持久化）。
+ */
+function battle_core_strip_mounted_effects(&$state, $mounted)
+{
+    if ($mounted === null) {
+        return;
+    }
+    list($i, $base_count) = $mounted;
+    if (!isset($state['sides']['ally'][$i])) {
+        return;
+    }
+    $state['sides']['ally'][$i]['effects'] = array_slice($state['sides']['ally'][$i]['effects'], 0, $base_count);
+}
+
+/**
+ * 执行一整回合（核心入口，纯函数）。
+ *
+ * 管线：turn_start -> 先手判定(速度) -> 逐单位行动(move/damage/faint 钩子)
+ *     -> 反击 -> on_turn_end -> 胜负判定。
+ * rules_version 1 与旧版一回合语义一致：我方一招 + 野怪固定反击一次，
+ * 先手 = 我方速度 >= 敌方速度；速度差 >=10 的高速度方有 20% 闪避。
+ *
+ * @param array $state
+ * @param array $action {'type': 'move'|'struggle', 'skill': {...}|null}
+ * @param callable|null $rng 注入 RNG（callable($min,$max)）；null 走内建 seed PRNG
+ * @return array {'state': array, 'events': array, 'pp_refund': bool}
+ *   pp_refund：本回合我方攻击被闪避、或后手未及出手，端点应退还预扣 PP
+ */
+function battle_core_apply_action($state, $action, $rng = null)
+{
+    $events = [];
+    $pp_refund = false;
+
+    // 效果挂载：行动携带的技能效果临时挂到出招单位（本回合的 on_after_move 等用）。
+    // 记录挂载位置与数量，回合结束前剥离——它们是本次出招的一次性效果，
+    // 不得随 to_rows 持久化到 pm_battle_unit，否则下一回合会重复触发并叠加。
+    $move = battle_core_resolve_move($state, $action);
+    $move_effects = isset($move['effects']) ? $move['effects'] : [];
+    $mounted = null; // [side_index, count]
+    if (!empty($move_effects)) {
+        $ally = battle_core_active_unit($state, 'ally');
+        if ($ally !== null) {
+            foreach ($state['sides']['ally'] as $i => $u) {
+                if ($u['slot'] === $ally['slot']) {
+                    $mounted = [$i, count($state['sides']['ally'][$i]['effects'])];
+                    foreach ($move_effects as $eff) {
+                        if (battle_core_validate_effect($eff) === true) {
+                            $state['sides']['ally'][$i]['effects'][] = $eff;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    $ally = battle_core_active_unit($state, 'ally');
+    $enemy = battle_core_active_unit($state, 'enemy');
+    $state['turn'] = ((int)$state['turn']) + 1;
+
+    // 上回合等待换宠、本回合已有可行动单位（端点注入了换上来的宠物）：战斗继续
+    if ($state['phase'] === 'awaiting_switch' && $ally !== null) {
+        $state['phase'] = 'active';
+    }
+
+    battle_core_emit($state, $events, 'turn_start', ['turn' => $state['turn']]);
+
+    if ($ally === null || $enemy === null) {
+        // 不应出现（端点在 ended 战斗上不该调核心）：防御性直接结束
+        $state['phase'] = 'ended';
+        battle_core_emit($state, $events, 'battle_end', ['result' => $state['result'] ? $state['result'] : 'defeat']);
+        battle_core_strip_mounted_effects($state, $mounted);
+        return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+    }
+
+    $my_first = ((int)$ally['stats']['speed']) >= ((int)$enemy['stats']['speed']);
+
+    if ($my_first) {
+        battle_core_actor_move($state, $events, $rng, 'ally', $move);
+        if ($state['phase'] === 'ended') {
+            // 先手击倒：回合结束（旧版此时野怪不再反击）
+            battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
+            battle_core_strip_mounted_effects($state, $mounted);
+            return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+        }
+        if (battle_core_events_has($events, 'miss')) {
+            $pp_refund = true;
+        }
+        battle_core_counter_attack($state, $events, $rng);
+        if ($state['phase'] === 'awaiting_switch') {
+            // 我方倒下待换宠：反击已发生，回合结算交还给端点
+            battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
+            battle_core_strip_mounted_effects($state, $mounted);
+            return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+        }
+    } else {
+        battle_core_counter_attack($state, $events, $rng);
+        if ($state['phase'] === 'awaiting_switch') {
+            // 后手被击倒、未及出手：按旧版语义退还 PP
+            $pp_refund = true;
+            battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
+            battle_core_strip_mounted_effects($state, $mounted);
+            return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+        }
+        battle_core_actor_move($state, $events, $rng, 'ally', $move);
+        if ($state['phase'] === 'ended') {
+            battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
+            battle_core_strip_mounted_effects($state, $mounted);
+            return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+        }
+        if (battle_core_events_has($events, 'miss')) {
+            $pp_refund = true;
+        }
+    }
+
+    battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
+    battle_core_strip_mounted_effects($state, $mounted);
+    return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+}
+
+function battle_core_events_has($events, $type)
+{
+    foreach ($events as $e) {
+        if ($e['type'] === $type) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * 逃跑判定（rules_version 1 与旧版 api_flee 一致）：
+ * 基础 0.5 + (我方等级 - 敌方等级) * 0.05，夹在 [0.1, 0.9]
+ *
+ * @return array {'state', 'events', 'fled': bool}
+ */
+function battle_core_try_flee($state, $rng = null)
+{
+    $events = [];
+    $ally = battle_core_active_unit($state, 'ally');
+    $enemy = battle_core_active_unit($state, 'enemy');
+    if ($ally === null || $enemy === null) {
+        return ['state' => $state, 'events' => $events, 'fled' => false];
+    }
+    $chance = 0.5 + (((int)$ally['level']) - ((int)$enemy['level'])) * 0.05;
+    $chance = max(0.1, min(0.9, $chance));
+    $roll = battle_core_rand($state, $rng, 1, 100) / 100;
+    if ($roll <= $chance) {
+        $state['phase'] = 'ended';
+        $state['result'] = 'fled';
+        battle_core_emit($state, $events, 'battle_end', ['result' => 'fled']);
+        return ['state' => $state, 'events' => $events, 'fled' => true];
+    }
+    battle_core_emit($state, $events, 'message', ['text' => 'flee_failed']);
+    return ['state' => $state, 'events' => $events, 'fled' => false];
+}
+
+/**
+ * 把事件流渲染为战斗文案（与旧版 damage_log 字符串逐条对应，集中管理以便后续 i18n）。
+ *
+ * move 与 damage/miss 事件成对出现（出招声明 + 结算），渲染时合并为
+ * 旧版单条文案"X使用了Y，对Z造成了N点伤害！"。
+ *
+ * @param array $events
+ * @param array $names {'ally': 显示名, 'enemy': 种族名}
+ * @return array string[]
+ */
+function battle_core_render_messages($events, $names)
+{
+    $ally_name = isset($names['ally']) ? $names['ally'] : '我方';
+    $enemy_name = isset($names['enemy']) ? $names['enemy'] : '野怪';
+    $out = [];
+    $pending_skill_name = null;
+    foreach ($events as $e) {
+        $p = $e['payload'];
+        switch ($e['type']) {
+            case 'move':
+                // 我方出招声明：记录技能名，与后续 damage/miss 合并成一条文案
+                if ($p['side'] === 'ally') {
+                    $pending_skill_name = ($p['skill'] && $p['skill']['name'] !== null && $p['skill']['name'] !== '')
+                        ? $p['skill']['name'] : '普通攻击';
+                }
+                break;
+            case 'damage':
+                if ($p['side'] === 'ally') {
+                    $skill_name = $pending_skill_name !== null ? $pending_skill_name : '普通攻击';
+                    $out[] = "{$ally_name}使用了{$skill_name}，对{$enemy_name}造成了{$p['amount']}点伤害！";
+                } else {
+                    $out[] = "{$enemy_name}攻击了{$ally_name}，造成了{$p['amount']}点伤害！";
+                }
+                $pending_skill_name = null;
+                break;
+            case 'miss':
+                $out[] = "{$enemy_name}避开了{$ally_name}的攻击！";
+                $pending_skill_name = null;
+                break;
+            case 'counter':
+                $out[] = "{$enemy_name}攻击了{$ally_name}，造成了{$p['amount']}点伤害！";
+                break;
+            case 'faint':
+                if ($p['side'] === 'enemy') {
+                    $out[] = "{$enemy_name}倒下了！";
+                } else {
+                    $out[] = "{$ally_name}倒下了...";
+                }
+                break;
+            case 'stage_change':
+                $stat_names = ['atk' => '攻击', 'def' => '防御', 'spatk' => '特攻', 'spdef' => '特防', 'speed' => '速度', 'accuracy' => '命中', 'evasion' => '闪避'];
+                $stat = isset($stat_names[$p['stat']]) ? $stat_names[$p['stat']] : $p['stat'];
+                if ($p['delta'] > 0) {
+                    $out[] = "{$ally_name}的{$stat}提高了！";
+                } else {
+                    $out[] = "{$ally_name}的{$stat}降低了！";
+                }
+                break;
+            case 'switch_required':
+                $out[] = '还有可用的替补宠物，请更换宠物继续战斗！';
+                break;
+        }
+    }
+    return $out;
+}
+
+/* ----------------------------------------------------------------------
+ * 持久化编解码（纯函数）：state <-> pm_battle + pm_battle_unit 行
+ * -------------------------------------------------------------------- */
+
+/**
+ * state -> 表行。返回 {'battle': {字段=>值}, 'units': [行..]}。
+ * units 的 JSON 列用 json_encode；无 JSON 扩展时 json_encode 不可用的环境
+ * 由端点层保证（X5 运行环境均带 json）。
+ */
+function battle_state_to_rows($state)
+{
+    $battle = [
+        'uid' => intval($state['uid']),
+        'kind' => $state['kind'],
+        'map_id' => intval($state['map_id']),
+        'turn' => intval($state['turn']),
+        'phase' => $state['phase'],
+        'result' => $state['result'] === null ? '' : $state['result'],
+        'rng_seed' => intval($state['rng_seed']),
+        'rng_counter' => intval($state['rng_counter']),
+        'event_seq' => intval($state['event_seq']),
+        'rules_version' => intval($state['rules_version']),
+        'field_json' => json_encode($state['field']),
+        'state_version' => intval($state['version']),
+    ];
+
+    $units = [];
+    foreach (['ally', 'enemy'] as $side) {
+        foreach ($state['sides'][$side] as $unit) {
+            $units[] = [
+                'battle_id' => isset($state['battle_id']) ? intval($state['battle_id']) : 0,
+                'side' => $side,
+                'slot' => intval($unit['slot']),
+                'instance_id' => intval($unit['instance_id']),
+                'species_id' => intval($unit['species_id']),
+                'name' => $unit['name'],
+                'species_name' => $unit['species_name'],
+                'level' => intval($unit['level']),
+                'stats_json' => json_encode($unit['stats']),
+                'types_json' => json_encode($unit['types']),
+                'hp' => intval($unit['hp']),
+                'stages_json' => json_encode($unit['stages']),
+                'status_json' => json_encode($unit['status']),
+                'volatile_json' => json_encode($unit['volatile']),
+                'buffs_json' => json_encode($unit['buffs']),
+                'effects_json' => json_encode($unit['effects']),
+                'fainted' => $unit['fainted'] ? 1 : 0,
+                'gender' => intval($unit['gender']),
+                'is_shiny' => $unit['is_shiny'] ? 1 : 0,
+                'capture_rate' => intval($unit['capture_rate']),
+                'boss_multiplier' => floatval($unit['boss_multiplier']),
+            ];
+        }
+    }
+    return ['battle' => $battle, 'units' => $units];
+}
+
+/**
+ * 表行 -> state（battle_state_to_rows 的逆变换，往返无损）。
+ *
+ * @param array $battle_row pm_battle 行（含 id/uid）
+ * @param array $unit_rows pm_battle_unit 行（属本战斗）
+ * @return array state
+ */
+function battle_state_from_rows($battle_row, $unit_rows)
+{
+    $field = json_decode(isset($battle_row['field_json']) ? $battle_row['field_json'] : '{}', true);
+    $state = [
+        'version' => intval($battle_row['state_version']),
+        'rules_version' => intval($battle_row['rules_version']),
+        'kind' => strval($battle_row['kind']),
+        'map_id' => intval($battle_row['map_id']),
+        'battle_id' => intval($battle_row['id']),
+        'uid' => intval($battle_row['uid']),
+        'turn' => intval($battle_row['turn']),
+        'phase' => strval($battle_row['phase']),
+        'result' => $battle_row['result'] !== '' && $battle_row['result'] !== null ? strval($battle_row['result']) : null,
+        'rng_seed' => intval($battle_row['rng_seed']),
+        'rng_counter' => intval($battle_row['rng_counter']),
+        'event_seq' => intval($battle_row['event_seq']),
+        'field' => is_array($field) ? array_merge(['weather' => null, 'terrain' => null], $field) : ['weather' => null, 'terrain' => null],
+        'sides' => ['ally' => [], 'enemy' => []],
+    ];
+
+    foreach ($unit_rows as $row) {
+        $stats = json_decode($row['stats_json'], true);
+        $types = json_decode($row['types_json'], true);
+        $stages = json_decode($row['stages_json'], true);
+        $status = json_decode($row['status_json'], true);
+        $volatile = json_decode($row['volatile_json'], true);
+        $buffs = json_decode($row['buffs_json'], true);
+        $effects = json_decode($row['effects_json'], true);
+        $state['sides'][$row['side']][] = [
+            'slot' => intval($row['slot']),
+            'instance_id' => intval($row['instance_id']),
+            'species_id' => intval($row['species_id']),
+            'species_name' => strval($row['species_name']),
+            'name' => strval($row['name']),
+            'level' => intval($row['level']),
+            'stats' => is_array($stats) ? $stats : [],
+            'types' => is_array($types) ? $types : [],
+            'hp' => intval($row['hp']),
+            'stages' => is_array($stages) ? $stages : [],
+            'status' => is_array($status) ? $status : null,
+            'volatile' => is_array($volatile) ? $volatile : [],
+            'buffs' => is_array($buffs) ? $buffs : [],
+            'effects' => is_array($effects) ? array_values(array_filter($effects, 'battle_core_is_valid_effect')) : [],
+            'fainted' => !empty($row['fainted']),
+            'gender' => intval($row['gender']),
+            'is_shiny' => !empty($row['is_shiny']),
+            'capture_rate' => intval($row['capture_rate']),
+            'boss_multiplier' => floatval($row['boss_multiplier']),
+        ];
+    }
+    foreach (['ally', 'enemy'] as $side) {
+        usort($state['sides'][$side], function ($a, $b) {
+            return $a['slot'] - $b['slot'];
+        });
+    }
+    return $state;
+}
+
+function battle_core_is_valid_effect($effect)
+{
+    return is_array($effect) && battle_core_validate_effect($effect) === true;
+}
+
+/**
+ * 旧列战斗状态（pm_usersdata.npcid 系列列）-> 新引擎 state（惰性迁移组装）。
+ *
+ * 升级部署瞬间进行中的老战斗在下一次回合接口触碰时升级到新表：
+ * 野怪六维快照取旧列现值，我方单位由端点每回合现算注入（stats 快照随回合刷新，
+ * 与旧版"每回合重算我方属性"的行为一致）。
+ *
+ * @param array $legacy pm_usersdata 行（npcid/level/hp/hpg/atkg/defg/spatkg/spdefg/sdg/allure/capture）
+ * @param array $ally_unit_opts 我方单位构造参数（stats 由端点现算后传入）
+ * @param array $enemy_meta {species_name, types, is_boss, boss_multiplier, map_id, rng_seed}
+ * @return array state
+ */
+function battle_core_state_from_legacy($legacy, $ally_unit_opts, $enemy_meta)
+{
+    $allure = intval($legacy['allure']);
+    $state = battle_core_initial_state([
+        'kind' => !empty($enemy_meta['is_boss']) ? 'boss' : 'wild',
+        'map_id' => isset($enemy_meta['map_id']) ? intval($enemy_meta['map_id']) : 0,
+        'rng_seed' => isset($enemy_meta['rng_seed']) ? intval($enemy_meta['rng_seed']) : 0,
+        'allies' => [$ally_unit_opts],
+        'enemies' => [[
+            'slot' => 0,
+            'instance_id' => 0,
+            'species_id' => intval($legacy['npcid']),
+            'species_name' => isset($enemy_meta['species_name']) ? $enemy_meta['species_name'] : '',
+            'name' => isset($enemy_meta['species_name']) ? $enemy_meta['species_name'] : '',
+            'level' => intval($legacy['level']),
+            'hp' => intval($legacy['hp']),
+            'stats' => [
+                'max_hp' => intval($legacy['hpg']),
+                'atk' => intval($legacy['atkg']),
+                'def' => intval($legacy['defg']),
+                'spatk' => intval($legacy['spatkg']),
+                'spdef' => intval($legacy['spdefg']),
+                'speed' => intval($legacy['sdg']),
+            ],
+            'types' => isset($enemy_meta['types']) && is_array($enemy_meta['types']) ? $enemy_meta['types'] : [],
+            'gender' => ($allure >> 1) & 1,
+            'is_shiny' => ($allure & 1) === 1,
+            'capture_rate' => intval($legacy['capture']),
+            'boss_multiplier' => isset($enemy_meta['boss_multiplier']) ? floatval($enemy_meta['boss_multiplier']) : 1.0,
+        ]],
+    ]);
+    return $state;
+}

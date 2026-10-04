@@ -49,6 +49,10 @@ class ReplacementResponse extends RuntimeException
     }
 }
 function api_error($message, $code) { throw new ReplacementResponse($message, $code); }
+function battle_ensure_tables()
+{
+    // engine table lazy-DDL: not under test here
+}
 function api_success($data) { throw new ReplacementResponse('success', 200, $data); }
 // 与 utils.php 中的生产版本一致：回滚未提交事务后以错误终止
 function pm_abort_battle_transaction($message, $status = 400)

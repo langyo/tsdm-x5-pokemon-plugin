@@ -419,6 +419,8 @@ def main():
     test_php_regression("Shop transaction regression", "shop_transactions.php")
     test_php_regression("Hunger item regression", "item_hunger.php")
     test_php_regression("Pokemon progression regression", "progression_regressions.php")
+    test_php_regression("Battle core engine regression", "battle_core_engine.php")
+    test_php_regression("Battle turn endpoint regression", "battle_engine_turn.php")
 
     print("\n" + "=" * 60)
     print(f"Results: {PASS} passed, {FAIL} failed, {WARN} warnings")

@@ -7,6 +7,9 @@ if(!defined('IN_DISCUZ')) {
 $sql = <<<EOF
 
 DROP TABLE IF EXISTS pm_pc;
+DROP TABLE IF EXISTS pm_battle_event;
+DROP TABLE IF EXISTS pm_battle_unit;
+DROP TABLE IF EXISTS pm_battle;
 DROP TABLE IF EXISTS pm_battle_log;
 DROP TABLE IF EXISTS pm_evolution;
 DROP TABLE IF EXISTS pm_box;
