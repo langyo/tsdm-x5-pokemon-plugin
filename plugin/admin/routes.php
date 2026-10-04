@@ -96,4 +96,6 @@ include_once __DIR__ . "/routes/pokemon_info.php";
 include_once __DIR__ . "/routes/item_info.php";
 include_once __DIR__ . "/routes/evolution_data.php";
 include_once __DIR__ . "/routes/skill_type.php";
+require_once __DIR__ . "/../../api/battle_core.php";
+include_once __DIR__ . "/routes/effect_data.php";
 include_once __DIR__ . "/routes/file_explorer.php";

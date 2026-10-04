@@ -28,6 +28,7 @@ $wanted = [
     'battle_skill_effects',
     'battle_pick_enemy_move',
     'battle_api_get_battle_log',
+    'battle_lang',
     'api_normalize_skill_category', 'battle_calc_my_stats',
     'calculate_rewards', 'apply_rewards', 'clear_battle_state',
     'handle_my_pokemon_fainted', 'build_battle_response',
@@ -128,6 +129,9 @@ foreach (['statehp', 'stateatk', 'statespatk', 'statedef', 'statespdef', 'states
 }
 
 $GLOBALS['_G'] = ['uid' => 1, 'username' => 'tester'];
+if (!defined('DISCUZ_ROOT')) {
+    define('DISCUZ_ROOT', __DIR__ . '/../../plugin/api');
+}
 $GLOBALS['petbasisexp'] = null;
 $GLOBALS['settings'] = [];
 

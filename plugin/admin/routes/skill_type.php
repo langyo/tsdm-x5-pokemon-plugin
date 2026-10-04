@@ -46,6 +46,7 @@ function list_skill_type($from, $count)
       );
 
       $item["_TYPE"] = "skill_type";
+      $item["effect_id"] = isset($query['effect_id']) ? intval($query['effect_id']) : 0;
       array_push($ret, $item);
     }
     return $ret;
@@ -88,6 +89,7 @@ function get_skill_type($id)
     );
 
     $item["_TYPE"] = "skill_type";
+    $item["effect_id"] = isset($query['effect_id']) ? intval($query['effect_id']) : 0;
     return [$item];
   } else {
     $json_ret = [];
@@ -147,6 +149,21 @@ function set_skill_type($info)
     if (intval($query['power']) != $damage) {
       DB::query("UPDATE pm_skill set power='$damage' where id=$id");
     }
+
+    // 战斗引擎 2.0：技能效果模板关联（0 = 无效果；非零时会校验该 pm_effect 行存在）
+    $effect_id = isset($info["effect_id"]) ? intval($info["effect_id"]) : 0;
+    if (intval($query['effect_id']) != $effect_id) {
+      if ($effect_id > 0) {
+        $effect_row = DB::fetch_first("SELECT id from pm_effect where id=" . $effect_id);
+        if (!$effect_row) {
+          $json_ret = [];
+          $json_ret["success"] = false;
+          $json_ret["reason"] = "effect_id #$effect_id 不存在（pm_effect）";
+          exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
+        }
+      }
+      DB::query("UPDATE pm_skill set effect_id='$effect_id' where id=$id");
+    }
   } else {
     $json_ret = [];
     $json_ret["success"] = false;
@@ -188,10 +205,21 @@ function insert_skill_type($info)
   $last_id = intval($last_id['id']);
   $new_id = $last_id + 1;
 
+  $effect_id = isset($info["effect_id"]) ? intval($info["effect_id"]) : 0;
+  if ($effect_id > 0) {
+    $effect_row = DB::fetch_first("SELECT id from pm_effect where id=" . $effect_id);
+    if (!$effect_row) {
+      $json_ret = [];
+      $json_ret["success"] = false;
+      $json_ret["reason"] = "effect_id #$effect_id 不存在（pm_effect）";
+      exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
+    }
+  }
+
   DB::query("INSERT INTO pm_skill (
-    id, name, available_pokemons, description, level_required, max_uses, category, element, power
+    id, name, available_pokemons, description, level_required, max_uses, category, element, power, effect_id
   ) VALUES (
-    $new_id, '$name', '$pmid', '$txt', $lv, $num, '$category', '$tn', $powr
+    $new_id, '$name', '$pmid', '$txt', $lv, $num, '$category', '$tn', $powr, $effect_id
   )");
 
   return $new_id;
@@ -313,6 +341,7 @@ function filter_skill_type($list)
       );
 
       $item["_TYPE"] = "skill_type";
+      $item["effect_id"] = isset($query['effect_id']) ? intval($query['effect_id']) : 0;
       array_push($ret, $item);
     }
   }

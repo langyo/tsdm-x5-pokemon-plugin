@@ -56,6 +56,11 @@ class SkillResponse extends RuntimeException
 }
 
 function api_error($message, $code) { throw new SkillResponse($message, $code); }
+function battle_lang()
+{
+    return []; // no lang pack in this suite: renderer falls back to built-in Chinese
+}
+
 function pm_abort_battle_transaction($message, $status = 400)
 {
     DB::query('ROLLBACK');

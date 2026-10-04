@@ -1289,7 +1289,48 @@ function battle_core_try_flee($state, $rng = null)
 }
 
 /**
- * 把事件流渲染为战斗文案（与旧版 damage_log 字符串逐条对应，集中管理以便后续 i18n）。
+ * 战斗文案缺省语言包（简体中文，与旧版 damage_log 逐条对应）。
+ * 端点可传入站点语言包覆盖（battle_lang()），模板支持 {ally}/{enemy}/
+ * {skill}/{amount}/{stat}/{status}/{who} 占位符。
+ */
+function battle_core_default_lang()
+{
+    return [
+        'used_move' => '{ally}使用了{skill}，对{enemy}造成了{amount}点伤害！',
+        'enemy_used_move' => '{enemy}使用了{skill}，对{ally}造成了{amount}点伤害！',
+        'counter' => '{enemy}攻击了{ally}，造成了{amount}点伤害！',
+        'miss' => '{enemy}避开了{ally}的攻击！',
+        'faint_enemy' => '{enemy}倒下了！',
+        'faint_ally' => '{ally}倒下了...',
+        'stage_up' => '{who}的{stat}提高了！',
+        'stage_down' => '{who}的{stat}降低了！',
+        'status_inflict' => '{who}陷入了{status}状态！',
+        'status_damage' => '{who}受到了{status}的伤害，{amount}点！',
+        'status_prevent' => '{who}因{status}无法行动！',
+        'status_cure' => '{who}的{status}治好了！',
+        'switch_required' => '还有可用的替补宠物，请更换宠物继续战斗！',
+        'struggle' => '普通攻击',
+        'stat_names' => [
+            'atk' => '攻击', 'def' => '防御', 'spatk' => '特攻', 'spdef' => '特防',
+            'speed' => '速度', 'accuracy' => '命中', 'evasion' => '闪避',
+        ],
+        'status_names' => [
+            'poison' => '中毒', 'burn' => '灼烧', 'paralysis' => '麻痹',
+            'sleep' => '睡眠', 'freeze' => '冰冻', 'confusion' => '混乱',
+        ],
+    ];
+}
+
+function battle_core_render_template($template, $vars)
+{
+    foreach (['ally', 'enemy', 'skill', 'amount', 'stat', 'status', 'who'] as $key) {
+        $template = str_replace('{' . $key . '}', isset($vars[$key]) ? strval($vars[$key]) : '', $template);
+    }
+    return $template;
+}
+
+/**
+ * 把事件流渲染为战斗文案（i18n：文案模板来自 $lang，缺省为内置简体中文）。
  *
  * move 与 damage/miss 事件成对出现（出招声明 + 结算），渲染时合并为
  * 旧版单条文案"X使用了Y，对Z造成了N点伤害！"。
@@ -1298,89 +1339,84 @@ function battle_core_try_flee($state, $rng = null)
  * @param array $names {'ally': 显示名, 'enemy': 种族名}
  * @return array string[]
  */
-function battle_core_render_messages($events, $names)
+function battle_core_render_messages($events, $names, $lang = null)
 {
+    $lang = is_array($lang) ? array_merge(battle_core_default_lang(), $lang) : battle_core_default_lang();
     $ally_name = isset($names['ally']) ? $names['ally'] : '我方';
     $enemy_name = isset($names['enemy']) ? $names['enemy'] : '野怪';
     $out = [];
     $pending_skill_name = null;
     foreach ($events as $e) {
         $p = $e['payload'];
+        $who = null;
+        if (isset($p['side'])) {
+            $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
+        }
         switch ($e['type']) {
             case 'move':
                 // 出招声明：记录技能名，与后续 damage/miss 合并成一条文案
-                if ($p['side'] === 'ally' || $p['side'] === 'enemy') {
-                    $pending_skill_name = ($p['skill'] && $p['skill']['name'] !== null && $p['skill']['name'] !== '')
-                        ? $p['skill']['name'] : '普通攻击';
+                if (isset($p['skill']) && ($p['skill'] !== null)) {
+                    $pending_skill_name = ($p['skill']['name'] !== null && $p['skill']['name'] !== '')
+                        ? $p['skill']['name'] : $lang['struggle'];
                 }
                 break;
-            case 'damage':
+            case 'damage': {
+                $amount = isset($p['amount']) ? (int)$p['amount'] : 0;
                 if ($p['side'] === 'ally') {
-                    $skill_name = $pending_skill_name !== null ? $pending_skill_name : '普通攻击';
-                    $out[] = "{$ally_name}使用了{$skill_name}，对{$enemy_name}造成了{$p['amount']}点伤害！";
+                    $skill_name = $pending_skill_name !== null ? $pending_skill_name : $lang['struggle'];
+                    $out[] = battle_core_render_template($lang['used_move'], ['ally' => $ally_name, 'enemy' => $enemy_name, 'skill' => $skill_name, 'amount' => $amount]);
                 } elseif ($pending_skill_name !== null) {
-                    // AI 招（rules_version 2）：显示技能名
-                    $out[] = "{$enemy_name}使用了{$pending_skill_name}，对{$ally_name}造成了{$p['amount']}点伤害！";
+                    $out[] = battle_core_render_template($lang['enemy_used_move'], ['ally' => $ally_name, 'enemy' => $enemy_name, 'skill' => $pending_skill_name, 'amount' => $amount]);
                 } else {
-                    $out[] = "{$enemy_name}攻击了{$ally_name}，造成了{$p['amount']}点伤害！";
+                    $out[] = battle_core_render_template($lang['counter'], ['ally' => $ally_name, 'enemy' => $enemy_name, 'amount' => $amount]);
                 }
                 $pending_skill_name = null;
                 break;
+            }
             case 'miss':
-                $out[] = "{$enemy_name}避开了{$ally_name}的攻击！";
+                $out[] = battle_core_render_template($lang['miss'], ['ally' => $ally_name, 'enemy' => $enemy_name]);
                 $pending_skill_name = null;
                 break;
             case 'counter':
-                $out[] = "{$enemy_name}攻击了{$ally_name}，造成了{$p['amount']}点伤害！";
+                $out[] = battle_core_render_template($lang['counter'], ['ally' => $ally_name, 'enemy' => $enemy_name, 'amount' => isset($p['amount']) ? (int)$p['amount'] : 0]);
                 break;
             case 'faint':
-                if ($p['side'] === 'enemy') {
-                    $out[] = "{$enemy_name}倒下了！";
-                } else {
-                    $out[] = "{$ally_name}倒下了...";
-                }
+                $out[] = battle_core_render_template($p['side'] === 'enemy' ? $lang['faint_enemy'] : $lang['faint_ally'], ['ally' => $ally_name, 'enemy' => $enemy_name]);
                 break;
-            case 'stage_change':
-                $stat_names = ['atk' => '攻击', 'def' => '防御', 'spatk' => '特攻', 'spdef' => '特防', 'speed' => '速度', 'accuracy' => '命中', 'evasion' => '闪避'];
-                $stat = isset($stat_names[$p['stat']]) ? $stat_names[$p['stat']] : $p['stat'];
-                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
-                if ($p['delta'] > 0) {
-                    $out[] = "{$who}的{$stat}提高了！";
-                } else {
-                    $out[] = "{$who}的{$stat}降低了！";
-                }
+            case 'stage_change': {
+                $stat = isset($lang['stat_names'][$p['stat']]) ? $lang['stat_names'][$p['stat']] : $p['stat'];
+                $tpl = $p['delta'] > 0 ? $lang['stage_up'] : $lang['stage_down'];
+                $out[] = battle_core_render_template($tpl, ['who' => $who, 'stat' => $stat]);
                 break;
-            case 'status_inflict':
-                $status_names = ['poison' => '中毒', 'burn' => '灼烧', 'paralysis' => '麻痹', 'sleep' => '睡眠', 'freeze' => '冰冻', 'confusion' => '混乱'];
-                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
-                $status = isset($status_names[$p['status']]) ? $status_names[$p['status']] : $p['status'];
-                $out[] = "{$who}陷入了{$status}状态！";
+            }
+            case 'status_inflict': {
+                $status = isset($lang['status_names'][$p['status']]) ? $lang['status_names'][$p['status']] : $p['status'];
+                $out[] = battle_core_render_template($lang['status_inflict'], ['who' => $who, 'status' => $status]);
                 break;
-            case 'status_damage':
-                $status_names = ['poison' => '中毒', 'burn' => '灼烧'];
-                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
-                $status = isset($status_names[$p['status']]) ? $status_names[$p['status']] : $p['status'];
-                $out[] = "{$who}受到了{$status}的伤害，{$p['amount']}点！";
+            }
+            case 'status_damage': {
+                $status = isset($lang['status_names'][$p['status']]) ? $lang['status_names'][$p['status']] : $p['status'];
+                $out[] = battle_core_render_template($lang['status_damage'], ['who' => $who, 'status' => $status, 'amount' => isset($p['amount']) ? (int)$p['amount'] : 0]);
                 break;
-            case 'status_prevent':
-                $status_names = ['poison' => '中毒', 'burn' => '灼烧', 'paralysis' => '麻痹', 'sleep' => '睡眠', 'freeze' => '冰冻', 'confusion' => '混乱'];
-                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
-                $status = isset($status_names[$p['status']]) ? $status_names[$p['status']] : $p['status'];
-                $out[] = "{$who}因{$status}无法行动！";
+            }
+            case 'status_prevent': {
+                $status = isset($lang['status_names'][$p['status']]) ? $lang['status_names'][$p['status']] : $p['status'];
+                $out[] = battle_core_render_template($lang['status_prevent'], ['who' => $who, 'status' => $status]);
                 break;
-            case 'status_cure':
-                $status_names = ['poison' => '中毒', 'burn' => '灼烧', 'paralysis' => '麻痹', 'sleep' => '睡眠', 'freeze' => '冰冻', 'confusion' => '混乱'];
-                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
-                $status = isset($status_names[$p['status']]) ? $status_names[$p['status']] : $p['status'];
-                $out[] = "{$who}的{$status}治好了！";
+            }
+            case 'status_cure': {
+                $status = isset($lang['status_names'][$p['status']]) ? $lang['status_names'][$p['status']] : $p['status'];
+                $out[] = battle_core_render_template($lang['status_cure'], ['who' => $who, 'status' => $status]);
                 break;
+            }
             case 'switch_required':
-                $out[] = '还有可用的替补宠物，请更换宠物继续战斗！';
+                $out[] = $lang['switch_required'];
                 break;
         }
     }
     return $out;
 }
+
 
 /* ----------------------------------------------------------------------
  * 持久化编解码（纯函数）：state <-> pm_battle + pm_battle_unit 行

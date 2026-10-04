@@ -649,7 +649,39 @@ function battle_render_counter_messages($events, $mypokemon, $enemy_name, $can_s
     return battle_core_render_messages($render_events, array(
         'ally' => $mypokemon['nickname'] ?: $mypokemon['pmname'],
         'enemy' => $enemy_name,
-    ));
+    ), battle_lang());
+}
+
+/**
+ * 战斗文案语言包：加载 i18n/<locale>/lang_plugin.php 的 battle_text 子数组
+ * （API 上下文无自动加载，按请求静态缓存）；缺失回退引擎内置简体。
+ */
+function battle_lang()
+{
+    static $lang = null;
+    if ($lang !== null) {
+        return $lang;
+    }
+    $lang = [];
+    global $_G;
+    $locale = isset($_G['setting']['lang']) ? $_G['setting']['lang'] : 'SC_UTF8';
+    $file = DISCUZ_ROOT . '/source/plugin/pokemon/i18n/' . $locale . '/lang_plugin.php';
+    if (!is_file($file)) {
+        $file = dirname(__DIR__) . '/i18n/' . $locale . '/lang_plugin.php';
+    }
+    if (is_file($file)) {
+        // 语言包以 IN_DISCUZ 保护；载入到独立作用域避免污染全局命名
+        $scriptlang = [];
+        $_IN_DISCUZ_GUARD = true;
+        if (!defined('IN_DISCUZ')) {
+            define('IN_DISCUZ', true);
+        }
+        include $file;
+        if (isset($scriptlang['pokemon']['battle_text']) && is_array($scriptlang['pokemon']['battle_text'])) {
+            $lang = $scriptlang['pokemon']['battle_text'];
+        }
+    }
+    return $lang;
 }
 
 /**
@@ -705,7 +737,7 @@ function battle_api_get_battle_log()
             $names['enemy'] = $u['species_name'] ?: $u['name'];
         }
     }
-    $lines = battle_core_render_messages($events, $names);
+    $lines = battle_core_render_messages($events, $names, battle_lang());
 
     // BBCode：可直接分享到帖子
     $bbcode = "[quote]" . ($battle['kind'] === 'boss' ? '[BOSS战]' : '[野外战斗]') . " 回合数 {$battle['turn']}
@@ -1156,7 +1188,7 @@ function api_use_skill()
     $damage_log = battle_core_render_messages($render_events, array(
         'ally' => $mypokemon['nickname'] ?: $mypokemon['pmname'],
         'enemy' => $enemy_unit['species_name'],
-    ));
+    ), battle_lang());
 
     $myusersdata = api_my_usersdata($_G['uid']);
     $mypokemon = api_my_pokemon($_G['username']);
@@ -1328,7 +1360,7 @@ function api_flee()
         $rendered = battle_core_render_messages($render_events, array(
             'ally' => $mypokemon['nickname'] ?: $mypokemon['pmname'],
             'enemy' => $enemy_unit['species_name'],
-        ));
+        ), battle_lang());
         $extra = implode("\n", $rendered);
     }
 
