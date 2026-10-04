@@ -35,10 +35,83 @@ defined('IN_DISCUZ') || exit('Access Denied');
 define('BATTLE_STATE_VERSION', 2);
 
 /** 规则版本：数值规则（伤害公式/能力等级语义等）变更时 +1，老战斗按老规则收尾 */
-define('BATTLE_RULES_VERSION', 1);
+define('BATTLE_RULES_VERSION', 2);
 
 /** 事件流 schema 版本（事件类型集合 / payload 字段变更时 +1） */
 define('BATTLE_EVENT_SCHEMA_VERSION', 1);
+
+/**
+ * 能力等级 -> 伤害/速度乘数（Gen3+ 经典表，rules_version 2 起）。
+ * -6..-1: 2/8 2/7 2/6 2/5 1/2 2/3；+1..+6: 3/2 2 5/2 3 7/2 4。
+ * @return float|int
+ */
+function battle_core_stage_multiplier($stage)
+{
+    $table = [
+        -6 => 2 / 8, -5 => 2 / 7, -4 => 2 / 6, -3 => 2 / 5, -2 => 1 / 2, -1 => 2 / 3,
+        0 => 1,
+        1 => 3 / 2, 2 => 2, 3 => 5 / 2, 4 => 3, 5 => 7 / 2, 6 => 4,
+    ];
+    $stage = max(-6, min(6, (int)$stage));
+    return $table[$stage];
+}
+
+/**
+ * 命中/闪避等级 -> 命中率乘数（rules_version 2 起）。
+ * accuracy 阶段每 +1 命中率 x1.33，每 -1 x0.75；evasion 对防守方反向同理。
+ */
+function battle_core_accuracy_multiplier($accuracy_stage, $evasion_stage)
+{
+    $mult = 1.0;
+    for ($i = 0; $i < max(0, $accuracy_stage); $i++) {
+        $mult *= 4 / 3;
+    }
+    for ($i = 0; $i < max(0, -$accuracy_stage); $i++) {
+        $mult *= 3 / 4;
+    }
+    for ($i = 0; $i < max(0, $evasion_stage); $i++) {
+        $mult *= 3 / 4;
+    }
+    for ($i = 0; $i < max(0, -$evasion_stage); $i++) {
+        $mult *= 4 / 3;
+    }
+    return $mult;
+}
+
+/**
+ * 内置异常状态定义目录（rules_version 2 的缺省数据；pm_status 表存在时
+ * 端点可传入覆盖版本，核心保持纯函数）。behavior 字段：
+ * - turn_damage: 每回合结束伤害比例（'1/8' / '1/16' max HP）
+ * - skip_turn_chance: 行动前无法行动的概率（0-100，100=必定）
+ * - speed_divisor: 速度除数（麻痹 2）
+ * - wake_chance: 每回合解除概率（睡眠/冰冻）
+ * - min_turns: 最短持续回合（睡眠）
+ */
+function battle_core_status_catalog()
+{
+    return [
+        'poison' => ['name' => '中毒', 'turn_damage' => '1/8', 'skip_turn_chance' => 0, 'wake_chance' => 0],
+        'burn' => ['name' => '灼烧', 'turn_damage' => '1/16', 'skip_turn_chance' => 0, 'wake_chance' => 0],
+        'paralysis' => ['name' => '麻痹', 'turn_damage' => null, 'skip_turn_chance' => 25, 'speed_divisor' => 2, 'wake_chance' => 0],
+        'sleep' => ['name' => '睡眠', 'turn_damage' => null, 'skip_turn_chance' => 100, 'wake_chance' => 33, 'min_turns' => 1],
+        'freeze' => ['name' => '冰冻', 'turn_damage' => null, 'skip_turn_chance' => 100, 'wake_chance' => 20],
+        'confusion' => ['name' => '混乱', 'turn_damage' => null, 'skip_turn_chance' => 0, 'wake_chance' => 0],
+    ];
+}
+
+/**
+ * 解析 turn_damage 比例字符串（'1/8'）为分数值。
+ */
+function battle_core_status_damage_ratio($turn_damage)
+{
+    if (!$turn_damage) {
+        return 0;
+    }
+    if (preg_match('#^(\d+)/(\d+)$#', $turn_damage, $m)) {
+        return (int)$m[1] / (int)$m[2];
+    }
+    return 0;
+}
 
 /**
  * 事件类型集合（固定格式：type + payload 纯数据，无文案；文案由渲染层生成）
@@ -57,6 +130,10 @@ function battle_core_event_types()
         'stage_change',    // 能力等级变化 {side, slot, stat, delta, stages}
         'faint',           // 单位倒下 {side, slot}
         'switch_required', // 我方倒下但有替补，等待换宠 {side}
+        'status_inflict',  // 附加异常状态 {side, slot, status, turns}
+        'status_damage',   // 异常状态每回合伤害 {side, slot, status, amount}
+        'status_prevent',  // 异常状态阻止行动 {side, slot, status}
+        'status_cure',     // 异常状态解除 {side, slot, status, natural}
         'battle_end',      // 战斗结束 {result}
         'message',         // 兜底文案事件 {text}
     ];
@@ -90,6 +167,11 @@ function battle_core_effect_schema()
         'stages_boost' => [
             'stat' => 'atk|def|spatk|spdef|speed|accuracy|evasion',
             'stages' => 'int -6..+6 相对变化量',
+            'target' => 'self|opponent（缺省 self）',
+        ],
+        'status_inflict' => [
+            'status' => 'poison|burn|paralysis|sleep|freeze|confusion',
+            'chance' => 'int 0-100 命中后附加概率（缺省 100）',
         ],
     ];
 }
@@ -138,6 +220,19 @@ function battle_core_validate_effect($effect)
         $stages = isset($effect['params']['stages']) ? intval($effect['params']['stages']) : 0;
         if (abs($stages) < 1 || abs($stages) > 6) {
             return 'stages_boost.params.stages out of range';
+        }
+        if (isset($effect['params']['target']) && !in_array($effect['params']['target'], ['self', 'opponent'], true)) {
+            return 'stages_boost.params.target invalid';
+        }
+    }
+    if ($effect['code'] === 'status_inflict') {
+        $status = isset($effect['params']['status']) ? $effect['params']['status'] : '';
+        if (!isset(battle_core_status_catalog()[$status])) {
+            return 'status_inflict.params.status unknown';
+        }
+        $chance = isset($effect['params']['chance']) ? intval($effect['params']['chance']) : 100;
+        if ($chance < 0 || $chance > 100) {
+            return 'status_inflict.params.chance out of range';
         }
     }
     if (!isset($effect['version']) || intval($effect['version']) < 1) {
@@ -398,10 +493,18 @@ function battle_core_calc_damage(&$state, $attacker, $defender, $move, $rng = nu
     $power = intval($move['power']);
     $category = intval($move['category']);
 
+    // rules_version 2：攻防两端按能力等级乘数修正（经典 -6..+6 表）
+    $atk_stage_mult = 1;
+    $def_stage_mult = 1;
+    if ((int)$state['rules_version'] >= 2) {
+        $atk_stage_mult = battle_core_stage_multiplier($category !== 1 ? $attacker['stages']['atk'] : $attacker['stages']['spatk']);
+        $def_stage_mult = battle_core_stage_multiplier($category !== 1 ? $defender['stages']['def'] : $defender['stages']['spdef']);
+    }
+
     if ($category !== 1) {
-        $base = (($level * 0.4 + 2) * $power * $attacker['stats']['atk'] / $defender['stats']['def'] / 50 + 2);
+        $base = (($level * 0.4 + 2) * $power * ($attacker['stats']['atk'] * $atk_stage_mult) / ($defender['stats']['def'] * $def_stage_mult) / 50 + 2);
     } else {
-        $base = (($level * 0.4 + 2) * $power * $attacker['stats']['spatk'] / $defender['stats']['spdef'] / 50 + 2);
+        $base = (($level * 0.4 + 2) * $power * ($attacker['stats']['spatk'] * $atk_stage_mult) / ($defender['stats']['spdef'] * $def_stage_mult) / 50 + 2);
     }
 
     // 属性相克（on_damage_calc 钩子的注入点之一：效果可修正倍率）
@@ -438,20 +541,48 @@ function battle_core_calc_counter_damage(&$state, $attacker, $defender, $rng = n
 {
     $level = intval($attacker['level']);
     $power = 40;
-    $damage = (($level * 0.4 + 2) * $power * $attacker['stats']['atk'] / $defender['stats']['def'] / 50 + 2);
+    $atk_value = $attacker['stats']['atk'];
+    $def_value = $defender['stats']['def'];
+    if ((int)$state['rules_version'] >= 2) {
+        $atk_value *= battle_core_stage_multiplier($attacker['stages']['atk']);
+        $def_value *= battle_core_stage_multiplier($defender['stages']['def']);
+    }
+    $damage = (($level * 0.4 + 2) * $power * $atk_value / $def_value / 50 + 2);
     $damage *= battle_core_rand($state, $rng, 85, 100) / 100;
     return intval(max(1, floor($damage)));
 }
 
 /**
- * 命中判定（rules_version 1：防守方速度高出 >=10 时 20% 闪避，与旧版一致）
+ * 有效速度（rules_version 2：能力等级乘数 + 麻痹减半；v1 为原始速度）。
+ */
+function battle_core_effective_speed($state, $unit)
+{
+    $speed = (int)$unit['stats']['speed'];
+    if ((int)$state['rules_version'] < 2) {
+        return $speed;
+    }
+    if ($unit['status'] !== null && $unit['status']['code'] === 'paralysis') {
+        $speed = intval($speed / 2);
+    }
+    return intval($speed * battle_core_stage_multiplier($unit['stages']['speed']));
+}
+
+/**
+ * 命中判定（rules_version 1：防守方速度高出 >=10 时 20% 闪避，与旧版一致；
+ * rules_version 2：在此基础上按 命中/闪避等级 修正概率）
  */
 function battle_core_try_miss(&$state, $rng, $attacker, $defender)
 {
     if (((int)$defender['stats']['speed']) - ((int)$attacker['stats']['speed']) < 10) {
         return false;
     }
-    return battle_core_rand($state, $rng, 1, 20) <= 4;
+    $miss_chance = 20; // v1 基线：20% 闪避
+    if ((int)$state['rules_version'] >= 2) {
+        $hit_mult = battle_core_accuracy_multiplier($attacker['stages']['accuracy'], $defender['stages']['evasion']);
+        // 命中率乘数 <1 提高闪避概率，>1 降低；闪避概率夹在 [5%, 95%]
+        $miss_chance = max(5, min(95, intval(100 - 80 * $hit_mult)));
+    }
+    return battle_core_rand($state, $rng, 1, 100) <= $miss_chance;
 }
 
 /**
@@ -465,11 +596,12 @@ function battle_core_try_miss(&$state, $rng, $attacker, $defender)
  * @param string $hook
  * @param array $ctx {actor_side, actor_slot}
  */
-function battle_core_apply_effects(&$state, &$events, $hook, $ctx)
+function battle_core_apply_effects(&$state, &$events, $hook, $ctx, $rng = null)
 {
     if (!in_array($hook, battle_core_effect_hooks(), true)) {
         return;
     }
+    $opponent_side = $ctx['actor_side'] === 'ally' ? 'enemy' : 'ally';
     foreach (['ally', 'enemy'] as $side) {
         foreach ($state['sides'][$side] as $i => $unit) {
             foreach ($unit['effects'] as $effect) {
@@ -477,24 +609,66 @@ function battle_core_apply_effects(&$state, &$events, $hook, $ctx)
                     continue;
                 }
                 if ($effect['code'] === 'stages_boost') {
-                    // 只对出招单位自身生效
+                    // 效果载体是出招单位；target 缺省 self 作用于自身，
+                    // opponent 作用于对手当前行动位（如泼沙降命中）
                     if ($side !== $ctx['actor_side'] || $unit['slot'] !== $ctx['actor_slot']) {
+                        continue;
+                    }
+                    $target_mode = isset($effect['params']['target']) ? $effect['params']['target'] : 'self';
+                    $target_side = $target_mode === 'opponent' ? $opponent_side : $side;
+                    $target_unit = battle_core_active_unit($state, $target_side);
+                    if ($target_unit === null) {
                         continue;
                     }
                     $stat = $effect['params']['stat'];
                     $delta = intval($effect['params']['stages']);
-                    $old = intval($unit['stages'][$stat]);
+                    $old = intval($target_unit['stages'][$stat]);
                     $new = max(-6, min(6, $old + $delta));
                     if ($new === $old) {
                         continue;
                     }
-                    $state['sides'][$side][$i]['stages'][$stat] = $new;
+                    foreach ($state['sides'][$target_side] as $ti => $tu) {
+                        if ($tu['slot'] === $target_unit['slot']) {
+                            $state['sides'][$target_side][$ti]['stages'][$stat] = $new;
+                            break;
+                        }
+                    }
                     battle_core_emit($state, $events, 'stage_change', [
-                        'side' => $side,
-                        'slot' => $unit['slot'],
+                        'side' => $target_side,
+                        'slot' => $target_unit['slot'],
                         'stat' => $stat,
                         'delta' => $new - $old,
                         'stages' => $new,
+                    ]);
+                } elseif ($effect['code'] === 'status_inflict') {
+                    // on_hit：命中后按概率给对手挂异常（rules_version 2）
+                    if ($hook !== 'on_hit' || (int)$state['rules_version'] < 2) {
+                        continue;
+                    }
+                    if ($side !== $ctx['actor_side'] || $unit['slot'] !== $ctx['actor_slot']) {
+                        continue;
+                    }
+                    $defender = battle_core_active_unit($state, $opponent_side);
+                    if ($defender === null || $defender['status'] !== null) {
+                        continue; // 已有异常不覆盖（major 单槽语义）
+                    }
+                    $chance = isset($effect['params']['chance']) ? intval($effect['params']['chance']) : 100;
+                    if ($chance < 100 && battle_core_rand($state, $rng, 1, 100) > $chance) {
+                        continue;
+                    }
+                    $status_code = $effect['params']['status'];
+                    $turns = in_array($status_code, ['sleep', 'freeze'], true) ? battle_core_rand($state, $rng, 1, 3) : 0;
+                    foreach ($state['sides'][$opponent_side] as $j => $u) {
+                        if ($u['slot'] === $defender['slot']) {
+                            $state['sides'][$opponent_side][$j]['status'] = ['code' => $status_code, 'turns_left' => $turns];
+                            break;
+                        }
+                    }
+                    battle_core_emit($state, $events, 'status_inflict', [
+                        'side' => $opponent_side,
+                        'slot' => $defender['slot'],
+                        'status' => $status_code,
+                        'turns' => $turns,
                     ]);
                 }
             }
@@ -571,7 +745,7 @@ function battle_core_actor_move(&$state, &$events, $rng, $side, $move)
             break;
         }
     }
-    battle_core_apply_effects($state, $events, 'on_hit', ['actor_side' => $actor_side_key, 'actor_slot' => $actor['slot']]);
+    battle_core_apply_effects($state, $events, 'on_hit', ['actor_side' => $actor_side_key, 'actor_slot' => $actor['slot']], $rng);
 
     if ($new_hp <= 0) {
         foreach ($state['sides'][$target_side_key] as $i => $u) {
@@ -691,6 +865,132 @@ function battle_core_strip_mounted_effects(&$state, $mounted)
 }
 
 /**
+ * 行动前异常判定（rules_version 2）：睡眠/冰冻/麻痹可能使我方无法行动。
+ * 睡眠/冰冻在此处有机会自然解除（解除的回合仍无法行动，与经典规则一致）。
+ *
+ * @return bool true = 本回合无法出招（PP 不退：异常跳过视为已消耗回合）
+ */
+function battle_core_pre_move_status(&$state, &$events, $rng, $side)
+{
+    if ((int)$state['rules_version'] < 2) {
+        return false;
+    }
+    $unit = battle_core_active_unit($state, $side);
+    if ($unit === null || $unit['status'] === null) {
+        return false;
+    }
+    $catalog = battle_core_status_catalog();
+    $code = $unit['status']['code'];
+    if (!isset($catalog[$code])) {
+        return false;
+    }
+    $def = $catalog[$code];
+    $wake = (int)(isset($def['wake_chance']) ? $def['wake_chance'] : 0);
+    if ($wake > 0 && battle_core_rand($state, $rng, 1, 100) <= $wake) {
+        // 自然解除 + 本回合仍无法行动
+        foreach ($state['sides'][$side] as $i => $u) {
+            if ($u['slot'] === $unit['slot']) {
+                $state['sides'][$side][$i]['status'] = null;
+                break;
+            }
+        }
+        battle_core_emit($state, $events, 'status_cure', ['side' => $side, 'slot' => $unit['slot'], 'status' => $code, 'natural' => true]);
+        battle_core_emit($state, $events, 'status_prevent', ['side' => $side, 'slot' => $unit['slot'], 'status' => $code]);
+        return true;
+    }
+    $skip = (int)(isset($def['skip_turn_chance']) ? $def['skip_turn_chance'] : 0);
+    if ($skip <= 0) {
+        return false;
+    }
+    if ($skip >= 100 || battle_core_rand($state, $rng, 1, 100) <= $skip) {
+        battle_core_emit($state, $events, 'status_prevent', ['side' => $side, 'slot' => $unit['slot'], 'status' => $code]);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * 回合末异常结算（rules_version 2）：
+ * - 持续伤害（中毒 1/8、灼烧 1/16 最大 HP），伤害可致倒下并触发胜负判定；
+ * - 持续回合递减与自然解除（睡眠/冰冻）。
+ * 战斗已结束（ended/awaiting_switch）的回合不结算（回合被战斗结果打断）。
+ */
+function battle_core_resolve_statuses(&$state, &$events, $rng = null)
+{
+    if ((int)$state['rules_version'] < 2) {
+        return;
+    }
+    if ($state['phase'] !== 'active') {
+        return;
+    }
+    $catalog = battle_core_status_catalog();
+    foreach (['ally', 'enemy'] as $side) {
+        foreach ($state['sides'][$side] as $i => $unit) {
+            if ($unit['status'] === null || $unit['fainted'] || $unit['hp'] <= 0) {
+                continue;
+            }
+            $code = $unit['status']['code'];
+            if (!isset($catalog[$code])) {
+                continue;
+            }
+            $def = $catalog[$code];
+
+            // 持续伤害
+            $ratio = battle_core_status_damage_ratio(isset($def['turn_damage']) ? $def['turn_damage'] : null);
+            if ($ratio > 0) {
+                $amount = max(1, intval(floor((int)$unit['stats']['max_hp'] * $ratio)));
+                $new_hp = max(0, (int)$unit['hp'] - $amount);
+                $state['sides'][$side][$i]['hp'] = $new_hp;
+                battle_core_emit($state, $events, 'status_damage', [
+                    'side' => $side, 'slot' => $unit['slot'], 'status' => $code, 'amount' => $amount,
+                ]);
+                if ($new_hp <= 0) {
+                    $state['sides'][$side][$i]['fainted'] = true;
+                    battle_core_emit($state, $events, 'faint', ['side' => $side, 'slot' => $unit['slot']]);
+                    if (battle_core_active_unit($state, $side) === null) {
+                        $state['phase'] = 'ended';
+                        $state['result'] = $side === 'ally' ? 'defeat' : 'victory';
+                        battle_core_emit($state, $events, 'battle_end', ['result' => $state['result']]);
+                    } elseif ($side === 'ally') {
+                        $state['phase'] = 'awaiting_switch';
+                        battle_core_emit($state, $events, 'switch_required', ['side' => 'ally']);
+                    }
+                    continue; // 倒下后不再解除判定
+                }
+            }
+
+            // 持续回合递减与自然解除
+            $turns_left = (int)$unit['status']['turns_left'];
+            if ($turns_left > 0) {
+                $turns_left--;
+                $state['sides'][$side][$i]['status']['turns_left'] = $turns_left;
+            }
+            $wake = (int)(isset($def['wake_chance']) ? $def['wake_chance'] : 0);
+            if ($wake > 0) {
+                $min_turns = (int)(isset($def['min_turns']) ? $def['min_turns'] : 0);
+                $eligible = $turns_left <= 0 || $min_turns === 0;
+                if ($eligible && battle_core_rand($state, $rng, 1, 100) <= $wake) {
+                    $state['sides'][$side][$i]['status'] = null;
+                    battle_core_emit($state, $events, 'status_cure', [
+                        'side' => $side, 'slot' => $unit['slot'], 'status' => $code, 'natural' => true,
+                    ]);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 回合末统一收尾：on_turn_end 钩子 -> 异常结算 -> 剥离一次性效果。
+ */
+function battle_core_finish_turn(&$state, &$events, $ally_slot, $mounted, $rng = null)
+{
+    battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally_slot]);
+    battle_core_resolve_statuses($state, $events, $rng);
+    battle_core_strip_mounted_effects($state, $mounted);
+}
+
+/**
  * 执行一整回合（核心入口，纯函数）。
  *
  * 管线：turn_start -> 先手判定(速度) -> 逐单位行动(move/damage/faint 钩子)
@@ -751,14 +1051,27 @@ function battle_core_apply_action($state, $action, $rng = null)
         return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
     }
 
-    $my_first = ((int)$ally['stats']['speed']) >= ((int)$enemy['stats']['speed']);
+    $my_first = battle_core_effective_speed($state, $ally) >= battle_core_effective_speed($state, $enemy);
 
     if ($my_first) {
+        // rules_version 2：行动前异常判定（睡眠/冰冻/麻痹可能无法出招，PP 不退）
+        if (battle_core_pre_move_status($state, $events, $rng, 'ally')) {
+            battle_core_counter_attack($state, $events, $rng);
+            if ($state['phase'] === 'awaiting_switch') {
+                battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+                return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+            }
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+        }
+        if (battle_core_pre_move_status($state, $events, $rng, 'ally')) {
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+        }
         battle_core_actor_move($state, $events, $rng, 'ally', $move);
         if ($state['phase'] === 'ended') {
             // 先手击倒：回合结束（旧版此时野怪不再反击）
-            battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
-            battle_core_strip_mounted_effects($state, $mounted);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         if (battle_core_events_has($events, 'miss')) {
@@ -767,8 +1080,7 @@ function battle_core_apply_action($state, $action, $rng = null)
         battle_core_counter_attack($state, $events, $rng);
         if ($state['phase'] === 'awaiting_switch') {
             // 我方倒下待换宠：反击已发生，回合结算交还给端点
-            battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
-            battle_core_strip_mounted_effects($state, $mounted);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
     } else {
@@ -776,14 +1088,16 @@ function battle_core_apply_action($state, $action, $rng = null)
         if ($state['phase'] === 'awaiting_switch') {
             // 后手被击倒、未及出手：按旧版语义退还 PP
             $pp_refund = true;
-            battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
-            battle_core_strip_mounted_effects($state, $mounted);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
+            return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
+        }
+        if (battle_core_pre_move_status($state, $events, $rng, 'ally')) {
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         battle_core_actor_move($state, $events, $rng, 'ally', $move);
         if ($state['phase'] === 'ended') {
-            battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
-            battle_core_strip_mounted_effects($state, $mounted);
+            battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
             return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
         }
         if (battle_core_events_has($events, 'miss')) {
@@ -791,8 +1105,7 @@ function battle_core_apply_action($state, $action, $rng = null)
         }
     }
 
-    battle_core_apply_effects($state, $events, 'on_turn_end', ['actor_side' => 'ally', 'actor_slot' => $ally['slot']]);
-    battle_core_strip_mounted_effects($state, $mounted);
+    battle_core_finish_turn($state, $events, $ally['slot'], $mounted, $rng);
     return ['state' => $state, 'events' => $events, 'pp_refund' => $pp_refund];
 }
 
@@ -885,11 +1198,36 @@ function battle_core_render_messages($events, $names)
             case 'stage_change':
                 $stat_names = ['atk' => '攻击', 'def' => '防御', 'spatk' => '特攻', 'spdef' => '特防', 'speed' => '速度', 'accuracy' => '命中', 'evasion' => '闪避'];
                 $stat = isset($stat_names[$p['stat']]) ? $stat_names[$p['stat']] : $p['stat'];
+                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
                 if ($p['delta'] > 0) {
-                    $out[] = "{$ally_name}的{$stat}提高了！";
+                    $out[] = "{$who}的{$stat}提高了！";
                 } else {
-                    $out[] = "{$ally_name}的{$stat}降低了！";
+                    $out[] = "{$who}的{$stat}降低了！";
                 }
+                break;
+            case 'status_inflict':
+                $status_names = ['poison' => '中毒', 'burn' => '灼烧', 'paralysis' => '麻痹', 'sleep' => '睡眠', 'freeze' => '冰冻', 'confusion' => '混乱'];
+                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
+                $status = isset($status_names[$p['status']]) ? $status_names[$p['status']] : $p['status'];
+                $out[] = "{$who}陷入了{$status}状态！";
+                break;
+            case 'status_damage':
+                $status_names = ['poison' => '中毒', 'burn' => '灼烧'];
+                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
+                $status = isset($status_names[$p['status']]) ? $status_names[$p['status']] : $p['status'];
+                $out[] = "{$who}受到了{$status}的伤害，{$p['amount']}点！";
+                break;
+            case 'status_prevent':
+                $status_names = ['poison' => '中毒', 'burn' => '灼烧', 'paralysis' => '麻痹', 'sleep' => '睡眠', 'freeze' => '冰冻', 'confusion' => '混乱'];
+                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
+                $status = isset($status_names[$p['status']]) ? $status_names[$p['status']] : $p['status'];
+                $out[] = "{$who}因{$status}无法行动！";
+                break;
+            case 'status_cure':
+                $status_names = ['poison' => '中毒', 'burn' => '灼烧', 'paralysis' => '麻痹', 'sleep' => '睡眠', 'freeze' => '冰冻', 'confusion' => '混乱'];
+                $who = ($p['side'] === 'ally') ? $ally_name : $enemy_name;
+                $status = isset($status_names[$p['status']]) ? $status_names[$p['status']] : $p['status'];
+                $out[] = "{$who}的{$status}治好了！";
                 break;
             case 'switch_required':
                 $out[] = '还有可用的替补宠物，请更换宠物继续战斗！';

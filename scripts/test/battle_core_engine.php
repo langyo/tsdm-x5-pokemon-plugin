@@ -168,7 +168,10 @@ check('slow ally acts after counter', $types2[0] === 'turn_start' && $types2[1] 
 // dodge: speed gap >= 10 and forced roll <= 4
 $dodge_rng = function ($min, $max) {
     if ($min === 1 && $max === 20) {
-        return 3; // miss chance roll
+        return 3; // rules v1 miss roll
+    }
+    if ($min === 1 && $max === 100) {
+        return 3; // rules v2 miss-chance roll -> always misses
     }
     return 100;
 };
@@ -376,8 +379,7 @@ $st_rt['sides']['ally'][0]['status'] = ['code' => 'poison', 'turns_left' => 3];
 $st_rt['sides']['ally'][0]['volatile'] = ['confusion'];
 $st_rt['sides']['ally'][0]['effects'] = [['code' => 'stages_boost', 'kind' => 'ability', 'hooks' => ['on_switch_in'], 'params' => ['stat' => 'def', 'stages' => -1], 'version' => 1]];
 $st_rt['field']['weather'] = 'rain';
-$r10 = battle_core_apply_action($st_rt, ['type' => 'struggle']);
-$st_after = $r10['state'];
+$st_after = $st_rt; // no turn applied: rules v2 would resolve the status and mutate it
 
 $rows = battle_state_to_rows($st_after);
 $rows['battle']['id'] = 55;
@@ -430,6 +432,180 @@ $msgs2 = battle_core_render_messages($r12['events'], ['ally' => '皮卡', 'enemy
 check('counter line rendered', strpos($msgs2[0], '鲤鱼王攻击了皮卡，造成了') === 0);
 check('ally faint line rendered', in_array('皮卡倒下了...', $msgs2, true));
 check('switch-required line rendered', in_array('还有可用的替补宠物，请更换宠物继续战斗！', $msgs2, true));
+
+
+echo "=== rules_version 2: stage multipliers ===" . PHP_EOL;
+check('stage +1 is 1.5x', battle_core_stage_multiplier(1) === 1.5);
+check('stage +6 is 4x', battle_core_stage_multiplier(6) === 4);
+check('stage -6 is 0.25x', battle_core_stage_multiplier(-6) === 0.25);
+check('stage -1 is 2/3', abs(battle_core_stage_multiplier(-1) - 2 / 3) < 1e-9);
+check('stage 0 neutral', battle_core_stage_multiplier(0) === 1);
+check('accuracy mult neutral', battle_core_accuracy_multiplier(0, 0) === 1.0);
+check('accuracy -6 raises miss', battle_core_accuracy_multiplier(-6, 0) < 0.3);
+check('evasion +6 lowers hit', battle_core_accuracy_multiplier(0, 6) < 0.3);
+
+echo "=== rules v2: damage scales with stages ===" . PHP_EOL;
+$full_roll = function ($min, $max) {
+    if ($min === 85) return 100;
+    if ($min === 1) return 2; // no crit, no miss
+    return $min;
+};
+$st_v2 = make_test_state(5, 50, 30, 100, 200); // rules_version defaults to 2 now
+check('v2 is the default rules version', (int)$st_v2['rules_version'] === 2);
+$move_flat = ['id' => 9, 'name' => '撞击', 'power' => 40, 'type' => '电', 'category' => 0];
+$dmg_base = battle_core_calc_damage($st_v2, $st_v2['sides']['ally'][0], $st_v2['sides']['enemy'][0], $move_flat, $full_roll);
+$st_up = make_test_state(5, 50, 30, 100, 200);
+$st_up['sides']['ally'][0]['stages']['atk'] = 1;
+$dmg_up = battle_core_calc_damage($st_up, $st_up['sides']['ally'][0], $st_up['sides']['enemy'][0], $move_flat, $full_roll);
+$ratio_up = $dmg_base['amount'] > 0 ? $dmg_up['amount'] / $dmg_base['amount'] : 0;
+check('attacker +1 atk scales damage toward 1.5x', $ratio_up > 1.4 && $ratio_up < 1.6);
+$st_dn = make_test_state(5, 50, 30, 100, 200);
+$st_dn['sides']['enemy'][0]['stages']['def'] = -1;
+$dmg_dn = battle_core_calc_damage($st_dn, $st_dn['sides']['ally'][0], $st_dn['sides']['enemy'][0], $move_flat, $full_roll);
+$ratio_dn = $dmg_base['amount'] > 0 ? $dmg_dn['amount'] / $dmg_base['amount'] : 0;
+check('defender -1 def scales damage toward 1.5x', $ratio_dn > 1.4 && $ratio_dn < 1.6);
+
+echo "=== rules v1: stages recorded but inert ===" . PHP_EOL;
+$st_v1 = make_test_state(5, 50, 30, 100, 200);
+$st_v1['rules_version'] = 1;
+$st_v1['sides']['ally'][0]['stages']['atk'] = 2;
+$dmg_v1 = battle_core_calc_damage($st_v1, $st_v1['sides']['ally'][0], $st_v1['sides']['enemy'][0], $move_flat, $full_roll);
+$dmg_v1_plain = null;
+$st_v1p = make_test_state(5, 50, 30, 100, 200);
+$st_v1p['rules_version'] = 1;
+$dmg_v1_plain = battle_core_calc_damage($st_v1p, $st_v1p['sides']['ally'][0], $st_v1p['sides']['enemy'][0], $move_flat, $full_roll);
+check('v1 ignores stage multipliers', $dmg_v1['amount'] === $dmg_v1_plain['amount']);
+
+echo "=== rules v2: status_inflict on hit ===" . PHP_EOL;
+$st_inf = make_test_state(7, 60, 30, 100, 300);
+$action_inf = ['type' => 'move', 'skill' => [
+    'id' => 30, 'name' => '毒针', 'power' => 25, 'type' => '毒', 'category' => 0,
+    'effects' => [[
+        'code' => 'status_inflict', 'kind' => 'move', 'hooks' => ['on_hit'],
+        'params' => ['status' => 'poison', 'chance' => 100], 'version' => 1,
+    ]],
+]];
+$r_inf = battle_core_apply_action($st_inf, $action_inf);
+$has_inflict = false;
+foreach ($r_inf['events'] as $e) {
+    if ($e['type'] === 'status_inflict') {
+        $has_inflict = true;
+        check('status lands on the defender', $e['payload']['side'] === 'enemy' && $e['payload']['status'] === 'poison');
+    }
+    if ($e['type'] === 'status_damage') {
+        check('poison ticks at end of the same turn', $e['payload']['side'] === 'enemy' && $e['payload']['amount'] >= 1);
+    }
+}
+check('status_inflict event emitted', $has_inflict);
+check('enemy carries the status in state', $r_inf['state']['sides']['enemy'][0]['status'] !== null && $r_inf['state']['sides']['enemy'][0]['status']['code'] === 'poison');
+check('status_inflict rejected for unknown status', battle_core_validate_effect([
+    'code' => 'status_inflict', 'kind' => 'move', 'hooks' => ['on_hit'],
+    'params' => ['status' => 'dna'], 'version' => 1,
+]) !== true);
+check('status_inflict rejects chance > 100', battle_core_validate_effect([
+    'code' => 'status_inflict', 'kind' => 'move', 'hooks' => ['on_hit'],
+    'params' => ['status' => 'poison', 'chance' => 120], 'version' => 1,
+]) !== true);
+
+echo "=== rules v2: sleep prevents acting, may wake ===" . PHP_EOL;
+$st_slp = make_test_state(11, 60, 30, 100, 300);
+$st_slp['sides']['ally'][0]['status'] = ['code' => 'sleep', 'turns_left' => 1];
+// injected rng: pre-move wake roll hits, so cure + prevent; counter roll max
+$wake_rng = function ($min, $max) {
+    if ($min === 1 && $max === 100) return 1; // wake chance 33 -> 1 <= 33 wakes
+    if ($min === 85) return 100;
+    return $min;
+};
+$r_slp = battle_core_apply_action($st_slp, ['type' => 'struggle'], $wake_rng);
+$types_slp = [];
+foreach ($r_slp['events'] as $e) {
+    $types_slp[] = $e['type'];
+}
+check('sleep cures naturally', in_array('status_cure', $types_slp, true));
+check('sleep still prevents the move this turn', in_array('status_prevent', $types_slp, true));
+check('no attack happened while asleep', !in_array('damage', $types_slp, true));
+check('status cleared in state', $r_slp['state']['sides']['ally'][0]['status'] === null);
+
+echo "=== rules v2: freeze blocks with chance to thaw ===" . PHP_EOL;
+$st_frz = make_test_state(12, 60, 30, 100, 300);
+$st_frz['sides']['ally'][0]['status'] = ['code' => 'freeze', 'turns_left' => 0];
+$frozen_rng = function ($min, $max) {
+    if ($min === 1 && $max === 100) return 100; // wake roll 100 > 20: stays frozen
+    if ($min === 85) return 100;
+    return $min;
+};
+$r_frz = battle_core_apply_action($st_frz, ['type' => 'struggle'], $frozen_rng);
+$types_frz = [];
+foreach ($r_frz['events'] as $e) {
+    $types_frz[] = $e['type'];
+}
+check('frozen unit cannot act', in_array('status_prevent', $types_frz, true) && !in_array('damage', $types_frz, true));
+check('frozen status persists', $r_frz['state']['sides']['ally'][0]['status'] !== null);
+
+echo "=== rules v2: paralysis halves effective speed ===" . PHP_EOL;
+$st_par = make_test_state(13, 60, 30, 100, 300);
+$ally_par = $st_par['sides']['ally'][0];
+check('plain speed compares raw', battle_core_effective_speed($st_par, $ally_par) === 60);
+$ally_par['status'] = ['code' => 'paralysis', 'turns_left' => 0];
+check('paralysis halves speed', battle_core_effective_speed($st_par, $ally_par) === 30);
+$st_par_v1 = make_test_state(13, 60, 30, 100, 300);
+$st_par_v1['rules_version'] = 1;
+$ally_par_v1 = $st_par_v1['sides']['ally'][0];
+$ally_par_v1['status'] = ['code' => 'paralysis', 'turns_left' => 0];
+check('v1 ignores paralysis speed cut', battle_core_effective_speed($st_par_v1, $ally_par_v1) === 60);
+
+echo "=== rules v2: opponent-targeted stage moves (sand-attack) ===" . PHP_EOL;
+$st_snd = make_test_state(21, 60, 30, 100, 300);
+$action_snd = ['type' => 'move', 'skill' => [
+    'id' => 28, 'name' => '泼沙', 'power' => 0, 'type' => '地面', 'category' => 0,
+    'effects' => [[
+        'code' => 'stages_boost', 'kind' => 'move', 'hooks' => ['on_after_move'],
+        'params' => ['stat' => 'accuracy', 'stages' => -1, 'target' => 'opponent'], 'version' => 1,
+    ]],
+]];
+$r_snd = battle_core_apply_action($st_snd, $action_snd);
+$has_enemy_drop = false;
+foreach ($r_snd['events'] as $e) {
+    if ($e['type'] === 'stage_change' && $e['payload']['side'] === 'enemy' && $e['payload']['stat'] === 'accuracy') {
+        $has_enemy_drop = true;
+    }
+    if ($e['type'] === 'damage') {
+        check('status move deals no damage in v2', false);
+    }
+}
+check('sand-attack lowers enemy accuracy', $has_enemy_drop);
+check('enemy accuracy stage stored', $r_snd['state']['sides']['enemy'][0]['stages']['accuracy'] === -1);
+check('target param validated', battle_core_validate_effect([
+    'code' => 'stages_boost', 'kind' => 'move', 'hooks' => ['on_after_move'],
+    'params' => ['stat' => 'atk', 'stages' => 1, 'target' => 'everyone'], 'version' => 1,
+]) !== true);
+
+echo "=== rules v2: status damage can KO and decide the battle ===" . PHP_EOL;
+$st_ko = make_test_state(31, 20, 60, 100, 300); // enemy faster & fat: survives our hit
+$st_ko['sides']['enemy'][0]['status'] = ['code' => 'poison', 'turns_left' => 0];
+$no_touch_rng = function ($min, $max) {
+    if ($min === 1) return 100; // no crit, no miss
+    if ($min === 85) return 100;
+    return $min;
+};
+$r_ko = battle_core_apply_action($st_ko, ['type' => 'struggle'], $no_touch_rng);
+$poison_tick = null;
+foreach ($r_ko['events'] as $e) {
+    if ($e['type'] === 'status_damage' && $e['payload']['side'] === 'enemy') {
+        $poison_tick = $e['payload']['amount'];
+    }
+}
+check('poison ticks for 1/8 max HP (37 of 300)', $poison_tick === 37);
+$my_hit = 0;
+foreach ($r_ko['events'] as $e) {
+    if ($e['type'] === 'damage' && $e['payload']['side'] === 'ally') {
+        $my_hit = $e['payload']['amount'];
+    }
+}
+$enemy_after = (int) $r_ko['state']['sides']['enemy'][0]['hp'];
+check('enemy HP reflects hit plus poison tick', $enemy_after === 300 - $my_hit - 37);
+check('battle continues after the tick', $r_ko['state']['phase'] === 'active');
+
 
 echo "\n";
 if ($failures > 0) {

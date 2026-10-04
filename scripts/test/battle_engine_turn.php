@@ -697,7 +697,8 @@ echo '=== scenario C: miss refunds reserved PP ===' . PHP_EOL;
 // find a seed where the ally's post-counter attack misses: roll idx1 (85..100 for counter), idx2 (1..20 miss)
 $miss_seed = null;
 for ($s = 1; $s < 5000; $s++) {
-    if (1 + (battle_core_rng_step($s, 1) % 20) <= 4) {
+    // rules v2 miss chance roll is (1,100) with a 20% baseline
+    if (1 + (battle_core_rng_step($s, 1) % 100) <= 20) {
         $miss_seed = $s;
         break;
     }

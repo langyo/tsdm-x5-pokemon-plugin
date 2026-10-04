@@ -263,7 +263,7 @@ function find_evading_mt_seed()
     for ($x = 1; $x < 5000; $x++) {
         mt_srand($x);
         $seed = mt_rand(1, 2147483647);
-        if (1 + (battle_core_rng_step($seed, 1) % 20) <= 4) {
+        if (1 + (battle_core_rng_step($seed, 1) % 100) <= 20) {
             return $x;
         }
     }

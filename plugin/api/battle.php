@@ -177,6 +177,14 @@ function battle_ensure_tables()
         PRIMARY KEY (`id`),
         KEY `idx_battle` (`battle_id`)
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci");
+    DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_status') . " (
+        `code` varchar(20) NOT NULL,
+        `name` varchar(30) NOT NULL DEFAULT '',
+        `behavior_json` text NOT NULL,
+        `overlap` varchar(10) NOT NULL DEFAULT 'replace',
+        `version` int(10) unsigned NOT NULL DEFAULT 1,
+        PRIMARY KEY (`code`)
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci");
     DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_battle_event') . " (
         `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         `battle_id` bigint(20) unsigned NOT NULL,
@@ -318,6 +326,28 @@ function battle_inject_ally_fresh_state(&$state, $mypokemon, $mydata)
             'types' => [$mydata['xs'], $mydata['xs2']],
         ]);
     }
+}
+
+/**
+ * 异常状态定义目录：pm_status 表行覆盖核心内置目录（数据驱动），
+ * 按请求静态缓存；表为空/未建成时回退内置定义。
+ */
+function battle_status_catalog()
+{
+    static $catalog = null;
+    if ($catalog !== null) {
+        return $catalog;
+    }
+    $catalog = battle_core_status_catalog();
+    $rows = DB::fetch_all("SELECT code, name, behavior_json FROM " . pm_table('pm_status'));
+    foreach ((array)$rows as $row) {
+        $behavior = json_decode($row['behavior_json'], true);
+        if (!is_array($behavior)) {
+            continue;
+        }
+        $catalog[$row['code']] = array_merge(['name' => $row['name']], $behavior);
+    }
+    return $catalog;
 }
 
 /**
@@ -797,8 +827,9 @@ function api_use_skill()
             $action = array('type' => 'move', 'skill' => array(
                 'id' => intval($skilldata['id']),
                 'name' => $skilldata['name'],
-                // 旧语义：power=0 的变化技在 rules_version 1 下仍按 40 威力攻击结算（数值兼容）
-                'power' => intval($skilldata['power']) ?: 40,
+                // rules_version 1：power=0 的技能按 40 威力攻击结算（数值兼容）；
+                // rules_version 2 起 power=0 是变化技（伤害 0，主效果走 on_after_move）
+                'power' => ((int)$state['rules_version'] >= 2) ? intval($skilldata['power']) : (intval($skilldata['power']) ?: 40),
                 'type' => $skilldata['element'] ?: $mydata['xs'],
                 'category' => api_normalize_skill_category($skilldata['category']),
             ));

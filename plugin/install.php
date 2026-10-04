@@ -307,6 +307,16 @@ CREATE TABLE IF NOT EXISTS `pm_battle_event` (
     KEY `idx_battle_turn` (`battle_id`, `turn`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+-- 战斗引擎 2.0 异常状态定义表 (X5 新增)
+CREATE TABLE IF NOT EXISTS `pm_status` (
+    `code` varchar(20) NOT NULL,
+    `name` varchar(30) NOT NULL DEFAULT '',
+    `behavior_json` text NOT NULL,
+    `overlap` varchar(10) NOT NULL DEFAULT 'replace',
+    `version` int(10) unsigned NOT NULL DEFAULT 1,
+    PRIMARY KEY (`code`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
 ALTER TABLE pre_common_member_field_forum ADD COLUMN IF NOT EXISTS pokemon TEXT AFTER medals;
 
 EOF;

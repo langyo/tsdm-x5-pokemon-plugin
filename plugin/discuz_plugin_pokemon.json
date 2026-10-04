@@ -7,7 +7,7 @@
       "name": "TSDM 宠物小精灵",
       "identifier": "pokemon",
       "description": "天使动漫论坛宠物小精灵插件系统",
-      "datatables": "pm_usersdata,pm_data,pm_mypm,pm_itemdata,pm_myitem,pm_config,pm_map,pm_skill,pm_myskill,pm_box,pm_evolution,pm_battle_log,pm_pc,pm_battle,pm_battle_unit,pm_battle_event",
+      "datatables": "pm_usersdata,pm_data,pm_mypm,pm_itemdata,pm_myitem,pm_config,pm_map,pm_skill,pm_myskill,pm_box,pm_evolution,pm_battle_log,pm_pc,pm_battle,pm_battle_unit,pm_battle_event,pm_status",
       "directory": "pokemon/",
       "copyright": "TSDM.net",
       "version": "X5.1",
