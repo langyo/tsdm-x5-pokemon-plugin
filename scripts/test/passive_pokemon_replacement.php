@@ -49,6 +49,13 @@ class ReplacementResponse extends RuntimeException
     }
 }
 function api_error($message, $code) { throw new ReplacementResponse($message, $code); }
+
+// ---- battle-engine adapter: no engine rows; the switch-in path is skipped ----
+function battle_load_active($uid, $myusersdata, $mypokemon)
+{
+    return null;
+}
+
 function battle_ensure_tables()
 {
     // engine table lazy-DDL: not under test here

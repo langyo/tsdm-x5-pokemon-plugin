@@ -12,7 +12,11 @@ set_error_handler(function ($severity, $message, $file, $line) {
 // Load actual endpoint functions without running the Discuz dispatcher. Preserve
 // __DIR__ so the endpoint still loads its real pokemon_utils.php dependency.
 $source = __DIR__ . '/../../plugin/api/battle.php';
-$wanted = ['api_capture_pokemon', 'battle_calc_npc_stats'];
+define('IN_DISCUZ', 1);
+require __DIR__ . '/../../plugin/api/battle_core.php';
+require __DIR__ . '/../../plugin/api/pokemon_utils.php';
+
+$wanted = ['api_capture_pokemon'];
 $tokens = token_get_all(file_get_contents($source));
 for ($i = 0; $i < count($tokens); $i++) {
     if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) continue;
@@ -49,6 +53,46 @@ class CaptureResponse extends RuntimeException
 }
 function api_success($data) { throw new CaptureResponse($data); }
 function api_error($message, ...$args) { throw new RuntimeException($message); }
+function pm_abort_battle_transaction($message, $status = 400)
+{
+    DB::query('ROLLBACK');
+    throw new RuntimeException($message);
+}
+function battle_ensure_tables() {}
+function battle_load_active($uid, $myusersdata, $mypokemon)
+{
+    // build the engine state straight from the legacy fixture columns
+    $allure = intval($myusersdata['allure']);
+    return battle_core_initial_state([
+        'uid' => intval($uid),
+        'kind' => 'wild',
+        'map_id' => 0,
+        'rng_seed' => 1,
+        'allies' => [[
+            'instance_id' => 10, 'species_id' => 1, 'name' => 'Active', 'species_name' => 'Active',
+            'level' => 20, 'hp' => 100,
+            'stats' => ['max_hp' => 100, 'atk' => 20, 'def' => 20, 'spatk' => 20, 'spdef' => 20, 'speed' => 20],
+            'types' => ['electric'],
+        ]],
+        'enemies' => [[
+            'species_id' => intval($myusersdata['npcid']),
+            'name' => 'Wild', 'species_name' => 'Wild',
+            'level' => intval($myusersdata['level']),
+            'hp' => intval($myusersdata['hp']),
+            'stats' => [
+                'max_hp' => intval($myusersdata['hpg']),
+                'atk' => intval($myusersdata['atkg']), 'def' => intval($myusersdata['defg']),
+                'spatk' => intval($myusersdata['spatkg']), 'spdef' => intval($myusersdata['spdefg']),
+                'speed' => intval($myusersdata['sdg']),
+            ],
+            'types' => ['electric'],
+            'gender' => ($allure >> 1) & 1,
+            'is_shiny' => ($allure & 1) === 1,
+            'capture_rate' => intval($myusersdata['capture']),
+        ]],
+    ]);
+}
+function battle_persist_state($state, $new_events = []) { return $state; }
 function require_login() {}
 function get_json_input() { return ['ball_id' => 1]; }
 function pm_table($name) { return $name; }
@@ -72,6 +116,9 @@ class DB
     public static $balls;
     public static function fetch_first($sql)
     {
+        if (strpos($sql, 'FOR UPDATE') !== false) {
+            return ['uid' => 7];
+        }
         if (strpos($sql, 'FROM pm_myitem') !== false) {
             return ['myitem_id' => 1, 'itemid' => 1, 'nums' => self::$balls, 'uid' => 7, 'captmax' => 255, 'ballid' => 1];
         }
@@ -84,6 +131,12 @@ class DB
     }
     public static function query($sql)
     {
+        if (preg_match('/^(START TRANSACTION|COMMIT|ROLLBACK)$/', $sql) || strpos($sql, 'CREATE TABLE') === 0) {
+            return;
+        }
+        if (preg_match('/^(INSERT INTO pm_battle|UPDATE pm_battle|DELETE FROM pm_battle_unit|INSERT INTO pm_battle_event)/', $sql)) {
+            return;
+        }
         if ($sql === 'DELETE FROM pm_myitem WHERE id = 1') {
             self::$balls = 0;
         } elseif (preg_match('/^INSERT INTO pm_mypm\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)\s*$/s', $sql, $match)) {

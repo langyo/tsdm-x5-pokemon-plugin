@@ -48,6 +48,8 @@ function battle_core_event_types()
     return [
         'battle_start',    // 开战 {kind, map_id}
         'turn_start',      // 回合开始 {turn}
+        'switch_in',       // 单位入场 {side, slot, instance_id}
+        'switch_out',      // 单位退场 {side, slot, instance_id}
         'move',            // 出招 {side, slot, skill|null, target_side, target_slot}
         'miss',            // 未命中 {side, slot, target_side, target_slot}
         'damage',          // 造成伤害 {side, slot, target_side, target_slot, amount, effectiveness, crit, stat}

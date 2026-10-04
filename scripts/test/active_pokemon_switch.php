@@ -50,6 +50,64 @@ class SwitchResponse extends RuntimeException
 }
 
 function api_error($message, $code) { throw new SwitchResponse($message, $code); }
+
+// ---- battle-engine adapters (site-swap semantics stay the test subject; the
+// engine counter is driven through a controllable stub below) ----
+function battle_load_active($uid, $myusersdata, $mypokemon)
+{
+    return null; // no engine rows: the switch-in bookkeeping path is skipped here
+}
+function battle_resolve_engine_counter($uid, $mypokemon)
+{
+    $GLOBALS['calls']['counter']++;
+    $GLOBALS['counter_args'] = [$uid, $mypokemon['id']];
+    $damage = (int) $GLOBALS['counter_damage'];
+    $hp = max(0, (int) $mypokemon['hp'] - $damage);
+    DB::query('UPDATE pm_mypm SET hp = ' . $hp . ' WHERE id = ' . (int) $mypokemon['id']);
+    $state = [
+        'turn' => 1,
+        'sides' => ['enemy' => [['species_name' => 'Wild']]],
+        'phase' => $hp <= 0 ? 'awaiting_switch' : 'active',
+    ];
+    $events = [['turn' => 1, 'seq' => 1, 'type' => 'counter', 'payload' => ['amount' => $damage]]];
+    if ($hp <= 0) {
+        $events[] = ['turn' => 1, 'seq' => 2, 'type' => 'faint', 'payload' => ['side' => 'ally', 'slot' => 0]];
+        $replacements = 0;
+        foreach (DB::rows() as $pet) {
+            if ((int) $pet['id'] !== (int) $mypokemon['id'] && (int) $pet['site'] < 3
+                && (int) $pet['hp'] > 0 && (int) $pet['state'] != 0) {
+                $replacements++;
+            }
+        }
+        if ($replacements > 0) {
+            $events[] = ['turn' => 1, 'seq' => 3, 'type' => 'switch_required', 'payload' => ['side' => 'ally']];
+            return [$state, $events, 'defeat', false, true];
+        }
+        $GLOBALS['calls']['clear']++;
+        $GLOBALS['user'] = array_merge($GLOBALS['user'], [
+            'npcid' => 0, 'level' => 0, 'hp' => 0, 'hpg' => 0,
+            'atkg' => 0, 'defg' => 0, 'spatkg' => 0, 'spdefg' => 0, 'sdg' => 0,
+            'allure' => 0, 'capture' => 0,
+        ]);
+        return [$state, $events, 'defeat', true, false];
+    }
+    return [$state, $events, 'active', false, false];
+}
+function battle_render_counter_messages($events, $mypokemon, $enemy_name, $can_switch)
+{
+    $out = [];
+    foreach ($events as $e) {
+        if ($e['type'] === 'counter') {
+            $out[] = "{$enemy_name}攻击了{$mypokemon['nickname']}，造成了{$e['payload']['amount']}点伤害！";
+        } elseif ($e['type'] === 'faint') {
+            $out[] = "{$mypokemon['nickname']}倒下了...";
+        } elseif ($e['type'] === 'switch_required') {
+            $out[] = '还有可用的替补宠物，请更换宠物继续战斗！';
+        }
+    }
+    return $out;
+}
+
 function battle_ensure_tables()
 {
     // engine table lazy-DDL: not under test here (site-swap semantics only)
@@ -363,7 +421,7 @@ run_case('Switch with surviving counterattack damages the new pet', function () 
     srand(7); // rand(1, 100) = 16 <= 30，触发反击
     switched_to(11, 1);
     check($GLOBALS['calls']['counter'] === 1 && (int) DB::$pets[1]['hp'] === 70, 'Counter damage did not subtract from the new pet current HP');
-    check($GLOBALS['counter_args'][2] === 25 && $GLOBALS['counter_args'][4] === 35, 'Counterattack received the wrong defense stats');
+    check($GLOBALS['counter_args'][1] === 11, 'Counterattack did not target the newly switched-in pet');
     check((int) DB::$pets[0]['hp'] === 100, 'Counterattack damaged the previous pet');
 });
 run_case('Counterattack defeats the new pet with reserves left', function () {

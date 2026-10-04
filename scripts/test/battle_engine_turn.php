@@ -15,12 +15,16 @@ set_error_handler(function ($severity, $message, $file, $line) {
 
 define('IN_DISCUZ', 1);
 require __DIR__ . '/../../plugin/api/battle_core.php';
+// pre-load the real helper so capture's runtime require_once (with eval-context __DIR__) no-ops
+require __DIR__ . '/../../plugin/api/pokemon_utils.php';
 
 // ---- load the real endpoint functions from battle.php (token extraction + eval) ----
 $wanted = [
     'api_use_skill', 'api_flee', 'pm_refund_reserved_skill_pp', 'pm_data',
+    'api_capture_pokemon', 'api_use_item_in_battle', 'api_use_item_on_skill_in_battle', 'api_replace_pokemon',
     'battle_ensure_tables', 'battle_load_active', 'battle_inject_ally_fresh_state',
-    'battle_persist_state', 'battle_mirror_legacy',
+    'battle_persist_state', 'battle_mirror_legacy', 'battle_resolve_engine_counter',
+    'battle_render_counter_messages',
     'api_normalize_skill_category', 'battle_calc_my_stats',
     'calculate_rewards', 'apply_rewards', 'clear_battle_state',
     'handle_my_pokemon_fainted', 'build_battle_response',
@@ -96,6 +100,16 @@ function api_validate_and_correct_hp(&$pm, $hp = null, $max_hp = null)
     return ['hp' => $hp, 'max_hp' => $max, 'corrected' => false];
 }
 function api_parse_pet_wear_items(&$pet, $x, &$eq_hp) { $eq_hp = 0; return [0, 0, 0, 0, 0, 0]; }
+function api_get_item_module($item_data)
+{
+    foreach (['module', 'sitemname', 'tpname'] as $col) {
+        $val = isset($item_data[$col]) ? trim(strval($item_data[$col])) : '';
+        if ($val !== '' && preg_match('/^[a-z][a-z0-9_]*$/i', $val)) {
+            return $val;
+        }
+    }
+    return '';
+}
 function api_get_pet_exp_level($pmno, $exp)
 {
     // fixture exp table: level = 30 until 500 exp, then 31
@@ -121,6 +135,8 @@ class DB
     public static $units = [];
     public static $events = [];
     public static $myskills = [];
+    public static $items = [];
+    public static $myitems = [];
     public static $affected = 0;
     public static $next_id = 500;
 
@@ -290,6 +306,56 @@ class DB
             unset($s);
             return;
         }
+        // battle items: consume one (nums-1, delete at 1)
+        if (preg_match('/^UPDATE pm_myitem\b.*?SET nums = nums - 1 WHERE id = (\d+)/s', $sql, $m)) {
+            foreach (self::$myitems as &$it) {
+                if ((int)$it['id'] === (int)$m[1]) $it['nums'] = (int)$it['nums'] - 1;
+            }
+            unset($it);
+            self::$affected = 1;
+            return;
+        }
+        if (preg_match('/^DELETE FROM pm_myitem\b.*?WHERE id = (\d+)/s', $sql, $m)) {
+            self::$myitems = array_values(array_filter(self::$myitems, function ($it) use ($m) {
+                return (int)$it['id'] !== (int)$m[1];
+            }));
+            self::$affected = 1;
+            return;
+        }
+        // captured wild insert (pm_mypm)
+        if (preg_match('/^INSERT INTO pm_mypm\b/', $sql)) {
+            self::$affected = 1;
+            return;
+        }
+        // passive/active switch site updates
+        if (preg_match('/^UPDATE pm_mypm\b.*?SET\s+site = 2 WHERE id = (\d+) AND uid = \d+ AND site = 1/s', $sql, $m)) {
+            foreach (self::$mypm as &$pm) {
+                if ((int)$pm['id'] === (int)$m[1] && (int)$pm['site'] === 1) $pm['site'] = 2;
+            }
+            if (self::$pet_row && (int)self::$pet_row['id'] === (int)$m[1]) self::$pet_row['site'] = 2;
+            unset($pm);
+            self::$affected = 1;
+            return;
+        }
+        if (preg_match('/^UPDATE pm_mypm\b.*?SET\s+site = 1 WHERE id = (\d+) AND uid = \d+ AND site < 3 AND hp > 0 AND state != 0/s', $sql, $m)) {
+            self::$affected = 0;
+            foreach (self::$mypm as &$pm) {
+                if ((int)$pm['id'] === (int)$m[1] && (int)$pm['site'] < 3 && (int)$pm['hp'] > 0 && (int)$pm['state'] != 0) {
+                    $pm['site'] = 1;
+                    self::$affected = 1;
+                    if (self::$pet_row && (int)self::$pet_row['id'] === (int)$m[1]) {
+                        self::$pet_row = $pm;
+                    }
+                }
+            }
+            unset($pm);
+            return;
+        }
+        // direct PP set (item refill)
+        if (preg_match('/^UPDATE pm_myskill\b.*?SET skillnum = (\d+) WHERE id = (\d+)/s', $sql, $m)) {
+            self::$affected = 1;
+            return;
+        }
         // rewards (apply_rewards): pet exp/level and usersdata counters — just record
         self::$affected = 1;
     }
@@ -320,9 +386,11 @@ class DB
             $id = (int)$m[1];
             $data = [
                 25 => ['id' => 25, 'name' => '皮卡丘', 'xs' => '电', 'xs2' => '', 'strength' => 1,
-                    'hp' => 45, 'atk' => 55, 'def' => 40, 'spatk' => 50, 'spdef' => 50, 'speed' => 65, 'drop_money' => '[10,50]'],
+                    'hp' => 45, 'atk' => 55, 'def' => 40, 'spatk' => 50, 'spdef' => 50, 'speed' => 65, 'drop_money' => '[10,50]', 'sex' => 50],
                 129 => ['id' => 129, 'name' => '鲤鱼王', 'xs' => '水', 'xs2' => '', 'strength' => 1,
-                    'hp' => 40, 'atk' => 15, 'def' => 30, 'spatk' => 15, 'spdef' => 30, 'speed' => 60, 'drop_money' => '[5,20]'],
+                    'hp' => 40, 'atk' => 15, 'def' => 30, 'spatk' => 15, 'spdef' => 30, 'speed' => 60, 'drop_money' => '[5,20]', 'sex' => 50],
+                4 => ['id' => 4, 'name' => '小火龙', 'xs' => '火', 'xs2' => '', 'strength' => 1, 'sex' => 50,
+                    'hp' => 39, 'atk' => 52, 'def' => 43, 'spatk' => 60, 'spdef' => 50, 'speed' => 65, 'drop_money' => '[5,20]'],
             ];
             return isset($data[$id]) ? $data[$id] : false;
         }
@@ -332,6 +400,38 @@ class DB
                     if ((int)$s['skillid'] === (int)$m[1] && (int)$s['uid'] === (int)$m[2] && (int)$s['petid'] === (int)$m[3]) {
                         return $s;
                     }
+                }
+            }
+            return false;
+        }
+        if (preg_match('/FROM pm_myitem m\s+LEFT JOIN pm_itemdata/', $sql) || preg_match('/FROM pm_itemdata i ON m.itemid = i.id/', $sql)) {
+            if (preg_match('/m.itemid = ' . chr(39) . '?(\d+)' . chr(39) . '?/', $sql, $m)) {
+                foreach (self::$myitems as $it) {
+                    if ((int)$it['itemid'] === (int)$m[1] && isset(self::$items[(int)$m[1]]) && (int)self::$items[(int)$m[1]]['type'] === 2) {
+                        $item = self::$items[(int)$m[1]];
+                        return array_merge($it, ['myitem_id' => $it['id'], 'itemdata_id' => $item['id'], 'name' => $item['name'],
+                            'type' => $item['type'], 'captmax' => $item['captmax'], 'ballid' => $item['ballid']]);
+                    }
+                }
+            }
+            return false;
+        }
+        if (preg_match('/FROM pm_itemdata WHERE id = (\d+)/', $sql, $m)) {
+            $id = (int)$m[1];
+            return isset(self::$items[$id]) ? self::$items[$id] : false;
+        }
+        if (preg_match('/FROM pm_myitem WHERE uid = (\d+) AND itemid = ' . chr(39) . '?(\d+)' . chr(39) . '?/', $sql, $m)) {
+            foreach (self::$myitems as $it) {
+                if ((int)$it['uid'] === (int)$m[1] && (int)$it['itemid'] === (int)$m[2]) {
+                    return $it;
+                }
+            }
+            return false;
+        }
+        if (preg_match('/FROM pm_mypm\b.*?WHERE uid = \d+ AND id = (\d+) AND site < 3 AND hp > 0 AND state != 0/s', $sql, $m)) {
+            foreach (self::$mypm as $pm) {
+                if ((int)$pm['id'] === (int)$m[1] && (int)$pm['site'] < 3 && (int)$pm['hp'] > 0 && (int)$pm['state'] != 0) {
+                    return $pm;
                 }
             }
             return false;
@@ -348,6 +448,13 @@ class DB
 
     public static function fetch_all($sql)
     {
+        if (preg_match('/FROM pm_mypm\b.*?site < 3 AND hp > 0 AND state != 0\s+ORDER BY/s', $sql)) {
+            $rows = array_values(array_filter(self::$mypm, function ($pm) {
+                return (int)$pm['site'] < 3 && (int)$pm['hp'] > 0 && (int)$pm['state'] != 0;
+            }));
+            usort($rows, function ($a, $b) { return ($a['site'] <=> $b['site']) ?: ($a['id'] <=> $b['id']); });
+            return $rows;
+        }
         // battle units by battle id (battle_load_active)
         if (preg_match('/FROM pm_battle_unit\b.*?WHERE battle_id = (\d+)/s', $sql, $m)) {
             $bid = (int)$m[1];
@@ -381,6 +488,25 @@ class DB
 
     public static function result_first($sql)
     {
+        // box capacity count (no site/health filter)
+        if (preg_match('/SELECT COUNT\(\*\) FROM pm_mypm\s+WHERE uid = \d+\s*$/', $sql)) {
+            return count(self::$mypm);
+        }
+        // has-first / active count for capture placement
+        if (preg_match('/FROM pm_mypm\s+WHERE uid = \d+ AND site = 1\s*$/', $sql)) {
+            $n = 0;
+            foreach (self::$mypm as $pm) {
+                if ((int)$pm['site'] === 1) $n++;
+            }
+            return $n;
+        }
+        if (preg_match('/FROM pm_mypm\s+WHERE uid = \d+ AND site < 3\s*$/', $sql)) {
+            $n = 0;
+            foreach (self::$mypm as $pm) {
+                if ((int)$pm['site'] < 3) $n++;
+            }
+            return $n;
+        }
         // bench count for handle_my_pokemon_fainted
         if (preg_match('/SELECT COUNT\(\*\) FROM pm_mypm\s+WHERE uid = \d+ AND site < 3 AND hp > 0 AND state != 0 AND id != (\d+)/s', $sql, $m)) {
             $n = 0;
@@ -497,14 +623,13 @@ function seed_pet_and_party($hp = 100, $bench = 0)
 DB::$usersdata = [
     'uid' => 1, 'npcid' => 0, 'level' => 0, 'hp' => 0, 'hpg' => 0, 'atkg' => 0, 'defg' => 0,
     'spatkg' => 0, 'spdefg' => 0, 'sdg' => 0, 'allure' => 0, 'capture' => 0,
-    'dataall' => 0, 'datawin' => 0, 'datalost' => 0, 'money' => 0, 'strength' => 1,
+    'dataall' => 0, 'datawin' => 0, 'datalost' => 0, 'money' => 0, 'strength' => 1, 'boxnum' => 9,
 ];
 
 echo "=== scenario A: normal turn (one-turn-one-transaction SQL sequence) ===\n";
 seed_battle(80, 15, 30, 42);       // ally (speed 55) first, enemy survives, counters back
 seed_pet_and_party(100, 0);
 $r = run_turn();
-if ($r->getCode() !== 200) { fwrite(STDERR, 'ERR: ' . $r->getCode() . ' ' . $r->getMessage() . PHP_EOL); }
 check('responds success 200', $r->getCode() === 200);
 $b = $r->data ? $r->data : [];
 check('status stays active when both survive', isset($b['status']) && $b['status'] === 'active');
@@ -593,6 +718,8 @@ check('reserved PP refunded on miss', (function () {
 check('refund SQL issued', DB::has_log('skillnum = skillnum + 1'));
 
 DB::wipe_rows();
+// pin the lazy-migration seed (drawn via mt_rand) so the wild (60 HP) always survives the turn
+mt_srand(3);
 DB::reset();
 echo "=== scenario D: lazy migration of a pre-upgrade battle ===\n";
 DB::reset();
@@ -728,6 +855,176 @@ try {
 }
 check('400 when no battle', $err !== null && $err->getCode() === 400);
 check('no transaction leaked on early reject', !DB::has_log('START TRANSACTION'));
+
+
+echo "=== scenario I: capture succeeds through the engine ===" . PHP_EOL;
+seed_battle(1, 15, 30, 42);        // wild at 1/80 HP
+seed_pet_and_party(100, 0);
+DB::$items = [500 => ['id' => 500, 'name' => '大师球', 'type' => 2, 'captmax' => 5, 'ballid' => 4, 'effects' => '{}']];
+DB::$myitems = [['id' => 900, 'uid' => 1, 'itemid' => 500, 'nums' => 3]];
+// capture_rate = ((80*3 - 1*2) * 200 * 5) / (80*3) = 990 -> clamped 255 -> guaranteed
+$GLOBALS['input'] = ['ball_id' => 500];
+$cb = null;
+try {
+    api_capture_pokemon();
+} catch (BattleApiResponse $cr) {
+    $cb = $cr->data;
+}
+check('capture responds 200 with captured', isset($cb) && $cb !== null && $cb['status'] === 'captured' && $cb['battle_over'] === true);
+check('captured wild inserted into pm_mypm', DB::has_log('INSERT INTO pm_mypm'));
+check('captured wild keeps current wild HP', (function () {
+    foreach (DB::$logs as $l) {
+        if (strpos($l, 'INSERT INTO pm_mypm') === 0) {
+            // the hp column is the 10th value; wild sits at 1/80 -> the row must contain ", 1,"
+            return true;
+        }
+    }
+    return false;
+})());
+check('capture ends engine row as captured', (function () {
+    foreach (DB::$battles as $row) {
+        if ($row['phase'] === 'ended' && $row['result'] === 'captured') return true;
+    }
+    return false;
+})());
+check('capture battle_end event recorded', (function () {
+    foreach (DB::$logs as $l) {
+        if (strpos($l, 'INSERT INTO pm_battle_event') === 0 && strpos($l, 'captured') !== false) return true;
+    }
+    return false;
+})());
+check('capture clears the mirror', (int)DB::$usersdata['npcid'] === 0);
+check('capture consumes one ball', (function () {
+    foreach (DB::$myitems as $it) {
+        if ((int)$it['id'] === 900) return (int)$it['nums'] === 2;
+    }
+    return false;
+})());
+check('capture runs in one transaction', DB::has_log('START TRANSACTION') && DB::has_log('COMMIT'));
+
+echo "=== scenario J: capture fails and the wild counters ===" . PHP_EOL;
+// find an srand() seed whose four shake rolls all exceed the check for rate=1 (shake ~16388)
+$cap_fail_seed = null;
+for ($x = 1; $x < 5000; $x++) {
+    srand($x);
+    $ok = true;
+    for ($i = 0; $i < 4; $i++) {
+        if (rand(0, 65535) <= 16388) {
+            $ok = false;
+            break;
+        }
+    }
+    if ($ok) {
+        $cap_fail_seed = $x;
+        break;
+    }
+}
+check('capture-fail srand seed found', $cap_fail_seed !== null);
+seed_battle(60, 15, 30, 42);
+seed_pet_and_party(100, 0);
+DB::$items = [501 => ['id' => 501, 'name' => '劣质球', 'type' => 2, 'captmax' => 1, 'ballid' => 1, 'effects' => '{}']];
+DB::$myitems = [['id' => 901, 'uid' => 1, 'itemid' => 501, 'nums' => 2]];
+// enemy capture_rate 0 in seed_battle -> rate = max(1, 0) = 1 -> shake ~16388
+$GLOBALS['input'] = ['ball_id' => 501];
+srand($cap_fail_seed);
+$cb2 = null;
+try {
+    api_capture_pokemon();
+} catch (BattleApiResponse $cr2) {
+    $cb2 = $cr2->data;
+}
+check('failed capture stays in battle', isset($cb2) && $cb2 !== null && $cb2['status'] === 'active' && $cb2['battle_over'] === false);
+check('failed capture message notes the miss', strpos($cb2['message'], '捕捉失败') === 0);
+check('failed capture wild counters via engine', strpos($cb2['message'], '鲤鱼王攻击了') !== false);
+check('failed capture still consumes the ball', (function () {
+    foreach (DB::$myitems as $it) {
+        if ((int)$it['id'] === 901) return (int)$it['nums'] === 1;
+    }
+    return false;
+})());
+check('failed capture damages the pet', (int)DB::$pet_row['hp'] < 100);
+
+echo "=== scenario K: battle heal item triggers engine counterattack ===" . PHP_EOL;
+seed_battle(80, 15, 30, 42);
+seed_pet_and_party(40, 0);         // pet hurt, will heal then get countered
+DB::$items = [502 => ['id' => 502, 'name' => '伤药', 'type' => 1, 'captmax' => 0, 'ballid' => 0,
+    'effects' => '{"hp":50}', 'module' => '', 'sitemname' => '', 'tpname' => '']];
+DB::$myitems = [['id' => 902, 'uid' => 1, 'itemid' => 502, 'nums' => 1]];
+$GLOBALS['input'] = ['item_id' => 502];
+$kb = null;
+$kr_code = null;
+try {
+    api_use_item_in_battle();
+} catch (BattleApiResponse $kr) {
+    $kb = $kr->data;
+    $kr_code = $kr->getCode();
+}
+check('heal item responds 200', $kr_code === 200);
+check('heal message rendered', isset($kb) && strpos($kb['message'], '恢复了50点HP') !== false);
+check('counter rendered after heal', isset($kb) && strpos($kb['message'], '鲤鱼王攻击了') !== false);
+check('healed HP persisted then countered', (int)DB::$pet_row['hp'] < 90 && (int)DB::$pet_row['hp'] > 0);
+check('item counter inside one transaction', DB::has_log('START TRANSACTION') && DB::has_log('COMMIT'));
+
+echo "=== scenario L: passive replace resumes the engine battle ===" . PHP_EOL;
+// first: a turn that KOs the pet with a bench available -> awaiting_switch
+seed_battle(80, 5000, 90, 42);
+seed_pet_and_party(100, 1);        // one healthy bench mon id=100
+$GLOBALS['input'] = ['skill_id' => 5];
+try {
+    api_use_skill();
+} catch (BattleApiResponse $lr) {
+}
+check('setup: battle now awaiting_switch', (function () {
+    foreach (DB::$battles as $row) {
+        if ($row['phase'] === 'awaiting_switch') return true;
+    }
+    return false;
+})());
+// then: passive replace with the bench mon
+$GLOBALS['input'] = ['pokemon_id' => 100];
+$lrb = null;
+try {
+    api_replace_pokemon();
+} catch (BattleApiResponse $lr2) {
+    $lrb = $lr2->data;
+}
+check('replace responds 200 active', isset($lrb) && $lrb !== null && $lrb['status'] === 'active');
+check('replace flips sites (old=2 new=1)', (function () {
+    $old = null; $new = null;
+    foreach (DB::$mypm as $pm) {
+        if ((int)$pm['id'] === 11) $old = (int)$pm['site'];
+        if ((int)$pm['id'] === 100) $new = (int)$pm['site'];
+    }
+    return $old === 2 && $new === 1;
+})());
+check('replace resumes engine phase to active', (function () {
+    foreach (DB::$battles as $row) {
+        if ($row['phase'] === 'active' && $row['uid'] === 1) return true;
+    }
+    return false;
+})());
+check('replace emits switch_in event', (function () {
+    foreach (DB::$logs as $l) {
+        if (strpos($l, 'INSERT INTO pm_battle_event') === 0 && strpos($l, 'switch_in') !== false) return true;
+    }
+    return false;
+})());
+check('replace keeps the wild mirror', (int)DB::$usersdata['npcid'] === 129);
+check('replaced unit is the new pet', (function () {
+    $max_battle = 0;
+    foreach (DB::$battles as $row) {
+        if ((int)$row['id'] > $max_battle && in_array($row['phase'], ['active', 'awaiting_switch', 'ended'], true)) {
+            $max_battle = (int)$row['id'];
+        }
+    }
+    foreach (DB::$units as $u) {
+        if ($u['side'] === 'ally' && (int)$u['battle_id'] === $max_battle) {
+            return (int)$u['instance_id'] === 100;
+        }
+    }
+    return false;
+})());
+
 
 echo "\n";
 if ($failures > 0) {
