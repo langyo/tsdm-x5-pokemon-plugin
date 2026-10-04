@@ -152,7 +152,7 @@ function set_skill_type($info)
 
     // 战斗引擎 2.0：技能效果模板关联（0 = 无效果；非零时会校验该 pm_effect 行存在）
     $effect_id = isset($info["effect_id"]) ? intval($info["effect_id"]) : 0;
-    if (intval($query['effect_id']) != $effect_id) {
+    if ((isset($query['effect_id']) ? intval($query['effect_id']) : 0) != $effect_id) {
       if ($effect_id > 0) {
         $effect_row = DB::fetch_first("SELECT id from pm_effect where id=" . $effect_id);
         if (!$effect_row) {
