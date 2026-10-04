@@ -14,7 +14,7 @@ define('IN_DISCUZ', 1);
 require __DIR__ . '/../../plugin/api/battle_core.php';
 
 // Load actual endpoint functions without running the Discuz dispatcher.
-$wanted = ['api_use_skill', 'api_normalize_skill_category', 'pm_refund_reserved_skill_pp',
+$wanted = ['api_use_skill', 'api_normalize_skill_category', 'pm_refund_reserved_skill_pp', 'battle_skill_effects',
     'battle_ensure_tables', 'battle_load_active', 'battle_inject_ally_fresh_state',
     'battle_persist_state', 'battle_mirror_legacy'];
 $tokens = token_get_all(file_get_contents(__DIR__ . '/../../plugin/api/battle.php'));
@@ -117,6 +117,12 @@ class DB
     public static function fetch_first($sql)
     {
         $sql = preg_replace('/\s+/', ' ', trim($sql));
+        if (strpos($sql, 'SHOW COLUMNS') === 0) {
+            return ['Field' => 'effect_id']; // column probe: report as present
+        }
+        if (strpos($sql, 'FROM pm_effect') !== false) {
+            return false; // fixtures carry no effect templates
+        }
         if (strpos($sql, 'FOR UPDATE') !== false) {
             return ['uid' => $GLOBALS['_G']['uid']];
         }

@@ -177,6 +177,22 @@ function battle_ensure_tables()
         PRIMARY KEY (`id`),
         KEY `idx_battle` (`battle_id`)
     ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci");
+    DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_effect') . " (
+        `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+        `code` varchar(40) NOT NULL,
+        `kind` varchar(10) NOT NULL DEFAULT 'move',
+        `hooks_json` text NOT NULL,
+        `params_json` text NOT NULL,
+        `description` varchar(255) NOT NULL DEFAULT '',
+        `version` int(10) unsigned NOT NULL DEFAULT 1,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `uk_code` (`code`)
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci");
+    // 旧库 pm_skill 无 effect_id 列时惰性补列（幂等）
+    $skill_col = DB::fetch_first("SHOW COLUMNS FROM " . pm_table('pm_skill') . " LIKE 'effect_id'");
+    if (!$skill_col) {
+        DB::query("ALTER TABLE " . pm_table('pm_skill') . " ADD COLUMN effect_id int(10) unsigned NOT NULL DEFAULT 0 AFTER element");
+    }
     DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_status') . " (
         `code` varchar(20) NOT NULL,
         `name` varchar(30) NOT NULL DEFAULT '',
@@ -326,6 +342,48 @@ function battle_inject_ally_fresh_state(&$state, $mypokemon, $mydata)
             'types' => [$mydata['xs'], $mydata['xs2']],
         ]);
     }
+}
+
+/**
+ * 技能效果装载：pm_skill.effect_id -> pm_effect 行 -> 核心效果声明。
+ * params_json 内嵌核心效果 code 与参数；声明经 battle_core_validate_effect
+ * 严格校验，未知/坏数据直接丢弃（返回空），不进入战斗。
+ * 按请求静态缓存。
+ *
+ * @return array 核心效果声明列表（0 或 1 条；未来可扩展多效果）
+ */
+function battle_skill_effects($skilldata)
+{
+    $effect_id = isset($skilldata['effect_id']) ? intval($skilldata['effect_id']) : 0;
+    if ($effect_id <= 0) {
+        return [];
+    }
+    static $cache = [];
+    if (isset($cache[$effect_id])) {
+        return $cache[$effect_id];
+    }
+    $cache[$effect_id] = [];
+    $row = DB::fetch_first(pm_sql(
+        "SELECT id, code, kind, hooks_json, params_json, version FROM " . pm_table('pm_effect') . " WHERE id = %d",
+        $effect_id
+    ));
+    if ($row) {
+        $params = json_decode($row['params_json'], true);
+        $hooks = json_decode($row['hooks_json'], true);
+        if (is_array($params) && isset($params['code']) && is_array($hooks)) {
+            $effect = [
+                'code' => strval($params['code']),
+                'kind' => strval($row['kind']),
+                'hooks' => $hooks,
+                'params' => $params,
+                'version' => intval($row['version']),
+            ];
+            if (battle_core_validate_effect($effect) === true) {
+                $cache[$effect_id] = [$effect];
+            }
+        }
+    }
+    return $cache[$effect_id];
 }
 
 /**
@@ -832,6 +890,7 @@ function api_use_skill()
                 'power' => ((int)$state['rules_version'] >= 2) ? intval($skilldata['power']) : (intval($skilldata['power']) ?: 40),
                 'type' => $skilldata['element'] ?: $mydata['xs'],
                 'category' => api_normalize_skill_category($skilldata['category']),
+                'effects' => battle_skill_effects($skilldata),
             ));
         } else {
             $action = array('type' => 'struggle', 'fallback_type' => $mydata['xs']);

@@ -25,6 +25,7 @@ $wanted = [
     'battle_ensure_tables', 'battle_load_active', 'battle_inject_ally_fresh_state',
     'battle_persist_state', 'battle_mirror_legacy', 'battle_resolve_engine_counter',
     'battle_render_counter_messages',
+    'battle_skill_effects',
     'api_normalize_skill_category', 'battle_calc_my_stats',
     'calculate_rewards', 'apply_rewards', 'clear_battle_state',
     'handle_my_pokemon_fainted', 'build_battle_response',
@@ -436,10 +437,20 @@ class DB
             }
             return false;
         }
+        if (preg_match('/FROM pm_effect\b.*?WHERE id = (\d+)/s', $sql, $m)) {
+            $effects = [
+                2 => ['id' => 2, 'code' => 'sand_attack', 'kind' => 'move',
+                    'hooks_json' => '["on_after_move"]',
+                    'params_json' => '{"code":"stages_boost","stat":"accuracy","stages":-1,"target":"opponent"}',
+                    'version' => 1],
+            ];
+            return isset($effects[(int)$m[1]]) ? $effects[(int)$m[1]] : false;
+        }
         if (preg_match('/FROM pm_skill WHERE id = (\d+)/', $sql, $m)) {
             $id = (int)$m[1];
             $skills = [
-                5 => ['id' => 5, 'name' => '电击', 'power' => 40, 'max_uses' => 35, 'element' => '电', 'category' => '特攻'],
+                5 => ['id' => 5, 'name' => '电击', 'power' => 40, 'max_uses' => 35, 'element' => '电', 'category' => '特攻', 'effect_id' => 0],
+                28 => ['id' => 28, 'name' => '泼沙', 'power' => 0, 'max_uses' => 15, 'element' => '地面', 'category' => '其他', 'effect_id' => 2],
             ];
             return isset($skills[$id]) ? $skills[$id] : false;
         }
@@ -1025,6 +1036,34 @@ check('replaced unit is the new pet', (function () {
     }
     return false;
 })());
+
+
+
+echo "=== scenario M: status move with a pm_effect template lands ===" . PHP_EOL;
+seed_battle(80, 15, 30, 42);
+seed_pet_and_party(100, 0);
+DB::$myskills = [['skillid' => 28, 'uid' => 1, 'petid' => 11, 'skillnum' => 15]];
+$r = run_turn(28);
+$mb = $r->data;
+check('status-move turn succeeds', $r->getCode() === 200 && $mb['status'] === 'active');
+check('status move deals no damage', (int)DB::$usersdata['hp'] === 80);
+$stage_events = 0;
+foreach ((array)$mb['events'] as $e) {
+    if ($e['type'] === 'stage_change' && $e['payload']['side'] === 'enemy' && $e['payload']['stat'] === 'accuracy' && $e['payload']['delta'] === -1) {
+        $stage_events++;
+    }
+    if ($e['type'] === 'damage') {
+        check('no damage event from a status move', false);
+    }
+}
+check('sand-attack lowered the enemy accuracy once', $stage_events === 1);
+check('status move still consumed PP', (function () {
+    foreach (DB::$myskills as $s) {
+        if ((int)$s['skillid'] === 28) return (int)$s['skillnum'] === 14;
+    }
+    return false;
+})());
+check('status-move message rendered', strpos($mb['message'], '鲤') !== false && strpos($mb['message'], '命中降低了') !== false);
 
 
 echo "\n";

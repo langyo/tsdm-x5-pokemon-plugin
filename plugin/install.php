@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS `pm_skill` (
     `max_uses` smallint(5) NOT NULL DEFAULT 35,
     `type` tinyint(3) NOT NULL DEFAULT 0,
     `element` varchar(6) NOT NULL DEFAULT '',
+    `effect_id` int(10) unsigned NOT NULL DEFAULT 0,
     `category` varchar(6) NOT NULL DEFAULT '',
     PRIMARY KEY (`id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
@@ -315,6 +316,20 @@ CREATE TABLE IF NOT EXISTS `pm_status` (
     `overlap` varchar(10) NOT NULL DEFAULT 'replace',
     `version` int(10) unsigned NOT NULL DEFAULT 1,
     PRIMARY KEY (`code`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+
+-- 战斗引擎 2.0 效果模板表 (X5 新增)
+CREATE TABLE IF NOT EXISTS `pm_effect` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `code` varchar(40) NOT NULL,
+    `kind` varchar(10) NOT NULL DEFAULT 'move',
+    `hooks_json` text NOT NULL,
+    `params_json` text NOT NULL,
+    `description` varchar(255) NOT NULL DEFAULT '',
+    `version` int(10) unsigned NOT NULL DEFAULT 1,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_code` (`code`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 ALTER TABLE pre_common_member_field_forum ADD COLUMN IF NOT EXISTS pokemon TEXT AFTER medals;
