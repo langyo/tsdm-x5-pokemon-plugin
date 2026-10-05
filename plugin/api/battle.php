@@ -491,16 +491,23 @@ function battle_persist_state($state, $new_events = [])
     $now = time();
 
     if (!empty($state['battle_id'])) {
+        // result 为空（进行中）时不写该列：SET result = '' 会被 Discuz
+        // querysafe 当作不安全语句拒绝；跳过写入在语义上等价（列缺省即空串）。
+        $result_clause = $b['result'] !== '' ? 'result = %s, ' : '';
+        $result_args = $b['result'] !== '' ? array($b['result']) : array();
         DB::query(pm_sql(
             "UPDATE " . pm_table('pm_battle') . " SET
-                kind = %s, map_id = %d, turn = %d, phase = %s, result = %s,
+                kind = %s, map_id = %d, turn = %d, phase = %s, " . $result_clause . "
                 rng_seed = %d, rng_counter = %d, event_seq = %d,
                 rules_version = %d, state_version = %d, field_json = %s, updated_at = %d
             WHERE id = %d",
-            $b['kind'], $b['map_id'], $b['turn'], $b['phase'], $b['result'],
-            $b['rng_seed'], $b['rng_counter'], $b['event_seq'],
-            $b['rules_version'], $b['state_version'], $b['field_json'], $now,
-            $state['battle_id']
+            ...array_merge(
+                array($b['kind'], $b['map_id'], $b['turn'], $b['phase']),
+                $result_args,
+                array($b['rng_seed'], $b['rng_counter'], $b['event_seq'],
+                    $b['rules_version'], $b['state_version'], $b['field_json'], $now,
+                    $state['battle_id'])
+            )
         ));
     } else {
         DB::query(pm_sql(
@@ -878,11 +885,19 @@ function api_start_battle()
     battle_ensure_tables();
 
     // 一人多战约束：开新战前结束该用户遗留的进行中战斗（断线/超时残留；
-    // 正常路径镜像旧列已清，这里只兜底引擎侧孤儿行）
+    // 正常路径镜像旧列已清，这里只兜底引擎侧孤儿行）。
+    // 两条拆分而非 IF(result='')：Discuz querysafe 拒绝含空串字面量的
+    // 函数表达式，空判定改用 CHAR_LENGTH 表达。
     DB::query(pm_sql(
         "UPDATE " . pm_table('pm_battle') . "
-        SET phase = 'ended', result = IF(result = '', 'abandoned', result), updated_at = %d
-        WHERE uid = %d AND phase IN ('active', 'awaiting_switch')",
+        SET phase = 'ended', updated_at = %d
+        WHERE uid = %d AND phase IN ('active', 'awaiting_switch') AND CHAR_LENGTH(result) > 0",
+        time(), $_G['uid']
+    ));
+    DB::query(pm_sql(
+        "UPDATE " . pm_table('pm_battle') . "
+        SET phase = 'ended', result = 'abandoned', updated_at = %d
+        WHERE uid = %d AND phase IN ('active', 'awaiting_switch') AND CHAR_LENGTH(result) = 0",
         time(), $_G['uid']
     ));
 
@@ -1655,11 +1670,18 @@ function clear_battle_state($uid)
     // 同步结束新引擎的进行中战斗（capture/use_item/switch 等路径收尾时联动）。
     // 已有 result 的战斗（fled/victory 已由新引擎路径写入）不覆盖 result；
     // 无 result 的（旧路径清状态）记为 abandoned。
+    // 两条拆分而非 IF(result='')：Discuz querysafe 拒绝含空串字面量的表达式。
     battle_ensure_tables();
     DB::query(pm_sql(
         "UPDATE " . pm_table('pm_battle') . "
-        SET phase = 'ended', result = IF(result = '', 'abandoned', result), updated_at = %d
-        WHERE uid = %d AND phase IN ('active', 'awaiting_switch')",
+        SET phase = 'ended', updated_at = %d
+        WHERE uid = %d AND phase IN ('active', 'awaiting_switch') AND CHAR_LENGTH(result) > 0",
+        time(), $uid
+    ));
+    DB::query(pm_sql(
+        "UPDATE " . pm_table('pm_battle') . "
+        SET phase = 'ended', result = 'abandoned', updated_at = %d
+        WHERE uid = %d AND phase IN ('active', 'awaiting_switch') AND CHAR_LENGTH(result) = 0",
         time(), $uid
     ));
     // 这些列均为整数类型：写入 '' 在 MariaDB 严格模式(STRICT_TRANS_TABLES)下会直接报错，
