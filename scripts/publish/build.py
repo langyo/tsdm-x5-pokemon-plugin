@@ -40,7 +40,13 @@ SEED_SQL_FILES = [
     "07-pokemon-maps.sql",
     "08-pokemon-evolutions.sql",
     "09-pokemon-skills.sql",
+    "12-pokemon-statuses.sql",
+    "13-pokemon-effects.sql",
 ]
+
+# 日期前缀的升级迁移（migrations/2026-xx-*.sql）：面向已安装站点，
+# 与 from-x3 迁移一起平铺打包进 zip 的 migrations/ 目录。
+DATED_MIGRATIONS_GLOB = "2*.sql"
 
 # wasm-bindgen-cli regenerates *.d.ts next to the JS entry on every build;
 # those are dev-only and never committed.
@@ -261,6 +267,8 @@ def stage_plugin():
     if MIGRATIONS_DIR.exists():
         for sql in sorted(MIGRATIONS_DIR.glob("*.sql")):
             shutil.copy2(sql, mig_dest / sql.name)
+    for sql in sorted(MIGRATIONS_DIR.parent.glob(DATED_MIGRATIONS_GLOB)):
+        shutil.copy2(sql, mig_dest / sql.name)
 
     sql_dest = target / "sql"
     sql_dest.mkdir(exist_ok=True)
@@ -285,7 +293,13 @@ def stage_plugin():
             "       09-pokemon-skills.sql   (skill catalog)\n\n"
             "For upgrading from an old X3/X2 database:\n"
             "  Run migrations/001_x3_to_x5_migration.sql instead — it renames columns\n"
-            "  and preserves your existing data.\n",
+            "  and preserves your existing data.\n"
+            "\n"
+            "For upgrading an existing X5 install to newer plugin versions:\n"
+            "  Run the dated migrations in migrations/ in filename order, e.g.\n"
+            "    2026-09-backfill-pokemon-exp.sql   (exp backfill)\n"
+            "    2026-10-battle-engine-2.sql        (battle engine 2.0 tables/effects)\n"
+            "  They are idempotent and safe to re-run.\n",
             encoding="utf-8",
         )
 
