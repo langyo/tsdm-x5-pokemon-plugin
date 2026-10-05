@@ -1,6 +1,7 @@
 # === Rust / WASM ===
 target/
 rust/*/dist/
+/tsdm-pokemon-*.zip
 rust/*/*.wasm
 rust/*/*.js
 rust/*/*.d.ts
