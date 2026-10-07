@@ -65,6 +65,8 @@ class DB {
     static function table($t) { return "pre_$t"; }
     static function query($s, $mode = null) { return self::$l->query(is_string($s) ? $s : ""); }
     static function insert_id() { return self::$l->insert_id; }
+    static function affected_rows() { return self::$l->affected_rows; }
+    static function errno() { return self::$l->errno; }
 }
 DB::init();
 $_SERVER = ["REQUEST_METHOD" => "POST"];
