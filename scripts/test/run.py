@@ -452,6 +452,7 @@ def main():
     test_php_regression("Admin inventory integrity regression", "admin_item_integrity.php")
     test_php_regression("Game maintenance route regression", "game_maintenance.php")
     test_php_regression("Avatar route compatibility regression", "avatar_routes.php")
+    test_php_regression("Forum status refresh regression", "forum_status_refresh.php")
     test_php_regression("Forum topic permission regression", "topics_permissions.php")
     test_php_regression("Announcement lock retry regression", "announcement_retries.php")
     test_php_regression("Configuration upsert retry regression", "config_upsert_retries.php")
