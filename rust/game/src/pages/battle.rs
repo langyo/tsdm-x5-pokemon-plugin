@@ -766,6 +766,7 @@ fn battle_item_for_card(item: &BattleItem) -> InventoryItem {
         id: item.id,
         type_id: item.id,
         item_type: item.item_type,
+        use_target: None,
         name: item.name.clone(),
         description: if item.module == "pp99" {
             "完全恢复一个技能的PP".to_string()

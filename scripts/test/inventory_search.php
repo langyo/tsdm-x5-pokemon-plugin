@@ -33,6 +33,7 @@ function load_inventory_functions($file, $names)
 }
 
 load_inventory_functions(__DIR__ . '/../../plugin/api/index.php', ['get_param', 'pm_sql_v', 'pm_sql', 'pm_table', 'validate_uid']);
+load_inventory_functions(__DIR__ . '/../../plugin/api/utils.php', ['api_get_item_module', 'api_is_trainer_item', 'api_trainer_item_modules', 'api_item_use_target']);
 load_inventory_functions(__DIR__ . '/../../plugin/api/user.php', ['api_get_inventory', 'get_item_type_name']);
 require __DIR__ . '/../../plugin/api/constants.php';
 

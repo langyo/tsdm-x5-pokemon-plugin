@@ -63,6 +63,45 @@ function api_get_item_module($item_data)
 }
 
 /**
+ * 训练家级道具：作用于训练家本人，不需要（也不应）选择宝可梦。
+ * 目前包括容量箱子（把背包/仓库容量 +N）。
+ */
+function api_trainer_item_modules()
+{
+    return ['box', 'box9'];
+}
+
+function api_is_trainer_item($module)
+{
+    return in_array(trim(strval($module)), api_trainer_item_modules(), true);
+}
+
+/**
+ * 物品的使用目标，供客户端决定是否需要先选择宝可梦：
+ * - global：训练家级道具，直接使用，不需要选宠；
+ * - pokemon：需要使用在某只宝可梦身上；
+ * - battle：只能在战斗中使用（精灵球）。
+ */
+function api_item_use_target($module, $item_type)
+{
+    if (api_is_trainer_item($module)) {
+        return 'global';
+    }
+
+    switch ((int) $item_type) {
+        case 1:
+        case 3:
+        case 4:
+        case 5:
+            return 'pokemon';
+        case 2:
+            return 'battle';
+        default:
+            return 'global';
+    }
+}
+
+/**
  * 治疗物品回复HP计算
  * 原型：get_item_healed_hp
  *
