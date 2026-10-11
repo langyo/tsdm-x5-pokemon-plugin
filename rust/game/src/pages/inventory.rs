@@ -66,7 +66,15 @@ pub fn Inventory() -> Element {
         }
     });
 
-    let get_item_target_type = |type_id: u64| -> ItemTargetType {
+    // 优先使用服务端给出的 use_target（容量箱子等训练家级道具是 global，不需要选宠）；
+    // 旧服务端没有该字段时回退到按物品类型判断。
+    let get_item_target_type = |type_id: u64, use_target: Option<&str>| -> ItemTargetType {
+        match use_target {
+            Some("pokemon") => return ItemTargetType::Pokemon,
+            Some("battle") => return ItemTargetType::Battle,
+            Some("global") => return ItemTargetType::Global,
+            _ => {}
+        }
         match type_id {
             ITEM_TYPE_DRUG => ItemTargetType::Pokemon,
             ITEM_TYPE_BALL => ItemTargetType::Battle,
@@ -115,51 +123,52 @@ pub fn Inventory() -> Element {
         }
     });
 
-    let mut use_item = move |item_id: u64, item_type_id: u64, item_name: String| {
-        if using_item.read().is_some() {
-            return;
-        }
-        let target_type = get_item_target_type(item_type_id);
+    let mut use_item =
+        move |item_id: u64, item_type_id: u64, item_name: String, use_target: Option<String>| {
+            if using_item.read().is_some() {
+                return;
+            }
+            let target_type = get_item_target_type(item_type_id, use_target.as_deref());
 
-        // 装备道具特殊处理：跳转到个人中心装备页面
-        if item_type_id == ITEM_TYPE_EQUIP {
-            *crate::state::MY_POKEMON_TAB.write() = crate::state::MyPokemonTab::Equipment;
-            *CURRENT_PAGE.write() = Page::MyPokemon;
-            return;
-        }
+            // 装备道具特殊处理：跳转到个人中心装备页面
+            if item_type_id == ITEM_TYPE_EQUIP {
+                *crate::state::MY_POKEMON_TAB.write() = crate::state::MyPokemonTab::Equipment;
+                *CURRENT_PAGE.write() = Page::MyPokemon;
+                return;
+            }
 
-        match target_type {
-            ItemTargetType::Pokemon => {
-                selected_item.set(Some((item_id, item_name, item_type_id)));
-                show_target_modal.set(true);
-                // 重启资源以加载可用宠物列表
-                usable_pokemon_list.restart();
-            }
-            ItemTargetType::Global => {
-                using_item.set(Some(item_id));
-                spawn(async move {
-                    let api = NewApiClient::new();
-                    match api.use_item(item_id, None).await {
-                        Ok(result) => {
-                            show_success(result.message);
-                            inventory_data.restart();
-                            refresh_inventory_state();
+            match target_type {
+                ItemTargetType::Pokemon => {
+                    selected_item.set(Some((item_id, item_name, item_type_id)));
+                    show_target_modal.set(true);
+                    // 重启资源以加载可用宠物列表
+                    usable_pokemon_list.restart();
+                }
+                ItemTargetType::Global => {
+                    using_item.set(Some(item_id));
+                    spawn(async move {
+                        let api = NewApiClient::new();
+                        match api.use_item(item_id, None).await {
+                            Ok(result) => {
+                                show_success(result.message);
+                                inventory_data.restart();
+                                refresh_inventory_state();
+                            }
+                            Err(e) => {
+                                show_error(format!("使用失败: {}", e));
+                            }
                         }
-                        Err(e) => {
-                            show_error(format!("使用失败: {}", e));
-                        }
-                    }
-                    using_item.set(None);
-                });
+                        using_item.set(None);
+                    });
+                }
+                ItemTargetType::Battle => {
+                    show_warning("精灵球请在战斗中使用");
+                }
+                ItemTargetType::None => {
+                    show_warning("该物品无法使用");
+                }
             }
-            ItemTargetType::Battle => {
-                show_warning("精灵球请在战斗中使用");
-            }
-            ItemTargetType::None => {
-                show_warning("该物品无法使用");
-            }
-        }
-    };
+        };
 
     let mut confirm_use_on_pokemon = move |pokemon_id: u64| {
         if using_item.read().is_some() {
@@ -312,7 +321,8 @@ pub fn Inventory() -> Element {
                                                 let item_image = item.image.clone();
                                                 let is_using = *using_item.read() == Some(item_type_id);
                                                 let any_using = using_item.read().is_some();
-                                                let target_type = get_item_target_type(item_category);
+                                                let item_use_target = item.use_target.clone();
+                                                let target_type = get_item_target_type(item_category, item_use_target.as_deref());
 
                                                 // 精灵球类型不显示使用按钮
                                                 let show_button = target_type != ItemTargetType::Battle;
@@ -349,7 +359,7 @@ pub fn Inventory() -> Element {
                                                                 button {
                                                                     class: "{button_class}",
                                                                     disabled: !usable || is_using || any_using,
-                                                                    onclick: move |_| use_item(item_type_id, item_category, item_name2.clone()),
+                                                                    onclick: move |_| use_item(item_type_id, item_category, item_name2.clone(), item_use_target.clone()),
                                                                     "{button_text}"
                                                                 }
                                                             }

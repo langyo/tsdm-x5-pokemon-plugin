@@ -225,6 +225,7 @@ function api_get_inventory()
     // 按装备槽统计每件物品已被装备的数量，HAVING 过滤已全部装备的行。
     $limit_sql = "SELECT SQL_CALC_FOUND_ROWS m.*,
             i.type as item_type, i.name as item_name, i.description as item_desc, i.tpname as item_image, i.id as itemdata_id,
+            i.module as item_module, i.sitemname as item_sitemname,
             COUNT(DISTINCT p1.id) + COUNT(DISTINCT p2.id) + COUNT(DISTINCT p3.id) + COUNT(DISTINCT p4.id) AS equipped_cnt
         FROM " . pm_table('pm_myitem') . " m
         LEFT JOIN " . pm_table('pm_itemdata') . " i ON m.itemid = i.id
@@ -260,10 +261,18 @@ function api_get_inventory()
             $quantity = max(0, $quantity - (int) $row['equipped_cnt']);
         }
 
+        $module_probe = [
+            'module' => isset($row['item_module']) ? $row['item_module'] : '',
+            'sitemname' => isset($row['item_sitemname']) ? $row['item_sitemname'] : '',
+            'tpname' => isset($row['item_image']) ? $row['item_image'] : '',
+        ];
+        $use_target = api_item_use_target(api_get_item_module($module_probe), $item_type_from_item);
+
         $items[] = [
             'id' => (int) $row['id'],
             'type_id' => $typeid,
             'item_type' => $item_type_from_item,
+            'use_target' => $use_target,
             'name' => isset($row['item_name']) && $row['item_name'] ? $row['item_name'] : '未知',
             'description' => isset($row['item_desc']) ? $row['item_desc'] : '',
             'image' => isset($row['item_image']) ? $row['item_image'] : '',
@@ -889,7 +898,11 @@ function api_use_item()
             pm_abort_battle_transaction('您没有该物品', 400);
         }
 
-        if ($pokemon_id) {
+        // 训练家级道具（容量箱子等）：作用于本人，不需要选择宝可梦，也不受"宠物在战斗中"限制。
+        $item_module = api_get_item_module($item_data);
+        $is_trainer_item = api_is_trainer_item($item_module);
+
+        if ($pokemon_id && !$is_trainer_item) {
             $pokemon = api_my_pokemon_data($pokemon_id);
             if (!$pokemon || (int)$pokemon['uid'] !== $uid) {
                 pm_abort_battle_transaction('宝可梦不存在或不属于您', 403);
@@ -901,8 +914,6 @@ function api_use_item()
 
         // 根据物品类型处理
         $item_type = $item_data['type'];
-        // 旧数据 module 列为空，模块名在 sitemname/tpname 中，需回退读取
-        $item_module = api_get_item_module($item_data);
         $success = false;
         $message = '';
         $pokemon_update = null;
@@ -912,7 +923,21 @@ function api_use_item()
             pm_abort_battle_transaction('PP恢复道具请在战斗中对技能使用', 400);
         }
 
-        switch ($item_type) {
+        if ($is_trainer_item) {
+            // 训练家级道具：忽略传入的宠物，直接执行模块（不依赖、也不消耗宠物）
+            if (!function_exists($item_module)) {
+                pm_abort_battle_transaction('物品功能未实现', 500);
+            }
+
+            $result = call_user_func($item_module, 0, $item_data['name']);
+            if (isset($result) && $result === 1) {
+                pm_abort_battle_transaction('该物品暂时无法使用', 400);
+            }
+
+            $success = true;
+            $message = "成功使用了 {$item_data['name']}";
+        } else {
+            switch ($item_type) {
             case '1': // 回复药
 
                 if (!$pokemon_id) {
@@ -1096,6 +1121,7 @@ function api_use_item()
 
             default:
                 pm_abort_battle_transaction('未知物品类型', 400);
+            }
         }
 
         if ($success) {

@@ -59,6 +59,11 @@ pub struct InventoryItem {
     pub type_id: u64,
     #[serde(rename = "item_type", default)]
     pub item_type: u64,
+    /// 使用目标：pokemon / battle / global。
+    /// 由服务端给出（容量箱子等训练家级道具为 global，不需要选宠）；
+    /// 旧服务端缺该字段时客户端回退到按 item_type 判断。
+    #[serde(rename = "use_target", default)]
+    pub use_target: Option<String>,
     pub name: String,
     pub description: String,
     /// 物品图标文件名 (tpname)
