@@ -141,9 +141,13 @@ just up
 
 ## Database Migrations
 
-Migration scripts live in `migrations/from-x3/`:
+Migration scripts live in `migrations/`:
 
-1. `001_x3_to_x5_migration.sql` — engine/charset upgrade, table normalization
-   (idempotent; safe to re-run)
+1. `from-x3/001_x3_to_x5_migration.sql` — engine/charset upgrade, table
+   normalization (idempotent; safe to re-run)
+2. `2026-*.sql` — dated incremental upgrades for already-installed sites,
+   applied in filename order (idempotent; safe to re-run)
+3. `seed-fixes/` — one-off repairs for early seed data (apply explicitly
+   when affected)
 
 Always back up the database before running migration scripts.

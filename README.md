@@ -19,8 +19,11 @@ python scripts/docker/dev.py up
 
 | URL | 说明 |
 |---|---|
-| `https://localhost:8443/` | 论坛首页 (HTTPS，自签证书) |
-| `http://localhost:8080/` | 自动重定向至 HTTPS |
+| `https://localhost/` | 论坛首页 (HTTPS，自签证书) |
+| `http://localhost/` | 自动重定向至 HTTPS |
+
+默认端口为 80/443；如需换端口，设 `APP_HTTP_PORT`/`APP_HTTPS_PORT`
+（如 8080/8443，见下方 Troubleshooting）。
 
 首次访问需接受自签证书警告（浏览器点「高级 → 继续前往」）。
 
@@ -54,7 +57,7 @@ just lint          # clippy 检查 Rust 代码
 just test          # 运行 Rust 测试
 just test-php      # 静态 PHP 测试（schema 一致性 + php -l）
 just build         # 构建 Rust (本机目标)
-just build-wasm    # 重新构建 admin/game 的 WASM 前端到 plugin/wasm
+just build-wasm    # 重新构建 admin/game 的 WASM 前端与样式到 plugin/wasm
 just publish       # 打包为 X5 可安装的插件 zip (dist/tsdm-pokemon-<version>.zip)
 just publish-verify <zip>  # 校验已生成的插件包结构
 just up            # 启动 Docker/Podman 开发环境
@@ -65,9 +68,10 @@ just logs          # 查看日志
 
 ## Publishing
 
-`just publish` 会依次：手动构建 WASM 前端（`cargo build --target wasm32-unknown-unknown` +
-`wasm-bindgen-cli`，无需 wasm-pack），整合 DB 迁移脚本，剔除开发期文件后组装插件目录，
-生成安装包，然后自动 bump patch 版本号、打 git tag 并推送：
+`just publish` 会依次：编译 SCSS 样式（sass），手动构建 WASM 前端
+（`cargo build --target wasm32-unknown-unknown` + `wasm-bindgen-cli`，
+无需 wasm-pack），整合 DB 迁移脚本与种子 SQL，剔除开发期文件后组装插件
+目录，生成安装包，然后自动 bump patch 版本号、打 git tag 并推送：
 
 ```
 dist/
@@ -77,7 +81,8 @@ dist/
         ├── install.php / uninstall.php
         ├── admincp.inc.php / game.inc.php
         ├── api/ admin/ table/ i18n/ images/
-        ├── migrations/           # X3→X5 迁移脚本（供老站升级用）
+        ├── migrations/           # X3→X5 迁移脚本（供老站升级用）+ 日期前缀的增量升级脚本
+        ├── sql/                  # 全新安装用种子 SQL（附导入说明 README.txt）
         └── wasm/                 # 运行时 WASM 资产 + snippets
 ```
 
@@ -87,8 +92,9 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 版本号（打包在前、bump 在后），发布时以 git tag 为准。
 
 可用标志：`--no-bump`（跳过版本 bump）、`--skip-build`（跳过 WASM 重建）、
-`--with-theme`（额外打包主题）、`--bump-only`（仅 bump+tag 不构建）、
-`--clean`（打包前清空 `dist/`——注意这会连带删掉手工放在 dist 里的说明文件）。
+`--with-theme`（额外打包主题）、`--bump-only`（仅 bump+tag 不构建）。
+`just publish` 默认带 `--clean`（打包前清空 `dist/`——注意这会连带删掉
+手工放在 dist 里的说明文件）。
 
 在 X5 论坛安装：
 
@@ -122,17 +128,20 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 │   ├── game/                 游戏前端
 │   └── utils/                共享类型与工具
 ├── template/                 tsdm_newWing 模板
-├── migrations/               X3 → X5 数据库迁移脚本
+├── migrations/               X3 → X5 迁移及日期前缀的增量升级脚本
 └── scripts/                  开发脚本
     └── docker/               Docker/Podman 编排 (Python)
 ```
 
 ## Database Migration
 
-迁移脚本位于 `migrations/from-x3/`：
+迁移脚本位于 `migrations/`：
 
-1. `001_x3_to_x5_migration.sql` — 引擎升级 MyISAM→InnoDB，字符集 utf8mb3→utf8mb4，
-   数据表结构归一（含后续重整，脚本可重复执行）
+1. `from-x3/001_x3_to_x5_migration.sql` — 引擎升级 MyISAM→InnoDB，
+   字符集 utf8mb3→utf8mb4，数据表结构归一（含后续重整，脚本可重复执行）
+2. `2026-*.sql` — 日期前缀的增量升级脚本，面向已安装站点按文件名顺序
+   执行（幂等，可重复执行）
+3. `seed-fixes/` — 修复早期种子数据的一次性修复脚本（按需显式执行）
 
 ```bash
 # 生产环境手动执行

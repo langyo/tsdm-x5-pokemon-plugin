@@ -58,7 +58,7 @@
 | `template/` | Discuz X5 page templates. |
 | `migrations/from-x3/` | Sequential X3→X5 SQL migration scripts. |
 | `docker/` | Dev-stack Dockerfile + MariaDB init SQL (`init.d/`). |
-| `scripts/` | Python tooling: `docker/` (dev stack), `test/run.py` (static test suite), `publish/build.py` (WASM build + packaging), `migrate/`, `backup/`, `e2e/`. |
+| `scripts/` | Python & Node tooling: `docker/` (dev stack), `test/run.py` (static test suite), `publish/build.py` (WASM build + packaging), `migrate/`, `browser/` (Playwright browser regressions), `e2e/`. |
 | `dist/` | Published X5-installable plugin zips (build output). |
 
 ---
@@ -213,15 +213,17 @@ runner fleet belongs to another organization and cannot serve this repository.
 Three workflows exist:
 
 - `ci.yml` — the **basic gate**: markdown format check, PHP syntax + static
-  tests, Rust fmt/clippy/test. Triggers: `pull_request` types `[opened,
-  reopened, ready_for_review]`, `push` to `master` (post-merge verification),
-  and manual `workflow_dispatch`. PR-push rebuilds are intentionally NOT
-  triggered (PR numbers and minutes are finite); use `workflow_dispatch`
-  before merging when a re-run is needed. **A PR must not merge until every
-  `ci.yml` job is green** (or a failure is demonstrably environmental, see
-  rule 1 below).
+  tests, Rust fmt/clippy/test, WASM build with Playwright browser regressions,
+  and MariaDB-backed database-contract checks (live PHP routes decoded by the
+  Rust models, plus shipped-bundle browser regressions). Triggers: `pull_request`
+  types `[opened, reopened, ready_for_review]`, `push` to `master`
+  (post-merge verification), and manual `workflow_dispatch`. PR-push rebuilds
+  are intentionally NOT triggered (PR numbers and minutes are finite); use
+  `workflow_dispatch` before merging when a re-run is needed. **A PR must not
+  merge until every `ci.yml` job is green** (or a failure is demonstrably
+  environmental, see rule 1 below).
 - `e2e.yml` — the **full check**: boots the live dev stack
-  (podman-compose, seeded DB, self-signed TLS) and runs the admin e2e suite
+  (docker compose on the runner, seeded DB, self-signed TLS) and runs the admin e2e suite
   (`scripts/e2e/run.py --http`) plus the game e2e suite
   (`cargo run --example e2e_full_test`). Cost control: it triggers ONLY on
   `push` to `master` and on manual `workflow_dispatch` — never on PRs or
