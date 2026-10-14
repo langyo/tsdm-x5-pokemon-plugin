@@ -597,6 +597,7 @@ fn PokemonSlot(
                     }
                 }
             }
+            div { class: "pokemon-slot-name", "{display_name}" }
             div { class: "pokemon-level", "Lv.{pokemon.level}" }
             div { class: "pokemon-hp-bar",
                 if !is_critical {

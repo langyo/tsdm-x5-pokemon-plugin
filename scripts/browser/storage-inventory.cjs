@@ -139,6 +139,8 @@ async function run() {
       await expect(page.locator('#storage-result-count')).toHaveText('125 / 125 只');
       await expect(storageSlots(page)).toHaveCount(60);
       assert.deepEqual(await displayedIds(page),Array.from({length:60},(_,i)=>i+1));
+      // 卡片在图与等级之间显示名字：无昵称时回退到种类名。
+      await expect(storageSlots(page).first().locator('.pokemon-slot-name')).toHaveText('宠物1');
       await page.locator('#storage-load-more').click();
       await expect(storageSlots(page)).toHaveCount(120);
       await page.locator('#storage-load-more').click();
@@ -146,6 +148,7 @@ async function run() {
 
       await page.locator('#storage-search').fill(' FARAWAY ');
       await expect(storageSlots(page)).toHaveCount(1);
+      await expect(storageSlots(page).first().locator('.pokemon-slot-name')).toHaveText('Faraway friend');
       assert.deepEqual(await displayedIds(page),[125],'Search includes entries outside the initial rendered batch');
       await page.locator('#storage-clear-filters').click();
       await expect(storageSlots(page)).toHaveCount(60);
