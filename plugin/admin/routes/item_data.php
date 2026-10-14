@@ -86,7 +86,7 @@ function set_item_type($info)
     }
 
     if ($query['tpname'] != $info["img_name"]) {
-      DB::query("UPDATE pm_itemdata set tpname='" . $info["img_name"] . "' where id=$id");
+      DB::query("UPDATE pm_itemdata set tpname='" . addslashes(strval($info["img_name"])) . "' where id=$id");
     }
 
     if ($query['description'] != $info["description"]) {
@@ -127,7 +127,7 @@ function set_item_type($info)
       case 4:
         // 特殊物品
         if ($query['sitemname'] != $tag_value) {
-          DB::query("UPDATE pm_itemdata set sitemname='" . $tag_value . "' where id=$id");
+          DB::query("UPDATE pm_itemdata set sitemname='" . addslashes(strval($tag_value)) . "' where id=$id");
         }
         break;
       case 5:
@@ -193,7 +193,7 @@ function set_item_type($info)
 function insert_item_type($info)
 {
   $name = addslashes(strval($info["name"]));
-  $tpname = strval($info["img_name"]);
+  $tpname = addslashes(strval($info["img_name"]));
   $txt = addslashes(strval($info["description"]));
   $shop = boolval($info["is_selling"]) ? 1 : 0;
   $money = intval($info["price"]);
@@ -217,7 +217,7 @@ function insert_item_type($info)
       break;
     case 4:
       // 特殊物品
-      $sitemname = $tag[1];
+      $sitemname = addslashes(strval($tag[1]));
       break;
     case 5:
       // 装备

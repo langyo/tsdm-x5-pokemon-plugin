@@ -103,18 +103,18 @@ function set_map_info($info)
       DB::query("UPDATE pm_map set name='$name' where id=$id");
     }
     if ($query['site'] != $info["area_type"]) {
-      DB::query("UPDATE pm_map set site='{$info["area_type"]}' where id={$info["id"]}");
+      DB::query("UPDATE pm_map set site='" . addslashes(strval($info["area_type"])) . "' where id=$id");
     }
 
     if (boolval($query['is_enabled']) != boolval($info["is_enabled"])) {
       $is_enabled = boolval($info["is_enabled"]) ? 1 : 0;
-      DB::query("UPDATE pm_map set is_enabled={$is_enabled} where id={$info["id"]}");
+      DB::query("UPDATE pm_map set is_enabled={$is_enabled} where id=$id");
     }
     if (intval($query['min_level']) != intval($info["min_level"])) {
-      DB::query("UPDATE pm_map set min_level={$info["min_level"]} where id={$info["id"]}");
+      DB::query("UPDATE pm_map set min_level=" . intval($info["min_level"]) . " where id=$id");
     }
     if (intval($query['max_level']) != intval($info["max_level"])) {
-      DB::query("UPDATE pm_map set max_level={$info["max_level"]} where id={$info["id"]}");
+      DB::query("UPDATE pm_map set max_level=" . intval($info["max_level"]) . " where id=$id");
     }
 
     // experience=-1 identifies Boss-only maps; wild maps keep their numeric multiplier.
@@ -136,7 +136,7 @@ function set_map_info($info)
     $current_expn = $query['boss_config'];
     if ($current_expn != $new_expn) {
       $new_expn_escaped = addslashes($new_expn);
-      DB::query("UPDATE pm_map set boss_config='{$new_expn_escaped}' where id={$info["id"]}");
+      DB::query("UPDATE pm_map set boss_config='{$new_expn_escaped}' where id=$id");
     }
   } else {
     $json_ret = [];
@@ -176,7 +176,7 @@ function insert_map_info($info)
   }
 
   $name = addslashes(strval($info["name"]));
-  $site = strval($info["area_type"]);
+  $site = addslashes(strval($info["area_type"]));
   $kg = boolval($info["is_enabled"]) ? 1 : 0;
   $minlevel = intval($info["min_level"]);
   $maxlevel = intval($info["max_level"]);

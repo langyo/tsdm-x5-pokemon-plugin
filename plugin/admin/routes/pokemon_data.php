@@ -220,44 +220,44 @@ function set_pokemon_type($info)
     }
 
     if ($query['name'] != $info["name"]) {
-      DB::query("UPDATE pm_data set name='" . addslashes($info['name']) . "' where id={$info["id"]}");
+      DB::query("UPDATE pm_data set name='" . addslashes($info['name']) . "' where id={$id}");
     }
     if ($query['description'] != $info["description"]) {
-      DB::query("UPDATE pm_data set description='" . addslashes($info['description']) . "' where id={$info["id"]}");
+      DB::query("UPDATE pm_data set description='" . addslashes($info['description']) . "' where id={$id}");
     }
 
     if (intval($query['money']) != intval($info["cost"])) {
-      DB::query("UPDATE pm_data set money=" . intval($info["cost"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set money=" . intval($info["cost"]) . " where id={$id}");
     }
     if (boolval($query['shop']) != boolval($info["is_selling"])) {
       $is_enabled = boolval($info["is_selling"]) ? 1 : 0;
-      DB::query("UPDATE pm_data set shop={$is_enabled} where id={$info["id"]}");
+      DB::query("UPDATE pm_data set shop={$is_enabled} where id={$id}");
     }
 
     if (((intval($query['sex']) == -1) != is_null($info["sex_weight"])) ||
       ((floatval($query['sex']) / 1000) != floatval($info["sex_weight"]))
     ) {
       $sex_weight = is_null($info["sex_weight"]) ? -1 : intval(floatval($info["sex_weight"]) * 1000);
-      DB::query("UPDATE pm_data set sex=" . $sex_weight . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set sex=" . $sex_weight . " where id={$id}");
     }
 
     if (intval($query['hp']) != intval($info["initial_statistic"]["hit_points"])) {
-      DB::query("UPDATE pm_data set hp=" . intval($info["initial_statistic"]["hit_points"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set hp=" . intval($info["initial_statistic"]["hit_points"]) . " where id={$id}");
     }
     if (intval($query['atk']) != intval($info["initial_statistic"]["attack"])) {
-      DB::query("UPDATE pm_data set atk=" . intval($info["initial_statistic"]["attack"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set atk=" . intval($info["initial_statistic"]["attack"]) . " where id={$id}");
     }
     if (intval($query['def']) != intval($info["initial_statistic"]["defense"])) {
-      DB::query("UPDATE pm_data set def=" . intval($info["initial_statistic"]["defense"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set def=" . intval($info["initial_statistic"]["defense"]) . " where id={$id}");
     }
     if (intval($query['spatk']) != intval($info["initial_statistic"]["special_attack"])) {
-      DB::query("UPDATE pm_data set spatk=" . intval($info["initial_statistic"]["special_attack"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set spatk=" . intval($info["initial_statistic"]["special_attack"]) . " where id={$id}");
     }
     if (intval($query['spdef']) != intval($info["initial_statistic"]["special_defense"])) {
-      DB::query("UPDATE pm_data set spdef=" . intval($info["initial_statistic"]["special_defense"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set spdef=" . intval($info["initial_statistic"]["special_defense"]) . " where id={$id}");
     }
     if (intval($query['speed']) != intval($info["initial_statistic"]["speed"])) {
-      DB::query("UPDATE pm_data set speed=" . intval($info["initial_statistic"]["speed"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set speed=" . intval($info["initial_statistic"]["speed"]) . " where id={$id}");
     }
 
     $effort = json_decode($query['effort_values'], true);
@@ -276,19 +276,19 @@ function set_pokemon_type($info)
       intval($effort['spd'] ?? 0) != $sdn
     ) {
       $effort_values = '{"hp":' . intval($hpn) . ',"atk":' . intval($atkn) . ',"def":' . intval($defn) . ',"spatk":' . intval($spatkn) . ',"spdef":' . intval($spdefn) . ',"spd":' . intval($sdn) . '}';
-      DB::query("UPDATE pm_data set effort_values='" . addslashes($effort_values) . "' where id={$info["id"]}");
+      DB::query("UPDATE pm_data set effort_values='" . addslashes($effort_values) . "' where id={$id}");
     }
 
     if (translate_chinese_kind_to_kind_id($query['xs']) != $info["kind"][0]) {
-      DB::query("UPDATE pm_data set xs='" . translate_kind_id_to_chinese_kind($info["kind"][0]) . "' where id={$info["id"]}");
+      DB::query("UPDATE pm_data set xs='" . translate_kind_id_to_chinese_kind($info["kind"][0]) . "' where id={$id}");
     }
     if (($query['xs2'] == '') != is_null($info["kind"][1]) ||
       translate_chinese_kind_to_kind_id($query['xs2']) != $info["kind"][1]
     ) {
-      DB::query("UPDATE pm_data set xs2='" . translate_kind_id_to_chinese_kind($info["kind"][1]) . "' where id={$info["id"]}");
+      DB::query("UPDATE pm_data set xs2='" . translate_kind_id_to_chinese_kind($info["kind"][1]) . "' where id={$id}");
     }
     if (boolval($query['is_legendary']) != boolval($info["is_legendary"])) {
-      DB::query("UPDATE pm_data set is_legendary=" . (boolval($info["is_legendary"]) ? 1 : 0) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set is_legendary=" . (boolval($info["is_legendary"]) ? 1 : 0) . " where id={$id}");
     }
 
     $mapid = [];
@@ -300,24 +300,24 @@ function set_pokemon_type($info)
     $mapid = array_unique($mapid);
     sort($mapid, SORT_NUMERIC);
     $mapid = implode(",", $mapid);
-    DB::query("UPDATE pm_data set mapid='$mapid' where id={$info["id"]}");
+    DB::query("UPDATE pm_data set mapid='$mapid' where id={$id}");
 
     if (intval($query['capture']) != intval($info["capture_weight"])) {
-      DB::query("UPDATE pm_data set capture=" . intval($info["capture_weight"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set capture=" . intval($info["capture_weight"]) . " where id={$id}");
     }
     if (intval($query['met']) != intval($info["meet_weight"])) {
-      DB::query("UPDATE pm_data set met=" . intval($info["meet_weight"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set met=" . intval($info["meet_weight"]) . " where id={$id}");
     }
     if (intval($query['birth']) != intval($info["birth_order"])) {
-      DB::query("UPDATE pm_data set birth=" . intval($info["birth_order"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set birth=" . intval($info["birth_order"]) . " where id={$id}");
     }
     if (intval($query['strength']) != intval($info["strength_weight"])) {
-      DB::query("UPDATE pm_data set strength=" . intval($info["strength_weight"]) . " where id={$info["id"]}");
+      DB::query("UPDATE pm_data set strength=" . intval($info["strength_weight"]) . " where id={$id}");
     }
     $old_drop = json_decode($query['drop_money'], true);
     $new_drop = [intval($info["drop_money_range"][0]), intval($info["drop_money_range"][1])];
     if ($old_drop != $new_drop) {
-      DB::query("UPDATE pm_data set drop_money='" . addslashes(json_encode($new_drop, JSON_UNESCAPED_UNICODE)) . "' where id={$info["id"]}");
+      DB::query("UPDATE pm_data set drop_money='" . addslashes(json_encode($new_drop, JSON_UNESCAPED_UNICODE)) . "' where id={$id}");
     }
   } else {
     $json_ret = [];

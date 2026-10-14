@@ -441,6 +441,7 @@ def main():
     test_php_regression("Battle core engine regression", "battle_core_engine.php")
     test_php_regression("Battle status and turn order regressions", "battle_core_regressions.php")
     test_php_regression("Admin input and public config regressions", "admin_input_regressions.php")
+    test_php_regression("Admin SQL escaping regression", "admin_sql_escaping.php")
     test_php_regression("Battle turn endpoint regression", "battle_engine_turn.php")
     test_php_regression("Battle action replay regression", "battle_actions.php")
     test_php_regression("Inventory search regression", "inventory_search.php")
