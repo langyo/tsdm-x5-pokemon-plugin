@@ -535,6 +535,20 @@
   }
 }
 
+.pokemon-slot .pokemon-slot-name {
+  // 名字不计入卡片宽度：长昵称以省略号截断，卡片大小与原本一致
+  contain: inline-size;
+  width: 100%;
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--color-text-pokemon-level);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .pokemon-level {
   font-size: 11px;
   color: var(--color-text-pokemon-level);
