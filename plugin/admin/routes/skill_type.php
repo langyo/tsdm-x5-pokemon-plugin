@@ -153,7 +153,7 @@ function set_skill_type($info)
     }
 
     // 排序并去重
-    $available_pokemons = $info["available_pokemons"];
+    $available_pokemons = array_map('intval', (array)$info["available_pokemons"]);
     sort($available_pokemons);
     $available_pokemons = array_values(array_unique($available_pokemons));
 
@@ -165,11 +165,11 @@ function set_skill_type($info)
     }
 
     if (intval($query['level_required']) != intval($info["min_level_limit"])) {
-      DB::query("UPDATE pm_skill set level_required='{$info["min_level_limit"]}' where id=$id");
+      DB::query("UPDATE pm_skill set level_required=" . intval($info["min_level_limit"]) . " where id=$id");
     }
 
     if (intval($query['max_uses']) != intval($info["use_times_limit"])) {
-      DB::query("UPDATE pm_skill set max_uses='{$info["use_times_limit"]}' where id=$id");
+      DB::query("UPDATE pm_skill set max_uses=" . intval($info["use_times_limit"]) . " where id=$id");
     }
 
     $category = $effect[0];
@@ -215,7 +215,7 @@ function insert_skill_type($info)
   $name = addslashes(strval($info["name"]));
 
   // 排序并去重
-  $available_pokemons = $info["available_pokemons"];
+  $available_pokemons = array_map('intval', (array)$info["available_pokemons"]);
   sort($available_pokemons);
   $available_pokemons = array_values(array_unique($available_pokemons));
 

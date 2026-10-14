@@ -142,10 +142,10 @@ function set_evolution_info($info)
     }
     $cond = translate_evolution_info_label_to_db_cond($info["condition"]);
     if ($query['method'] != $cond[0]) {
-      DB::query("UPDATE pm_evolution set `method`='" . $cond[0] . "' where `id`=$id");
+      DB::query("UPDATE pm_evolution set `method`='" . addslashes(strval($cond[0])) . "' where `id`=$id");
     }
     if ($query['condition_value'] != $cond[1]) {
-      DB::query("UPDATE pm_evolution set `condition_value`='" . $cond[1] . "' where `id`=$id");
+      DB::query("UPDATE pm_evolution set `condition_value`='" . addslashes(strval($cond[1])) . "' where `id`=$id");
     }
     if (intval($query['priority']) != intval($info["priority"])) {
       DB::query("UPDATE pm_evolution set `priority`=" . intval($info["priority"]) . " where `id`=$id");
@@ -169,8 +169,8 @@ function insert_evolution_info($info)
     `from_id`, `to_id`, `method`, `condition_value`, `priority`
   ) VALUES (
     $source_id, $target_id, '" .
-    $cond[0] . "', '" .
-    $cond[1] . "', 
+    addslashes(strval($cond[0])) . "', '" .
+    addslashes(strval($cond[1])) . "', 
     $priority
   )");
 
