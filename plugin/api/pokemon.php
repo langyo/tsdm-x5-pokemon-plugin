@@ -1089,7 +1089,7 @@ function api_forget_skill()
 
         if ($current_pp < $max_pp) {
             $abort(
-                "技能PP未满，无法遗忘（当前PP：{$current_pp}/{$max_pp}，需先用PP恢复道具补满后才能遗忘）",
+                "技能PP未满，无法遗忘（当前PP：{$current_pp}/{$max_pp}）。可先在宠物中心治疗，或对这只宝可梦使用PP恢复道具补满PP后再遗忘",
                 400,
                 null,
                 'skill_pp_not_full'

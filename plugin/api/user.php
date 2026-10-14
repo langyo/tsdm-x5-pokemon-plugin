@@ -921,9 +921,21 @@ function api_use_item()
         $message = '';
         $pokemon_update = null;
 
-        // PP 恢复道具（迁移数据中 type=1）需要指定技能，战斗外不支持直接使用
-        if (in_array($item_module, ['pp5', 'pp10', 'pp15', 'pp99'])) {
-            pm_abort_battle_transaction('PP恢复道具请在战斗中对技能使用', 400);
+        // PP 恢复道具（迁移数据中 type=1）：战斗外对指定宝可梦整体恢复
+        // （全满药补满所有技能，其余按顺序补第一个未满技能；战斗内仍走 use_item_on_skill 逐技能恢复）
+        if (in_array($item_module, ['pp5', 'pp10', 'pp15', 'pp99'], true)) {
+            if (!$pokemon_id) {
+                pm_abort_battle_transaction('请选择要使用PP恢复道具的宝可梦', 400);
+            }
+
+            $pp_amounts = ['pp5' => 5, 'pp10' => 10, 'pp15' => 15, 'pp99' => 999];
+            $restore = pm_restore_pet_pp($uid, $pokemon_id, $pp_amounts[$item_module]);
+            if ($restore === null) {
+                pm_abort_battle_transaction('该宝可梦所有技能的PP都已满，无需使用', 400);
+            }
+
+            $success = true;
+            $message = $restore['message'];
         }
 
         if ($is_trainer_item) {
@@ -939,7 +951,7 @@ function api_use_item()
 
             $success = true;
             $message = "成功使用了 {$item_data['name']}";
-        } else {
+        } elseif (!$success) {
             switch ($item_type) {
             case '1': // 回复药
 
@@ -1235,6 +1247,18 @@ function api_get_usable_pokemon()
                 $can_use = $current_hp < $max_hp
                     || in_array($state, [0, 20, 21, 22], true)
                     || (in_array($item_module, ['hunger', 'yypg'], true) && in_array($state, [5, 6, 7], true));
+                // PP 恢复道具：HP/状态正常但技能PP未满的宝可梦也应可选
+                if (!$can_use && in_array($item_module, ['pp5', 'pp10', 'pp15', 'pp99'], true)) {
+                    $can_use = (bool) DB::fetch_first(pm_sql(
+                        "SELECT ms.id
+                         FROM " . pm_table('pm_myskill') . " ms
+                         LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id
+                         WHERE ms.uid = %d AND ms.petid = %d AND ms.skillnum < s.max_uses
+                         LIMIT 1",
+                        $uid,
+                        (int) $pokemon['id']
+                    ));
+                }
                 break;
             case '3': // 进化石 - 所有宠物都可以尝试使用，后端会验证进化条件
                 $can_use = true;

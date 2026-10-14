@@ -820,6 +820,24 @@
         text-align: right;
       }
     }
+
+    .heal-pm-pp {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+
+      .pp-label {
+        font-size: $font-size-xs;
+        font-weight: 600;
+        color: $color-gray-600;
+        width: 24px;
+      }
+
+      .pp-text {
+        font-size: $font-size-xs;
+        color: $color-gray-500;
+      }
+    }
   }
 
   .heal-btn {

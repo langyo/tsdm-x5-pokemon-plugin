@@ -1666,7 +1666,7 @@ pub fn SkillsTabContent(
                                                     // 不再让玩家点了才收到服务端报错
                                                     if !skill_for_menu.can_forget {
                                                         show_warning(format!(
-                                                            "该技能PP未满（{}/{}），需先用PP恢复道具补满后才能遗忘",
+                                                            "该技能PP未满（{}/{}），请先在宠物中心治疗，或使用PP恢复道具补满后再遗忘",
                                                             skill_for_menu.pp, skill_for_menu.max_pp
                                                         ));
                                                         return;

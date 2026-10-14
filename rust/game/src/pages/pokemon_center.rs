@@ -8,7 +8,7 @@ use crate::{
     },
     utils::{
         api_client::NewApiClient,
-        pokemon::{hp_class, hp_percent, is_negative_state},
+        pokemon::{hp_class, hp_percent, needs_healing},
     },
 };
 
@@ -44,14 +44,13 @@ pub fn PokemonCenter() -> Element {
             .collect();
         let injured: Vec<_> = carried
             .iter()
-            .filter(|p| p.hp < p.max_hp || is_negative_state(p.state))
+            .filter(|p| needs_healing(p))
             .cloned()
             .collect();
 
-        let healable = carried.iter().any(|p| {
-            let needs_healing = p.hp < p.max_hp || is_negative_state(p.state);
-            needs_healing && !(is_in_battle_state && p.site == 1)
-        });
+        let healable = carried
+            .iter()
+            .any(|p| needs_healing(p) && !(is_in_battle_state && p.site == 1));
 
         let healthy = injured.is_empty() && !carried.is_empty();
         let ld = pokemon_list.loading;
@@ -73,9 +72,7 @@ pub fn PokemonCenter() -> Element {
                 if !(p.site == 1 || p.site == 2) {
                     return false;
                 }
-                let is_negative = is_negative_state(p.state);
-                let needs_healing = p.hp < p.max_hp || is_negative;
-                needs_healing && !(is_in_battle_for_heal_all && p.site == 1)
+                needs_healing(p) && !(is_in_battle_for_heal_all && p.site == 1)
             })
             .map(|p| (p.id, p.name.clone(), p.site))
             .collect();
@@ -190,6 +187,18 @@ pub fn PokemonCenter() -> Element {
 
                                         let is_in_battle = is_in_battle_state && pm.site == 1;
 
+                                        let depleted_pp: Vec<String> = pm
+                                            .skills
+                                            .iter()
+                                            .filter(|s| s.max_pp > 0 && s.pp < s.max_pp && !s.name.is_empty())
+                                            .map(|s| format!("{}/{}", s.pp, s.max_pp))
+                                            .collect();
+                                        let pp_hint = if depleted_pp.is_empty() {
+                                            String::new()
+                                        } else {
+                                            format!("技能PP未满：{}", depleted_pp.join("、"))
+                                        };
+
                                         let loading_clone = loading;
                                         let onclick_handler = move |_| {
                                             if *loading_clone.read() { return; }
@@ -257,6 +266,12 @@ pub fn PokemonCenter() -> Element {
                                                             div { class: "hp-fill {hp_cls}", style: "width: {hp_pct}%" }
                                                         }
                                                         span { class: "hp-text", "{current_hp}/{max_hp}" }
+                                                    }
+                                                    if !pp_hint.is_empty() {
+                                                        div { class: "heal-pm-pp",
+                                                            span { class: "pp-label", "PP" }
+                                                            span { class: "pp-text", "{pp_hint}" }
+                                                        }
                                                     }
                                                 }
                                                 button {

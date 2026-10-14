@@ -267,17 +267,17 @@ function _increase_box_capacity($amount)
  */
 function pp5($petid, $itemname, $pp_amount = 5)
 {
-    return _restore_pp($petid, $pp_amount);
+    return _restore_pp($petid, 5);
 }
 
 function pp10($petid, $itemname, $pp_amount = 10)
 {
-    return _restore_pp($petid, $pp_amount);
+    return _restore_pp($petid, 10);
 }
 
 function pp15($petid, $itemname, $pp_amount = 15)
 {
-    return _restore_pp($petid, $pp_amount);
+    return _restore_pp($petid, 15);
 }
 
 function pp99($petid, $itemname)
@@ -286,53 +286,87 @@ function pp99($petid, $itemname)
 }
 
 /**
- * 内部函数：恢复PP值
+ * 内部函数：恢复PP值（返回 0 成功 / 1 失败，供道具模块调度兼容）
  */
 function _restore_pp($petid, $amount)
 {
     global $_G;
-    $uid = $_G['uid'];
+    return pm_restore_pet_pp($_G['uid'], $petid, $amount) === null ? 1 : 0;
+}
+
+/**
+ * 战斗外对整只宝可梦恢复PP：
+ * - $amount >= 999（全满药）：补满该宝可梦所有未满技能；
+ * - 否则按 pm_myskill.id 顺序（与战斗内可选技能列表一致）恢复第一个未满的技能。
+ * 返回 ['message' => 文案]；没有可恢复的技能（PP全满或无技能）时返回 null。
+ */
+function pm_restore_pet_pp($uid, $petid, $amount)
+{
+    $uid = intval($uid);
+    $petid = intval($petid);
+    $amount = intval($amount);
 
     $pet = DB::fetch_first(pm_sql(
-        "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
+        "SELECT id, nickname FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
         $petid,
         $uid
     ));
 
     if (!$pet) {
-        return 1;
+        return null;
     }
 
-    // 查找PP未满的技能
-    $skill = DB::fetch_first(pm_sql(
-        "SELECT ms.*, s.max_uses as max_pp
+    // NULL 的 max_uses（技能表缺记录）在比较中自然被排除，与战斗内判定一致
+    $skills = DB::fetch_all(pm_sql(
+        "SELECT ms.id AS record_id, ms.skillid, ms.skillnum, s.max_uses AS max_pp, s.name AS skill_name
          FROM " . pm_table('pm_myskill') . " ms
          LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id
          WHERE ms.uid = %d AND ms.petid = %d AND ms.skillnum < s.max_uses
-         LIMIT 1",
+         ORDER BY ms.id",
         $uid,
         $petid
     ));
 
-    if (!$skill) {
-        return 1; // 所有技能PP都已满
+    if (empty($skills)) {
+        return null;
     }
 
-    $max_pp = (int)$skill['max_pp'];
-    $current_pp = (int)$skill['skillnum'];
-    $restore_amount = $amount >= 999 ? ($max_pp - $current_pp) : min($amount, $max_pp - $current_pp);
+    $is_full_restore = $amount >= 999;
+    $targets = $is_full_restore ? $skills : [ $skills[0] ];
 
-    $new_pp = $current_pp + $restore_amount;
+    $pet_name = $pet['nickname'] !== '' && $pet['nickname'] !== null ? $pet['nickname'] : ('#' . $petid);
+    $restored_skills = [];
+    $total_restored = 0;
 
-    DB::query(pm_sql(
-        "UPDATE " . pm_table('pm_myskill') . " SET skillnum = %d WHERE skillid = %d AND uid = %d AND petid = %d",
-        $new_pp,
-        $skill['skillid'],
-        $uid,
-        $petid
-    ));
+    foreach ($targets as $skill) {
+        $max_pp = (int) $skill['max_pp'];
+        $current_pp = (int) $skill['skillnum'];
+        $restore_amount = min($amount, $max_pp - $current_pp);
+        if ($restore_amount <= 0) {
+            continue;
+        }
+        $new_pp = $current_pp + $restore_amount;
 
-    return 0;
+        DB::query(pm_sql(
+            "UPDATE " . pm_table('pm_myskill') . " SET skillnum = %d WHERE id = %d AND uid = %d AND petid = %d",
+            $new_pp,
+            (int) $skill['record_id'],
+            $uid,
+            $petid
+        ));
+
+        $total_restored += $restore_amount;
+        $skill_name = $skill['skill_name'] !== '' && $skill['skill_name'] !== null ? $skill['skill_name'] : ('技能' . (int) $skill['skillid']);
+        $restored_skills[] = "{$skill_name} {$current_pp}/{$max_pp}→{$new_pp}/{$max_pp}";
+    }
+
+    if (empty($restored_skills)) {
+        return null;
+    }
+
+    return [
+        'message' => "成功对 {$pet_name} 恢复了 {$total_restored} 点PP（" . implode('，', $restored_skills) . "）",
+    ];
 }
 
 /**

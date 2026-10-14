@@ -1,3 +1,5 @@
+use _utils::types::api_pokemon::PokemonBasic;
+
 pub fn hp_percent(hp: i64, max_hp: i64) -> u32 {
     if max_hp <= 0 {
         return 0;
@@ -70,4 +72,16 @@ pub fn is_negative_state(state: u8) -> bool {
 
 pub fn is_weak_state(state: u8) -> bool {
     matches!(state, 20..=22)
+}
+
+/// 治疗中心判定：除掉血与异常状态外，任一技能 PP 未满同样需要治疗
+/// （后端治疗会一并补满全部技能 PP，但战斗前自动治疗不看 PP，避免
+/// 连续野战时 PP 永远处于回满状态、PP 道具失去意义）。
+pub fn needs_healing(pokemon: &PokemonBasic) -> bool {
+    pokemon.hp < pokemon.max_hp
+        || is_negative_state(pokemon.state)
+        || pokemon
+            .skills
+            .iter()
+            .any(|s| s.max_pp > 0 && s.pp < s.max_pp)
 }
