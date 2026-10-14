@@ -173,7 +173,7 @@ async function run() {
 
     await page.getByText('商店', {exact: true}).click();
     const purchase = responseFor(page, 'shop', 'buy');
-    await page.locator('.shop-item-card').filter({hasText: '整合测试药水'}).locator('.buy-btn').click();
+    await page.locator('.shop-tile').filter({hasText: '整合测试药水'}).locator('.buy-btn').click();
     check((await purchase).remaining_money === 40, 'WASM purchase receives PHP committed balance');
     await expect(page.locator('.app-sidebar')).toContainText('40');
     await page.getByTitle('查看背包', {exact: true}).click();

@@ -35,7 +35,8 @@ define('GENDER_UNKNOWN', 2); // 未知性别
 // ==================== 物品和商店常量 ====================
 
 // 分页
-define('SHOP_ITEMS_PER_PAGE', 20);
+// 商店宫格为 4 列 × 2 行，每页正好铺满一屏，翻页交给前端换页器。
+define('SHOP_ITEMS_PER_PAGE', 8);
 define('USER_ITEMS_PER_PAGE', 50);
 
 // 物品状态
