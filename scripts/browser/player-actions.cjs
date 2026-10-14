@@ -13,6 +13,27 @@ const html=`<!doctype html><html><meta charset="utf-8"><link rel="stylesheet" hr
 function pet(id,name,site,hp=50) {
   return {id,name,nickname:`昵称${id}`,type_id:id,level:5,exp:20,exp_to_next_level:80,exp_for_current_level:0,exp_for_next_level:100,hp,max_hp:50,gender:0,is_shiny:false,site,state:1,state_text:'正常',state_class:'normal',skills:[],base_info:{id,name,type_1:'水',type_2:null}};
 }
+// 商店货架：type=1 只放一件，保证旧用例里 `.buy-btn` 严格匹配单键；
+// 其余分类放多件供 keyword 筛选与翻页用例消费。
+const shopCatalog=[
+  {id:17,name:'测试药水',description:'回复HP',type_id:1,type_name:'回复药',image:'hp20',price:100,stock:999,effect:{},can_buy:true},
+  {id:18,name:'测试精灵球·红',description:'捕捉宝可梦',type_id:2,type_name:'精灵球',image:'ball-red',price:150,stock:999,effect:{},can_buy:true},
+  {id:19,name:'超级测试球',description:'高级捕捉球',type_id:2,type_name:'精灵球',image:'ball-blue',price:300,stock:999,effect:{},can_buy:true},
+  {id:20,name:'测试精灵球·蓝',description:'捕捉宝可梦',type_id:2,type_name:'精灵球',image:'ball-blue2',price:180,stock:999,effect:{},can_buy:true},
+  ...Array.from({length:9},(_,i)=>({id:30+i,name:`测试强化剂${i+1}`,description:'强化道具',type_id:4,type_name:'强化道具',image:'atkg',price:10+i*10,stock:999,effect:{},can_buy:true})),
+];
+// 复刻 plugin/api/shop.php 的列表行为：type 过滤 + keyword 字面子串 + 价格升序 + 每页 8 条。
+function shopListPage(params) {
+  let rows=shopCatalog;
+  const type=params.get('type');
+  if(type!==null)rows=rows.filter(row=>row.type_id===Number(type));
+  const keyword=(params.get('keyword')||'').trim();
+  if(keyword)rows=rows.filter(row=>row.name.includes(keyword));
+  rows=[...rows].sort((a,b)=>a.price-b.price);
+  const page=Math.max(1,Number(params.get('page')||1));
+  const perPage=8;
+  return {items:rows.slice((page-1)*perPage,page*perPage),total:rows.length,page,per_page:perPage,total_pages:rows.length?Math.ceil(rows.length/perPage):0};
+}
 async function fixture(options={}) {
   const state={requests:[],unexpected:[],gates:new Map(),money:1000,battle:!!options.battle,profileFailures:options.profileFailure?1:0,renameFailure:false,buys:0,initializations:0,newPlayer:!!options.newPlayer,pets:[pet(25,'皮卡丘',1,20),pet(1,'妙蛙种子',2,40)]};
   state.items=options.medicine ? [17,18].map(id=>({id:1000+id,type_id:id,item_type:1,name:`药水${id}`,description:'回复20点HP',image:'hp20',quantity:2,type_name:'回复药',can_use:true})) : [];
@@ -86,8 +107,13 @@ async function fixture(options={}) {
       case 'user/inventory':data={items:state.items.filter(item=>item.quantity>0),total:state.items.filter(item=>item.quantity>0).length,page:1,per_page:50,total_pages:1};break;
       case 'user/get_usable_pokemon':{const item=state.items.find(item=>item.type_id===Number(url.searchParams.get('item_id')));assert(item);data={item_id:item.type_id,item_name:item.name,item_type:1,usable_pokemon:[state.pets[0]],unusable_count:1};break;}
       case 'user/use_item':{const item=state.items.find(item=>item.type_id===body.item_id);const pokemon=state.pets.find(p=>p.id===body.pokemon_id);assert(item&&pokemon);item.quantity--;pokemon.hp=Math.min(pokemon.max_hp,pokemon.hp+20);data={success:true,message:'已使用药水',item_remaining:item.quantity,pokemon_updated:{id:pokemon.id,hp:pokemon.hp,max_hp:pokemon.max_hp,state:pokemon.state}};break;}
-      case 'shop/list':data={items:[{id:17,name:'测试药水',description:'回复HP',type_id:1,type_name:'回复药',image:'hp20',price:100,stock:999,effect:{},can_buy:true}],total:1,page:1,per_page:50,total_pages:1};break;
-      case 'shop/pets':data={pets:[{id:4,name:'小火龙',type_1:'火',hp:40,atk:50,def:40,spatk:50,spdef:50,speed:60,price:100,can_buy:true}],total:1,page:1,per_page:50,total_pages:1};break;
+      case 'shop/list':data=shopListPage(url.searchParams);break;
+      case 'shop/pets':{
+        const keyword=(url.searchParams.get('keyword')||'').trim();
+        const pets=[{id:4,name:'小火龙',type_1:'火',hp:40,atk:50,def:40,spatk:50,spdef:50,speed:60,price:100,can_buy:true}];
+        const rows=keyword?pets.filter(p=>p.name.includes(keyword)):pets;
+        data={pets:rows,total:rows.length,page:Math.max(1,Number(url.searchParams.get('page')||1)),per_page:8,total_pages:rows.length?1:0};break;
+      }
       case 'shop/buy':state.buys++;state.money-=100;data={message:'已购买',total_cost:100,remaining_money:state.money,items_purchased:1};break;
       case 'shop/buy_pet':state.buys++;state.money-=100;data={message:'已购买',total_cost:100,remaining_money:state.money,pokemon_name:'小火龙',pokemon_type_id:4,site:3};break;
       case 'user/heal':case 'user/heal_and_flee':{if(state.healFailure){state.healFailure=false;return {success:false,error:'模拟治疗失败',code:400};}const p=state.pets.find(p=>p.id===Number(url.searchParams.get('pokemon_id')));assert(p);const cost=p.hp<50?20:0;state.money-=cost;p.hp=50;if(key.endsWith('heal_and_flee'))state.battle=false;data={cost,message:'已治疗',pokemon_id:p.id,current_hp:50,max_hp:50};break;}
@@ -380,6 +406,74 @@ async function run() {
       }
       assert.equal(app.state.buys,2);assert.equal(app.state.money,800);
     });
+    await runCase(browser,'shop-grid-paginates-two-rows-per-page',{},async(page,app)=>{
+      await page.getByText('商店',{exact:true}).click();
+      await expect(page.locator('.shop-tile')).toHaveCount(1);
+      await page.locator('.category-btn').filter({hasText:'强化道具'}).click();
+      // 9 件强化道具按每页 8 件分成两页：首页 8 格 + 居中换页器。
+      await expect(page.locator('.shop-tile')).toHaveCount(8);
+      await expect(page.locator('.pager-num')).toHaveCount(2);
+      await expect(page.locator('.pager-num.active')).toHaveText('1');
+      await page.locator('.pager-num').filter({hasText:'2'}).click();
+      await expect(page.locator('.shop-tile')).toHaveCount(1);
+      await expect(page.locator('.pager-num.active')).toHaveText('2');
+      assert.equal(app.state.requests.filter(r=>r.key==='shop/list').at(-1).query.page,'2','Page buttons request the matching page');
+      await page.locator('.pager-nav').first().click();
+      await expect(page.locator('.shop-tile')).toHaveCount(8);
+      await page.screenshot({path:path.join(artifacts,'shop-grid-pagination.png'),fullPage:true});
+    });
+    await runCase(browser,'shop-name-filter-matches-dynamically',{},async(page,app)=>{
+      await page.getByText('商店',{exact:true}).click();
+      await expect(page.locator('.shop-tile')).toHaveCount(1);
+      // 打开筛选器弹出面板，输入后按钮图标进入 has-value 态。
+      await expect(page.locator('.shop-filter-popover')).toHaveCount(0);
+      await page.locator('.shop-filter-btn').click();
+      await expect(page.locator('#shop-filter-input')).toBeVisible();
+      await expect(page.locator('.shop-filter-btn')).not.toHaveClass(/has-value/);
+      await page.locator('#shop-filter-input').fill('球');
+      await expect(page.locator('.shop-filter-btn')).toHaveClass(/has-value/);
+      await expect(page.locator('.shop-empty')).toContainText('没有找到匹配的商品');
+      const keywordReq=app.state.requests.filter(r=>r.key==='shop/list').at(-1);
+      assert.equal(keywordReq.query.keyword,'球','The keyword reaches the shop list API');
+      // 收起面板后切换分类，筛选词保留：精灵球分类下三件命中。
+      await page.locator('#shop-filter-input').press('Escape');
+      await expect(page.locator('.shop-filter-popover')).toHaveCount(0);
+      await page.locator('.category-btn').filter({hasText:'精灵球'}).click();
+      await expect(page.locator('.shop-tile')).toHaveCount(3);
+      await page.locator('.shop-filter-btn').click();
+      await page.locator('#shop-filter-input').fill('超级');
+      await expect(page.locator('.shop-tile')).toHaveCount(1);
+      await expect(page.locator('.shop-tile-name')).toHaveText('超级测试球');
+      await page.locator('#shop-filter-input').press('Escape');
+      await expect(page.locator('.shop-filter-popover')).toHaveCount(0);
+      // 悬浮宫格显示详情 tooltip。
+      await page.locator('.shop-tile').first().hover();
+      await expect(page.locator('.shop-tile-tooltip')).toBeVisible();
+      await expect(page.locator('.shop-tile-tooltip .tile-tooltip-name')).toHaveText('超级测试球');
+      await expect(page.locator('.shop-tile-tooltip .tile-tooltip-price')).toContainText('300');
+      await page.mouse.move(0,0);
+      await expect(page.locator('.shop-tile-tooltip')).toHaveCount(0);
+      // 清除筛选恢复列表，按钮回到普通图标。
+      await page.locator('.shop-filter-btn').click();
+      await page.locator('#shop-filter-clear').click();
+      await expect(page.locator('#shop-filter-input')).toHaveValue('');
+      await expect(page.locator('.shop-tile')).toHaveCount(3);
+      await expect(page.locator('.shop-filter-btn')).not.toHaveClass(/has-value/);
+      await page.locator('#shop-filter-input').press('Escape');
+      await expect(page.locator('.shop-filter-popover')).toHaveCount(0);
+      // Escape 关闭面板，筛选词保留在按钮状态里。
+      await page.locator('.shop-filter-btn').click();
+      await page.locator('#shop-filter-input').fill('红');
+      await expect(page.locator('.shop-tile')).toHaveCount(1);
+      await page.locator('#shop-filter-input').press('Escape');
+      await expect(page.locator('.shop-filter-popover')).toHaveCount(0);
+      await expect(page.locator('.shop-filter-btn')).toHaveClass(/has-value/);
+      // 面板外点击同样收起面板。
+      await page.locator('.shop-filter-btn').click();
+      await expect(page.locator('#shop-filter-input')).toBeVisible();
+      await page.locator('.app-header').click({force:true});
+      await expect(page.locator('.shop-filter-popover')).toHaveCount(0);
+    });
     await runCase(browser,'late-profile-response-keeps-current-balance',{},async(page,app)=>{
       await page.getByText('商店',{exact:true}).click();
       const release=app.hold('user/profile',true);
@@ -430,7 +524,7 @@ async function run() {
       await page.getByText('宠物中心',{exact:true}).click();
       await page.getByRole('button',{name:'脱战并治疗',exact:true}).click();
       await expect.poll(()=>app.state.battle).toBe(false);
-      await page.getByText('商店',{exact:true}).click();await expect(page.locator('.shop-item-card')).toBeVisible();
+      await page.getByText('商店',{exact:true}).click();await expect(page.locator('.shop-tile')).toBeVisible();
       await expect(page.locator('.battle-disabled-overlay')).toHaveCount(0);
       await expect(page.locator('.app-sidebar')).toContainText('980');
       await page.getByText('宠物中心',{exact:true}).click();await page.getByRole('button',{name:'治疗',exact:true}).click();

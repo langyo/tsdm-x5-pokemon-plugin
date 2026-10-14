@@ -26,7 +26,8 @@
   }
 
   .shop-card-body {
-    padding: $spacing-lg;
+    // 游戏画布固定 600px：竖向收紧到 12px，把空间留给两行宫格。
+    padding: $spacing-md $spacing-lg;
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -87,13 +88,21 @@
 }
 
 // ===== 分类筛选栏 =====
+// 左侧分类按钮组 + 右侧名称筛选器；背包页复用同一容器（只有分类组）。
 .shop-category-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: $spacing-sm;
-  margin-bottom: $spacing-lg;
-  padding-bottom: $spacing-md;
+  margin-bottom: $spacing-md;
+  padding-bottom: $spacing-sm;
   border-bottom: 1px solid $color-gray-200;
+
+  .shop-category-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+  }
 
   .category-btn {
     display: flex;
@@ -138,6 +147,155 @@
       background: $color-primary;
       color: $color-white;
     }
+  }
+}
+
+// ===== 名称筛选器（分类栏右侧） =====
+.shop-filter {
+  position: relative;
+  margin-left: auto;
+
+  .shop-filter-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid $color-gray-200;
+    background: $color-white;
+    border-radius: $radius-base;
+    color: $color-gray-500;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    .filter-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .filter-value-dot {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: $color-accent;
+      border: 2px solid $color-white;
+    }
+
+    &:hover {
+      border-color: $color-primary-light;
+      color: $color-primary;
+      background: rgba($color-primary, 0.04);
+    }
+
+    // 有输入内容：图标变为实心漏斗并高亮。
+    &.has-value {
+      border-color: $color-primary;
+      color: $color-primary;
+      background: rgba($color-primary, 0.08);
+    }
+
+    // 面板展开但未输入：仅给出边框反馈。
+    &.open {
+      border-color: $color-primary-light;
+      color: $color-primary;
+    }
+  }
+
+  // 展开面板时用来吞掉面板外点击、关闭弹层。
+  .shop-filter-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+  }
+
+  .shop-filter-popover {
+    position: absolute;
+    top: calc(100% + #{$spacing-sm});
+    right: 0;
+    z-index: 1000;
+    width: 248px;
+    padding: $spacing-md;
+    background: $color-white;
+    border: 1px solid $color-gray-200;
+    border-radius: $radius-md;
+    box-shadow: $shadow-lg;
+    animation: shop-filter-pop-in 0.15s ease-out;
+
+    .shop-filter-label {
+      display: block;
+      margin-bottom: $spacing-xs;
+      font-size: $font-size-xs;
+      font-weight: 600;
+      color: $color-gray-600;
+    }
+
+    .shop-filter-row {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+    }
+
+    .shop-filter-input {
+      flex: 1;
+      min-width: 0;
+      padding: $spacing-sm $spacing-base;
+      border: 1px solid $color-gray-200;
+      border-radius: $radius-base;
+      font-size: $font-size-sm;
+      font-family: $font-family-base;
+      color: $color-gray-800;
+      outline: none;
+      transition: border-color $transition-fast;
+
+      &:focus {
+        border-color: $color-primary;
+      }
+
+      &::placeholder {
+        color: $color-gray-400;
+      }
+    }
+
+    .shop-filter-clear {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border: 1px solid $color-gray-200;
+      background: $color-white;
+      border-radius: $radius-sm;
+      color: $color-gray-500;
+      font-size: $font-size-sm;
+      cursor: pointer;
+      transition: all $transition-fast;
+
+      &:hover {
+        border-color: $color-accent;
+        color: $color-accent;
+      }
+    }
+
+    .shop-filter-hint {
+      margin: $spacing-xs 0 0;
+      font-size: $font-size-xs;
+      color: $color-gray-400;
+    }
+  }
+}
+
+@keyframes shop-filter-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -309,14 +467,253 @@
   }
 }
 
+// =============================================================================
+// 商店宫格 — 4 列 × 2 行，一页铺满，翻页走下方居中换页器（不再滚动列表）
+// =============================================================================
+
+.shop-tiles-grid {
+  flex: 1;
+  min-height: 0;
+  // 极矮视口下的兜底滚动；正常情况下两行宫格不会触发出滚动条。
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: $spacing-sm;
+  align-content: start;
+}
+
+// 游戏画布固定 600px 高：宫格按“图标 44 + 名称 + 徽标 + 价格行”的紧凑尺
+// 寸设计，两行 + 换页器正好铺满卡片而无需滚动。
+.shop-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-sm;
+  background: $color-white;
+  border: 1px solid $color-gray-200;
+  border-radius: $radius-md;
+  text-align: center;
+  transition: all $transition-fast;
+
+  &:hover {
+    border-color: $color-primary-light;
+    box-shadow: $shadow-sm;
+    transform: translateY(-2px);
+  }
+
+  .shop-tile-icon {
+    width: 44px;
+    height: 44px;
+    background: $color-gray-50;
+    border-radius: $radius-md;
+    @include flex-center;
+
+    .tile-icon-img {
+      width: 34px;
+      height: 34px;
+      object-fit: contain;
+      image-rendering: pixelated;
+
+      &.pet-sprite-img {
+        width: 40px;
+        height: 40px;
+      }
+    }
+  }
+
+  .shop-tile-name {
+    width: 100%;
+    font-size: $font-size-sm;
+    font-weight: 700;
+    color: $color-gray-800;
+    line-height: 1.25;
+    @include text-ellipsis;
+  }
+
+  .shop-tile-meta {
+    display: flex;
+    gap: $spacing-xs;
+    align-items: center;
+    min-height: 15px;
+
+    .item-type-badge {
+      padding: 0 $spacing-xs;
+    }
+  }
+
+  .shop-tile-foot {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-xs;
+
+    .item-price {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      min-width: 0;
+
+      .price-icon-emoji {
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .price-value {
+        font-size: $font-size-sm;
+        font-weight: 700;
+        color: $color-secondary;
+      }
+    }
+
+    .buy-btn {
+      padding: 2px $spacing-sm;
+      background: linear-gradient(135deg, $color-primary-light, $color-primary);
+      color: $color-white;
+      border: none;
+      border-radius: $radius-base;
+      font-size: $font-size-xs;
+      font-weight: 600;
+      font-family: $font-family-title;
+      cursor: pointer;
+      transition: opacity $transition-fast;
+      white-space: nowrap;
+
+      &:hover:not(:disabled) {
+        opacity: 0.9;
+      }
+
+      &:disabled,
+      &.disabled {
+        background: $color-gray-300;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
+// 窄屏时进一步压缩宫格尺寸，保持 4 列 × 2 行一页铺满。
+@media (max-width: 767px) {
+  .shop-tiles-grid {
+    gap: $spacing-xs;
+  }
+
+  .shop-tile {
+    padding: $spacing-xs;
+
+    .shop-tile-icon {
+      width: 36px;
+      height: 36px;
+
+      .tile-icon-img {
+        width: 28px;
+        height: 28px;
+
+        &.pet-sprite-img {
+          width: 34px;
+          height: 34px;
+        }
+      }
+    }
+
+    .shop-tile-foot {
+      flex-direction: column;
+      gap: $spacing-xs;
+    }
+  }
+}
+
+// ===== 宫格悬浮详情 Tooltip（fixed 定位，脱离卡片 overflow 裁剪） =====
+.shop-tile-tooltip {
+  position: fixed;
+  z-index: 1000;
+  min-width: 190px;
+  max-width: 230px;
+  background: $color-white;
+  border: 1px solid $color-gray-200;
+  border-radius: $radius-md;
+  box-shadow: $shadow-lg;
+  padding: $spacing-sm $spacing-base;
+  pointer-events: none;
+  animation: shop-tooltip-fade-in 0.15s ease-out;
+
+  .tile-tooltip-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-xs;
+    padding-bottom: $spacing-xs;
+    border-bottom: 1px solid $color-gray-100;
+
+    .tile-tooltip-name {
+      font-size: $font-size-sm;
+      font-weight: 700;
+      color: $color-gray-800;
+    }
+  }
+
+  .tile-tooltip-desc {
+    margin: 0 0 $spacing-xs;
+    font-size: $font-size-xs;
+    color: $color-gray-500;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  .tile-tooltip-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-xs;
+
+    &.pet-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, auto);
+      justify-content: start;
+    }
+
+    .tile-tooltip-stat {
+      font-size: $font-size-xs;
+      color: $color-gray-600;
+      background: $color-gray-100;
+      border-radius: $radius-sm;
+      padding: 1px $spacing-xs;
+    }
+  }
+
+  .tile-tooltip-price {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: $font-size-base;
+    font-weight: 700;
+    color: $color-secondary;
+  }
+}
+
+@keyframes shop-tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 // ===== 分页 =====
 .shop-pagination {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: $spacing-base;
-  margin-top: $spacing-base;
-  padding-top: $spacing-md;
+  gap: $spacing-sm;
+  // 剩余空间都留给宫格，换页器贴在卡片底部并保持居中。
+  margin-top: auto;
+  padding-top: $spacing-sm;
   border-top: 1px solid $color-gray-200;
 
   .page-btn {
@@ -343,6 +740,50 @@
   .page-info {
     font-size: $font-size-sm;
     color: $color-gray-600;
+  }
+
+  // 数字页码换页器（商店宫格使用；背包页沿用上面的 page-btn 文案按钮）
+  .pager-btn {
+    min-width: 26px;
+    height: 26px;
+    padding: 0 $spacing-xs;
+    border: 1px solid $color-gray-200;
+    background: $color-white;
+    border-radius: $radius-sm;
+    font-size: $font-size-xs;
+    font-family: $font-family-base;
+    color: $color-gray-600;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover:not(:disabled) {
+      border-color: $color-primary;
+      color: $color-primary;
+    }
+
+    &:disabled {
+      color: $color-gray-400;
+      cursor: not-allowed;
+    }
+
+    &.pager-num.active {
+      border-color: $color-primary;
+      background: $color-primary;
+      color: $color-white;
+      cursor: default;
+    }
+  }
+
+  .pager-nav {
+    font-size: $font-size-lg;
+    line-height: 1;
+  }
+
+  .pager-ellipsis {
+    min-width: 18px;
+    text-align: center;
+    font-size: $font-size-sm;
+    color: $color-gray-400;
   }
 }
 

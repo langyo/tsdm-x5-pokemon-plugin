@@ -69,6 +69,21 @@ pub(crate) async fn battle_timeout<T>(future: impl Future<Output = T>) -> Result
     .await
 }
 
+/// RFC 3986 百分号编码：除未保留字符外全部转义，保证中文与保留字符
+/// 出现在查询串时原样送达服务端（与 PHP 端字面子串搜索配套）。
+pub(crate) fn encode_query_component(value: &str) -> String {
+    value
+        .bytes()
+        .map(|byte| {
+            if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
+                (byte as char).to_string()
+            } else {
+                format!("%{byte:02X}")
+            }
+        })
+        .collect()
+}
+
 impl NewApiClient {
     pub fn new() -> Self {
         Self {
@@ -636,16 +651,27 @@ impl NewApiClient {
 
     // ============== Shop API ==============
 
-    /// 获取商店物品
+    /// 获取商店物品（keyword 为名称字面子串筛选，空串表示不筛选）
     pub async fn get_shop_items(
         &self,
         item_type: Option<u32>,
         page: u32,
+        keyword: &str,
     ) -> Result<ShopListResponse> {
         let type_param = item_type
             .map(|t| format!("&type={}", t))
             .unwrap_or_default();
-        battle_timeout(self.get("shop", "list", &format!("&page={}{}", page, type_param))).await?
+        let keyword_param = if keyword.is_empty() {
+            String::new()
+        } else {
+            format!("&keyword={}", encode_query_component(keyword))
+        };
+        battle_timeout(self.get(
+            "shop",
+            "list",
+            &format!("&page={}{}{}", page, type_param, keyword_param),
+        ))
+        .await?
     }
 
     /// 购买物品
@@ -662,8 +688,15 @@ impl NewApiClient {
         .await
     }
 
-    pub async fn get_shop_pets(&self, page: u32) -> Result<ShopPetListResponse> {
-        battle_timeout(self.get("shop", "pets", &format!("&page={}", page))).await?
+    /// 获取商店宠物（keyword 为名称字面子串筛选，空串表示不筛选）
+    pub async fn get_shop_pets(&self, page: u32, keyword: &str) -> Result<ShopPetListResponse> {
+        let keyword_param = if keyword.is_empty() {
+            String::new()
+        } else {
+            format!("&keyword={}", encode_query_component(keyword))
+        };
+        battle_timeout(self.get("shop", "pets", &format!("&page={}{}", page, keyword_param)))
+            .await?
     }
 
     pub async fn buy_pet(&self, pokemon_type_id: u64) -> Result<BuyPetResponse> {
@@ -725,16 +758,7 @@ impl NewApiClient {
         page: u32,
         search: &str,
     ) -> Result<InventoryResponse> {
-        let encoded: String = search
-            .bytes()
-            .map(|byte| {
-                if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
-                    (byte as char).to_string()
-                } else {
-                    format!("%{byte:02X}")
-                }
-            })
-            .collect();
+        let encoded = encode_query_component(search);
         let category = item_type
             .map(|value| format!("&type={value}"))
             .unwrap_or_default();

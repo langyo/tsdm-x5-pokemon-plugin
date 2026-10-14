@@ -4,9 +4,11 @@
  * 商店系统API
  *
  * 端点:
- * - GET  ?action=items&type=xxx&page=1  获取商品列表
- * - POST ?action=buy                    购买商品
- * - GET  ?action=categories             获取商品分类
+ * - GET  ?action=items&type=xxx&page=1&keyword=xx  获取商品列表（keyword 为名称字面子串筛选）
+ * - POST ?action=buy                                购买商品
+ * - GET  ?action=categories                         获取商品分类
+ * - GET  ?action=pets&page=1&keyword=xx             获取可购买宠物列表
+ * - POST ?action=buy_pet                            购买宠物
  */
 
 // 加载Discuz环境
@@ -77,6 +79,7 @@ function api_get_shop_items()
 
     $item_type = validate_optional_param($input, 'type', null, 'int', ['min' => 1, 'max' => 5]);
     $page = validate_optional_param($input, 'page', 1, 'int', ['min' => 1, 'max' => 9999]);
+    $keyword = pm_get_search_keyword();
 
     global $_G;
     $uid = validate_uid($_G['uid']);
@@ -87,6 +90,11 @@ function api_get_shop_items()
     if ($item_type !== null) {
         $where_params[] = "type = %d";
         $where_values[] = $item_type;
+    }
+    if ($keyword !== '') {
+        // 与背包搜索一致：LOCATE 字面子串匹配，% 与 _ 不当通配符。
+        $where_params[] = "LOCATE(%s, name) > 0";
+        $where_values[] = $keyword;
     }
 
     $where_clause = implode(' AND ', $where_params);
@@ -311,21 +319,33 @@ function api_get_shop_pets()
 
     $page = (int) get_param('page', 1);
     $per_page = SHOP_ITEMS_PER_PAGE;
+    $keyword = pm_get_search_keyword();
 
     global $_G;
     $uid = validate_uid($_G['uid']);
 
+    $where_params = ["shop = 1"];
+    $where_values = [];
+    if ($keyword !== '') {
+        // 与商品列表一致：LOCATE 字面子串匹配。
+        $where_params[] = "LOCATE(%s, name) > 0";
+        $where_values[] = $keyword;
+    }
+    $where_clause = implode(' AND ', $where_params);
+
     $count_result = DB::query(
-        "SELECT COUNT(*) FROM " . pm_table('pm_data') . " WHERE shop = 1"
+        pm_sql_v(
+            "SELECT COUNT(*) FROM " . pm_table('pm_data') . " WHERE $where_clause",
+            $where_values
+        )
     );
     $total = (int) DB::result($count_result, 0);
 
     $offset = ($page - 1) * $per_page;
 
-    $rows = DB::fetch_all(pm_sql(
-        "SELECT * FROM " . pm_table('pm_data') . " WHERE shop = 1 ORDER BY id ASC LIMIT %d, %d",
-        $offset,
-        $per_page
+    $rows = DB::fetch_all(pm_sql_v(
+        "SELECT * FROM " . pm_table('pm_data') . " WHERE $where_clause ORDER BY id ASC LIMIT %d, %d",
+        array_merge($where_values, array($offset, $per_page))
     ));
 
     $user = DB::fetch_first(pm_sql(

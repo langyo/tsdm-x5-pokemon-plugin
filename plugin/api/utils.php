@@ -644,3 +644,19 @@ function pm_abort_battle_transaction($message, $status = 400)
     DB::query("ROLLBACK");
     api_error($message, $status);
 }
+
+/**
+ * 读取并规整列表端点的 keyword/search 查询参数。
+ *
+ * 统一背包与商店的名称模糊搜索入口：非标量直接 400，
+ * 标量则 trim 后原样返回（空串表示未筛选）。% 与 _ 由调用方配合
+ * LOCATE(%s, name) 保持字面子串语义，不做 LIKE 通配转义。
+ */
+function pm_get_search_keyword($param = 'keyword')
+{
+    $raw = get_param($param, '');
+    if (!is_scalar($raw)) {
+        api_error('搜索名称格式错误', 400);
+    }
+    return trim((string) $raw);
+}
