@@ -6,6 +6,7 @@
  * 端点:
  * - GET  ?action=list      获取用户宠物列表
  * - GET  ?action=detail&id=xxx  获取宠物详情
+ * - GET  ?action=card&petid=xxx 获取侧栏弹窗宠物卡片（公开，仅携带中）
  * - POST ?action=rename    重命名宠物
  * - POST ?action=release   放生宠物
  * - GET  ?action=update_state  更新宠物状态（随机触发）
@@ -34,6 +35,10 @@ switch ($action) {
 
     case 'detail':
         api_get_pokemon_detail();
+        break;
+
+    case 'card':
+        api_get_pokemon_card();
         break;
 
     case 'rename':
@@ -721,6 +726,79 @@ function api_get_pokemon_detail()
             'type_2' => ($info && $info['xs2']) ? $info['xs2'] : null,
             'description' => $info ? (isset($info['description']) ? $info['description'] : '') : '',
         ],
+    ]);
+}
+
+/**
+ * 帖子侧栏宠物卡片（公开只读）。
+ * 点击侧栏宠物图标时弹窗展示：与 detail 的区别是不要求登录（携带中的宠物
+ * 本就随徽章公开展示）、仅限 site<3 的携带宠物、HP 只在内存中钳制展示值
+ * 而不回写数据库。
+ */
+function api_get_pokemon_card()
+{
+    require_once dirname(__DIR__) . '/pet_side_html.php';
+
+    $pet_id = validate_id(get_param('petid', 0) ?: get_param('id', 0), 'pet_id');
+
+    $pm = DB::fetch_first(pm_sql(
+        "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND site < 3",
+        $pet_id
+    ));
+    if (!$pm) {
+        api_error('宠物不存在或未携带', 404);
+    }
+
+    $pmno = (int) $pm['species_id'];
+    $info = DB::fetch_first(pm_sql("SELECT * FROM " . pm_table('pm_data') . " WHERE id = %d", $pmno));
+
+    $stats = calculate_stats($pm, $info);
+    $max_hp = api_calculate_pokemon_max_hp($pm, $info);
+    $hp = max(0, min((int) $pm['hp'], $max_hp));
+
+    $skill_rows = DB::fetch_all(pm_sql(
+        "SELECT ms.skillnum, s.name AS skill_name, s.element, s.power, s.max_uses AS max_pp "
+            . "FROM " . pm_table('pm_myskill') . " ms "
+            . "LEFT JOIN " . pm_table('pm_skill') . " s ON ms.skillid = s.id "
+            . "WHERE ms.petid = %d LIMIT 4",
+        $pet_id
+    ));
+    $skills = [];
+    foreach ($skill_rows as $sk) {
+        $skills[] = [
+            'name' => $sk['skill_name'] ? $sk['skill_name'] : '',
+            'element' => $sk['element'] ? $sk['element'] : '',
+            'power' => (int) $sk['power'],
+            'pp' => (int) $sk['skillnum'],
+            'max_pp' => (int) $sk['max_pp'],
+        ];
+    }
+
+    $owner = DB::fetch_first('SELECT username FROM %t WHERE uid = %d', [
+        'common_member', (int) $pm['uid']
+    ]);
+
+    $shiny = ((int) $pm['is_shiny']) === 1;
+
+    api_success([
+        'id' => (int) $pm['id'],
+        'owner' => $owner ? $owner['username'] : '',
+        'name' => $info ? $info['name'] : '???',
+        'nickname' => $pm['nickname'] ? $pm['nickname'] : null,
+        'type_id' => $pmno,
+        'level' => (int) $pm['level'],
+        'gender' => (int) $pm['sex'],
+        'is_shiny' => $shiny,
+        'hp' => $hp,
+        'max_hp' => $max_hp,
+        'affection' => (int) $pm['good'],
+        'state' => (int) $pm['state'],
+        'state_text' => get_pokemon_state_text((int) $pm['state']),
+        'type_1' => $info ? $info['xs'] : '',
+        'type_2' => ($info && $info['xs2']) ? $info['xs2'] : '',
+        'stats' => $stats,
+        'skills' => $skills,
+        'image_urls' => pm_side_big_chain($pmno, $shiny ? 1 : 0),
     ]);
 }
 
