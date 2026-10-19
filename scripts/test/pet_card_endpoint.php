@@ -9,7 +9,8 @@ require __DIR__ . '/../../plugin/api/utils.php';
 
 // 从 pokemon.php 提取被测函数（与 healing.php 相同的 token 提取方式，
 // 避免加载整个端点文件触发其路由 switch）。
-$wanted = ['api_get_pokemon_card', 'get_pokemon_state_text', 'calculate_stats'];
+$wanted = ['api_get_pokemon_card', 'get_pokemon_state_text', 'calculate_stats',
+    'get_pokemon_exp_progress', 'get_pokemon_exp_table_local', 'get_pokemon_exp_type_local'];
 $tokens = token_get_all(file_get_contents(__DIR__ . '/../../plugin/api/pokemon.php'));
 for ($i = 0; $i < count($tokens); $i++) {
     if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) continue;
@@ -124,6 +125,7 @@ function assert_same($expected, $actual, $label)
 function base_pet()
 {
     return ['id' => 99, 'uid' => 7, 'species_id' => 25, 'nickname' => '皮卡', 'level' => 50,
+        'exp' => 95000,
         'hp' => 9999, 'sex' => 1, 'is_shiny' => 1, 'good' => 88, 'state' => 1,
         'hpg' => 31, 'hpn' => 0, 'atkg' => 0, 'atkn' => 0, 'defg' => 0, 'defn' => 0,
         'spatkg' => 0, 'spatkn' => 0, 'spdefg' => 0, 'spdefn' => 0, 'sdg' => 0, 'sdn' => 0,
@@ -150,6 +152,10 @@ try {
     assert_same('电', $card['type_1'], 'type_1');
     assert_same('', $card['type_2'], 'type_2 empty for mono type');
     assert_same(88, $card['affection'], 'affection');
+    // 经验值：默认经验表 Lv.50 起 91689、Lv.51 需 95995（见 api/utils.php）
+    assert_same(95000, $card['exp'], 'current exp echoed back');
+    assert_same(91689, $card['exp_for_current_level'], 'exp threshold of current level');
+    assert_same(95995, $card['exp_for_next_level'], 'exp threshold of next level');
     assert_same('电', $card['skills'][0]['element'], 'skill element');
     assert_same(90, $card['skills'][0]['power'], 'skill power');
     assert_same(15, $card['skills'][0]['pp'], 'skill current pp');

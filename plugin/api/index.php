@@ -461,8 +461,10 @@ function validate_optional_param(array $input, $key, $default = null, $type = 's
 
 // 游戏与管理接口会改写玩家数据（购买、放生、改金钱等），必须来自本站页面（防 CSRF）。
 // 前端页面的 fetch 包装会自动带 X-Pm-Formhash；图片类端点（badge/avatar/badges）不经过本文件。
+// 例外：帖子侧栏宠物卡片（action=card）是公开只读 GET，帖子页弹窗与未登录访客
+// 都不带 formhash，由 pm_public_readonly_request() 白名单放行（见 security.php）。
 require_once __DIR__ . '/../security.php';
-if (!pm_formhash_ok()) {
+if (!pm_formhash_ok() && !pm_public_readonly_request()) {
     api_error('formhash 校验失败，请刷新页面后重试', 403);
 }
 
