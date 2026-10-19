@@ -26,3 +26,24 @@ if (!function_exists('pm_request_formhash')) {
         return $hash !== '' && hash_equals(formhash(), $hash);
     }
 }
+
+if (!function_exists('pm_public_readonly_request')) {
+    /**
+     * 是否为豁免 formhash 的"公开只读"请求。
+     *
+     * 帖子侧栏宠物卡片（endpoint=pokemon&action=card）在 viewthread 页面由
+     * 弹窗直接 GET 拉取：徽章对未登录访客也公开展示，该请求天然不带
+     * formhash；端点不改写任何数据（HP 只读钳制），CSRF 防护对只读 GET
+     * 无意义。新增豁免必须是严格只读的 GET，写操作一律不得进入此函数。
+     */
+    function pm_public_readonly_request()
+    {
+        if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] !== 'GET') {
+            return false;
+        }
+        if (!isset($_GET['endpoint']) || !is_string($_GET['endpoint']) || $_GET['endpoint'] !== 'pokemon') {
+            return false;
+        }
+        return isset($_GET['action']) && is_string($_GET['action']) && $_GET['action'] === 'card';
+    }
+}

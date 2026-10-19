@@ -199,6 +199,8 @@ function pm_side_assets()
 .pm-card-hp-fill.pm-hp-mid{background:#faad14}
 .pm-card-hp-fill.pm-hp-low{background:#f5222d}
 .pm-card-hp-num{text-align:right;font-size:11px;color:#777;margin-top:2px}
+.pm-card-exp{margin:4px 0 0}
+.pm-card-exp-fill{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:#6f9ee8;transition:width .25s ease}
 .pm-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:8px 0 4px}
 .pm-card-stat{background:#f7f9fc;border-radius:6px;padding:4px 2px;text-align:center}
 .pm-card-stat b{display:block;font-size:14px}
@@ -311,6 +313,14 @@ function renderCard(p){
   var hpCls = pct > 50 ? '' : (pct > 20 ? ' pm-hp-mid' : ' pm-hp-low');
   h += '<div class="pm-card-hp"><div class="pm-card-hp-bar"><i class="pm-card-hp-fill' + hpCls + '" style="width:' + pct + '%"></i></div>'
     + '<div class="pm-card-hp-num">HP ' + esc(p.hp) + ' / ' + esc(p.max_hp) + '</div></div>';
+  // 经验进度：本级已获得 / 升级所需，与个人中心属性栏的基础数据对齐；
+  // 旧端点未返回经验字段时显示 0/0，不影响其余卡片内容
+  var expBase = +p.exp_for_current_level || 0, expNext = +p.exp_for_next_level || 0;
+  var expSpan = Math.max(0, expNext - expBase);
+  var expCur = Math.max(0, Math.min((+p.exp || 0) - expBase, expSpan));
+  var expPct = expSpan > 0 ? Math.round(expCur / expSpan * 100) : 0;
+  h += '<div class="pm-card-hp pm-card-exp"><div class="pm-card-hp-bar"><i class="pm-card-exp-fill" style="width:' + expPct + '%"></i></div>'
+    + '<div class="pm-card-hp-num">EXP ' + esc(expCur) + ' / ' + esc(expSpan) + '</div></div>';
   h += '<div class="pm-card-stats">';
   for (var i = 0; i < STAT_NAMES.length; i++) {
     var v = p.stats ? p.stats[STAT_NAMES[i][0]] : 0;

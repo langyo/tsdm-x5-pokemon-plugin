@@ -312,6 +312,24 @@ function get_pokemon_exp_table_local($pokemon_id)
 }
 
 /**
+ * 宠物升级经验进度（宠物列表与侧栏卡片共用）。
+ *
+ * 返回 [当前累计经验, 本级起始经验, 升到下一级所需累计经验]：
+ * exp_for_current_level 是上一级的阈值（当前等级的起始经验），
+ * exp_for_next_level 是当前等级的阈值（升到下一级需要的经验）。
+ */
+function get_pokemon_exp_progress($pm, $pmno)
+{
+    $exp_table = get_pokemon_exp_table_local($pmno);
+    $current_exp = isset($pm['exp']) ? (int) $pm['exp'] : 0;
+    $level = (int) $pm['level'];
+    $prev_level_key = $level - 1;
+    $current_level_threshold = isset($exp_table[$prev_level_key]) ? $exp_table[$prev_level_key] : (isset($exp_table[(string)$prev_level_key]) ? $exp_table[(string)$prev_level_key] : 0);
+    $next_level_exp = isset($exp_table[$level]) ? $exp_table[$level] : (isset($exp_table[(string)$level]) ? $exp_table[(string)$level] : 1250000);
+    return [$current_exp, $current_level_threshold, $next_level_exp];
+}
+
+/**
  * 计算宠物的完整属性（基础属性 + 装备加成）
  * 
  * @param array $pm 宠物数据（来自 pm_mypm 表）
@@ -539,16 +557,8 @@ function api_get_pokemon_list()
         $hp_validation = api_validate_and_correct_hp($pm, null, $max_hp, $info);
         $pm['hp'] = strval($hp_validation['hp']);
 
-        // 计算经验值字段
-        $exp_table = get_pokemon_exp_table_local($pmno);
-
-        $current_exp = isset($pm['exp']) ? (int) $pm['exp'] : 0;
-
-        // exp_for_current_level 是上一级的阈值（当前等级的起始经验）
-        // exp_for_next_level 是当前等级的阈值（升到下一级需要的经验）
-        $prev_level_key = $level - 1;
-        $current_level_threshold = isset($exp_table[$prev_level_key]) ? $exp_table[$prev_level_key] : (isset($exp_table[(string)$prev_level_key]) ? $exp_table[(string)$prev_level_key] : 0);
-        $next_level_exp = isset($exp_table[$level]) ? $exp_table[$level] : (isset($exp_table[(string)$level]) ? $exp_table[(string)$level] : 1250000);
+        // 计算经验值字段（阈值语义见 get_pokemon_exp_progress 注释）
+        list($current_exp, $current_level_threshold, $next_level_exp) = get_pokemon_exp_progress($pm, $pmno);
         $exp_needed_for_next = max(0, $next_level_exp - $current_exp);
 
         $pm_state = (int) $pm['state'];
@@ -780,6 +790,9 @@ function api_get_pokemon_card()
 
     $shiny = ((int) $pm['is_shiny']) === 1;
 
+    // 反馈要求卡片补齐个人中心"属性栏"的基础数据：经验值与 HP 同级展示
+    list($current_exp, $exp_for_current_level, $exp_for_next_level) = get_pokemon_exp_progress($pm, $pmno);
+
     api_success([
         'id' => (int) $pm['id'],
         'owner' => $owner ? $owner['username'] : '',
@@ -791,6 +804,9 @@ function api_get_pokemon_card()
         'is_shiny' => $shiny,
         'hp' => $hp,
         'max_hp' => $max_hp,
+        'exp' => $current_exp,
+        'exp_for_current_level' => $exp_for_current_level,
+        'exp_for_next_level' => $exp_for_next_level,
         'affection' => (int) $pm['good'],
         'state' => (int) $pm['state'],
         'state_text' => get_pokemon_state_text((int) $pm['state']),
