@@ -3,7 +3,7 @@ authors = ["langyo <langyo.china@gmail.com>"]
 edition = "2021"
 name = "_admin"
 publish = false
-version = "0.1.30"
+version = "0.1.31"
 
 build = "build.rs"
 
