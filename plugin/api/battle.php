@@ -1612,11 +1612,24 @@ function calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map)
 
     $getexp = floor(($base_exp * $npc_level / 7) * 1.5 * $exp_multiplier / 4);
 
-    // 金币
+    // 金币：与 X3 一致，未配置（0 / 空 / 非法）时回退到默认 10~50。
+    // 迁移后的 drop_money 是 JSON 数组；旧逻辑用 isset 会把 [0,0] 当成有效区间，
+    // 导致 rand(0,0)=0、所有野怪都不掉钱。
     $drop_money = json_decode($npc['drop_money'], true);
-    $money_min = isset($drop_money[0]) ? $drop_money[0] : 10;
-    $money_max = isset($drop_money[1]) ? $drop_money[1] : 50;
-    $money = rand($money_min, $money_max) * $myusersdata['strength'];
+    if (is_array($drop_money) && isset($drop_money[0], $drop_money[1]) && (int) $drop_money[1] > 0) {
+        $money_min = max(0, (int) $drop_money[0]);
+        $money_max = (int) $drop_money[1];
+        if ($money_max < $money_min) {
+            [$money_min, $money_max] = [$money_max, $money_min];
+        }
+    } else {
+        $money_min = 10;
+        $money_max = 50;
+    }
+
+    // strength 为 0 时整笔奖励都会变成 0，至少按 1 倍结算。
+    $strength = max(1, (int) $myusersdata['strength']);
+    $money = rand($money_min, $money_max) * $strength;
 
     return [
         'exp' => $getexp,
