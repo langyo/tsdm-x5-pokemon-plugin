@@ -1,5 +1,36 @@
 <?php
 
+/**
+ * 老站点惰性补列：pm_map.min_quality（活动地图品质门槛，0=不限制）。
+ * 仅供管理端写入路径调用；读取路径（battle.php）对缺列已做降级探测。
+ */
+function ensure_map_min_quality_column()
+{
+  static $done = false;
+  if ($done) {
+    return;
+  }
+  $done = true;
+  if (!DB::fetch_first("SHOW COLUMNS FROM pm_map LIKE 'min_quality'")) {
+    DB::query("ALTER TABLE pm_map ADD COLUMN min_quality tinyint(3) unsigned NOT NULL DEFAULT 0", 'SILENT');
+  }
+}
+
+/**
+ * 校验并归一化地图品质门槛输入（0=不限制，1-8 = E..SS+）
+ */
+function normalize_map_min_quality($value)
+{
+  $rank = intval($value ?? 0);
+  if ($rank < 0 || $rank > 8) {
+    $json_ret = [];
+    $json_ret["success"] = false;
+    $json_ret["reason"] = "品质门槛必须在 0-8 之间（0=不限制，1-8 = E..SS+）";
+    exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
+  }
+  return $rank;
+}
+
 function count_map_info()
 {
   $count = DB::result_first("SELECT count(*) from pm_map");
@@ -27,7 +58,8 @@ function list_map_info($from, $count)
         intval($query['min_level']),
         intval($query['max_level']),
         intval($query['experience']),
-        $query['boss_config']
+        $query['boss_config'],
+        isset($query['min_quality']) ? intval($query['min_quality']) : 0
       );
 
       array_push($ret, $item);
@@ -52,7 +84,8 @@ function get_map_info($id)
       intval($query['min_level']),
       intval($query['max_level']),
       intval($query['experience']),
-      $query['boss_config']
+      $query['boss_config'],
+      isset($query['min_quality']) ? intval($query['min_quality']) : 0
     );
 
     array_push($ret, $item);
@@ -98,6 +131,14 @@ function set_map_info($info)
       exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
     }
 
+    // 品质门槛（0=不限制，1-8 = E..SS+）；老客户端未发送该字段时保持原值
+    $new_min_quality = array_key_exists("min_quality", $info)
+      ? normalize_map_min_quality($info["min_quality"])
+      : intval(isset($query['min_quality']) ? $query['min_quality'] : 0);
+    if ($new_min_quality > 0) {
+      ensure_map_min_quality_column();
+    }
+
     if ($query['name'] != $info["name"]) {
       $name = addslashes($info["name"]);
       DB::query("UPDATE pm_map set name='$name' where id=$id");
@@ -115,6 +156,10 @@ function set_map_info($info)
     }
     if (intval($query['max_level']) != intval($info["max_level"])) {
       DB::query("UPDATE pm_map set max_level=" . intval($info["max_level"]) . " where id=$id");
+    }
+    if (intval(isset($query['min_quality']) ? $query['min_quality'] : 0) !== $new_min_quality) {
+      ensure_map_min_quality_column();
+      DB::query("UPDATE pm_map set min_quality={$new_min_quality} where id=$id");
     }
 
     // experience=-1 identifies Boss-only maps; wild maps keep their numeric multiplier.
@@ -175,6 +220,12 @@ function insert_map_info($info)
     exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
   }
 
+  // 品质门槛（0=不限制，1-8 = E..SS+）；老客户端未发送该字段时默认不限制
+  $min_quality = array_key_exists("min_quality", $info)
+    ? normalize_map_min_quality($info["min_quality"])
+    : 0;
+  ensure_map_min_quality_column();
+
   $name = addslashes(strval($info["name"]));
   $site = addslashes(strval($info["area_type"]));
   $kg = boolval($info["is_enabled"]) ? 1 : 0;
@@ -193,9 +244,9 @@ function insert_map_info($info)
 
   $expn_escaped = addslashes($expn);
   DB::query("INSERT INTO pm_map (
-    name, site, is_enabled, min_level, max_level, experience, boss_config
+    name, site, is_enabled, min_level, max_level, experience, boss_config, min_quality
   ) VALUES (
-    '$name', '$site', $kg, $minlevel, $maxlevel, $experience, '$expn_escaped'
+    '$name', '$site', $kg, $minlevel, $maxlevel, $experience, '$expn_escaped', $min_quality
   )");
 
   return intval(DB::insert_id());
@@ -274,7 +325,8 @@ function filter_map_info($list)
         intval($query['min_level']),
         intval($query['max_level']),
         intval($query['experience']),
-        $query['boss_config']
+        $query['boss_config'],
+        isset($query['min_quality']) ? intval($query['min_quality']) : 0
       );
 
       array_push($ret, $item);

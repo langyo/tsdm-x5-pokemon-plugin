@@ -12,7 +12,9 @@
  *   calculate_pokemon_stats($pokemon_data, $level) - 计算宠物战斗六维数值
  *   calculate_pokemon_max_hp($pokemon_data, $level) - 计算宠物最大血量
  *   get_pokemon_exp_threshold($pokemon_id, $level) - 获取指定等级的经验阈值
- *   create_new_pokemon_data($pokemon_data, $level, $uid, $nickname) - 创建新宠物完整数据
+ *   create_new_pokemon_data($pokemon_data, $level, $uid, $nickname, $ivs) - 创建新宠物完整数据
+ *   pm_quality_of_pokemon($pm) - 宠物品质摘要（总个体值 + 档位）
+ *   pm_roll_ivs_for_rank($rank) - 掷出指定品质档位的六项个体值
  */
 
 // 禁止直接访问
@@ -192,6 +194,122 @@ function calculate_pokemon_stats($pokemon_data, $level, $ivs = null, $evs = null
 }
 
 /**
+ * 宠物品质体系（依据六项个体值总和判定）
+ *
+ * 总个体值满值为 186（6 × 31），按比例划分为八档：
+ *   SS+ ≥ 92%（172）、SS ≥ 86%（160）、S ≥ 78%（145）、A ≥ 67%（125）
+ *   B ≥ 56%（105）、C ≥ 45%（84）、D ≥ 32%（60）、E 为其余情况。
+ *
+ * 该体系同时供前台展示、后台发放与活动地图门槛使用；
+ * Rust 侧 rust/utils/src/functions/quality.rs 维护了同一套阈值，
+ * 两边改动必须同步。
+ */
+
+function pm_quality_grades()
+{
+    return [1 => 'E', 2 => 'D', 3 => 'C', 4 => 'B', 5 => 'A', 6 => 'S', 7 => 'SS', 8 => 'SS+'];
+}
+
+function pm_quality_thresholds()
+{
+    // 档位 => 进入该档所需的最低总个体值
+    return [1 => 0, 2 => 60, 3 => 84, 4 => 105, 5 => 125, 6 => 145, 7 => 160, 8 => 172];
+}
+
+/**
+ * 计算宠物实例（pm_mypm 行）的六项个体值总和
+ */
+function pm_iv_total($pm)
+{
+    return intval($pm['hpg']) + intval($pm['atkg']) + intval($pm['defg'])
+        + intval($pm['spatkg']) + intval($pm['spdefg']) + intval($pm['sdg']);
+}
+
+/**
+ * 总个体值 -> 品质档位 (1=E ... 8=SS+)
+ */
+function pm_quality_rank($iv_total)
+{
+    $thresholds = pm_quality_thresholds();
+    $rank = 1;
+    foreach ($thresholds as $r => $min) {
+        if ($iv_total >= $min) {
+            $rank = $r;
+        }
+    }
+    return $rank;
+}
+
+/**
+ * 档位 -> 品质名；0 或越界返回空串（表示无品质要求）
+ */
+function pm_quality_name($rank)
+{
+    $grades = pm_quality_grades();
+    $rank = intval($rank);
+    return isset($grades[$rank]) ? $grades[$rank] : '';
+}
+
+/**
+ * 宠物实例的品质摘要
+ *
+ * @return array {iv_total, rank, grade}
+ */
+function pm_quality_of_pokemon($pm)
+{
+    $iv_total = pm_iv_total($pm);
+    $rank = pm_quality_rank($iv_total);
+    return [
+        'iv_total' => $iv_total,
+        'rank' => $rank,
+        'grade' => pm_quality_name($rank),
+    ];
+}
+
+/**
+ * 掷出一组落在指定品质档位内的六项个体值 (0-31)
+ *
+ * 采用“定和分配 + 随机搬移”策略：先在档位总区间内取目标总和并均分，
+ * 再在保持总和不变的前提下随机搬移若干点，保证结果一定落在目标档位。
+ */
+function pm_roll_ivs_for_rank($rank)
+{
+    $thresholds = pm_quality_thresholds();
+    $rank = max(1, min(8, intval($rank)));
+    $min = $thresholds[$rank];
+    $max = ($rank < 8) ? $thresholds[$rank + 1] - 1 : 186;
+    $target = rand($min, $max);
+
+    $keys = ['hp', 'atk', 'def', 'spatk', 'spdef', 'speed'];
+    $base = intval($target / 6);
+    $ivs = [];
+    foreach ($keys as $key) {
+        $ivs[$key] = $base;
+    }
+    $remainder = $target - $base * 6;
+    for ($i = 0; $i < $remainder; $i++) {
+        $ivs[$keys[$i]]++;
+    }
+
+    // 随机搬移：在不越界的前提下把点数从一项搬到另一项，制造随机分布
+    for ($round = 0; $round < 24; $round++) {
+        $from = rand(0, 5);
+        $to = rand(0, 5);
+        if ($from === $to) {
+            continue;
+        }
+        $delta = rand(1, 4);
+        if ($ivs[$keys[$from]] - $delta < 0 || $ivs[$keys[$to]] + $delta > 31) {
+            continue;
+        }
+        $ivs[$keys[$from]] -= $delta;
+        $ivs[$keys[$to]] += $delta;
+    }
+
+    return $ivs;
+}
+
+/**
  * 计算宠物最大血量
  *
  * @param array $pokemon_data 宠物基础数据
@@ -236,15 +354,17 @@ function calculate_initial_exp($pokemon_id, $level)
  * @param int $level 初始等级
  * @param int $uid 用户ID
  * @param string $nickname 昵称 (可选，默认使用宠物名)
+ * @param array $ivs 指定个体值 (可选，键为 hp/atk/def/spatk/spdef/speed，缺省随机 0-31；
+ *                   可配合 pm_roll_ivs_for_rank() 按品质档位发放)
  * @return array 完整的宠物数据，可直接用于插入数据库
  */
-function create_new_pokemon_data($pokemon_data, $level, $uid, $nickname = null)
+function create_new_pokemon_data($pokemon_data, $level, $uid, $nickname = null, $ivs = null)
 {
     $level = max(1, min(100, intval($level)));
     $pokemon_id = intval($pokemon_data['id']);
 
     // 计算战斗属性
-    $stats = calculate_pokemon_stats($pokemon_data, $level);
+    $stats = calculate_pokemon_stats($pokemon_data, $level, $ivs);
     $max_hp = $stats['hp'];
     $ivs = $stats['ivs'];
     $evs = $stats['evs'];

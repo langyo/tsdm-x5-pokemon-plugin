@@ -23,6 +23,9 @@
 // 加载 API 辅助函数（包含 get_param, api_error 等）
 require_once __DIR__ . '/index.php';
 
+// 加载数值计算工具（个体值/品质换算，活动地图门槛使用）
+require_once __DIR__ . '/pokemon_utils.php';
+
 // 加载常量定义
 require_once __DIR__ . '/constants.php';
 require_once __DIR__ . '/battle_storage.php';
@@ -811,6 +814,21 @@ function api_start_battle()
     }
     if (empty($map['is_enabled'])) {
         api_error('此地图暂未开放', 403);
+    }
+
+    // 活动地图品质门槛：出战宠物品质需达到地图设定的最低档位
+    // （min_quality 为 0 表示不限制；档位定义见 pm_quality_thresholds()）
+    $map_min_quality = isset($map['min_quality']) ? (int) $map['min_quality'] : 0;
+    if ($map_min_quality > 0) {
+        $pet_quality = pm_quality_of_pokemon($mypokemon);
+        if ($pet_quality['rank'] < $map_min_quality) {
+            api_error(sprintf(
+                '此地图需要出战宠物品质达到 %s（当前宠物 %s，总个体值 %d/186）',
+                pm_quality_name($map_min_quality),
+                $pet_quality['grade'],
+                $pet_quality['iv_total']
+            ), 403);
+        }
     }
 
     // 检查宠物HP
@@ -2143,15 +2161,28 @@ function api_get_maps()
             $has_region_field = false;
         }
     }
+    static $has_min_quality_field = null;
+    if ($has_min_quality_field === null) {
+        $has_min_quality_field = false;
+        try {
+            $column_result = DB::fetch_first("SHOW COLUMNS FROM {$map_table} LIKE 'min_quality'");
+            if ($column_result) {
+                $has_min_quality_field = true;
+            }
+        } catch (Exception $e) {
+            $has_min_quality_field = false;
+        }
+    }
+    $min_quality_column = $has_min_quality_field ? 'min_quality' : '0 AS min_quality';
 
     // 根据字段情况选择查询
     if ($has_region_field) {
-        $sql = "SELECT id, name, site, region, pos_x, pos_y, is_enabled, min_level, max_level, experience, boss_config
+        $sql = "SELECT id, name, site, region, pos_x, pos_y, is_enabled, min_level, max_level, experience, boss_config, {$min_quality_column}
             FROM {$map_table}
             WHERE {$where_sql}
             ORDER BY region ASC, min_level ASC, id ASC";
     } else {
-        $sql = "SELECT id, name, site, is_enabled, min_level, max_level, experience, boss_config
+        $sql = "SELECT id, name, site, is_enabled, min_level, max_level, experience, boss_config, {$min_quality_column}
             FROM {$map_table}
             WHERE {$where_sql}
             ORDER BY min_level ASC, id ASC";
@@ -2334,6 +2365,7 @@ function api_get_maps()
         }
 
         // 确定地图模式并生成扁平化格式
+        $map_min_quality = isset($row['min_quality']) ? (int)$row['min_quality'] : 0;
         if ($has_boss_config) {
             // Boss 模式: {"mode":"boss","bosses":[...]}
             $maps[] = [
@@ -2347,6 +2379,8 @@ function api_get_maps()
                 'is_enabled' => (bool)$row['is_enabled'],
                 'min_level' => (int)$row['min_level'],
                 'max_level' => (int)$row['max_level'],
+                'min_quality' => $map_min_quality,
+                'min_quality_name' => pm_quality_name($map_min_quality),
                 'mode' => (int)$row['experience'] === -1 ? 'boss' : 'hybrid',
                 'bosses' => $bosses,
                 'wild_pokemons' => $pokemon_names,
@@ -2364,6 +2398,8 @@ function api_get_maps()
                 'is_enabled' => (bool)$row['is_enabled'],
                 'min_level' => (int)$row['min_level'],
                 'max_level' => (int)$row['max_level'],
+                'min_quality' => $map_min_quality,
+                'min_quality_name' => pm_quality_name($map_min_quality),
                 'mode' => 'wild',
                 'wild_pokemons' => $pokemon_names,
             ];

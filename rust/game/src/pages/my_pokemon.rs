@@ -15,6 +15,7 @@ use crate::{
         pokemon::{gender_class, gender_symbol, hp_class, hp_percent},
     },
 };
+use _utils::functions::{quality_grade, quality_rank, IV_TOTAL_MAX};
 use _utils::types::api_pokemon::{EquipmentItem, EquipmentSlot, LearnableSkill, PokemonSkillSlot};
 
 #[component]
@@ -518,6 +519,23 @@ fn StatsTabContent(
                     span { class: "pokemon-gender {gender_class(pm_gender)}",
                         "{gender_symbol(pm_gender)}"
                     }
+                    if let Some(grade) = detail_data.as_ref().and_then(|d| d.quality_grade.clone()) {
+                        {
+                            let rank = detail_data
+                                .as_ref()
+                                .and_then(|d| d.quality_rank)
+                                .unwrap_or_else(|| quality_rank(
+                                    detail_data.as_ref().and_then(|d| d.iv_total).unwrap_or(0),
+                                ));
+                            rsx! {
+                                span {
+                                    class: "quality-badge quality-rank-{rank}",
+                                    title: "品质由六项个体值总和判定",
+                                    "{grade}"
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -547,6 +565,28 @@ fn StatsTabContent(
                     div { class: "affection-row",
                         span { class: "affection-label", "好感度" }
                         span { class: "affection-value", "{pm_affection}" }
+                    }
+                    // 总个体值 + 品质：品质由六项个体值总和判定（旧端点无 ivs 字段时整行隐藏）
+                    if let Some(ivs) = detail_data.as_ref().and_then(|d| d.ivs) {
+                        {
+                            let iv_total = ivs.total();
+                            let rank = quality_rank(iv_total);
+                            rsx! {
+                                div { class: "iv-summary-row",
+                                    span { class: "affection-label", "总个体值" }
+                                    span { class: "affection-value", "{iv_total} / {IV_TOTAL_MAX}" }
+                                    span { class: "quality-badge quality-rank-{rank}", "{quality_grade(rank)}" }
+                                }
+                                div { class: "iv-detail-row",
+                                    span { class: "iv-chip", "HP {ivs.hp}" }
+                                    span { class: "iv-chip", "攻击 {ivs.attack}" }
+                                    span { class: "iv-chip", "防御 {ivs.defense}" }
+                                    span { class: "iv-chip", "特攻 {ivs.sp_attack}" }
+                                    span { class: "iv-chip", "特防 {ivs.sp_defense}" }
+                                    span { class: "iv-chip", "速度 {ivs.speed}" }
+                                }
+                            }
+                        }
                     }
                     div { class: "tool-buttons-col",
                         button {

@@ -64,6 +64,7 @@ class DB
         if ($sql === "SELECT * FROM pm_myitem WHERE uid = 7 AND itemid = '42'") return self::$stock;
         if ($sql === 'SELECT * FROM pm_mypm WHERE id = 1') return self::$pet;
         if ($sql === 'SELECT * FROM pm_mypm WHERE id = 1 AND uid = 7') return self::$pet['uid'] === 7 ? self::$pet : false;
+        if ($sql === 'SELECT * FROM pm_data WHERE id = 1') return ['id' => 1, 'name' => 'Test', 'hp' => 50, 'atk' => 50, 'def' => 50, 'spatk' => 50, 'spdef' => 50, 'speed' => 50];
         if ($sql === 'SELECT hp FROM pm_data WHERE id = 1') return ['hp' => 50];
         if ($sql === 'SELECT name, hp FROM pm_data WHERE id = 1') return ['name' => 'Test', 'hp' => 50];
         if ($sql === 'SELECT i.equipment FROM pm_myitem m LEFT JOIN pm_itemdata i ON m.itemid=i.id WHERE m.id=9') return ['equipment' => '{"hp":20}'];
@@ -85,6 +86,11 @@ class DB
         if (preg_match('/^UPDATE pm_mypm SET hp = (\d+)(?:, state = (\d+), statetime = (\d+))? WHERE id = 1$/', $sql, $m)) {
             self::$pet['hp'] = (int) $m[1];
             if (isset($m[2])) self::$pet['state'] = (int) $m[2];
+        } elseif (preg_match('/^UPDATE pm_mypm SET hpg = (\d+), atkg = (\d+), defg = (\d+), spatkg = (\d+), spdefg = (\d+), sdg = (\d+), hp = (\d+) WHERE id = 1$/', $sql, $m)) {
+            foreach (['hpg' => 1, 'atkg' => 2, 'defg' => 3, 'spatkg' => 4, 'spdefg' => 5, 'sdg' => 6] as $column => $group) {
+                self::$pet[$column] = (int) $m[$group];
+            }
+            self::$pet['hp'] = (int) $m[7];
         } elseif ($sql === 'DELETE FROM pm_myitem WHERE id = 2') {
             self::$stock = false;
         } elseif (preg_match('/^UPDATE pm_myitem SET nums = (\d+) WHERE id = 2$/', $sql, $m)) {
@@ -176,9 +182,20 @@ check(invoke('api_get_usable_pokemon')->data['usable_pokemon'] === [], 'Healthy 
 foreach ([1, 2] as $quantity) {
     fixture(1, 100, 4, 'quality');
     DB::$stock['nums'] = $quantity;
-    $before = [DB::$pet, DB::$stock];
-    check(invoke()->getCode() === 400, 'Unsupported quality rerolls report failure');
-    check([DB::$pet, DB::$stock] === $before && !DB::$writes, 'Unsupported quality rerolls preserve the pet and inventory');
+    $response = invoke();
+    $reroll = null;
+    foreach (DB::$writes as $write) {
+        if (strpos($write, 'SET hpg = ') !== false) $reroll = $write;
+    }
+    check($response->getCode() === 200 && $reroll !== null, 'Quality rerolls report success and persist new individual values');
+    $stock_left = $quantity - 1;
+    $stock_ok = $stock_left === 0 ? DB::$stock === false : (is_array(DB::$stock) && DB::$stock['nums'] === $stock_left);
+    check($stock_ok, 'Quality rerolls consume one item');
+    $ivs = [DB::$pet['hpg'], DB::$pet['atkg'], DB::$pet['defg'], DB::$pet['spatkg'], DB::$pet['spdefg'], DB::$pet['sdg']];
+    check(min($ivs) >= 0 && max($ivs) <= 31, 'Rerolled individual values stay within 0-31');
+    $rolled_pet = DB::$pet;
+    $new_max = api_calculate_pokemon_max_hp($rolled_pet);
+    check(DB::$pet['hp'] >= 0 && DB::$pet['hp'] <= $new_max, 'Current HP is clamped to the recalculated maximum');
 }
 
 echo "$passed hunger item assertions passed\n";

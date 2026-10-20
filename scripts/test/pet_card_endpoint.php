@@ -6,6 +6,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
 });
 define('IN_DISCUZ', true);
 require __DIR__ . '/../../plugin/api/utils.php';
+require __DIR__ . '/../../plugin/api/pokemon_utils.php';
 
 // 从 pokemon.php 提取被测函数（与 healing.php 相同的 token 提取方式，
 // 避免加载整个端点文件触发其路由 switch）。

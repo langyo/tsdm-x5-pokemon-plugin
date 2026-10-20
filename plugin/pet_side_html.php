@@ -191,6 +191,15 @@ function pm_side_assets()
 .pm-card-sub{text-align:center;color:#999;font-size:12px;margin-bottom:6px}
 .pm-card-tag{display:inline-block;margin:0 2px 2px;padding:1px 6px;border-radius:8px;background:#eef2f7;color:#4a5a6a;font-size:11px}
 .pm-card-tag.pm-tag-fire{background:#fdeae0;color:#c0491b}
+.pm-card-tag.pm-quality{font-weight:700}
+.pm-q-1{background:#eceff3;color:#5b6470}
+.pm-q-2{background:#e3e7eb;color:#4a5a6a}
+.pm-q-3{background:#e2f3e6;color:#2e8b47}
+.pm-q-4{background:#e0efff;color:#1f6fd0}
+.pm-q-5{background:#efe4ff;color:#7a3fd4}
+.pm-q-6{background:#ffe9cc;color:#c96a00}
+.pm-q-7{background:#ffe0e6;color:#d4375f}
+.pm-q-8{background:linear-gradient(135deg,#fff3c4,#ffd76e);color:#9a6700}
 .pm-gender-m{color:#2d7ff9}
 .pm-gender-f{color:#f0548a}
 .pm-card-hp{margin:8px 0 4px}
@@ -307,6 +316,7 @@ function renderCard(p){
   h += '<div>';
   if (p.type_1) h += '<span class="pm-card-tag">' + esc(p.type_1) + '</span>';
   if (p.type_2) h += '<span class="pm-card-tag">' + esc(p.type_2) + '</span>';
+  if (p.quality_grade) h += '<span class="pm-card-tag pm-quality pm-q-' + esc(p.quality_rank || 1) + '">' + esc(p.quality_grade) + ' · IV ' + esc(p.iv_total) + '</span>';
   if (p.state_text) h += '<span class="pm-card-tag">' + esc(p.state_text) + '</span>';
   h += '<span class="pm-card-tag">好感 ' + esc(p.affection) + '</span></div>';
   var pct = p.max_hp > 0 ? Math.round(p.hp / p.max_hp * 100) : 0;

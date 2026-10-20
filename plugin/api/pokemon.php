@@ -23,6 +23,9 @@ require_once __DIR__ . '/index.php';
 // 加载API工具函数（包含经验计算、状态修正等）
 require_once __DIR__ . '/utils.php';
 
+// 加载数值计算工具（个体值/品质换算等）
+require_once __DIR__ . '/pokemon_utils.php';
+
 // 加载Discuz和插件核心
 global $_G;
 
@@ -564,6 +567,8 @@ function api_get_pokemon_list()
         $pm_state = (int) $pm['state'];
         $pm_affection = (int) $pm['good'];
 
+        $quality = pm_quality_of_pokemon($pm);
+
         $pokemons[] = [
             'id' => $petid,
             'name' => $info ? $info['name'] : '???',
@@ -583,6 +588,9 @@ function api_get_pokemon_list()
             'state_text' => get_pokemon_state_text($pm_state),
             'state_class' => get_pokemon_state_class($pm_state),
             'affection' => $pm_affection,
+            'iv_total' => $quality['iv_total'],
+            'quality_rank' => $quality['rank'],
+            'quality_grade' => $quality['grade'],
             'skills' => $skills,
             'base_info' => [
                 'id' => $pmno,
@@ -705,6 +713,8 @@ function api_get_pokemon_detail()
     $pm_state = (int) $pm['state'];
     $pm_affection = (int) $pm['good'];
 
+    $quality = pm_quality_of_pokemon($pm);
+
     api_success([
         'id' => (int) $pm['id'],
         'site' => (int) $pm['site'],
@@ -724,6 +734,17 @@ function api_get_pokemon_detail()
         'state_text' => get_pokemon_state_text($pm_state),
         'state_class' => get_pokemon_state_class($pm_state),
         'affection' => $pm_affection,
+        'ivs' => [
+            'hp' => (int) $pm['hpg'],
+            'attack' => (int) $pm['atkg'],
+            'defense' => (int) $pm['defg'],
+            'sp_attack' => (int) $pm['spatkg'],
+            'sp_defense' => (int) $pm['spdefg'],
+            'speed' => (int) $pm['sdg'],
+        ],
+        'iv_total' => $quality['iv_total'],
+        'quality_rank' => $quality['rank'],
+        'quality_grade' => $quality['grade'],
         'stats' => $stats,
         'skills' => $skills,
         // 遗忘规则声明：遗忘技能要求该技能PP为满（can_forget 已按技能给出），
@@ -789,6 +810,7 @@ function api_get_pokemon_card()
     ]);
 
     $shiny = ((int) $pm['is_shiny']) === 1;
+    $card_quality = pm_quality_of_pokemon($pm);
 
     // 反馈要求卡片补齐个人中心"属性栏"的基础数据：经验值与 HP 同级展示
     list($current_exp, $exp_for_current_level, $exp_for_next_level) = get_pokemon_exp_progress($pm, $pmno);
@@ -812,6 +834,9 @@ function api_get_pokemon_card()
         'state_text' => get_pokemon_state_text((int) $pm['state']),
         'type_1' => $info ? $info['xs'] : '',
         'type_2' => ($info && $info['xs2']) ? $info['xs2'] : '',
+        'iv_total' => $card_quality['iv_total'],
+        'quality_rank' => $card_quality['rank'],
+        'quality_grade' => $card_quality['grade'],
         'stats' => $stats,
         'skills' => $skills,
         'image_urls' => pm_side_big_chain($pmno, $shiny ? 1 : 0),

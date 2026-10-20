@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS `pm_map` (
     `region` varchar(20) NOT NULL DEFAULT '',
     `pos_x` tinyint(3) unsigned NOT NULL DEFAULT 50,
     `pos_y` tinyint(3) unsigned NOT NULL DEFAULT 50,
+    `min_quality` tinyint(3) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
     KEY `idx_region` (`region`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;

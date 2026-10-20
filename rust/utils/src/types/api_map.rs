@@ -74,6 +74,10 @@ pub struct MapInfo {
     pub is_enabled: bool,
     pub min_level: u64,
     pub max_level: u64,
+    /// 活动地图品质门槛（0=不限制，1-8 = E..SS+；旧端点未返回时为 0）
+    pub min_quality: u8,
+    /// 品质门槛名称（无要求时为空）
+    pub min_quality_name: String,
     /// 地图模式
     pub mode: MapMode,
     /// 野生宠物列表（从 pm_data 表查询）
@@ -99,6 +103,8 @@ impl Serialize for MapInfo {
         map.serialize_entry("is_enabled", &self.is_enabled)?;
         map.serialize_entry("min_level", &self.min_level)?;
         map.serialize_entry("max_level", &self.max_level)?;
+        map.serialize_entry("min_quality", &self.min_quality)?;
+        map.serialize_entry("min_quality_name", &self.min_quality_name)?;
 
         // 展开模式字段到扁平化格式
         match &self.mode {
@@ -152,6 +158,8 @@ impl<'de> Deserialize<'de> for MapInfo {
                 let mut is_enabled = None;
                 let mut min_level = None;
                 let mut max_level = None;
+                let mut min_quality: Option<u8> = None;
+                let mut min_quality_name: Option<String> = None;
                 let mut mode_str: Option<String> = None;
                 let mut bosses = None;
                 let mut wild_pokemons = None;
@@ -188,6 +196,12 @@ impl<'de> Deserialize<'de> for MapInfo {
                         "max_level" => {
                             max_level = Some(map.next_value()?);
                         }
+                        "min_quality" => {
+                            min_quality = Some(map.next_value().unwrap_or(0));
+                        }
+                        "min_quality_name" => {
+                            min_quality_name = Some(map.next_value().unwrap_or_default());
+                        }
                         "mode" => {
                             mode_str = Some(map.next_value()?);
                         }
@@ -223,6 +237,8 @@ impl<'de> Deserialize<'de> for MapInfo {
                     min_level.ok_or_else(|| serde::de::Error::missing_field("min_level"))?;
                 let max_level =
                     max_level.ok_or_else(|| serde::de::Error::missing_field("max_level"))?;
+                let min_quality = min_quality.unwrap_or(0);
+                let min_quality_name = min_quality_name.unwrap_or_default();
                 let wild_pokemons = wild_pokemons.unwrap_or_default();
 
                 // 根据 mode 字符串和可选字段构建 MapMode
@@ -253,6 +269,8 @@ impl<'de> Deserialize<'de> for MapInfo {
                     is_enabled,
                     min_level,
                     max_level,
+                    min_quality,
+                    min_quality_name,
                     mode,
                     wild_pokemons,
                 })
@@ -341,6 +359,8 @@ mod tests {
             is_enabled: true,
             min_level: 1,
             max_level: 10,
+            min_quality: 0,
+            min_quality_name: String::new(),
             mode,
             wild_pokemons: vec![],
         }
