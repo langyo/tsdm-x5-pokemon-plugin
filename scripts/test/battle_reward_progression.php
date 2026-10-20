@@ -12,14 +12,16 @@ for ($i = 0; $i < count($tokens); $i++) {
     if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) continue;
     $start = $i;
     while (++$i < count($tokens) && (!is_array($tokens[$i]) || $tokens[$i][0] !== T_STRING)) {}
-    if (!in_array($tokens[$i][1], ['apply_rewards', 'calculate_rewards'], true)) continue;
+    if (!in_array($tokens[$i][1], ['apply_rewards', 'calculate_rewards', 'battle_money_config_flag',
+        'battle_money_config_int', 'battle_money_drop_settings', 'battle_money_drop_range', 'battle_money_today'], true)) continue;
     $body = '';
     $depth = 0;
     $opened = false;
     for ($j = $start; $j < count($tokens); $j++) {
         $token = $tokens[$j];
         $body .= is_array($token) ? $token[1] : $token;
-        if ($token === '{') { $opened = true; $depth++; }
+        // "{$var}" interpolation opens with T_CURLY_OPEN but closes with a plain '}'.
+        if ($token === '{' || (is_array($token) && in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true))) { $opened = true; $depth++; }
         elseif ($token === '}' && --$depth === 0 && $opened) break;
     }
     eval($body);
@@ -45,13 +47,18 @@ class DB
             self::$pet['exp'] = (int)$m[1];
             return;
         }
-        if (preg_match('/^UPDATE pm_usersdata SET money = money \+ (\d+), dataall = dataall \+ 1, datawin = datawin \+ 1 WHERE uid = 7$/', $sql, $m)) {
+        if (preg_match('/^UPDATE pm_usersdata SET money = money \+ (\d+), money_today = CASE WHEN money_day = (\d+) THEN money_today \+ \1 ELSE \1 END, money_day = \2, dataall = dataall \+ 1, datawin = datawin \+ 1 WHERE uid = 7$/', $sql, $m)) {
             self::$user['money'] += (int)$m[1];
             self::$user['dataall']++;
             self::$user['datawin']++;
             return;
         }
         throw new RuntimeException('Unexpected reward SQL: ' . $sql);
+    }
+    public static function fetch_all($sql)
+    {
+        if ($sql === 'SELECT * FROM pm_config') return [];
+        throw new RuntimeException('Unexpected list query: ' . $sql);
     }
     public static function fetch_first($sql)
     {

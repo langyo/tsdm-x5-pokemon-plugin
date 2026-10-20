@@ -8,6 +8,7 @@ const REPO_URL: &str = "https://github.com/langyo/tsdm-x5-pokemon-plugin";
 /// 参与本项目开发的 AI 模型披露清单，按发布时间降序排列。
 /// (模型名，提供方，发布日期)
 const AI_MODELS: &[(&str, &str, &str)] = &[
+    ("Claude Fable 5.1", "Anthropic", "2026-10-20"),
     ("Claude Opus 5.5", "Anthropic", "2026-09-22"),
     ("DeepSeek V4.1 Flash", "深度求索", "2026-09-10"),
     ("GLM 5.3 Flash", "智谱 AI", "2026-08-27"),

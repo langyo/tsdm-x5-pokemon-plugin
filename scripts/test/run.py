@@ -450,6 +450,7 @@ def main():
     test_php_regression("Configured Boss encounter regression", "boss_encounters.php")
     test_php_regression("Skill mutation integrity regression", "skill_mutation_integrity.php")
     test_php_regression("Battle reward progression regression", "battle_reward_progression.php")
+    test_php_regression("PVE money drop controls regression", "money_drop_controls.php")
     test_php_regression("Evolution battle guard regression", "evolution_battle_guard.php")
     test_php_regression("Pet read repair concurrency regression", "pet_read_repairs.php")
     test_php_regression("Admin inventory integrity regression", "admin_item_integrity.php")

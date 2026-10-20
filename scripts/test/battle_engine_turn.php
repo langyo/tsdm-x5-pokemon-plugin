@@ -34,6 +34,8 @@ $wanted = ['battle_reload_action_context', 'battle_consume_owned_item',
     'battle_lang',
     'api_normalize_skill_category', 'battle_calc_my_stats',
     'calculate_rewards', 'apply_rewards', 'clear_battle_state',
+    'battle_money_config_flag', 'battle_money_config_int', 'battle_money_drop_settings',
+    'battle_money_drop_range', 'battle_money_today',
     'handle_my_pokemon_fainted', 'build_battle_response',
 ];
 $tokens = token_get_all(file_get_contents(__DIR__ . '/../../plugin/api/battle.php'));
@@ -100,6 +102,12 @@ function pm_sql($sql, ...$args)
     }, $sql);
 }
 function api_my_usersdata($uid) { return DB::$usersdata; }
+// pm_config 读取（utils.php）：本套件不连库，全局配置为空时掉落设定沿用旧行为
+function api_get_runtime_config($key = null, $default = null, $reload = false)
+{
+    $config = isset($GLOBALS['runtime_config']) ? $GLOBALS['runtime_config'] : [];
+    return $key === null ? $config : (array_key_exists($key, $config) ? $config[$key] : $default);
+}
 function api_my_pokemon($username) { return DB::$pet_row; }
 function api_calculate_pokemon_max_hp($pokemon) { return 100; }
 function generate_wild_pokemon_legacy($map, $strength, $force_boss_type_id = null)
@@ -809,6 +817,13 @@ $b = $r->data;
 check('status victory', $b['status'] === 'victory');
 check('battle_over true', $b['battle_over'] === true);
 check('rewards attached', isset($b['rewards']['exp'], $b['rewards']['money']) && $b['rewards']['exp'] > 0);
+// Fixture pet is Lv.30 against a Lv.15 wild Pokemon: the default level-gap rule (10) withholds pet coins.
+$gap_note = '⚠️ 等级差距过大（高出 15 级），本场没有获得宠物币';
+check('level-gap victory pays experience but no pet coins, with daily totals and no internal keys',
+    $b['rewards']['money'] === 0 && $b['rewards']['exp'] > 0
+    && $b['rewards']['money_today'] === 0 && $b['rewards']['money_daily_limit'] === 0
+    && $b['rewards']['money_notes'] === [$gap_note] && !array_key_exists('money_day', $b['rewards']));
+check('level-gap notice is appended to the battle message', str_ends_with($b['message'], "\n" . $gap_note));
 $battle_rows = array_values(array_filter(DB::$battles, function ($x) { return $x['uid'] === 1; }));
 check('battle row ended with result victory', (function () use ($battle_rows) {
     foreach ($battle_rows as $row) {
@@ -825,6 +840,24 @@ check('victory event recorded', (function () {
     return false;
 })());
 check('wild still rendered in victory response (temp restore)', $b['wild_pokemon']['id'] === 129 && $b['wild_pokemon']['hp'] === 0);
+
+echo "=== scenario B2: daily pet-coin cap on a victory ===\n";
+// Gap rule off, cap 15 with 10 already earned today: species range [5,20] always exceeds the 5 left.
+$GLOBALS['runtime_config'] = ['drop_money_level_gap' => 0, 'drop_money_daily_limit' => 15];
+seed_battle(5, 15, 30, 42);
+seed_pet_and_party(100, 0);
+DB::$usersdata['money_day'] = battle_money_today();
+DB::$usersdata['money_today'] = 10;
+$b = run_turn()->data;
+check('capped victory pays only the remaining daily allowance',
+    $b['status'] === 'victory' && $b['rewards']['money'] === 5
+    && $b['rewards']['money_today'] === 15 && $b['rewards']['money_daily_limit'] === 15);
+check('capped victory explains the partial payout in the battle message',
+    $b['rewards']['money_notes'] === ['今日宠物币已达上限，本场只获得 5']
+    && str_contains($b['message'], "\n今日宠物币已达上限，本场只获得 5"));
+check('capped victory persists the daily total in the reward UPDATE',
+    DB::has_log('money_today = CASE WHEN money_day = ' . battle_money_today() . ' THEN money_today + 5 ELSE 5 END'));
+$GLOBALS['runtime_config'] = [];
 
 echo '=== scenario C: miss refunds reserved PP ===' . PHP_EOL;
 // find a seed where the ally's post-counter attack misses: roll idx1 (85..100 for counter), idx2 (1..20 miss)

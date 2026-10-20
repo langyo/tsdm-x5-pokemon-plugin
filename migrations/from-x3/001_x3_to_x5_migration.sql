@@ -419,6 +419,10 @@ BEGIN
           DROP COLUMN IF EXISTS `spatkn`,
           DROP COLUMN IF EXISTS `spdefn`,
           DROP COLUMN IF EXISTS `sdn`;
+        -- 每日 PVE 宠物币上限计数（与 02-pokemon-schema.sql / install.php 一致）
+        ALTER TABLE `pm_usersdata`
+          ADD COLUMN IF NOT EXISTS `money_day`   int(10) unsigned NOT NULL DEFAULT 0,
+          ADD COLUMN IF NOT EXISTS `money_today` bigint(20) NOT NULL DEFAULT 0;
     END IF;
 
     -- --------------------------------------------------------

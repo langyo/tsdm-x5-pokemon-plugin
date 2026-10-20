@@ -1015,6 +1015,14 @@ fn BattleResultSection(
                                 span { class: "reward-value", "{r.money} 金币" }
                             }
                         }
+                        if r.money_daily_limit > 0 {
+                            p { class: "reward-money-today",
+                                "今日已获得 {r.money_today} / {r.money_daily_limit} 宠物币"
+                            }
+                        }
+                        for note in r.money_notes.iter() {
+                            p { class: "reward-money-note", "{note}" }
+                        }
                     }
                 }
 

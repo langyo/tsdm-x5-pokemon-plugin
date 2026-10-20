@@ -44,6 +44,21 @@ function battle_ensure_tables()
             throw new RuntimeException('Battle revision migration failed');
         }
     }
+    // 宠物币每日上限计数（money_day = 站台时区 yyyymmdd，money_today = 当日已得）。
+    // 老站点惰性补列；与 revision 同样在任何事务之前完成（ALTER 会隐式提交）。
+    $money_columns = array(
+        'money_day' => 'int(10) unsigned NOT NULL DEFAULT 0',
+        'money_today' => 'bigint(20) NOT NULL DEFAULT 0',
+    );
+    foreach ($money_columns as $column => $definition) {
+        if (DB::fetch_first("SHOW COLUMNS FROM " . pm_table('pm_usersdata') . " LIKE '$column'")) {
+            continue;
+        }
+        DB::query("ALTER TABLE " . pm_table('pm_usersdata') . " ADD COLUMN $column $definition", 'SILENT');
+        if (!DB::fetch_first("SHOW COLUMNS FROM " . pm_table('pm_usersdata') . " LIKE '$column'")) {
+            throw new RuntimeException('Daily money column migration failed');
+        }
+    }
     DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_battle_action') . " (
         `uid` mediumint(8) unsigned NOT NULL,
         `request_id` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
