@@ -24,6 +24,9 @@ if (defined('API_ROUTED')) {
 
 require_once __DIR__ . '/constants.php';
 
+// 个体值/品质换算（test_create_pokemon 按品质发放用）
+require_once __DIR__ . '/pokemon_utils.php';
+
 // 加载 API 工具函数：test_get_state 等需要 api_calculate_pokemon_max_hp，
 // 此前仅经路由访问时未加载 utils.php，调用即 500
 require_once __DIR__ . '/utils.php';
@@ -169,6 +172,21 @@ function api_test_create_pokemon()
     $hp_percent = isset($input['hp_percent']) ? validate_int_range($input['hp_percent'], 'hp_percent', 1, 100) : 100;
     $skills = isset($input['skills']) ? $input['skills'] : null;
 
+    // 个体值：quality_rank 优先（按品质档位随机），其次显式 ivs，默认保持全 0
+    $quality_rank_param = isset($input['quality_rank']) ? validate_int_range($input['quality_rank'], 'quality_rank', 1, 8) : null;
+    $iv_keys = ['hp', 'atk', 'def', 'spatk', 'spdef', 'speed'];
+    if ($quality_rank_param !== null) {
+        $ivs = pm_roll_ivs_for_rank($quality_rank_param);
+    } elseif (isset($input['ivs']) && is_array($input['ivs'])) {
+        $ivs = [];
+        foreach ($iv_keys as $key) {
+            $raw = isset($input['ivs'][$key]) ? $input['ivs'][$key] : 0;
+            $ivs[$key] = max(0, min(31, (int) $raw));
+        }
+    } else {
+        $ivs = array_fill_keys($iv_keys, 0);
+    }
+
     $pokemon_data = DB::fetch_first(
         "SELECT * FROM " . pm_table('pm_data') . " WHERE id = $pmno"
     );
@@ -184,15 +202,15 @@ function api_test_create_pokemon()
     $base_spdef = (int) $pokemon_data['spdef'];
     $base_sd = (int) $pokemon_data['speed'];
 
-    $hp = (int) (($base_hp * 2 * $level / 100) + $level + 10);
+    $hp = (int) ((($base_hp * 2 + $ivs['hp']) * $level / 100) + $level + 10);
     $max_hp = $hp;
     $current_hp = (int) ($hp * $hp_percent / 100);
 
-    $atk = (int) (($base_atk * 2 * $level / 100) + 5);
-    $def = (int) (($base_def * 2 * $level / 100) + 5);
-    $spatk = (int) (($base_spatk * 2 * $level / 100) + 5);
-    $spdef = (int) (($base_spdef * 2 * $level / 100) + 5);
-    $sd = (int) (($base_sd * 2 * $level / 100) + 5);
+    $atk = (int) ((($base_atk * 2 + $ivs['atk']) * $level / 100) + 5);
+    $def = (int) ((($base_def * 2 + $ivs['def']) * $level / 100) + 5);
+    $spatk = (int) ((($base_spatk * 2 + $ivs['spatk']) * $level / 100) + 5);
+    $spdef = (int) ((($base_spdef * 2 + $ivs['spdef']) * $level / 100) + 5);
+    $sd = (int) ((($base_sd * 2 + $ivs['speed']) * $level / 100) + 5);
 
     $exp_for_level = calculate_exp_for_level($level);
     $exp_to_next = calculate_exp_for_level($level + 1) - $exp_for_level;
@@ -214,10 +232,10 @@ function api_test_create_pokemon()
         (uid, species_id, pmname, nickname, level, exp, sex, sx, hp, hpg, atkg, defg, spatkg, spdefg, sdg, hpn, atkn, defn, spatkn, spdefn, sdn, site, created_at, good, ballid, state, statetime, gduptime, initialuid, swap, is_shiny)
         VALUES
         (%d, %d, %s, %s, %d, %d, %d,
-         %s, %d, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, %d,
+         %s, %d, %d, %d, %d, %d, %d, %d, 0, 0, 0, 0, 0, 0, %d,
          %d, 0, 0, 1, 0, %d, %d, 1, %d)",
         $uid, $pmno, $pmname, $pmname, $level, $exp_for_level, $sex,
-         $xs, $current_hp, $site,
+         $xs, $current_hp, $ivs['hp'], $ivs['atk'], $ivs['def'], $ivs['spatk'], $ivs['spdef'], $ivs['speed'], $site,
          $current_time, $current_time, $uid, $is_shiny));
 
     $pet_id = DB::insert_id();
@@ -281,6 +299,9 @@ function api_test_create_pokemon()
         'max_hp' => $max_hp,
         'is_zd' => $site,
         'is_shiny' => $is_shiny,
+        'ivs' => $ivs,
+        'iv_total' => array_sum(array_values($ivs)),
+        'quality_grade' => pm_quality_name(pm_quality_rank(array_sum(array_values($ivs)))),
         'exp' => $exp_for_level,
         'exp_to_next_level' => $exp_to_next,
         'skills' => $skills_response

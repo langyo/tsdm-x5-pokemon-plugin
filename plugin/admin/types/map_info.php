@@ -120,7 +120,8 @@ function new_map_info(
   $min_level,
   $max_level,
   $experience,
-  $expn_raw
+  $expn_raw,
+  $min_quality = 0
 ) {
   $ret = [];
 
@@ -132,6 +133,8 @@ function new_map_info(
   $ret["is_enabled"] = boolval($is_enabled);
   $ret["min_level"] = intval($min_level);
   $ret["max_level"] = intval($max_level);
+  // 活动地图品质门槛：0=不限制，1-8 = E..SS+（见 pm_quality_grades()）
+  $ret["min_quality"] = intval($min_quality);
 
   // 解析地图模式
   // Rust 的 #[serde(tag = "mode", content = "data")] 会生成扁平化格式：

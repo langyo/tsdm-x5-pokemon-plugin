@@ -198,13 +198,53 @@ function cap($petid, $itemname)
 }
 
 /**
- * 品质重洗药 - 暂未支持
+ * 品质重洗药 - 重掷六项个体值
+ *
+ * X5 的品质由六项个体值总和判定（见 pm_quality_thresholds()），
+ * 重洗即随机重掷 0-31 的六项个体值，品质随之重新判定；
+ * 最大血量按新个体值重算，当前血量钳制到新上限之内。
  */
 function quality($petid, $itemname)
 {
-    // X5 已没有旧版 quality 字段，尚未定义品质重洗如何作用于六项个体值。
-    // 返回无法使用，让调用方保留物品，避免报告成功却不产生任何效果。
-    return 1;
+    global $_G;
+    $uid = $_G['uid'];
+
+    $pet = DB::fetch_first(pm_sql(
+        "SELECT * FROM " . pm_table('pm_mypm') . " WHERE id = %d AND uid = %d",
+        $petid,
+        $uid
+    ));
+
+    if (!$pet) {
+        return 1;
+    }
+
+    $ivs = [
+        'hp' => rand(0, 31),
+        'atk' => rand(0, 31),
+        'def' => rand(0, 31),
+        'spatk' => rand(0, 31),
+        'spdef' => rand(0, 31),
+        'speed' => rand(0, 31),
+    ];
+
+    // 先按新个体值重算最大血量，当前血量不能超过新上限
+    $pet['hpg'] = $ivs['hp'];
+    $info = DB::fetch_first(pm_sql(
+        "SELECT * FROM " . pm_table('pm_data') . " WHERE id = %d",
+        intval($pet['species_id'])
+    ));
+    $max_hp = api_calculate_pokemon_max_hp($pet, $info);
+    $hp = max(0, min((int) $pet['hp'], $max_hp));
+
+    DB::query(pm_sql(
+        "UPDATE " . pm_table('pm_mypm') . " SET hpg = %d, atkg = %d, defg = %d, spatkg = %d, spdefg = %d, sdg = %d, hp = %d WHERE id = %d",
+        $ivs['hp'], $ivs['atk'], $ivs['def'], $ivs['spatk'], $ivs['spdef'], $ivs['speed'],
+        $hp,
+        $petid
+    ));
+
+    return 0;
 }
 
 /**

@@ -434,6 +434,23 @@
     color: $color-gray-700;
     margin-bottom: 4px;
   }
+
+  .map-quality-requirement {
+    color: #c96a00;
+    font-weight: 600;
+  }
+}
+
+// 地图详情弹窗的品质门槛说明
+.quality-gate-section {
+  .quality-gate-text {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    margin: 0;
+    font-size: $font-size-xs;
+    color: $color-gray-700;
+  }
 }
 
 .zoomed-start-btn {

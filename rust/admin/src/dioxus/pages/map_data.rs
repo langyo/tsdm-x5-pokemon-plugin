@@ -150,6 +150,7 @@ pub fn MapDataPage() -> Element {
                                 th { "启用" }
                                 th { "最低等级" }
                                 th { "最高等级" }
+                                th { "品质门槛" }
                                 th { "经验" }
                             }
                         }
@@ -228,6 +229,13 @@ fn MapRow(item: MapInfo, on_edit: EventHandler<MapInfo>) -> Element {
             }
             td { "{item.min_level}" }
             td { "{item.max_level}" }
+            td {
+                if item.min_quality > 0 {
+                    "{_utils::functions::quality_grade(item.min_quality)}+"
+                } else {
+                    "—"
+                }
+            }
             td { "{item.mode.get_experience().unwrap_or(0)}" }
         }
     }

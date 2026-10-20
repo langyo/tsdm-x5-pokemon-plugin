@@ -71,6 +71,23 @@ fn map_area_type_options() -> Vec<(String, String)> {
         .collect()
 }
 
+/// 品质门槛（0=不限制，1-8 = E..SS+）转下拉值；下拉项的 value 为
+/// "不限制" 或数字串，label 才是品质名
+fn map_min_quality_to_string(rank: u8) -> String {
+    if rank == 0 {
+        return "不限制".to_string();
+    }
+    rank.min(8).to_string()
+}
+
+/// 下拉显示值转品质门槛档位；下拉值为 "不限制" 或 "1".."8"
+fn string_to_map_min_quality(value: &str) -> u8 {
+    if let Ok(rank) = value.parse::<u8>() {
+        return rank.min(8);
+    }
+    0
+}
+
 /// 移除宠物的辅助函数
 fn spawn_remove_pokemon(
     map_id: u64,
@@ -291,6 +308,36 @@ pub fn MapInfoEditorModal(
                                     on_change: move |v| draft.write().max_level = v,
                                     help: None,
                                     step: None,
+                                }
+                            }
+                        }
+                    }
+
+                    // 活动地图品质门槛：出战宠物品质达到该档位才能进入（0=不限制）
+                    FormSection { title: "品质门槛".to_string(),
+                        Row {
+                            Col { span: 6,
+                                SelectField {
+                                    label: "最低品质".to_string(),
+                                    value: map_min_quality_to_string(draft.read().min_quality),
+                                    options: std::iter::once(("不限制".to_string(), "不限制".to_string()))
+                                        .chain(
+                                            _utils::functions::QUALITY_GRADES
+                                                .iter()
+                                                .enumerate()
+                                                .map(|(index, grade)| {
+                                                    ((index + 1).to_string(), (**grade).to_string())
+                                                }),
+                                        )
+                                        .collect(),
+                                    disabled,
+                                    on_change: move |v: String| {
+                                        draft.write().min_quality = string_to_map_min_quality(&v);
+                                    },
+                                    help: Some(
+                                        "出战宠物的品质（由六项个体值总和判定）达到该档位才能进入此地图"
+                                            .to_string(),
+                                    ),
                                 }
                             }
                         }

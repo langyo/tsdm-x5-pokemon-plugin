@@ -1002,6 +1002,60 @@
   }
 }
 
+// 总个体值 + 品质徽章（品质由六项个体值总和判定）
+.iv-summary-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  margin-left: 36px;
+  padding-left: $spacing-base;
+
+  .affection-value {
+    font-size: 11px;
+    color: $color-primary;
+    font-weight: 600;
+  }
+}
+
+.iv-detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 36px;
+  margin-top: 2px;
+  padding-left: $spacing-base;
+}
+
+.iv-chip {
+  font-size: 10px;
+  color: $color-gray-500;
+  background: rgba($color-gray-900, 0.04);
+  border-radius: 8px;
+  padding: 1px 6px;
+}
+
+// 品质徽章配色：E/DC 灰阶、C 绿、B 蓝、A 紫、S 橙、SS 红、SS+ 金
+.quality-badge {
+  display: inline-block;
+  min-width: 24px;
+  text-align: center;
+  padding: 1px 7px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+  vertical-align: middle;
+}
+
+.quality-rank-1 { background: #eceff3; color: #5b6470; }
+.quality-rank-2 { background: #e3e7eb; color: #4a5a6a; }
+.quality-rank-3 { background: #e2f3e6; color: #2e8b47; }
+.quality-rank-4 { background: #e0efff; color: #1f6fd0; }
+.quality-rank-5 { background: #efe4ff; color: #7a3fd4; }
+.quality-rank-6 { background: #ffe9cc; color: #c96a00; }
+.quality-rank-7 { background: #ffe0e6; color: #d4375f; }
+.quality-rank-8 { background: linear-gradient(135deg, #fff3c4, #ffd76e); color: #9a6700; }
+
 // 努力值计算器按钮（与好感度样式一致）
 .ev-calculator-btn {
   font-family: $font-family-base;

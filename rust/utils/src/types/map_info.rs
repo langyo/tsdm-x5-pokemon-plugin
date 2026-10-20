@@ -183,6 +183,8 @@ pub struct MapInfo {
     pub is_enabled: bool, // 对应列 kg
     pub min_level: u64,
     pub max_level: u64,
+    /// 活动地图品质门槛（对应列 min_quality；0=不限制，1-8 = E..SS+）
+    pub min_quality: u8,
     /// 地图模式（包含经验值、Boss 配置等信息）
     pub mode: MapMode,
 }
@@ -202,6 +204,7 @@ impl Serialize for MapInfo {
         map.serialize_entry("is_enabled", &self.is_enabled)?;
         map.serialize_entry("min_level", &self.min_level)?;
         map.serialize_entry("max_level", &self.max_level)?;
+        map.serialize_entry("min_quality", &self.min_quality)?;
 
         // 展开模式字段
         match &self.mode {
@@ -262,6 +265,7 @@ impl<'de> Deserialize<'de> for MapInfo {
                 let mut is_enabled = None;
                 let mut min_level = None;
                 let mut max_level = None;
+                let mut min_quality: Option<u8> = None;
                 let mut mode_str: Option<String> = None;
                 let mut experience = None;
                 let mut experience_increase_times = None;
@@ -287,6 +291,10 @@ impl<'de> Deserialize<'de> for MapInfo {
                         }
                         "max_level" => {
                             max_level = Some(map.next_value()?);
+                        }
+                        "min_quality" => {
+                            // 老版本 PHP 未返回该字段时保持 0（不限制）
+                            min_quality = Some(map.next_value().unwrap_or(0));
                         }
                         "mode" => {
                             mode_str = Some(map.next_value()?);
@@ -339,6 +347,7 @@ impl<'de> Deserialize<'de> for MapInfo {
                     min_level.ok_or_else(|| serde::de::Error::missing_field("min_level"))?;
                 let max_level =
                     max_level.ok_or_else(|| serde::de::Error::missing_field("max_level"))?;
+                let min_quality = min_quality.unwrap_or(0);
                 let mode_str = mode_str.ok_or_else(|| serde::de::Error::missing_field("mode"))?;
 
                 // 根据 mode 字符串和可选字段构建 MapMode
@@ -384,6 +393,7 @@ impl<'de> Deserialize<'de> for MapInfo {
                     is_enabled,
                     min_level,
                     max_level,
+                    min_quality,
                     mode,
                 })
             }
@@ -406,6 +416,7 @@ impl Default for MapInfo {
             is_enabled: false,
             min_level: 0,
             max_level: 0,
+            min_quality: 0,
             mode: MapMode::Wild {
                 experience: 0,
                 experience_increase_times: 0,

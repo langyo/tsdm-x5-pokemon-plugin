@@ -54,6 +54,15 @@ pub struct PokemonBasic {
     /// 好感度/亲密度
     #[serde(default)]
     pub affection: u32,
+    /// 六项个体值总和（0-186；旧版载荷无此字段）
+    #[serde(default)]
+    pub iv_total: Option<u64>,
+    /// 品质档位（1=E .. 8=SS+；0/缺失表示旧版载荷）
+    #[serde(default)]
+    pub quality_rank: Option<u8>,
+    /// 品质名（E/D/C/B/A/S/SS/SS+）
+    #[serde(default)]
+    pub quality_grade: Option<String>,
     pub skills: Vec<PokemonSkillSlot>,
     pub base_info: PokemonBaseInfo,
 }
@@ -89,6 +98,18 @@ pub struct PokemonDetail {
     /// 好感度/亲密度
     #[serde(default)]
     pub affection: u32,
+    /// 六项个体值（先天固定，0-31；旧版载荷无此字段）
+    #[serde(default)]
+    pub ivs: Option<PokemonIndividualValues>,
+    /// 六项个体值总和（0-186）
+    #[serde(default)]
+    pub iv_total: Option<u64>,
+    /// 品质档位（1=E .. 8=SS+）
+    #[serde(default)]
+    pub quality_rank: Option<u8>,
+    /// 品质名（E/D/C/B/A/S/SS/SS+）
+    #[serde(default)]
+    pub quality_grade: Option<String>,
     pub stats: PokemonStats,
     pub skills: Vec<PokemonSkillSlot>,
     pub base_info: PokemonBaseInfo,
@@ -148,6 +169,27 @@ pub struct PokemonStats {
     #[serde(rename = "sp_defense")]
     pub sp_defense: i64,
     pub speed: i64,
+}
+
+/// 宠物六项个体值（detail 载荷的 ivs 字段）
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct PokemonIndividualValues {
+    #[serde(alias = "hit_points")]
+    pub hp: u64,
+    pub attack: u64,
+    pub defense: u64,
+    #[serde(rename = "sp_attack", alias = "special_attack")]
+    pub sp_attack: u64,
+    #[serde(rename = "sp_defense", alias = "special_defense")]
+    pub sp_defense: u64,
+    pub speed: u64,
+}
+
+impl PokemonIndividualValues {
+    /// 六项个体值总和（满值 186）
+    pub fn total(&self) -> u64 {
+        self.hp + self.attack + self.defense + self.sp_attack + self.sp_defense + self.speed
+    }
 }
 
 /// 重命名请求

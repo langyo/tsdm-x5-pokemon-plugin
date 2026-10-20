@@ -11,6 +11,7 @@ use crate::{
     },
     utils::api_client::{battle_timeout, NewApiClient},
 };
+use _utils::functions::{quality_grade, quality_rank};
 use _utils::types::{
     api_battle::{
         BattleItem, BattleMutationResponse, PendingBattleAction, PpRestoreSkill, StartBattleRequest,
@@ -163,9 +164,34 @@ pub fn Adventure() -> Element {
         )
     };
 
+    // 活动地图品质门槛：出战宠物的品质档位是否低于地图要求。
+    // 返回 None 表示无门槛或已达要求；旧端点未返回个体值时不做客户端预判（服务端仍会拦截）。
+    let quality_gate_notice = |map: &MapInfo, pokemons: &[PokemonBasic]| -> Option<String> {
+        if map.min_quality == 0 {
+            return None;
+        }
+        let rank = pokemons
+            .first()
+            .and_then(|p| p.iv_total)
+            .map(quality_rank)?;
+        if (rank as u32) < (map.min_quality as u32) {
+            Some(format!(
+                "需要出战宠物品质达到 {}（当前 {}）",
+                map.min_quality_name,
+                quality_grade(rank)
+            ))
+        } else {
+            None
+        }
+    };
+
     let get_recommendation = |map: &MapInfo, pokemons: &[PokemonBasic]| -> String {
         if pokemons.is_empty() {
             return "请先获得一只宝可梦".to_string();
+        }
+
+        if let Some(notice) = quality_gate_notice(map, pokemons) {
+            return notice;
         }
 
         let pokemon_level = pokemons[0].level;
@@ -288,6 +314,16 @@ pub fn Adventure() -> Element {
                             }
                         }
 
+                        if map.min_quality > 0 {
+                            div { class: "map-detail-section quality-gate-section",
+                                h4 { "品质门槛" }
+                                p { class: "quality-gate-text",
+                                    span { class: "quality-badge quality-rank-{map.min_quality}", "{map.min_quality_name}" }
+                                    " 出战宠物品质需达到 {map.min_quality_name}（由六项个体值总和判定）"
+                                }
+                            }
+                        }
+
                         div { class: "map-detail-section",
                             h4 { "基本信息" }
                             div { class: "detail-grid",
@@ -333,6 +369,11 @@ pub fn Adventure() -> Element {
                                 let map_id_for_boss = map.id;
                                 let bosses_vec: Vec<_> = bosses.into_iter().enumerate().collect();
                                 let mid = map_id_for_boss;
+                                let quality_blocked = quality_gate_notice(
+                                    &map,
+                                    &pokemon_list_for_recommendation,
+                                )
+                                .is_some();
                                 rsx! {
                                     div { class: "map-detail-section boss-challenge-section",
                                         h4 { "👑 Boss 挑战" }
@@ -342,7 +383,7 @@ pub fn Adventure() -> Element {
                                                     button {
                                                         key: "boss-{mid}-{position}",
                                                         class: "boss-row-btn",
-                                                         disabled: actions_blocked || pokemon_list_empty,
+                                                         disabled: actions_blocked || pokemon_list_empty || quality_blocked,
                                                          onclick: move |_| start_boss_adventure(mid, boss.pokemon_type_id, boss.boss_index),
                                                          div { class: "boss-row-content",
                                                              img {
@@ -372,12 +413,17 @@ pub fn Adventure() -> Element {
                         {
                             let map_id_for_adventure = map.id;
                             let has_wild = map.mode.has_wild_pokemon();
+                            let quality_blocked = quality_gate_notice(
+                                &map,
+                                &pokemon_list_for_recommendation,
+                            )
+                            .is_some();
                             rsx! {
                                 if has_wild {
                                     button {
                                         class: "modal-action-btn",
                                         onclick: move |_| start_adventure(map_id_for_adventure),
-                                    disabled: actions_blocked || pokemon_list_empty,
+                                    disabled: actions_blocked || pokemon_list_empty || quality_blocked,
                                         "开始冒险"
                                     }
                                 }
@@ -480,6 +526,17 @@ pub fn Adventure() -> Element {
                                                                 p { class: "map-desc", "{recommendation}" }
                                                                 div { class: "zoomed-map-info",
                                                                     div { class: "info-row",
+                                                                        {
+                                                                            if map_clone2.min_quality > 0 {
+                                                                                rsx! {
+                                                                                    span { class: "map-quality-requirement",
+                                                                                        "品质：{map_clone2.min_quality_name}+"
+                                                                                    }
+                                                                                }
+                                                                            } else {
+                                                                                rsx! {}
+                                                                            }
+                                                                        }
                                                                         if map_clone2.mode.has_wild_pokemon() {
                                                                             span { "等级：{map_clone2.get_level_range_text()}" }
                                                                         } else {

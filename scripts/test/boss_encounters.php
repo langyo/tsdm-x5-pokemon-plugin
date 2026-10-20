@@ -3,6 +3,7 @@
 error_reporting(E_ALL);
 set_error_handler(function ($severity, $message, $file, $line) { throw new ErrorException($message, 0, $severity, $file, $line); });
 define('IN_DISCUZ', 1);
+require __DIR__ . '/../../plugin/api/pokemon_utils.php';
 foreach (['boss.php' => ['get_map_boss_config_from_map', 'try_spawn_boss_from_config'],
     'battle.php' => ['generate_wild_pokemon_legacy', 'battle_calc_new_npc_stats', 'api_get_maps', 'translate_map_alpha_to_full_name']] as $file => $wanted) {
     $tokens = token_get_all(file_get_contents(__DIR__ . '/../../plugin/api/' . $file));

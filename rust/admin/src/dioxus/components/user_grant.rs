@@ -14,10 +14,11 @@ use crate::dioxus::{
     },
     utils::api::{filter_item_type, filter_pokemon_type, insert_item_info, insert_pokemon_info},
 };
+use _utils::functions::{roll_for_rank, QUALITY_GRADES};
 use _utils::types::{
     item_info::ItemInfo,
     pokemon_info::{PokemonInfo, PokemonSite, PokemonStatus},
-    pokemon_type::PokemonSex,
+    pokemon_type::{PokemonAttributes, PokemonSex},
 };
 
 // =============================================================================
@@ -31,6 +32,18 @@ pub enum GrantPokemonStep {
     Configure, // 第二步：配置宠物属性
 }
 
+/// 个体值发放模式
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum GrantIvMode {
+    /// 随机 0-31（与野怪捕捉一致）
+    #[default]
+    Random,
+    /// 按品质档位随机（结果一定落在所选档位内）
+    ByQuality,
+    /// 手动指定六项个体值
+    Manual,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct GrantPokemonDraft {
     pub type_id: Option<u64>,
@@ -41,6 +54,11 @@ pub struct GrantPokemonDraft {
     pub sex: PokemonSex,
     pub is_shiny: bool,
     pub intimacy: Option<u64>,
+    pub iv_mode: GrantIvMode,
+    /// 按品质随机时的目标档位（1=E .. 8=SS+）
+    pub iv_quality: u8,
+    /// 手动指定模式下的六项个体值
+    pub ivs: PokemonAttributes,
 }
 
 impl Default for GrantPokemonDraft {
@@ -54,6 +72,9 @@ impl Default for GrantPokemonDraft {
             sex: PokemonSex::Unknown,
             is_shiny: false,
             intimacy: None,
+            iv_mode: GrantIvMode::Random,
+            iv_quality: 5,
+            ivs: PokemonAttributes::default(),
         }
     }
 }
@@ -303,6 +324,148 @@ pub fn GrantPokemonModal(
                         }
                     }
                 }
+
+                // 个体值设置：随机 / 按品质随机 / 手动指定
+                FormSection { title: "个体值设置（品质由六项个体值总和判定）".to_string(),
+                    Row { gap: "12px".to_string(),
+                        Col { span: 6,
+                            SelectField {
+                                label: "个体值模式".to_string(),
+                                value: iv_mode_to_string(&draft().iv_mode),
+                                options: vec![
+                                    ("随机".to_string(), "随机 0-31（同野怪捕捉）".to_string()),
+                                    ("按品质随机".to_string(), "按品质档位随机".to_string()),
+                                    ("手动指定".to_string(), "手动指定六项个体值".to_string()),
+                                ],
+                                help: None,
+                                disabled: is_busy,
+                                on_change: move |v: String| {
+                                    let mut d = draft();
+                                    d.iv_mode = string_to_iv_mode(&v);
+                                    draft.set(d);
+                                },
+                            }
+                        }
+                        if matches!(draft().iv_mode, GrantIvMode::ByQuality) {
+                            Col { span: 6,
+                                SelectField {
+                                    label: "品质档位".to_string(),
+                                    value: quality_to_string(draft().iv_quality),
+                                    options: QUALITY_GRADES
+                                        .iter()
+                                        .enumerate()
+                                        .map(|(index, grade)| {
+                                            ((index + 1).to_string(), (**grade).to_string())
+                                        })
+                                        .collect(),
+                                    help: Some("发放的个体值一定落在该品质档位内".to_string()),
+                                    disabled: is_busy,
+                                    on_change: move |v: String| {
+                                        let mut d = draft();
+                                        d.iv_quality = string_to_quality(&v);
+                                        draft.set(d);
+                                    },
+                                }
+                            }
+                        }
+                    }
+                    if matches!(draft().iv_mode, GrantIvMode::Manual) {
+                        Row { gap: "12px".to_string(),
+                            Col { span: 4,
+                                UnsignedNumberField {
+                                    label: "HP".to_string(),
+                                    value: draft().ivs.hit_points,
+                                    min: Some(0),
+                                    max: Some(31),
+                                    help: None,
+                                    disabled: is_busy,
+                                    on_change: move |v: u64| {
+                                        let mut d = draft();
+                                        d.ivs.hit_points = v.min(31);
+                                        draft.set(d);
+                                    },
+                                }
+                            }
+                            Col { span: 4,
+                                UnsignedNumberField {
+                                    label: "攻击".to_string(),
+                                    value: draft().ivs.attack,
+                                    min: Some(0),
+                                    max: Some(31),
+                                    help: None,
+                                    disabled: is_busy,
+                                    on_change: move |v: u64| {
+                                        let mut d = draft();
+                                        d.ivs.attack = v.min(31);
+                                        draft.set(d);
+                                    },
+                                }
+                            }
+                            Col { span: 4,
+                                UnsignedNumberField {
+                                    label: "防御".to_string(),
+                                    value: draft().ivs.defense,
+                                    min: Some(0),
+                                    max: Some(31),
+                                    help: None,
+                                    disabled: is_busy,
+                                    on_change: move |v: u64| {
+                                        let mut d = draft();
+                                        d.ivs.defense = v.min(31);
+                                        draft.set(d);
+                                    },
+                                }
+                            }
+                        }
+                        Row { gap: "12px".to_string(),
+                            Col { span: 4,
+                                UnsignedNumberField {
+                                    label: "特攻".to_string(),
+                                    value: draft().ivs.special_attack,
+                                    min: Some(0),
+                                    max: Some(31),
+                                    help: None,
+                                    disabled: is_busy,
+                                    on_change: move |v: u64| {
+                                        let mut d = draft();
+                                        d.ivs.special_attack = v.min(31);
+                                        draft.set(d);
+                                    },
+                                }
+                            }
+                            Col { span: 4,
+                                UnsignedNumberField {
+                                    label: "特防".to_string(),
+                                    value: draft().ivs.special_defense,
+                                    min: Some(0),
+                                    max: Some(31),
+                                    help: None,
+                                    disabled: is_busy,
+                                    on_change: move |v: u64| {
+                                        let mut d = draft();
+                                        d.ivs.special_defense = v.min(31);
+                                        draft.set(d);
+                                    },
+                                }
+                            }
+                            Col { span: 4,
+                                UnsignedNumberField {
+                                    label: "速度".to_string(),
+                                    value: draft().ivs.speed,
+                                    min: Some(0),
+                                    max: Some(31),
+                                    help: None,
+                                    disabled: is_busy,
+                                    on_change: move |v: u64| {
+                                        let mut d = draft();
+                                        d.ivs.speed = v.min(31);
+                                        draft.set(d);
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -336,8 +499,11 @@ fn spawn_grant_pokemon(
             is_shiny: draft.is_shiny,
             status: PokemonStatus::Normal,
             sex: draft.sex,
-            statistic: _utils::types::pokemon_type::PokemonAttributes::from_0_to_31_random_numbers(
-            ),
+            statistic: match draft.iv_mode {
+                GrantIvMode::Random => PokemonAttributes::from_0_to_31_random_numbers(),
+                GrantIvMode::ByQuality => roll_for_rank(draft.iv_quality),
+                GrantIvMode::Manual => draft.ivs,
+            },
             base_points: Default::default(),
             skills: vec![],
             armor_slots_id: (None, None, None, None),
@@ -648,4 +814,37 @@ fn string_to_sex(s: &str) -> PokemonSex {
         "雌性" => PokemonSex::Female,
         _ => PokemonSex::Unknown,
     }
+}
+
+fn iv_mode_to_string(mode: &GrantIvMode) -> String {
+    match mode {
+        GrantIvMode::Random => "随机".to_string(),
+        GrantIvMode::ByQuality => "按品质随机".to_string(),
+        GrantIvMode::Manual => "手动指定".to_string(),
+    }
+}
+
+fn string_to_iv_mode(s: &str) -> GrantIvMode {
+    match s {
+        "按品质随机" => GrantIvMode::ByQuality,
+        "手动指定" => GrantIvMode::Manual,
+        _ => GrantIvMode::Random,
+    }
+}
+
+fn quality_to_string(rank: u8) -> String {
+    // 下拉项的 value 是 "1".."8"，label 才是品质名
+    rank.clamp(1, 8).to_string()
+}
+
+fn string_to_quality(s: &str) -> u8 {
+    // 下拉值是 "1".."8"；兼容品质名回转
+    if let Ok(rank) = s.parse::<u8>() {
+        return rank.clamp(1, 8);
+    }
+    (QUALITY_GRADES
+        .iter()
+        .position(|grade| *grade == s)
+        .map(|index| index + 1)
+        .unwrap_or(5)) as u8
 }
