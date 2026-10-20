@@ -112,7 +112,7 @@ $settings = [];
 foreach ([0, 1, 3, 42] as $seed) {
     srand($seed);
     $reward = calculate_rewards([], ['npcid' => 1, 'strength' => 1], ['drop_money' => '[0,0]'], 10, []);
-    check($reward['money'] === 0, "An explicit zero reward stays zero with seed $seed");
+    check($reward['money'] >= 10 && $reward['money'] <= 50, "An unset (0,0) range falls back to the default with seed $seed");
     srand($seed);
     $reward = calculate_rewards([], ['npcid' => 1, 'strength' => 1], ['drop_money' => '[0,5]'], 10, []);
     check($reward['money'] >= 0 && $reward['money'] <= 5, "A zero minimum honors the configured reward range with seed $seed");
@@ -120,6 +120,15 @@ foreach ([0, 1, 3, 42] as $seed) {
 srand(3);
 $reward = calculate_rewards([], ['npcid' => 1, 'strength' => 1], ['drop_money' => '[]'], 10, []);
 check($reward['money'] >= 10 && $reward['money'] <= 50, 'Absent reward bounds keep the default range');
+srand(3);
+$reward = calculate_rewards([], ['npcid' => 1, 'strength' => 1], ['drop_money' => 'not-json'], 10, []);
+check($reward['money'] >= 10 && $reward['money'] <= 50, 'Malformed reward bounds fall back to the default range');
+srand(3);
+$reward = calculate_rewards([], ['npcid' => 1, 'strength' => 1], ['drop_money' => '[50,10]'], 10, []);
+check($reward['money'] >= 10 && $reward['money'] <= 50, 'Inverted reward bounds are normalized');
+srand(3);
+$reward = calculate_rewards([], ['npcid' => 1, 'strength' => 0], ['drop_money' => '[0,0]'], 10, []);
+check($reward['money'] >= 10, 'A zero strength still pays at least the base reward');
 
 echo "Battle reward progression: $checks checks, $failures failures.\n";
 exit($failures ? 1 : 0);
