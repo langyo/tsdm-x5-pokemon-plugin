@@ -244,6 +244,17 @@ function battle_load_active($uid, $myusersdata, $mypokemon)
  */
 function battle_inject_ally_fresh_state(&$state, $mypokemon, $mydata)
 {
+    // 记录本场出过场的最高等级（开战、每回合、主动/被动换宠都会经过这里），
+    // 宠物币等级差判定用它，避免高等级宠物打残后换低等级宠物补刀绕过限制。
+    // field 随 field_json 持久化，读回时保留未知键，无需改表。
+    if (!isset($state['field']) || !is_array($state['field'])) {
+        $state['field'] = ['weather' => null, 'terrain' => null];
+    }
+    $state['field']['ally_peak_level'] = max(
+        isset($state['field']['ally_peak_level']) ? intval($state['field']['ally_peak_level']) : 0,
+        intval($mypokemon['level'])
+    );
+
     list($mpmhp, $matk, $mdef, $mspatk, $mspdef, $msd) = battle_calc_my_stats($mydata, $mypokemon);
     $fresh = [
         'level' => intval($mypokemon['level']),
@@ -1158,7 +1169,8 @@ function api_use_skill()
             $battle_ended = true;
 
             $npc = pm_data($enemy_unit['species_id']);
-            $rewards = calculate_rewards($mypokemon, $myusersdata, $npc, $enemy_unit['level'], null);
+            $rewards = calculate_rewards($mypokemon, $myusersdata, $npc, $enemy_unit['level'], null,
+                isset($state['field']['ally_peak_level']) ? $state['field']['ally_peak_level'] : 0);
 
             $state = battle_persist_state($state, $turn_events);
             // 清镜像旧列（新行已 ended，clear 的联动更新幂等不命中）
@@ -1625,11 +1637,12 @@ function battle_money_config_flag($config, $key, $default)
 }
 
 /**
- * 宠物币掉落用的非负整数配置规整：缺键或空值时取默认值。
+ * 宠物币掉落用的非负整数配置规整：缺键时取默认值；空字符串按 0
+ * （与后台 Rust deserialize_u64ish 的读法一致，后台显示什么就按什么生效）。
  */
 function battle_money_config_int($config, $key, $default)
 {
-    if (!array_key_exists($key, $config) || trim(strval($config[$key])) === '') {
+    if (!array_key_exists($key, $config)) {
         return $default;
     }
     return max(0, intval($config[$key]));
@@ -1711,28 +1724,30 @@ function battle_money_today()
  * 宠物币依后台设定：掉落开关 → 等级差距上限 → 随机区间 × strength → 每日上限。
  * money_notes 是给玩家看的宠物币管控提示；money_day 仅供 apply_rewards 落库，响应前移除。
  */
-function calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map)
+function calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map, $ally_peak_level = 0)
 {
     global $petbasisexp, $settings;
 
-    // 经验：后台全局配置的捕捉经验倍率有值（> 0）时优先，否则沿用插件变量，再回退 1
+    // 经验
     $base_exp = isset($petbasisexp[$myusersdata['npcid']]) ? $petbasisexp[$myusersdata['npcid']] : 64;
-    $exp_multiplier = intval(api_get_runtime_config('pve_catch_xp_multiple', 0));
-    if ($exp_multiplier <= 0) {
-        $exp_multiplier = !empty($settings['pve_catch_xp_multiple']) ? $settings['pve_catch_xp_multiple'] : 1;
-    }
+    $exp_multiplier = !empty($settings['pve_catch_xp_multiple']) ? $settings['pve_catch_xp_multiple'] : 1;
 
     $getexp = floor(($base_exp * $npc_level / 7) * 1.5 * $exp_multiplier / 4);
 
     $drop = battle_money_drop_settings();
     $notes = array();
     $money = 0;
-    $level_over = (isset($mypokemon['level']) ? intval($mypokemon['level']) : 0) - intval($npc_level);
+    // 等级差按本场出过场的最高等级计（换低等级宠物补刀不能绕过）
+    $current_level = isset($mypokemon['level']) ? intval($mypokemon['level']) : 0;
+    $peak_level = max($current_level, intval($ally_peak_level));
+    $level_over = $peak_level - intval($npc_level);
     if (!$drop['enabled']) {
         $money = 0;
     } elseif ($drop['level_gap'] > 0 && $level_over > $drop['level_gap']) {
         // 等级差距过大：经验照给，不给宠物币
-        $notes[] = "⚠️ 等级差距过大（高出 {$level_over} 级），本场没有获得宠物币";
+        $notes[] = $peak_level > $current_level
+            ? "⚠️ 等级差距过大（本场出战最高 Lv.{$peak_level}，高出 {$level_over} 级），本场没有获得宠物币"
+            : "⚠️ 等级差距过大（高出 {$level_over} 级），本场没有获得宠物币";
     } else {
         list($money_min, $money_max) = battle_money_drop_range($drop, $npc);
         // strength 为 0 时整笔奖励都会变成 0，至少按 1 倍结算。
@@ -1740,13 +1755,15 @@ function calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map)
         $money = rand($money_min, $money_max) * $strength;
     }
 
-    // 每日上限：money_day 不是今天时当日计数视为 0（跨日归零）
+    // 每日上限：money_day 不是今天时当日计数视为 0（跨日归零）。
+    // 老站补列失败时（见 battle_ensure_tables）降级为不设上限，不拖垮战斗。
     $today = battle_money_today();
-    $earned_today = (isset($myusersdata['money_day']) && intval($myusersdata['money_day']) === $today)
+    $daily_columns = !function_exists('battle_money_daily_columns_available') || battle_money_daily_columns_available();
+    $earned_today = ($daily_columns && isset($myusersdata['money_day']) && intval($myusersdata['money_day']) === $today)
         ? max(0, intval(isset($myusersdata['money_today']) ? $myusersdata['money_today'] : 0))
         : 0;
     $daily_limit = $drop['daily_limit'];
-    if ($daily_limit > 0 && $money > 0) {
+    if ($daily_columns && $daily_limit > 0 && $money > 0) {
         $remaining = max(0, $daily_limit - $earned_today);
         if ($remaining <= 0) {
             $money = 0;
@@ -1760,7 +1777,7 @@ function calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map)
     return [
         'exp' => $getexp,
         'money' => $money,
-        'money_today' => $earned_today + $money,
+        'money_today' => $daily_columns ? $earned_today + $money : 0,
         'money_daily_limit' => $daily_limit,
         'money_day' => $today,
         'money_notes' => $notes,
@@ -1814,21 +1831,33 @@ function apply_rewards($uid, $mypokemon, $rewards)
     // money_day 不是今天时当日计数从本场实发数重新起算。
     // 用 CASE 而非 IF()：Discuz querysafe 默认禁止 if 函数。
     $money = max(0, intval($rewards['money']));
-    $money_day = isset($rewards['money_day']) ? intval($rewards['money_day']) : battle_money_today();
-    DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . "
-        SET money = money + %d,
-            money_today = CASE WHEN money_day = %d THEN money_today + %d ELSE %d END,
-            money_day = %d,
-            dataall = dataall + 1,
-            datawin = datawin + 1
-        WHERE uid = %d",
-        $money,
-        $money_day,
-        $money,
-        $money,
-        $money_day,
-        $uid
-    ));
+    if (function_exists('battle_money_daily_columns_available') && !battle_money_daily_columns_available()) {
+        // 老站补列失败：退回原本只加 money 的更新
+        DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . "
+            SET money = money + %d,
+                dataall = dataall + 1,
+                datawin = datawin + 1
+            WHERE uid = %d",
+            $money,
+            $uid
+        ));
+    } else {
+        $money_day = isset($rewards['money_day']) ? intval($rewards['money_day']) : battle_money_today();
+        DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . "
+            SET money = money + %d,
+                money_today = CASE WHEN money_day = %d THEN money_today + %d ELSE %d END,
+                money_day = %d,
+                dataall = dataall + 1,
+                datawin = datawin + 1
+            WHERE uid = %d",
+            $money,
+            $money_day,
+            $money,
+            $money,
+            $money_day,
+            $uid
+        ));
+    }
 
     return [
         'level_up' => $level_up,

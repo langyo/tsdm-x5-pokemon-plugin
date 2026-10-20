@@ -2,7 +2,8 @@
 /**
  * PVE pet-coin drop controls: global on/off, global random range, level-gap
  * cut-off and the per-day cap. Runs the real calculate_rewards/apply_rewards
- * and pm_config reader against an in-memory DB stub (no live database).
+ * and pm_config reader against an in-memory DB stub (no live database), plus
+ * the fielded-peak-level tracking and the fallback without the daily columns.
  * Run: php scripts/test/money_drop_controls.php
  */
 error_reporting(E_ALL);
@@ -13,7 +14,7 @@ define('IN_DISCUZ', true);
 require __DIR__ . '/../../plugin/api/utils.php';
 
 $wanted = ['calculate_rewards', 'apply_rewards', 'battle_money_config_flag', 'battle_money_config_int',
-    'battle_money_drop_settings', 'battle_money_drop_range', 'battle_money_today'];
+    'battle_money_drop_settings', 'battle_money_drop_range', 'battle_money_today', 'battle_inject_ally_fresh_state'];
 $tokens = token_get_all(file_get_contents(__DIR__ . '/../../plugin/api/battle.php'));
 for ($i = 0; $i < count($tokens); $i++) {
     if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) continue;
@@ -41,6 +42,8 @@ foreach ($wanted as $name) {
 }
 
 function pm_table($name) { return $name; }
+function battle_calc_my_stats($mydata, $pet) { return [100, 50, 50, 50, 50, 50]; }
+function battle_core_make_unit($unit) { return array_merge(['fainted' => false], $unit); }
 function pm_sql($sql, ...$args) { return vsprintf($sql, $args); }
 
 class DB
@@ -49,6 +52,7 @@ class DB
     public static $config_reads = 0;
     public static $user = [];
     public static $updates = [];
+    public static $schema_mode = false;
 
     public static function fetch_all($sql)
     {
@@ -59,17 +63,31 @@ class DB
 
     public static function fetch_first($sql)
     {
+        // Lazy migration probe: every column exists except the new daily ones, whose ALTER is refused.
+        if (self::$schema_mode && str_starts_with($sql, 'SHOW COLUMNS')) {
+            return str_contains($sql, "LIKE 'money_") ? false : ['Field' => 'present'];
+        }
         if (str_contains($sql, 'FROM pm_data')) return ['hp' => 100];
         if (str_contains($sql, 'pm_myitem')) return false;
         throw new RuntimeException('Unexpected row query: ' . $sql);
     }
 
     /** Emulates the one-statement reward UPDATE, including MySQL's left-to-right SET order. */
-    public static function query($sql)
+    public static function query($sql, $silent = false)
     {
         $sql = preg_replace('/\s+/', ' ', trim($sql));
+        if (self::$schema_mode && str_starts_with($sql, 'CREATE TABLE IF NOT EXISTS')) return true;
+        if (self::$schema_mode && str_starts_with($sql, 'ALTER TABLE pm_usersdata ADD COLUMN money_')) {
+            if ($silent !== 'SILENT') throw new RuntimeException('Lazy ALTER must be silent');
+            return false;
+        }
         if (str_starts_with($sql, 'UPDATE pm_mypm ')) return;
         self::$updates[] = $sql;
+        // Fallback when the daily columns are unavailable: the original money-only UPDATE.
+        if (preg_match('/^UPDATE pm_usersdata SET money = money \+ (\d+), dataall = dataall \+ 1, datawin = datawin \+ 1 WHERE uid = 7$/', $sql, $m)) {
+            self::$user['money'] += (int)$m[1];
+            return;
+        }
         if (!preg_match('/^UPDATE pm_usersdata SET money = money \+ (\d+), '
             . 'money_today = CASE WHEN money_day = (\d+) THEN money_today \+ (\d+) ELSE (\d+) END, '
             . 'money_day = (\d+), dataall = dataall \+ 1, datawin = datawin \+ 1 WHERE uid = 7$/', $sql, $m)) {
@@ -103,10 +121,10 @@ function use_config(array $values)
     api_get_runtime_config(null, null, true);
 }
 
-function rewards_for(array $user, $species_range, $pet_level = 10, $npc_level = 10)
+function rewards_for(array $user, $species_range, $pet_level = 10, $npc_level = 10, $peak_level = 0)
 {
     return calculate_rewards(['level' => $pet_level], array_merge(['npcid' => 1, 'strength' => 1], $user),
-        ['drop_money' => $species_range], $npc_level, []);
+        ['drop_money' => $species_range], $npc_level, [], $peak_level);
 }
 
 $petbasisexp = [];
@@ -121,6 +139,15 @@ $config = api_get_runtime_config();
 check($config['drop_money_level_gap'] === 10 && $config['drop_money_on_pve'] === true
     && $config['drop_money_config_by_global'] === '' && $config['ann_title'] === 'x',
     'pm_config rows are typed by data_type like the global config API');
+use_config(['a' => [' FALSE ', 'boolean'], 'b' => ['off', 'boolean'], 'c' => ['no', 'boolean'], 'd' => ['', 'boolean'],
+    'e' => ['0', 'boolean'], 'f' => ['Yes', 'boolean'], 'g' => ['on', 'boolean'], 'h' => ['true', 'boolean'], 'i' => ['2', 'boolean']]);
+$config = api_get_runtime_config();
+check(!$config['a'] && !$config['b'] && !$config['c'] && !$config['d'] && !$config['e']
+    && $config['f'] && $config['g'] && $config['h'] && $config['i'],
+    'Boolean rows use the admin panel\'s text rules, so "false"/"off"/"no" read as false');
+use_config(['drop_money_on_pve' => ['false', 'boolean']]);
+srand(1);
+check(rewards_for([], '[100,100]')['money'] === 0, 'A boolean row stored as "false" really disables the drop');
 $reads = DB::$config_reads;
 api_get_runtime_config('ann_title');
 api_get_runtime_config('missing', 7);
@@ -135,10 +162,13 @@ $drop = battle_money_drop_settings(['drop_money_on_pve' => '', 'drop_money_confi
     'drop_money_percent_min_on_pve' => '-5', 'drop_money_percent_max_on_pve' => '20',
     'drop_money_level_gap' => '', 'drop_money_daily_limit' => 'abc']);
 check(!$drop['enabled'] && $drop['by_global'] && $drop['global_min'] === 0 && $drop['global_max'] === 20
-    && $drop['level_gap'] === 10 && $drop['daily_limit'] === 0, 'String-stored flags and numbers are normalised safely');
+    && $drop['level_gap'] === 0 && $drop['daily_limit'] === 0,
+    'String-stored flags and numbers are normalised safely; an empty number reads as 0 like the admin panel');
 check(battle_money_drop_settings(['drop_money_on_pve' => false])['enabled'] === false
-    && battle_money_drop_settings(['drop_money_on_pve' => 'true'])['enabled'] === true,
-    'Boolean and textual switches are both honoured');
+    && battle_money_drop_settings(['drop_money_on_pve' => 'true'])['enabled'] === true
+    && battle_money_drop_settings(['drop_money_on_pve' => 'false'])['enabled'] === false
+    && battle_money_drop_settings(['drop_money_config_by_global' => 'false'])['by_global'] === false,
+    'Boolean and textual switches are both honoured, including "false"');
 
 // ---- drop switch ----
 use_config(['drop_money_on_pve' => '']);
@@ -185,6 +215,11 @@ check($reward['money_notes'] === ['⚠️ 等级差距过大（高出 11 级）�
 $reward = rewards_for([], '[40,40]', 20, 10);
 check($reward['money'] === 40 && $reward['money_notes'] === [], 'A pet exactly 10 levels above still earns pet coins');
 check(rewards_for([], '[40,40]', 5, 30)['money'] === 40, 'Fighting a stronger wild Pokemon is never cut off');
+$reward = rewards_for([], '[40,40]', 15, 10, 80);
+check($reward['money'] === 0 && $reward['exp'] > 0
+    && $reward['money_notes'] === ['⚠️ 等级差距过大（本场出战最高 Lv.80，高出 70 级），本场没有获得宠物币'],
+    'A Lv.15 finisher earns nothing when a Lv.80 pet fought earlier in the battle');
+check(rewards_for([], '[40,40]', 15, 10, 12)['money'] === 40, 'A fielded peak below the finisher keeps the finisher level');
 use_config(['drop_money_level_gap' => ['0', 'integer']]);
 check(rewards_for([], '[40,40]', 100, 1)['money'] === 40, 'A level gap of 0 disables the cut-off');
 use_config(['drop_money_level_gap' => ['3', 'integer']]);
@@ -233,6 +268,49 @@ $user = settle(['money' => 100, 'money_day' => $yesterday, 'money_today' => 999]
 check($user === ['money' => 120, 'money_day' => $today, 'money_today' => 20], 'A new day restarts the stored total');
 $user = settle(['money' => 100, 'money_day' => $today, 'money_today' => 5], ['exp' => 1, 'money' => 0]);
 check($user === ['money' => 100, 'money_day' => $today, 'money_today' => 5], 'Legacy reward arrays default to today and pay nothing extra');
+
+// ---- fielded peak level tracking ----
+$state = ['field' => ['weather' => 'rain', 'terrain' => null], 'sides' => ['ally' => [
+    ['slot' => 0, 'instance_id' => 501, 'level' => 30, 'hp' => 40, 'fainted' => false]]]];
+battle_inject_ally_fresh_state($state, ['id' => 501, 'level' => 30, 'hp' => 40], []);
+check($state['field']['ally_peak_level'] === 30 && $state['field']['weather'] === 'rain',
+    'Injecting the fielded pet records its level without disturbing other field state');
+battle_inject_ally_fresh_state($state, ['id' => 502, 'level' => 12, 'hp' => 30, 'species_id' => 4,
+    'nickname' => '', 'pmname' => 'Charmander'], ['xs' => 'fire', 'xs2' => '']);
+check($state['field']['ally_peak_level'] === 30 && $state['sides']['ally'][0]['instance_id'] === 502,
+    'Switching to a weaker pet keeps the battle\'s peak level');
+battle_inject_ally_fresh_state($state, ['id' => 502, 'level' => 45, 'hp' => 30], []);
+check($state['field']['ally_peak_level'] === 45, 'A pet levelling up mid-battle raises the peak');
+$legacy = ['sides' => ['ally' => [['slot' => 0, 'instance_id' => 501, 'level' => 9, 'hp' => 1, 'fainted' => false]]]];
+battle_inject_ally_fresh_state($legacy, ['id' => 501, 'level' => 9, 'hp' => 1], []);
+check($legacy['field']['ally_peak_level'] === 9, 'A state without field data gains the peak level');
+
+// ---- without the daily columns (failed lazy migration) the cap degrades away ----
+// Real lazy migration: the ALTER is refused, so battle_ensure_tables() must log and carry on.
+require __DIR__ . '/../../plugin/api/battle_storage.php';
+function writelog($file, $message) { $GLOBALS['logged'][] = [$file, $message]; }
+DB::$schema_mode = true;
+$threw = false;
+try {
+    battle_ensure_tables();
+} catch (Throwable $error) {
+    $threw = true;
+}
+DB::$schema_mode = false;
+check(!$threw && battle_money_daily_columns_available() === false,
+    'A refused daily-column ALTER disables the cap instead of failing every battle request');
+check(count($GLOBALS['logged'] ?? []) === 1 && $GLOBALS['logged'][0][0] === 'pokemon'
+    && str_contains($GLOBALS['logged'][0][1], 'money_day'), 'The failed migration is written to the pokemon log');
+use_config(['drop_money_daily_limit' => ['100', 'integer']]);
+$reward = rewards_for(['money_day' => $today, 'money_today' => 100], '[50,50]');
+check($reward['money'] === 50 && $reward['money_today'] === 0 && $reward['money_daily_limit'] === 100
+    && $reward['money_notes'] === [], 'Missing daily columns pay the roll without a cap or notice');
+$user = settle(['money' => 100], ['exp' => 1, 'money' => 50, 'money_day' => $today]);
+check($user === ['money' => 150] && count(DB::$updates) === 1 && !str_contains(DB::$updates[0], 'money_today'),
+    'Missing daily columns fall back to the money-only UPDATE');
+battle_money_daily_columns_available(true);
+$reward = rewards_for(['money_day' => $today, 'money_today' => 100], '[50,50]');
+check($reward['money'] === 0 && $reward['money_today'] === 100, 'Available daily columns keep enforcing the cap');
 
 // ---- day boundary uses the site time zone ----
 $GLOBALS['_G'] = ['setting' => ['timeoffset' => '9'], 'member' => ['timeoffset' => '-12']];

@@ -247,6 +247,8 @@ class DB
                 if (preg_match("/turn = (\d+)/", $sql, $t)) $row['turn'] = (int)$t[1];
                 if (preg_match("/phase = '([a-z_]+)'/", $sql, $t)) $row['phase'] = $t[1];
                 if (preg_match("/result = '([a-z_]*)'/", $sql, $t)) $row['result'] = $t[1];
+                // keep the persisted field JSON so reloads see engine field state (ally_peak_level)
+                if (preg_match("/field_json = '((?:[^'\\\\]|\\\\.)*)'/", $sql, $t)) $row['field_json'] = $t[1];
                 self::$affected = 1;
                 unset($row);
                 return;
@@ -842,21 +844,41 @@ check('victory event recorded', (function () {
 check('wild still rendered in victory response (temp restore)', $b['wild_pokemon']['id'] === 129 && $b['wild_pokemon']['hp'] === 0);
 
 echo "=== scenario B2: daily pet-coin cap on a victory ===\n";
-// Gap rule off, cap 15 with 10 already earned today: species range [5,20] always exceeds the 5 left.
+// Gap rule off, cap 15 with 11 already earned today: species range [5,20] always exceeds the 4 left
+// (10 earned would leave 5, which rand(5,20) can hit exactly and skip the partial-payout notice).
 $GLOBALS['runtime_config'] = ['drop_money_level_gap' => 0, 'drop_money_daily_limit' => 15];
 seed_battle(5, 15, 30, 42);
 seed_pet_and_party(100, 0);
 DB::$usersdata['money_day'] = battle_money_today();
-DB::$usersdata['money_today'] = 10;
+DB::$usersdata['money_today'] = 11;
 $b = run_turn()->data;
 check('capped victory pays only the remaining daily allowance',
-    $b['status'] === 'victory' && $b['rewards']['money'] === 5
+    $b['status'] === 'victory' && $b['rewards']['money'] === 4
     && $b['rewards']['money_today'] === 15 && $b['rewards']['money_daily_limit'] === 15);
 check('capped victory explains the partial payout in the battle message',
-    $b['rewards']['money_notes'] === ['今日宠物币已达上限，本场只获得 5']
-    && str_contains($b['message'], "\n今日宠物币已达上限，本场只获得 5"));
+    $b['rewards']['money_notes'] === ['今日宠物币已达上限，本场只获得 4']
+    && str_contains($b['message'], "\n今日宠物币已达上限，本场只获得 4"));
 check('capped victory persists the daily total in the reward UPDATE',
-    DB::has_log('money_today = CASE WHEN money_day = ' . battle_money_today() . ' THEN money_today + 5 ELSE 5 END'));
+    DB::has_log('money_today = CASE WHEN money_day = ' . battle_money_today() . ' THEN money_today + 4 ELSE 4 END'));
+$GLOBALS['runtime_config'] = [];
+
+echo "=== scenario B3: level gap counts the strongest pet fielded this battle ===\n";
+// Lv.30 finisher vs Lv.15 wild is within a gap of 20, but a Lv.40 pet already fought in this battle.
+$GLOBALS['runtime_config'] = ['drop_money_level_gap' => 20];
+seed_battle(5, 15, 30, 42);
+seed_pet_and_party(100, 0);
+foreach (DB::$battles as $id => $row) {
+    if ($row['phase'] === 'active') DB::$battles[$id]['field_json'] = json_encode(['weather' => null, 'terrain' => null, 'ally_peak_level' => 40]);
+}
+$b = run_turn()->data;
+check('a stronger pet fielded earlier withholds pet coins from a weaker finisher',
+    $b['status'] === 'victory' && $b['rewards']['money'] === 0 && $b['rewards']['exp'] > 0
+    && $b['rewards']['money_notes'] === ['⚠️ 等级差距过大（本场出战最高 Lv.40，高出 25 级），本场没有获得宠物币']);
+seed_battle(5, 15, 30, 42);
+seed_pet_and_party(100, 0);
+$b = run_turn()->data;
+check('without a stronger fielded pet the same finisher earns pet coins',
+    $b['status'] === 'victory' && $b['rewards']['money'] > 0 && $b['rewards']['money_notes'] === []);
 $GLOBALS['runtime_config'] = [];
 
 echo '=== scenario C: miss refunds reserved PP ===' . PHP_EOL;
@@ -1177,6 +1199,12 @@ check('replace emits switch_in event', (function () {
     return false;
 })());
 check('replace keeps the wild mirror', (int)DB::$usersdata['npcid'] === 129);
+check('replace keeps the fielded peak level (Lv.30 fainted, Lv.28 replacement) in persisted field_json', (function () {
+    $max_battle = 0;
+    foreach (DB::$battles as $row) $max_battle = max($max_battle, (int)$row['id']);
+    $field = json_decode(DB::$battles[$max_battle]['field_json'], true);
+    return is_array($field) && isset($field['ally_peak_level']) && (int)$field['ally_peak_level'] === 30;
+})());
 check('replaced unit is the new pet', (function () {
     $max_battle = 0;
     foreach (DB::$battles as $row) {

@@ -663,10 +663,11 @@ function pm_get_search_keyword($param = 'keyword')
 
 /**
  * 读取后台「全局配置」（pm_config），按 data_type 转型，每个请求只查询一次。
+ * boolean 列的文字解读与后台 Rust deserialize_boolish 一致。
  *
  * 注意：游戏 API 里的全局 $settings 来自 Discuz 插件变量缓存
  * （$_G['cache']['plugin']['pokemon']），不是 pm_config；要读管理面板
- * 「全局配置」页的设定必须走这里。转型规则与 api_get_global_config() 一致。
+ * 「全局配置」页的设定必须走这里。
  * 种子与旧站多数键以 string 存放（布尔为 '1'/''），调用方仍需自行规整。
  *
  * @param string|null $key     配置键；null 返回整份配置
@@ -691,7 +692,15 @@ function api_get_runtime_config($key = null, $default = null, $reload = false)
                     $value = intval($value);
                     break;
                 case 'boolean':
-                    $value = boolval($value);
+                    // 与后台 Rust deserialize_boolish 同一套文字解读，避免 'false' 被当成 true
+                    $text = strtolower(trim(strval($value)));
+                    if (in_array($text, array('1', 'true', 'yes', 'on'), true)) {
+                        $value = true;
+                    } elseif (in_array($text, array('0', '', 'false', 'no', 'off'), true)) {
+                        $value = false;
+                    } else {
+                        $value = boolval($value);
+                    }
                     break;
                 default:
                     $value = strval($value);

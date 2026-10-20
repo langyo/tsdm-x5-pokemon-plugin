@@ -269,7 +269,7 @@ pub fn GlobalConfigPage() -> Element {
                         label: "金钱掉落范围（全局）",
                         min_value: config.drop_money_percent_min_on_pve,
                         max_value: config.drop_money_percent_max_on_pve,
-                        hint: "以全局配置为准时，每次胜利随机掉落此区间内的宠物币；两端相同即固定值。两端都为 0 时仍按宠物各自设置。等级差距限制见下方「等级差距上限」。",
+                        hint: "以全局配置为准时，每次胜利随机掉落此区间内的宠物币；两端相同即固定值；最终金额还会乘以玩家的强度倍率（strength）。两端都为 0 时仍按宠物各自设置。等级差距限制见下方「等级差距上限」。",
                         on_change: move |(min_value, max_value): (u64, u64)| {
                             update_global_config(|item| {
                                 item.drop_money_percent_min_on_pve = min_value.min(max_value);
