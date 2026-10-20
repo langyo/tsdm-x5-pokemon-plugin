@@ -5,6 +5,21 @@ if (!defined('IN_DISCUZ')) {
 }
 
 /**
+ * 每日宠物币上限所需的 pm_usersdata.money_day / money_today 是否可用。
+ *
+ * 默认可用；battle_ensure_tables() 补列失败时传 false 关闭，
+ * 结算随即降级为不设每日上限、只加 money 的旧更新。
+ */
+function battle_money_daily_columns_available($set = null)
+{
+    static $available = true;
+    if ($set !== null) {
+        $available = (bool) $set;
+    }
+    return $available;
+}
+
+/**
  * 惰性建表（老站点升级路径，幂等）。
  * DDL 与 docker/init.d/02-pokemon-schema.sql、plugin/install.php 保持一致。
  */
@@ -42,6 +57,30 @@ function battle_ensure_tables()
         DB::query("ALTER TABLE " . pm_table('pm_battle') . " ADD COLUMN revision int(10) unsigned NOT NULL DEFAULT 0", 'SILENT');
         if (!DB::fetch_first("SHOW COLUMNS FROM " . pm_table('pm_battle') . " LIKE 'revision'")) {
             throw new RuntimeException('Battle revision migration failed');
+        }
+    }
+    // 宠物币每日上限计数（money_day = 站台时区 yyyymmdd，money_today = 当日已得）。
+    // 老站点惰性补列；与 revision 同样在任何事务之前完成（ALTER 会隐式提交）。
+    // 失败时只关闭每日上限并记日志，不抛错。
+    $money_columns = array(
+        'money_day' => 'int(10) unsigned NOT NULL DEFAULT 0',
+        'money_today' => 'bigint(20) NOT NULL DEFAULT 0',
+    );
+    foreach ($money_columns as $column => $definition) {
+        if (DB::fetch_first("SHOW COLUMNS FROM " . pm_table('pm_usersdata') . " LIKE '$column'")) {
+            continue;
+        }
+        DB::query("ALTER TABLE " . pm_table('pm_usersdata') . " ADD COLUMN $column $definition", 'SILENT');
+        if (!DB::fetch_first("SHOW COLUMNS FROM " . pm_table('pm_usersdata') . " LIKE '$column'")) {
+            // 补列失败（如数据库账号无 ALTER 权限）不拖垮战斗：本请求不启用每日上限
+            battle_money_daily_columns_available(false);
+            $message = "pm_usersdata.$column could not be added; the daily pet-coin cap is disabled until it exists";
+            if (function_exists('writelog')) {
+                writelog('pokemon', $message);
+            } else {
+                error_log('[pokemon] ' . $message);
+            }
+            break;
         }
     }
     DB::query("CREATE TABLE IF NOT EXISTS " . pm_table('pm_battle_action') . " (

@@ -324,6 +324,15 @@ pub enum BattleStatus {
 pub struct BattleRewards {
     pub exp: u64,
     pub money: u64,
+    /// 结算后今日（站点时区）已获得的 PVE 宠物币；旧服务端不回此字段时为 0。
+    #[serde(default)]
+    pub money_today: u64,
+    /// 每日 PVE 宠物币上限，0 表示不限制；旧服务端不回此字段时为 0。
+    #[serde(default)]
+    pub money_daily_limit: u64,
+    /// 宠物币管控提示（等级差距过大 / 已达每日上限），没有时为空。
+    #[serde(default)]
+    pub money_notes: Vec<String>,
 }
 
 /// 升级信息
@@ -553,6 +562,26 @@ mod tests {
                 category: String::new(),
             }],
         }
+    }
+
+    #[test]
+    fn battle_rewards_accept_daily_money_fields_and_legacy_shape() {
+        let legacy: BattleRewards = serde_json::from_str(r#"{"exp":27,"money":40}"#).unwrap();
+        assert_eq!(legacy.money_today, 0);
+        assert_eq!(legacy.money_daily_limit, 0);
+        assert!(legacy.money_notes.is_empty());
+        let capped: BattleRewards = serde_json::from_str(
+            r#"{"exp":27,"money":10,"money_today":100,"money_daily_limit":100,
+                "money_notes":["今日宠物币已达上限，本场只获得 10"]}"#,
+        )
+        .unwrap();
+        assert_eq!(capped.money, 10);
+        assert_eq!(capped.money_today, 100);
+        assert_eq!(capped.money_daily_limit, 100);
+        assert_eq!(
+            capped.money_notes,
+            vec!["今日宠物币已达上限，本场只获得 10"]
+        );
     }
 
     #[test]

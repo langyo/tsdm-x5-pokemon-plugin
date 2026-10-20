@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS `pm_usersdata` (
     `strength` tinyint(3) NOT NULL DEFAULT 1,
     `str` int(10) NOT NULL DEFAULT 100,
     `money` bigint(20) NOT NULL DEFAULT 0,
+    `money_day` int(10) unsigned NOT NULL DEFAULT 0,
+    `money_today` bigint(20) NOT NULL DEFAULT 0,
     PRIMARY KEY (`uid`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 

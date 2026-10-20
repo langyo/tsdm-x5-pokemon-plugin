@@ -266,16 +266,34 @@ pub fn GlobalConfigPage() -> Element {
                         on_change: move |value| update_global_config(|item| item.drop_money_config_by_global = value),
                     }
                     NumberRangeField {
-                        label: "金钱掉落额度范围",
+                        label: "金钱掉落范围（全局）",
                         min_value: config.drop_money_percent_min_on_pve,
                         max_value: config.drop_money_percent_max_on_pve,
-                        hint: "若宠物比对方等级高于 10 级，将不掉落宠物币。",
+                        hint: "以全局配置为准时，每次胜利随机掉落此区间内的宠物币；两端相同即固定值；最终金额还会乘以玩家的强度倍率（strength）。两端都为 0 时仍按宠物各自设置。等级差距限制见下方「等级差距上限」。",
                         on_change: move |(min_value, max_value): (u64, u64)| {
                             update_global_config(|item| {
                                 item.drop_money_percent_min_on_pve = min_value.min(max_value);
                                 item.drop_money_percent_max_on_pve = max_value.max(min_value);
                             });
                         },
+                    }
+                    NumberField {
+                        label: "等级差距上限",
+                        value: config.drop_money_level_gap,
+                        hint: "宠物比野怪高出超过此等级数时不掉落宠物币（经验照常获得）。填 0 表示不限制。",
+                        min: 0,
+                        max: u64::MAX,
+                        suffix: "级",
+                        on_change: move |value| update_global_config(|item| item.drop_money_level_gap = value),
+                    }
+                    NumberField {
+                        label: "每日宠物币上限",
+                        value: config.drop_money_daily_limit,
+                        hint: "每名玩家每天（站点时区）在 PVE 战斗中最多获得的宠物币，超出部分不发放。填 0 表示不限制。",
+                        min: 0,
+                        max: u64::MAX,
+                        suffix: "",
+                        on_change: move |value| update_global_config(|item| item.drop_money_daily_limit = value),
                     }
                 }
 

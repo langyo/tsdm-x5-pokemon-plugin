@@ -129,6 +129,10 @@ fn default_news_announcements() -> Vec<NewsAnnouncement> {
     Vec::new()
 }
 
+fn default_drop_money_level_gap() -> u64 {
+    10
+}
+
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
 pub struct GlobalConfigType {
@@ -180,6 +184,16 @@ pub struct GlobalConfigType {
     pub drop_money_percent_min_on_pve: u64,
     #[serde(default, deserialize_with = "deserialize_u64ish")]
     pub drop_money_percent_max_on_pve: u64,
+    /// 宠物比野怪高出超过此等级数时不掉落宠物币；0 表示不限制。
+    /// 缺键时取 10（与服务端默认一致），避免存档时误写成 0 而关闭限制。
+    #[serde(
+        default = "default_drop_money_level_gap",
+        deserialize_with = "deserialize_u64ish"
+    )]
+    pub drop_money_level_gap: u64,
+    /// 每名玩家每日（站台时区）PVE 宠物币上限；0 表示不限制。
+    #[serde(default, deserialize_with = "deserialize_u64ish")]
+    pub drop_money_daily_limit: u64,
 
     #[serde(default, deserialize_with = "deserialize_boolish")]
     pub is_enable_egg: bool,
@@ -226,6 +240,8 @@ impl Default for GlobalConfigType {
             drop_money_config_by_global: false,
             drop_money_percent_min_on_pve: 0,
             drop_money_percent_max_on_pve: 0,
+            drop_money_level_gap: 10,
+            drop_money_daily_limit: 0,
 
             is_enable_egg: true,
             is_enable_buy_egg: true,
@@ -234,5 +250,37 @@ impl Default for GlobalConfigType {
             egg_price: 10,
             hatch_egg_intimacy: 10,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn money_drop_controls_accept_php_string_and_integer_values() {
+        let config: GlobalConfigType = serde_json::from_value(serde_json::json!({
+            "drop_money_on_pve": "1",
+            "drop_money_config_by_global": "",
+            "drop_money_percent_min_on_pve": "5",
+            "drop_money_percent_max_on_pve": 9,
+            "drop_money_level_gap": "10",
+            "drop_money_daily_limit": 500
+        }))
+        .unwrap();
+        assert!(config.drop_money_on_pve);
+        assert!(!config.drop_money_config_by_global);
+        assert_eq!(config.drop_money_percent_min_on_pve, 5);
+        assert_eq!(config.drop_money_percent_max_on_pve, 9);
+        assert_eq!(config.drop_money_level_gap, 10);
+        assert_eq!(config.drop_money_daily_limit, 500);
+
+        let missing: GlobalConfigType = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(missing.drop_money_level_gap, 10);
+        assert_eq!(missing.drop_money_daily_limit, 0);
+
+        let defaults = GlobalConfigType::default();
+        assert_eq!(defaults.drop_money_level_gap, 10);
+        assert_eq!(defaults.drop_money_daily_limit, 0);
     }
 }

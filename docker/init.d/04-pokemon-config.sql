@@ -23,6 +23,10 @@ INSERT INTO `pm_config` (`key`, `value`, `data_type`) VALUES ('catch_price_in_ca
 
 INSERT INTO `pm_config` (`key`, `value`, `data_type`) VALUES ('drop_money_config_by_global','','string');
 
+INSERT INTO `pm_config` (`key`, `value`, `data_type`) VALUES ('drop_money_daily_limit','0','integer');
+
+INSERT INTO `pm_config` (`key`, `value`, `data_type`) VALUES ('drop_money_level_gap','10','integer');
+
 INSERT INTO `pm_config` (`key`, `value`, `data_type`) VALUES ('drop_money_on_pve','1','string');
 
 INSERT INTO `pm_config` (`key`, `value`, `data_type`) VALUES ('drop_money_percent_max_on_pve','0','string');

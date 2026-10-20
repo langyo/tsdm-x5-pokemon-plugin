@@ -10,6 +10,7 @@ const REPO_URL: &str = "https://github.com/langyo/tsdm-x5-pokemon-plugin";
 const AI_MODELS: &[(&str, &str, &str)] = &[
     ("Claude Opus 5.5", "Anthropic", "2026-09-22"),
     ("DeepSeek V4.1 Flash", "深度求索", "2026-09-10"),
+    ("Claude Fable 5.1", "Anthropic", "2026-09-01"),
     ("GLM 5.3 Flash", "智谱 AI", "2026-08-27"),
     ("GLM 5.3", "智谱 AI", "2026-08-14"),
     ("DeepSeek V4", "深度求索", "2026-04-24"),

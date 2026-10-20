@@ -30,6 +30,8 @@ function get_global_config()
     'drop_money_config_by_global' => '0',
     'drop_money_percent_min_on_pve' => '0',
     'drop_money_percent_max_on_pve' => '0',
+    'drop_money_level_gap' => '10',  // 0 = 不限制
+    'drop_money_daily_limit' => '0',  // 0 = 不限制
     // 宠物蛋设定
     'is_enable_egg' => '1',
     'is_enable_buy_egg' => '1',
@@ -155,6 +157,8 @@ function set_global_config($data)
         'drop_money_config_by_global' => 'boolean',
         'drop_money_percent_min_on_pve' => 'integer',
         'drop_money_percent_max_on_pve' => 'integer',
+        'drop_money_level_gap' => 'integer',
+        'drop_money_daily_limit' => 'integer',
         // 宠物蛋设定
         'is_enable_egg' => 'boolean',
         'is_enable_buy_egg' => 'boolean',

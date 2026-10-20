@@ -244,6 +244,17 @@ function battle_load_active($uid, $myusersdata, $mypokemon)
  */
 function battle_inject_ally_fresh_state(&$state, $mypokemon, $mydata)
 {
+    // 记录本场出过场的最高等级（开战、每回合、主动/被动换宠都会经过这里），
+    // 宠物币等级差判定用它，避免高等级宠物打残后换低等级宠物补刀绕过限制。
+    // field 随 field_json 持久化，读回时保留未知键，无需改表。
+    if (!isset($state['field']) || !is_array($state['field'])) {
+        $state['field'] = ['weather' => null, 'terrain' => null];
+    }
+    $state['field']['ally_peak_level'] = max(
+        isset($state['field']['ally_peak_level']) ? intval($state['field']['ally_peak_level']) : 0,
+        intval($mypokemon['level'])
+    );
+
     list($mpmhp, $matk, $mdef, $mspatk, $mspdef, $msd) = battle_calc_my_stats($mydata, $mypokemon);
     $fresh = [
         'level' => intval($mypokemon['level']),
@@ -1158,7 +1169,8 @@ function api_use_skill()
             $battle_ended = true;
 
             $npc = pm_data($enemy_unit['species_id']);
-            $rewards = calculate_rewards($mypokemon, $myusersdata, $npc, $enemy_unit['level'], null);
+            $rewards = calculate_rewards($mypokemon, $myusersdata, $npc, $enemy_unit['level'], null,
+                isset($state['field']['ally_peak_level']) ? $state['field']['ally_peak_level'] : 0);
 
             $state = battle_persist_state($state, $turn_events);
             // 清镜像旧列（新行已 ended，clear 的联动更新幂等不命中）
@@ -1229,6 +1241,12 @@ function api_use_skill()
     }
 
     if ($rewards) {
+        // 宠物币管控提示（等级差距 / 每日上限）接在战斗消息后，同时保留在
+        // rewards.money_notes 供结算画面显示；money_day 只供落库，不进响应
+        foreach (isset($rewards['money_notes']) ? $rewards['money_notes'] : array() as $note) {
+            $battle['message'] .= "\n" . $note;
+        }
+        unset($rewards['money_day']);
         $battle['rewards'] = $rewards;
     }
 
@@ -1600,9 +1618,113 @@ function battle_calc_new_npc_stats($data, $level, $strength = 1, $boss_attribute
 
 
 /**
- * 计算奖励
+ * 宠物币掉落用的布尔配置规整：pm_config 里的布尔可能以 boolean、integer
+ * 或 string（'1' / '' / 'true'）存放，缺键时取默认值。
  */
-function calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map)
+function battle_money_config_flag($config, $key, $default)
+{
+    if (!array_key_exists($key, $config)) {
+        return $default;
+    }
+    $value = $config[$key];
+    if (is_bool($value)) {
+        return $value;
+    }
+    if (is_int($value) || is_float($value)) {
+        return $value != 0;
+    }
+    return in_array(strtolower(trim(strval($value))), array('1', 'true', 'yes', 'on'), true);
+}
+
+/**
+ * 宠物币掉落用的非负整数配置规整：缺键时取默认值；空字符串按 0
+ * （与后台 Rust deserialize_u64ish 的读法一致，后台显示什么就按什么生效）。
+ */
+function battle_money_config_int($config, $key, $default)
+{
+    if (!array_key_exists($key, $config)) {
+        return $default;
+    }
+    return max(0, intval($config[$key]));
+}
+
+/**
+ * PVE 宠物币掉落设定（后台「全局配置 → PVE 设定」）。
+ *
+ * 缺键时保持旧行为：开启掉落、按物种范围、等级差上限 10、不设每日上限。
+ * $config 为 null 时读取 pm_config；测试可直接传入数组。
+ */
+function battle_money_drop_settings($config = null)
+{
+    if ($config === null) {
+        $config = api_get_runtime_config();
+    }
+    return array(
+        'enabled' => battle_money_config_flag($config, 'drop_money_on_pve', true),
+        'by_global' => battle_money_config_flag($config, 'drop_money_config_by_global', false),
+        // 键名沿用旧后台的 percent，实际是宠物币数量区间（相容保留）
+        'global_min' => battle_money_config_int($config, 'drop_money_percent_min_on_pve', 0),
+        'global_max' => battle_money_config_int($config, 'drop_money_percent_max_on_pve', 0),
+        'level_gap' => battle_money_config_int($config, 'drop_money_level_gap', 10),
+        'daily_limit' => battle_money_config_int($config, 'drop_money_daily_limit', 0),
+    );
+}
+
+/**
+ * 本次掉落的宠物币基础区间 [min, max]（乘 strength 之前）。
+ *
+ * 以全局配置为准且区间有效（上限 > 0）时用全局区间；否则用物种 drop_money，
+ * 物种未配置（0 / 空 / 非法）时回退到与 X3 一致的默认 10~50。
+ */
+function battle_money_drop_range($drop, $npc)
+{
+    if (!empty($drop['by_global']) && intval($drop['global_max']) > 0) {
+        $money_min = max(0, intval($drop['global_min']));
+        $money_max = intval($drop['global_max']);
+        if ($money_max < $money_min) {
+            [$money_min, $money_max] = [$money_max, $money_min];
+        }
+        return array($money_min, $money_max);
+    }
+
+    // 迁移后的 drop_money 是 JSON 数组；旧逻辑用 isset 会把 [0,0] 当成有效区间，
+    // 导致 rand(0,0)=0、所有野怪都不掉钱。
+    $drop_money = json_decode(isset($npc['drop_money']) ? strval($npc['drop_money']) : '', true);
+    if (is_array($drop_money) && isset($drop_money[0], $drop_money[1]) && (int) $drop_money[1] > 0) {
+        $money_min = max(0, (int) $drop_money[0]);
+        $money_max = (int) $drop_money[1];
+        if ($money_max < $money_min) {
+            [$money_min, $money_max] = [$money_max, $money_min];
+        }
+        return array($money_min, $money_max);
+    }
+    return array(10, 50);
+}
+
+/**
+ * 每日宠物币上限的日期界线（yyyymmdd）。
+ *
+ * 固定用站台时区（setting/timeoffset），不用会员自设时区：
+ * 否则会员来回切换时区就能让日期变动、反复重置当日计数。
+ */
+function battle_money_today()
+{
+    global $_G;
+    $now = defined('TIMESTAMP') ? TIMESTAMP : time();
+    if (function_exists('dgmdate')) {
+        $offset = isset($_G['setting']['timeoffset']) ? $_G['setting']['timeoffset'] : 0;
+        return intval(dgmdate($now, 'Ymd', $offset));
+    }
+    return intval(date('Ymd', $now));
+}
+
+/**
+ * 计算奖励
+ *
+ * 宠物币依后台设定：掉落开关 → 等级差距上限 → 随机区间 × strength → 每日上限。
+ * money_notes 是给玩家看的宠物币管控提示；money_day 仅供 apply_rewards 落库，响应前移除。
+ */
+function calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map, $ally_peak_level = 0)
 {
     global $petbasisexp, $settings;
 
@@ -1612,28 +1734,53 @@ function calculate_rewards($mypokemon, $myusersdata, $npc, $npc_level, $map)
 
     $getexp = floor(($base_exp * $npc_level / 7) * 1.5 * $exp_multiplier / 4);
 
-    // 金币：与 X3 一致，未配置（0 / 空 / 非法）时回退到默认 10~50。
-    // 迁移后的 drop_money 是 JSON 数组；旧逻辑用 isset 会把 [0,0] 当成有效区间，
-    // 导致 rand(0,0)=0、所有野怪都不掉钱。
-    $drop_money = json_decode($npc['drop_money'], true);
-    if (is_array($drop_money) && isset($drop_money[0], $drop_money[1]) && (int) $drop_money[1] > 0) {
-        $money_min = max(0, (int) $drop_money[0]);
-        $money_max = (int) $drop_money[1];
-        if ($money_max < $money_min) {
-            [$money_min, $money_max] = [$money_max, $money_min];
-        }
+    $drop = battle_money_drop_settings();
+    $notes = array();
+    $money = 0;
+    // 等级差按本场出过场的最高等级计（换低等级宠物补刀不能绕过）
+    $current_level = isset($mypokemon['level']) ? intval($mypokemon['level']) : 0;
+    $peak_level = max($current_level, intval($ally_peak_level));
+    $level_over = $peak_level - intval($npc_level);
+    if (!$drop['enabled']) {
+        $money = 0;
+    } elseif ($drop['level_gap'] > 0 && $level_over > $drop['level_gap']) {
+        // 等级差距过大：经验照给，不给宠物币
+        $notes[] = $peak_level > $current_level
+            ? "⚠️ 等级差距过大（本场出战最高 Lv.{$peak_level}，高出 {$level_over} 级），本场没有获得宠物币"
+            : "⚠️ 等级差距过大（高出 {$level_over} 级），本场没有获得宠物币";
     } else {
-        $money_min = 10;
-        $money_max = 50;
+        list($money_min, $money_max) = battle_money_drop_range($drop, $npc);
+        // strength 为 0 时整笔奖励都会变成 0，至少按 1 倍结算。
+        $strength = max(1, isset($myusersdata['strength']) ? (int) $myusersdata['strength'] : 1);
+        $money = rand($money_min, $money_max) * $strength;
     }
 
-    // strength 为 0 时整笔奖励都会变成 0，至少按 1 倍结算。
-    $strength = max(1, (int) $myusersdata['strength']);
-    $money = rand($money_min, $money_max) * $strength;
+    // 每日上限：money_day 不是今天时当日计数视为 0（跨日归零）。
+    // 老站补列失败时（见 battle_ensure_tables）降级为不设上限，不拖垮战斗。
+    $today = battle_money_today();
+    $daily_columns = !function_exists('battle_money_daily_columns_available') || battle_money_daily_columns_available();
+    $earned_today = ($daily_columns && isset($myusersdata['money_day']) && intval($myusersdata['money_day']) === $today)
+        ? max(0, intval(isset($myusersdata['money_today']) ? $myusersdata['money_today'] : 0))
+        : 0;
+    $daily_limit = $drop['daily_limit'];
+    if ($daily_columns && $daily_limit > 0 && $money > 0) {
+        $remaining = max(0, $daily_limit - $earned_today);
+        if ($remaining <= 0) {
+            $money = 0;
+            $notes[] = "今日宠物币已达上限（上限 {$daily_limit}）";
+        } elseif ($money > $remaining) {
+            $money = $remaining;
+            $notes[] = "今日宠物币已达上限，本场只获得 {$money}";
+        }
+    }
 
     return [
         'exp' => $getexp,
         'money' => $money,
+        'money_today' => $daily_columns ? $earned_today + $money : 0,
+        'money_daily_limit' => $daily_limit,
+        'money_day' => $today,
+        'money_notes' => $notes,
     ];
 }
 
@@ -1680,14 +1827,37 @@ function apply_rewards($uid, $mypokemon, $rewards)
         ));
     }
 
-    DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . "
-        SET money = money + %d,
-            dataall = dataall + 1,
-            datawin = datawin + 1
-        WHERE uid = %d",
-        $rewards['money'],
-        $uid
-    ));
+    // 宠物币与当日计数同一句更新（调用方已持 pm_usersdata 行锁）：
+    // money_day 不是今天时当日计数从本场实发数重新起算。
+    // 用 CASE 而非 IF()：Discuz querysafe 默认禁止 if 函数。
+    $money = max(0, intval($rewards['money']));
+    if (function_exists('battle_money_daily_columns_available') && !battle_money_daily_columns_available()) {
+        // 老站补列失败：退回原本只加 money 的更新
+        DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . "
+            SET money = money + %d,
+                dataall = dataall + 1,
+                datawin = datawin + 1
+            WHERE uid = %d",
+            $money,
+            $uid
+        ));
+    } else {
+        $money_day = isset($rewards['money_day']) ? intval($rewards['money_day']) : battle_money_today();
+        DB::query(pm_sql("UPDATE " . pm_table('pm_usersdata') . "
+            SET money = money + %d,
+                money_today = CASE WHEN money_day = %d THEN money_today + %d ELSE %d END,
+                money_day = %d,
+                dataall = dataall + 1,
+                datawin = datawin + 1
+            WHERE uid = %d",
+            $money,
+            $money_day,
+            $money,
+            $money,
+            $money_day,
+            $uid
+        ));
+    }
 
     return [
         'level_up' => $level_up,
