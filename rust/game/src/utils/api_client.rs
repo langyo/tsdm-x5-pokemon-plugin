@@ -712,10 +712,15 @@ impl NewApiClient {
             .await
     }
 
-    /// 执行进化
-    pub async fn evolve(&self, pet_id: u64) -> Result<EvolutionResponse> {
-        self.post("evolution", "evolve", "", &EvolutionRequest { pet_id })
-            .await
+    /// 执行进化（多条路线都满足时可用 to_id 指定目标形态）
+    pub async fn evolve(&self, pet_id: u64, to_id: Option<u64>) -> Result<EvolutionResponse> {
+        self.post(
+            "evolution",
+            "evolve",
+            "",
+            &EvolutionRequest { pet_id, to_id },
+        )
+        .await
     }
 
     pub async fn get_evolution_path(&self, pmid: u64) -> Result<EvolutionPathResponse> {

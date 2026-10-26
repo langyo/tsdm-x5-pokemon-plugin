@@ -101,6 +101,8 @@ pub fn MyPokemon() -> Element {
     let mut show_ev_modal = use_signal(|| false);
     let mut show_evo_path_modal = use_signal(|| false);
     let mut selected_pokemon_type_id = use_signal(|| 0u64);
+    let mut show_evolution_modal = use_signal(|| false);
+    let mut selected_pokemon_id = use_signal(|| 0u64);
 
     // 每次打开个人中心时都刷新宠物列表，确保数据是最新的
     let _resource = use_resource(move || async move {
@@ -230,6 +232,13 @@ pub fn MyPokemon() -> Element {
                                                         show_evo_path_modal.set(true);
                                                     }
                                                 },
+                                                on_evolution_click: {
+                                                    let pokemon_id = pm.id;
+                                                    move |_| {
+                                                        selected_pokemon_id.set(pokemon_id);
+                                                        show_evolution_modal.set(true);
+                                                    }
+                                                },
                                             }
                                         },
                                         MyPokemonTab::Equipment => rsx! {
@@ -260,6 +269,20 @@ pub fn MyPokemon() -> Element {
                     on_close: move |_| show_evo_path_modal.set(false),
                 }
             }
+
+            // 进化 Modal
+            if *show_evolution_modal.read() {
+                EvolutionModal {
+                    pet_id: *selected_pokemon_id.read(),
+                    on_close: move |_| show_evolution_modal.set(false),
+                    on_evolved: move |_| {
+                        let mut refresh_trigger = refresh_trigger;
+                        refresh_pokemon_list();
+                        refresh_trigger += 1;
+                        show_evolution_modal.set(false);
+                    },
+                }
+            }
         }
     }
 }
@@ -286,6 +309,7 @@ fn StatsTabContent(
     refresh_trigger: Signal<u64>,
     on_calculator_click: EventHandler<()>,
     on_evolution_path_click: EventHandler<()>,
+    on_evolution_click: EventHandler<()>,
 ) -> Element {
     let _is_shiny = pm_is_shiny;
     let detail = use_resource(move || async move {
@@ -598,6 +622,11 @@ fn StatsTabContent(
                             class: "ev-calculator-btn",
                             onclick: move |_event| on_evolution_path_click(()),
                             "进化路径"
+                        }
+                        button {
+                            class: "ev-calculator-btn",
+                            onclick: move |_event| on_evolution_click(()),
+                            "进化"
                         }
                     }
                 }
@@ -2295,6 +2324,133 @@ fn EvolutionPathModal(pokemon_type_id: u64, on_close: EventHandler<()>) -> Eleme
                 }
             } else if let Some(err) = evo_data.read().as_ref().and_then(|r| r.as_ref().err()) {
                 div { class: "evo-path-error", "查询失败: {err}" }
+            }
+        }
+    }
+}
+
+// 进化 Modal
+#[component]
+fn EvolutionModal(
+    pet_id: u64,
+    on_close: EventHandler<()>,
+    on_evolved: EventHandler<()>,
+) -> Element {
+    let mut is_evolving = use_signal(|| false);
+    let mut evolve_error = use_signal(|| Option::<String>::None);
+
+    let check_data = use_resource(move || async move {
+        NewApiClient::new()
+            .check_evolution(pet_id)
+            .await
+            .map_err(|e| format!("查询失败: {}", e))
+    });
+
+    let loaded = check_data
+        .read()
+        .as_ref()
+        .and_then(|r| r.as_ref().ok())
+        .cloned();
+
+    let mut handle_evolve = move |to_id: u64, to_name: String| {
+        if *is_evolving.read() {
+            return;
+        }
+
+        is_evolving.set(true);
+        evolve_error.set(None);
+
+        let mut is_evolving = is_evolving;
+        let mut evolve_error = evolve_error;
+
+        spawn(async move {
+            let api = NewApiClient::new();
+            match api.evolve(pet_id, Some(to_id)).await {
+                Ok(_resp) => {
+                    is_evolving.set(false);
+                    show_success(format!("🎉 进化成功！进化为了 {}", to_name));
+                    on_evolved(());
+                }
+                Err(e) => {
+                    evolve_error.set(Some(format!("进化失败：{}", e)));
+                    is_evolving.set(false);
+                }
+            }
+        });
+    };
+
+    rsx! {
+        Modal {
+            is_open: true,
+            on_close,
+            title: "进化".to_string(),
+            if check_data.read().is_none() {
+                div { class: "evo-path-loading", "正在查询进化条件..." }
+            } else if let Some(data) = loaded {
+                if data.available_evolutions.is_empty() {
+                    div { class: "evo-path-empty",
+                        span { "该宝可梦没有可用的进化路线" }
+                    }
+                } else {
+                    div { class: "evo-path-content",
+                        for evo in &data.available_evolutions {
+                            {
+                                let condition_text = evo.condition_display.clone().unwrap_or_else(
+                                    || match evo.evolution_type.as_str() {
+                                        "level" => format!(
+                                            "等级达到 Lv.{}",
+                                            evo.conditions.details.level_requirement.unwrap_or(0)
+                                        ),
+                                        "item" => "需要使用进化道具".to_string(),
+                                        "good" => format!(
+                                            "亲密度达到 {}",
+                                            evo.conditions.details.intimacy_requirement.unwrap_or(0)
+                                        ),
+                                        _ => evo.conditions.reason.clone(),
+                                    },
+                                );
+                                let status_text = if evo.can_evolve {
+                                    "✓ 满足进化条件".to_string()
+                                } else {
+                                    format!("✗ {}", evo.conditions.reason)
+                                };
+                                let to_id = evo.to_id;
+                                let to_name = evo.to_name.clone();
+                                rsx! {
+                                    div { class: "evo-path-node",
+                                        img {
+                                            class: "evo-path-sprite",
+                                            src: "{IMG_PATH}/spm/{evo.to_id}.gif",
+                                            alt: "{evo.to_name}",
+                                        }
+                                        div { class: "evo-path-node-info",
+                                            span { class: "evo-path-name", "{evo.to_name}" }
+                                            div { class: "evo-path-condition",
+                                                span { "📦 {condition_text}" }
+                                            }
+                                            div { class: "evo-path-condition",
+                                                span { "{status_text}" }
+                                            }
+                                        }
+                                        if evo.can_evolve {
+                                            button {
+                                                class: "ev-calculator-btn",
+                                                disabled: *is_evolving.read(),
+                                                onclick: move |_| handle_evolve(to_id, to_name.clone()),
+                                                "进化"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if let Some(err) = check_data.read().as_ref().and_then(|r| r.as_ref().err()) {
+                div { class: "evo-path-error", "{err}" }
+            }
+            if let Some(err) = evolve_error.read().as_ref() {
+                div { class: "evo-path-error", "{err}" }
             }
         }
     }

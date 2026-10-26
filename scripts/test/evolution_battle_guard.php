@@ -23,7 +23,8 @@ function load_evolution_functions($path, $wanted)
     }
 }
 load_evolution_functions(__DIR__ . '/../../plugin/api/index.php', ['pm_sql', 'pm_sql_v', 'validate_id', 'validate_uid']);
-load_evolution_functions($argv[1] ?? __DIR__ . '/../../plugin/api/evolution.php', ['api_evolve_pokemon', 'check_evolution_conditions', 'check_user_has_item']);
+load_evolution_functions($argv[1] ?? __DIR__ . '/../../plugin/api/evolution.php',
+    ['api_evolve_pokemon', 'evaluate_evolution_routes', '_evaluate_evolution_rule_group', 'check_evolution_conditions', 'check_user_has_item', '_format_evolution_condition']);
 class EvolutionResponse extends RuntimeException {}
 function require_login() {}
 function get_json_input() { return ['pet_id' => 1]; }
@@ -53,15 +54,16 @@ class DB
             return strpos($sql, 'uid, npcid') !== false ? self::$user : ['uid' => self::$user['uid']];
         }
         if ($sql === 'SELECT * FROM pm_mypm WHERE id = 1 AND uid = 7 FOR UPDATE') return self::$pet['uid'] === 7 ? self::$pet : false;
-        if ($sql === 'SELECT * FROM pm_evolution WHERE from_id = 1 ORDER BY priority, id LIMIT 1') return self::$rule;
         if ($sql === 'SELECT * FROM pm_data WHERE id = 2') return ['id'=>2,'hp'=>80,'name'=>'Evolved'];
+        if (preg_match('/^SELECT name FROM pm_itemdata WHERE id = \d+$/', $sql)) return ['name' => 'Evolution stone'];
         if (str_contains($sql, 'FROM pm_myitem') && str_contains($sql, "uid = 7 AND itemid = '12' AND nums > 0")) return self::$item;
         throw new RuntimeException('Unexpected SQL read: ' . $sql);
     }
-    public static function result_first($sql)
+    public static function fetch_all($sql)
     {
-        if ($sql === 'SELECT COUNT(*) FROM pm_evolution WHERE from_id = 1 AND to_id = 2') return 1;
-        throw new RuntimeException('Unexpected count: ' . $sql);
+        $sql = preg_replace('/\s+/', ' ', trim($sql));
+        if ($sql === 'SELECT * FROM pm_evolution WHERE from_id = 1 ORDER BY priority, id') return [self::$rule];
+        throw new RuntimeException('Unexpected SQL list: ' . $sql);
     }
     public static function query($sql)
     {
