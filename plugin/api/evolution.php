@@ -69,14 +69,10 @@ function api_check_evolution()
         api_error('Pokemon not found', 404);
     }
 
-    // 获取宠物的进化信息
-    $evolution_info = DB::fetch_first(pm_sql(
-        "SELECT * FROM " . pm_table('pm_evolution') . "
-        WHERE from_id = %d ORDER BY priority, id LIMIT 1",
-        $pet['species_id']
-    ));
+    // 评估该物种的全部候选进化路线
+    $routes = evaluate_evolution_routes($pet, $pet['species_id']);
 
-    if (!$evolution_info) {
+    if (!$routes) {
         api_success([
             'can_evolve' => false,
             'reason' => 'This Pokemon cannot evolve',
@@ -96,17 +92,33 @@ function api_check_evolution()
         ]);
     }
 
-    // 检查进化条件
-    $conditions = check_evolution_conditions($pet, $evolution_info);
+    // 默认报告第一条可满足的路线；全部不满足时报告首条路线的缺口
+    $selected = null;
+    foreach ($routes as $route) {
+        if ($route['can_evolve']) {
+            $selected = $route;
+            break;
+        }
+    }
+    if (!$selected) {
+        $selected = $routes[0];
+    }
+
+    $conditions = [
+        'can_evolve' => $selected['can_evolve'],
+        'reason' => $selected['can_evolve'] ? 'All conditions met' : implode(', ', $selected['reasons']),
+        'details' => $selected['details'],
+    ];
 
     api_success([
         'can_evolve' => $conditions['can_evolve'],
         'pokemon_id' => $pet_id,
         'current_form' => (int) $pet['species_id'],
-        'target_form' => (int) $evolution_info['to_id'],
+        'target_form' => (int) $selected['to_id'],
         'conditions' => $conditions,
         'reason' => $conditions['reason'],
-        'evolution_method' => $evolution_info['method'],
+        'evolution_method' => $selected['method'],
+        'available_evolutions' => _build_available_evolution_entries($pet, $routes),
     ]);
 }
 
@@ -153,20 +165,43 @@ function api_evolve_pokemon()
             pm_abort_battle_transaction('战斗中的首位宠物无法进化', 400);
         }
 
-        $evolution_info = DB::fetch_first(pm_sql(
-            "SELECT * FROM " . pm_table('pm_evolution') . " WHERE from_id = %d ORDER BY priority, id LIMIT 1",
-            $pet['species_id']
-        ));
-        if (!$evolution_info) {
+        // 评估全部候选路线；同一目标的复合规则在评估器内按 AND 判定
+        $routes = evaluate_evolution_routes($pet, $pet['species_id']);
+        if (!$routes) {
             pm_abort_battle_transaction('This Pokemon cannot evolve', 400);
         }
 
-        $conditions = check_evolution_conditions($pet, $evolution_info);
-        if (!$conditions['can_evolve']) {
-            pm_abort_battle_transaction('Evolution conditions not met: ' . $conditions['reason'], 400);
+        // 请求体可指定目标路线；未指定时按序取第一条满足的路线
+        $selected = null;
+        if (isset($input['to_id'])) {
+            // 非数值目标按未知目标拒绝，避免数组等脏输入落入默认路线
+            if (!is_numeric($input['to_id'])) {
+                pm_abort_battle_transaction('Evolution target not available for this Pokemon', 400);
+            }
+            $requested_to_id = (int) $input['to_id'];
+            foreach ($routes as $route) {
+                if ((int) $route['to_id'] === $requested_to_id) {
+                    $selected = $route;
+                    break;
+                }
+            }
+            if (!$selected) {
+                pm_abort_battle_transaction('Evolution target not available for this Pokemon', 400);
+            }
+        } else {
+            foreach ($routes as $route) {
+                if ($route['can_evolve']) {
+                    $selected = $route;
+                    break;
+                }
+            }
+        }
+        if (!$selected || !$selected['can_evolve']) {
+            $blocked = $selected ? $selected : $routes[0];
+            pm_abort_battle_transaction('Evolution conditions not met: ' . implode(', ', $blocked['reasons']), 400);
         }
 
-        $new_type_id = (int) $evolution_info['to_id'];
+        $new_type_id = (int) $selected['to_id'];
         $new_base_info = DB::fetch_first(pm_sql(
             "SELECT * FROM " . pm_table('pm_data') . " WHERE id = %d",
             $new_type_id
@@ -175,10 +210,14 @@ function api_evolve_pokemon()
             pm_abort_battle_transaction("Evolution target not found: pm_data id=$new_type_id", 500);
         }
 
-        if ($evolution_info['method'] === 'item') {
+        // 复合路线可能包含多条道具规则；逐条锁定并各扣一个
+        foreach ($selected['rules'] as $rule) {
+            if ($rule['method'] !== 'item') {
+                continue;
+            }
             $item = DB::fetch_first(pm_sql(
                 "SELECT id FROM " . pm_table('pm_myitem') . " WHERE uid = %d AND itemid = %s AND nums > 0 ORDER BY id LIMIT 1 FOR UPDATE",
-                $uid, strval((int) $evolution_info['condition_value'])
+                $uid, strval((int) $rule['condition_value'])
             ));
             if (!$item) {
                 pm_abort_battle_transaction('Required evolution item is no longer available', 409);
@@ -244,106 +283,157 @@ function api_get_available_evolutions()
         api_error('Pokemon not found', 404);
     }
 
-    // 获取所有可能的进化路线
-    $rows = DB::fetch_all(pm_sql(
-        "SELECT * FROM " . pm_table('pm_evolution') . "
-        WHERE from_id = %d ORDER BY priority, id",
-        $pet['species_id']
-    ));
-
-    $evolutions = [];
-    foreach ($rows as $row) {
-        $target_info = DB::fetch_first(pm_sql(
-            "SELECT * FROM " . pm_table('pm_data') . " WHERE id = %d",
-            $row['to_id']
-        ));
-
-        $conditions = check_evolution_conditions($pet, $row);
-
-        $evolutions[] = [
-            'from_id' => (int) $pet['species_id'],
-            'to_id' => (int) $row['to_id'],
-            'to_name' => $target_info ? $target_info['name'] : 'Unknown',
-            'evolution_type' => $row['method'],
-            'can_evolve' => $conditions['can_evolve'],
-            'conditions' => $conditions,
-        ];
-    }
+    // 评估全部候选进化路线
+    $routes = evaluate_evolution_routes($pet, $pet['species_id']);
 
     api_success([
         'pokemon_id' => $pet_id,
         'current_form' => (int) $pet['species_id'],
-        'available_evolutions' => $evolutions,
+        'available_evolutions' => _build_available_evolution_entries($pet, $routes),
     ]);
 }
 
 /**
- * 检查进化条件
+ * 评估某个物种的全部候选进化路线
+ *
+ * 同一 to_id 的多行规则是复合 AND 条件（组内全部满足才算满足）；
+ * 不同 to_id 是候选路线，按 priority, id 的先后顺序返回。
  */
-function check_evolution_conditions($pet, $evolution_info)
+function evaluate_evolution_routes($pet, $from_id)
 {
-    $can_evolve = true;
-    $unmet_reasons = [];
-
-    $cond_type = isset($evolution_info['method']) ? $evolution_info['method'] : '';
-    $cond_value = isset($evolution_info['condition_value']) ? $evolution_info['condition_value'] : '';
-
-    // 同一目标的多行规则代表复合条件；单规则执行器不能只应用其中一行。
-    $rule_count = (int) DB::result_first(pm_sql(
-        "SELECT COUNT(*) FROM " . pm_table('pm_evolution') . " WHERE from_id = %d AND to_id = %d",
-        $evolution_info['from_id'], $evolution_info['to_id']
+    $rows = DB::fetch_all(pm_sql(
+        "SELECT * FROM " . pm_table('pm_evolution') . " WHERE from_id = %d ORDER BY priority, id",
+        $from_id
     ));
-    if ($rule_count > 1) {
-        $can_evolve = false;
-        $unmet_reasons[] = 'Multiple evolution conditions are not supported';
+
+    // 按 to_id 分组，保持首次出现的顺序
+    $groups = [];
+    foreach ($rows as $row) {
+        $groups[(int) $row['to_id']][] = $row;
     }
 
-    // 尚未实现的规则不能被当作无条件进化。
-    if (!in_array($cond_type, ['level', 'item', 'good'], true)) {
-        $can_evolve = false;
-        $unmet_reasons[] = 'Unsupported evolution method: ' . $cond_type;
-    }
+    $routes = [];
+    foreach ($groups as $rules) {
+        $route = _evaluate_evolution_rule_group($pet, $rules);
 
-    // 检查等级条件
-    if ($cond_type === 'level') {
-        $required_level = (int) $cond_value;
-        if ((int) $pet['level'] < $required_level) {
-            $can_evolve = false;
-            $unmet_reasons[] = "Level must be at least $required_level (current: {$pet['level']})";
+        // 展示文案：组内每条规则各生成一段，用「且」连接
+        $displays = [];
+        foreach ($rules as $rule) {
+            $displays[] = _format_evolution_condition($rule['method'], $rule['condition_value']);
         }
+        $route['condition_display'] = implode(' 且 ', $displays);
+
+        $routes[] = $route;
     }
 
-    // 检查道具条件
-    if ($cond_type === 'item') {
-        $required_item_id = (int) $cond_value;
-        $has_item = check_user_has_item($pet['uid'], $required_item_id);
+    return $routes;
+}
 
-        if (!$has_item) {
-            $can_evolve = false;
-            $item_info = DB::fetch_first(
-                "SELECT name FROM " . pm_table('pm_itemdata') . " WHERE id = $required_item_id"
-            );
-            $unmet_reasons[] = "Requires item: " . ($item_info ? $item_info['name'] : "ID $required_item_id");
-        }
-    }
+/**
+ * 评估单条路线（一组 AND 规则）；自身不发 pm_evolution 查询，供评估器与单行包装复用
+ *（item 规则未满足时会查询道具名称用于生成原因文案）
+ */
+function _evaluate_evolution_rule_group($pet, array $rules)
+{
+    $first = $rules[0];
+    $can_evolve = true;
+    $reasons = [];
+    $details = [
+        'level_requirement' => null,
+        'item_requirement' => null,
+        'intimacy_requirement' => null,
+    ];
 
-    // 检查亲密度条件
-    if ($cond_type === 'good') {
-        $required_intimacy = (int) $cond_value;
-        if ((int) $pet['good'] < $required_intimacy) {
+    foreach ($rules as $rule) {
+        $cond_type = isset($rule['method']) ? $rule['method'] : '';
+        $cond_value = isset($rule['condition_value']) ? $rule['condition_value'] : '';
+
+        if ($cond_type === 'level') {
+            // 检查等级条件
+            $required_level = (int) $cond_value;
+            $details['level_requirement'] = $required_level;
+            if ((int) $pet['level'] < $required_level) {
+                $can_evolve = false;
+                $reasons[] = "Level must be at least $required_level (current: {$pet['level']})";
+            }
+        } elseif ($cond_type === 'item') {
+            // 检查道具条件
+            $required_item_id = (int) $cond_value;
+            $details['item_requirement'] = $required_item_id;
+            if (!check_user_has_item($pet['uid'], $required_item_id)) {
+                $can_evolve = false;
+                $item_info = DB::fetch_first(
+                    "SELECT name FROM " . pm_table('pm_itemdata') . " WHERE id = $required_item_id"
+                );
+                $reasons[] = "Requires item: " . ($item_info ? $item_info['name'] : "ID $required_item_id");
+            }
+        } elseif ($cond_type === 'good') {
+            // 检查亲密度条件
+            $required_intimacy = (int) $cond_value;
+            $details['intimacy_requirement'] = $required_intimacy;
+            if ((int) $pet['good'] < $required_intimacy) {
+                $can_evolve = false;
+                $reasons[] = "Intimacy must be at least $required_intimacy (current: {$pet['good']})";
+            }
+        } else {
+            // 尚未实现的规则不能被当作无条件进化。
             $can_evolve = false;
-            $unmet_reasons[] = "Intimacy must be at least $required_intimacy (current: {$pet['good']})";
+            $reasons[] = 'Unsupported evolution method: ' . $cond_type;
         }
     }
 
     return [
+        'to_id' => (int) $first['to_id'],
+        'rules' => $rules,
         'can_evolve' => $can_evolve,
-        'reason' => $can_evolve ? 'All conditions met' : implode(', ', $unmet_reasons),
-        'details' => [
-            'level_requirement' => $cond_type === 'level' ? (int) $cond_value : null,
-            'item_requirement' => $cond_type === 'item' ? (int) $cond_value : null,
-            'intimacy_requirement' => $cond_type === 'good' ? (int) $cond_value : null,
-        ],
+        'reasons' => $reasons,
+        'method' => isset($first['method']) ? $first['method'] : '',
+        'details' => $details,
+    ];
+}
+
+/**
+ * 把评估出的路线列表组装成 available_evolutions 响应条目
+ */
+function _build_available_evolution_entries($pet, $routes)
+{
+    $evolutions = [];
+    foreach ($routes as $route) {
+        $target_info = DB::fetch_first(pm_sql(
+            "SELECT * FROM " . pm_table('pm_data') . " WHERE id = %d",
+            $route['to_id']
+        ));
+
+        $evolutions[] = [
+            'from_id' => (int) $pet['species_id'],
+            'to_id' => (int) $route['to_id'],
+            'to_name' => $target_info ? $target_info['name'] : 'Unknown',
+            'evolution_type' => $route['method'],
+            'can_evolve' => $route['can_evolve'],
+            'conditions' => [
+                'can_evolve' => $route['can_evolve'],
+                'reason' => $route['can_evolve'] ? 'All conditions met' : implode(', ', $route['reasons']),
+                'details' => $route['details'],
+            ],
+            'condition_display' => $route['condition_display'],
+        ];
+    }
+
+    return $evolutions;
+}
+
+/**
+ * 检查进化条件（单行规则的薄包装，保持旧签名与旧返回形态）
+ */
+function check_evolution_conditions($pet, $evolution_info)
+{
+    // 复合条件改由评估器的分组机制处理；这里只评估传入的单行规则，不发 pm_evolution 查询（item 未满足时仍会查询道具名称）
+    $route = _evaluate_evolution_rule_group($pet, [$evolution_info]);
+
+    return [
+        'can_evolve' => $route['can_evolve'],
+        'reason' => $route['can_evolve'] ? 'All conditions met' : implode(', ', $route['reasons']),
+        'details' => $route['details'],
     ];
 }
 

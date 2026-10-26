@@ -142,7 +142,9 @@ jobs:
 
   database-contracts:
     name: MariaDB concurrency and PHP/Rust contracts
-    runs-on: ubuntu-latest
+    # ubuntu-latest moved to 26.04 in Oct 2026 and dropped the php8.3-cgi apt
+    # package this job installs; 24.04 still ships it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read

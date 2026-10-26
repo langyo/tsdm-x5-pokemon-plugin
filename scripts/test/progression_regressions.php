@@ -35,7 +35,7 @@ function load_functions($path, $wanted)
 $api_root = __DIR__ . '/../../plugin/api/';
 load_functions($api_root . 'index.php', ['pm_sql', 'pm_sql_v', 'validate_id', 'validate_uid', 'get_param']);
 load_functions($api_root . 'pokemon.php', ['pokemon_can_learn_skill', 'api_learn_skill', 'api_get_learnable_skills']);
-load_functions($api_root . 'evolution.php', ['api_check_evolution', 'api_evolve_pokemon', 'api_get_available_evolutions', 'check_evolution_conditions', 'check_user_has_item', 'calculate_max_hp']);
+load_functions($api_root . 'evolution.php', ['api_check_evolution', 'api_evolve_pokemon', 'api_get_available_evolutions', 'evaluate_evolution_routes', '_evaluate_evolution_rule_group', '_build_available_evolution_entries', 'check_evolution_conditions', 'check_user_has_item', '_format_evolution_condition', 'calculate_max_hp']);
 
 class ProgressionResponse extends RuntimeException
 {
@@ -57,7 +57,7 @@ class DB
     public static $pet;
     public static $base;
     public static $evolution;
-    public static $evolution_rule_count;
+    public static $evolution_rules;
     public static $item;
     public static $skill;
     public static $learned;
@@ -75,9 +75,6 @@ class DB
             return self::$pet['id'] === (int) $m[1] && self::$pet['uid'] === (int) $m[2] ? self::$pet : false;
         }
         if (str_contains($sql, 'FROM pm_usersdata')) return self::$user;
-        if (str_contains($sql, 'FROM pm_evolution')) {
-            return self::$evolution && self::$evolution['from_id'] === self::$pet['species_id'] ? self::$evolution : false;
-        }
         if (str_contains($sql, 'FROM pm_data')) return self::$base;
         if (str_contains($sql, 'SELECT i.equipment')) return ['equipment' => '{"hp":25}'];
         if (str_contains($sql, 'FROM pm_myitem')) {
@@ -94,12 +91,20 @@ class DB
     {
         if (str_contains($sql, 'FROM pm_myskill')) return self::$learned;
         if (str_contains($sql, 'FROM pm_skill')) return [self::$skill];
-        if (str_contains($sql, 'FROM pm_evolution')) return self::$evolution ? [self::$evolution] : [];
+        if (str_contains($sql, 'FROM pm_evolution')) {
+            $rules = self::$evolution_rules !== null ? self::$evolution_rules : (self::$evolution ? [self::$evolution] : []);
+            preg_match('/from_id = (\d+)/', $sql, $m);
+            $from_id = isset($m[1]) ? (int) $m[1] : null;
+            $found = [];
+            foreach ($rules as $rule) {
+                if ($from_id === null || (int) $rule['from_id'] === $from_id) $found[] = $rule;
+            }
+            return $found;
+        }
         throw new RuntimeException('Unexpected list: ' . $sql);
     }
     public static function result_first($sql)
     {
-        if (str_contains($sql, 'COUNT(*) FROM pm_evolution')) return self::$evolution_rule_count;
         if (str_contains($sql, 'COUNT(*) FROM pm_myskill')) return count(self::$learned);
         throw new RuntimeException('Unexpected scalar: ' . $sql);
     }
@@ -149,7 +154,7 @@ function fixture()
         'hpg' => 0, 'hpn' => 0, 'state' => 1, 'is_shiny' => 0, 'equipmentid1' => 0];
     DB::$base = ['id' => 2, 'name' => 'Evolved', 'hp' => 80];
     DB::$evolution = ['id' => 4, 'from_id' => 1, 'to_id' => 2, 'method' => 'item', 'condition_value' => '12'];
-    DB::$evolution_rule_count = 1;
+    DB::$evolution_rules = null;
     DB::$item = ['id' => 8, 'uid' => 7, 'itemid' => 12, 'nums' => 2];
     DB::$skill = ['id' => 9, 'name' => 'Test skill', 'available_pokemons' => 'k,1,10,k', 'level_required' => 5,
         'max_uses' => 20, 'element' => 'normal', 'category' => 'physical', 'power' => 20, 'description' => 'Test'];
@@ -273,13 +278,74 @@ foreach ([[0, 0, 1, 0, 0], [31, 80, 8, 1, 1], [7, 40, 4, 0, 1]] as $stats) {
         check(DB::$item['nums'] === 2, 'Level evolution consumed an item');
     });
 }
-run_case('Compound evolution does not silently ignore later conditions', function () {
-    DB::$evolution_rule_count = 2;
-    DB::$evolution['method'] = 'level';
-    DB::$evolution['condition_value'] = '20';
-    check(!endpoint('api_check_evolution')['can_evolve'], 'Check ignored another route condition');
+run_case('Riolu-style maxed intimacy evolution', function () {
+    DB::$evolution = ['id' => 4, 'from_id' => 1, 'to_id' => 2, 'method' => 'good', 'condition_value' => '220'];
+    DB::$pet['good'] = 255;
+    $result = endpoint('api_check_evolution');
+    check($result['can_evolve'] && $result['target_form'] === 2, 'Maxed intimacy did not qualify the check');
+    endpoint('api_evolve_pokemon');
+    check(DB::$pet['species_id'] === 2 && DB::$item['nums'] === 2, 'Intimacy evolution consumed an item');
+});
+run_case('Check falls through to a satisfiable later route', function () {
+    DB::$evolution_rules = [
+        ['id' => 4, 'from_id' => 1, 'to_id' => 2, 'method' => 'item', 'condition_value' => '12'],
+        ['id' => 5, 'from_id' => 1, 'to_id' => 3, 'method' => 'good', 'condition_value' => '80'],
+    ];
+    DB::$item = false;
+    $result = endpoint('api_check_evolution');
+    check($result['can_evolve'] && $result['target_form'] === 3 && $result['evolution_method'] === 'good',
+        'Check did not fall through to the satisfiable later route');
+    endpoint('api_evolve_pokemon');
+    check(DB::$pet['species_id'] === 3 && DB::$item === false, 'Evolution touched the unavailable first route');
+    DB::$pet['good'] = 10;
+    DB::$pet['species_id'] = 1;
+    DB::$writes = [];
+    $negative = endpoint('api_check_evolution');
+    check(!$negative['can_evolve'] && $negative['reason'] !== '', 'Unsatisfiable routes still reported a check pass');
+});
+run_case('Compound route requires every rule', function () {
+    DB::$evolution_rules = [
+        ['id' => 4, 'from_id' => 1, 'to_id' => 2, 'method' => 'level', 'condition_value' => '20'],
+        ['id' => 5, 'from_id' => 1, 'to_id' => 2, 'method' => 'good', 'condition_value' => '80'],
+    ];
+    $result = endpoint('api_check_evolution');
+    check($result['can_evolve'] && $result['target_form'] === 2, 'Compound route ignored a satisfied rule');
+    endpoint('api_evolve_pokemon');
+    check(DB::$pet['species_id'] === 2 && DB::$item['nums'] === 2, 'Compound route evolution failed');
+    DB::$pet['good'] = 10;
+    DB::$pet['species_id'] = 1;
+    DB::$writes = [];
+    check(!endpoint('api_check_evolution')['can_evolve'], 'Compound route ignored the intimacy rule');
     endpoint('api_evolve_pokemon', 400);
-    check(DB::$writes === [] && DB::$pet['species_id'] === 1, 'Compound route bypassed another condition');
+    check(DB::$writes === [] && DB::$pet['species_id'] === 1, 'Unsatisfied compound route changed data');
+});
+run_case('Unsupported rule inside a compound route blocks it', function () {
+    DB::$evolution_rules = [
+        ['id' => 4, 'from_id' => 1, 'to_id' => 2, 'method' => 'level', 'condition_value' => '20'],
+        ['id' => 5, 'from_id' => 1, 'to_id' => 2, 'method' => 'sex', 'condition_value' => 'male'],
+    ];
+    $result = endpoint('api_check_evolution');
+    check(!$result['can_evolve'] && str_contains($result['reason'], 'Unsupported'), 'Compound route hid the unsupported rule');
+    endpoint('api_evolve_pokemon', 400);
+    check(DB::$writes === [] && DB::$pet['species_id'] === 1, 'Unsupported compound rule evolved the pet');
+});
+run_case('Explicit target selection', function () {
+    $routes = [
+        ['id' => 4, 'from_id' => 1, 'to_id' => 2, 'method' => 'level', 'condition_value' => '10'],
+        ['id' => 5, 'from_id' => 1, 'to_id' => 3, 'method' => 'level', 'condition_value' => '10'],
+    ];
+    DB::$evolution_rules = $routes;
+    $GLOBALS['input']['to_id'] = 3;
+    endpoint('api_evolve_pokemon');
+    check(DB::$pet['species_id'] === 3, 'Explicit to_id was not honored');
+    fixture();
+    DB::$evolution_rules = $routes;
+    $GLOBALS['input']['to_id'] = 99;
+    endpoint('api_evolve_pokemon', 400);
+    check(DB::$writes === [] && DB::$pet['species_id'] === 1, 'Unknown target still evolved or wrote data');
+    unset($GLOBALS['input']['to_id']);
+    $targets = array_column(endpoint('api_check_evolution')['available_evolutions'], 'to_id');
+    check(in_array(2, $targets, true) && in_array(3, $targets, true), 'Check hid an available route');
 });
 run_case('Single intimacy condition still allows qualifying evolution', function () {
     DB::$evolution['method'] = 'good';

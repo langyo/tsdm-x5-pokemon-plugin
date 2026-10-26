@@ -13,6 +13,9 @@ pub struct EvolutionCheckResponse {
     pub conditions: EvolutionConditions,
     pub evolution_method: String,
     pub reason: String,
+    /// 可选：具体的进化路线列表（物种无路线时可能缺失）
+    #[serde(default)]
+    pub available_evolutions: Vec<AvailableEvolution>,
 }
 
 /// 进化条件详情
@@ -60,6 +63,9 @@ pub struct AvailableEvolution {
     pub evolution_type: String,
     pub can_evolve: bool,
     pub conditions: EvolutionConditions,
+    /// 可选：后端拼好的条件文案（例 '亲密度达到 220'）
+    #[serde(default)]
+    pub condition_display: Option<String>,
 }
 
 /// 可进化列表响应
@@ -74,6 +80,9 @@ pub struct AvailableEvolutionsResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EvolutionRequest {
     pub pet_id: u64,
+    /// 多条路线都满足时指定目标形态
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub to_id: Option<u64>,
 }
 
 /// 进化路径节点
