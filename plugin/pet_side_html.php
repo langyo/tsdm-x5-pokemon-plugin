@@ -200,6 +200,7 @@ function pm_side_assets()
 .pm-q-6{background:#ffe9cc;color:#c96a00}
 .pm-q-7{background:#ffe0e6;color:#d4375f}
 .pm-q-8{background:linear-gradient(135deg,#fff3c4,#ffd76e);color:#9a6700}
+.pm-q-9{background:linear-gradient(135deg,#2b2f3a,#4a3f6b);color:#f5d76e}
 .pm-gender-m{color:#2d7ff9}
 .pm-gender-f{color:#f0548a}
 .pm-card-hp{margin:8px 0 4px}

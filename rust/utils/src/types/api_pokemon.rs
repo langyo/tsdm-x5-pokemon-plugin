@@ -54,13 +54,13 @@ pub struct PokemonBasic {
     /// 好感度/亲密度
     #[serde(default)]
     pub affection: u32,
-    /// 六项个体值总和（0-186；旧版载荷无此字段）
+    /// 六项个体值总和（正常 0-186，历史宠物可能溢出；旧版载荷无此字段）
     #[serde(default)]
     pub iv_total: Option<u64>,
-    /// 品质档位（1=E .. 8=SS+；0/缺失表示旧版载荷）
+    /// 品质档位（1=E .. 8=SS+，9=UnKnow；0/缺失表示旧版载荷）
     #[serde(default)]
     pub quality_rank: Option<u8>,
-    /// 品质名（E/D/C/B/A/S/SS/SS+）
+    /// 品质名（E/D/C/B/A/S/SS/SS+，溢出历史数据为 UnKnow）
     #[serde(default)]
     pub quality_grade: Option<String>,
     pub skills: Vec<PokemonSkillSlot>,
@@ -101,13 +101,13 @@ pub struct PokemonDetail {
     /// 六项个体值（先天固定，0-31；旧版载荷无此字段）
     #[serde(default)]
     pub ivs: Option<PokemonIndividualValues>,
-    /// 六项个体值总和（0-186）
+    /// 六项个体值总和（正常 0-186，历史宠物可能溢出）
     #[serde(default)]
     pub iv_total: Option<u64>,
-    /// 品质档位（1=E .. 8=SS+）
+    /// 品质档位（1=E .. 8=SS+，9=UnKnow）
     #[serde(default)]
     pub quality_rank: Option<u8>,
-    /// 品质名（E/D/C/B/A/S/SS/SS+）
+    /// 品质名（E/D/C/B/A/S/SS/SS+，溢出历史数据为 UnKnow）
     #[serde(default)]
     pub quality_grade: Option<String>,
     pub stats: PokemonStats,
@@ -186,7 +186,7 @@ pub struct PokemonIndividualValues {
 }
 
 impl PokemonIndividualValues {
-    /// 六项个体值总和（满值 186）
+    /// 六项个体值总和（正常满值 186，历史个体值可能溢出）
     pub fn total(&self) -> u64 {
         self.hp + self.attack + self.defense + self.sp_attack + self.sp_defense + self.speed
     }
