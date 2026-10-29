@@ -435,6 +435,7 @@ def main():
     test_php_regression("Admin data round-trip regression", "admin_round_trips.php")
     test_php_regression("Shop transaction regression", "shop_transactions.php")
     test_php_regression("Hunger item regression", "item_hunger.php")
+    test_php_regression("Quality reroll UI regression", "quality_reroll_ui.php")
     test_php_regression("Pet quality system regression", "pet_quality.php")
     test_php_regression("Trainer item usage regression", "trainer_items.php")
     test_php_regression("Out-of-battle PP restore regression", "pp_restore_out_of_battle.php")

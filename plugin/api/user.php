@@ -28,6 +28,9 @@ require_once __DIR__ . '/utils.php';
 // 加载物品模块函数
 require_once __DIR__ . '/item_modules.php';
 
+// 加载宠物品质工具（品质重洗药的目标选择器需要展示当前品质档位）
+require_once __DIR__ . '/pokemon_utils.php';
+
 global $_G;
 
 $action = get_param('action', '');
@@ -1106,6 +1109,10 @@ function api_use_item()
 
                 // 调用物品函数
                 if (function_exists($item_module)) {
+                    // 品质重洗药：先记录使用前的品质，重洗后回读宠物展示档位变化
+                    $is_quality_reroll = ($item_module === 'quality');
+                    $old_quality = $is_quality_reroll ? pm_quality_of_pokemon($pokemon) : null;
+
                     // 解析物品参数
                     $params = [
                         'iatk' => isset($item_data['atk']) ? $item_data['atk'] : 0,
@@ -1123,7 +1130,26 @@ function api_use_item()
                     }
 
                     $success = true;
-                    $message = "成功对 {$pokemon['nickname']} 使用了 {$item_data['name']}";
+
+                    if ($is_quality_reroll) {
+                        $refreshed = api_my_pokemon_data($pokemon_id);
+                        $new_quality = $refreshed ? pm_quality_of_pokemon($refreshed) : $old_quality;
+                        $max_hp = api_calculate_pokemon_max_hp($refreshed ? $refreshed : $pokemon);
+                        $pokemon_update = [
+                            'id' => (int) $pokemon_id,
+                            'hp' => (int) ($refreshed ? $refreshed['hp'] : $pokemon['hp']),
+                            'max_hp' => (int) $max_hp,
+                            'old_quality_grade' => $old_quality['grade'],
+                            'new_quality_grade' => $new_quality['grade'],
+                            'old_iv_total' => (int) $old_quality['iv_total'],
+                            'new_iv_total' => (int) $new_quality['iv_total'],
+                        ];
+                        $message = "成功对 {$pokemon['nickname']} 使用了 {$item_data['name']}："
+                            . "品质 {$old_quality['grade']} → {$new_quality['grade']}"
+                            . "（总个体值 {$old_quality['iv_total']} → {$new_quality['iv_total']}）";
+                    } else {
+                        $message = "成功对 {$pokemon['nickname']} 使用了 {$item_data['name']}";
+                    }
                 } else {
                     pm_abort_battle_transaction('物品功能未实现', 500);
                 }
@@ -1211,12 +1237,15 @@ function api_get_usable_pokemon()
 
     $item_type = $item_data['type'];
     $item_module = api_get_item_module($item_data);
+    // 品质重洗药只作用于携带中的宠物（site 1/2，最多 6 只），
+    // 其余物品仍按原逻辑列出账号下全部宠物。
+    $is_quality_item = ($item_module === 'quality');
 
-    // 获取用户所有宠物
-    $all_pokemon = DB::fetch_all(pm_sql(
-        "SELECT id, species_id, nickname, level, hp, hpg, atkg, defg, spatkg, spdefg, sdg, hpn, atkn, defn, spatkn, spdefn, sdn, state, is_shiny, equipmentid1, equipmentid2, equipmentid3, equipmentid4 FROM " . pm_table('pm_mypm') . " WHERE uid = %d",
-        $uid
-    ));
+    $list_sql = "SELECT id, species_id, nickname, level, hp, hpg, atkg, defg, spatkg, spdefg, sdg, hpn, atkn, defn, spatkn, spdefn, sdn, state, is_shiny, site, equipmentid1, equipmentid2, equipmentid3, equipmentid4 FROM " . pm_table('pm_mypm') . " WHERE uid = %d";
+    if ($is_quality_item) {
+        $list_sql .= " AND site < 3 ORDER BY site ASC, id ASC LIMIT 6";
+    }
+    $all_pokemon = DB::fetch_all(pm_sql($list_sql, $uid));
 
     $usable_pokemon = [];
     $unusable_count = 0;
@@ -1273,6 +1302,9 @@ function api_get_usable_pokemon()
                 $can_use = false;
         }
 
+        // 品质摘要（档位 + 总个体值），供品质重洗药的目标选择器展示
+        $quality = pm_quality_of_pokemon($pokemon);
+
         $pokemon_info = [
             'id' => (int) $pokemon['id'],
             'type_id' => (int) $pokemon['species_id'],
@@ -1282,6 +1314,11 @@ function api_get_usable_pokemon()
             'hp' => $current_hp,
             'max_hp' => $max_hp,
             'state' => $state,
+            'site' => (int) $pokemon['site'],
+            'is_shiny' => ((int) $pokemon['is_shiny']) === 1,
+            'iv_total' => (int) $quality['iv_total'],
+            'quality_rank' => (int) $quality['rank'],
+            'quality_grade' => $quality['grade'],
         ];
 
         if ($can_use) {
@@ -1295,6 +1332,7 @@ function api_get_usable_pokemon()
         'item_id' => (int) $item_id,
         'item_name' => $item_data['name'],
         'item_type' => (int) $item_type,
+        'item_module' => $item_module,
         'usable_pokemon' => $usable_pokemon,
         'unusable_count' => $unusable_count,
     ]);
