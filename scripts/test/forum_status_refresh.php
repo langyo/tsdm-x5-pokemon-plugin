@@ -24,11 +24,13 @@ if (($argv[1] ?? '') === '--worker') {
                 $value = array_shift($arg);
                 return $match[0] === '%t' ? self::table($value) : (string)(int)$value;
             }, $sql);
-            if (!preg_match('/\bFROM (\w+) WHERE uid=(\d+) AND site < 3$/', $sql, $matches)) {
+            if (!preg_match('/\bFROM (\w+) m LEFT JOIN (\w+) d ON m\.species_id = d\.id WHERE m\.uid=(\d+) AND m\.site < 3$/',
+                $sql, $matches)) {
                 throw new RuntimeException('Unexpected pet query: ' . $sql);
             }
             self::$reads++;
-            if ($matches[1] !== 'pm_mypm' || !empty($GLOBALS['case']['read_failure'])) {
+            if ($matches[1] !== 'pm_mypm' || $matches[2] !== 'pm_data'
+                || !empty($GLOBALS['case']['read_failure'])) {
                 if ($silent) return false;
                 throw new RuntimeException('Database query failed');
             }
@@ -36,9 +38,10 @@ if (($argv[1] ?? '') === '--worker') {
             if (empty($GLOBALS['case']['empty'])) {
                 // Include another member and a stored pet so the SQL filters matter.
                 foreach ([[11, 7, 1], [12, 7, 2], [13, 7, 0], [14, 7, 3], [15, 8, 1]] as [$id, $uid, $site]) {
-                    if ($uid != $matches[2] || $site >= 3) continue;
+                    if ($uid != $matches[3] || $site >= 3) continue;
                     $rows[] = ['id' => $id, 'species_id' => 25, 'nickname' => "宠物 ' $id",
-                        'level' => 10, 'site' => $site, 'is_shiny' => $id === 11 ? 1 : 0];
+                        'level' => 10, 'site' => $site, 'is_shiny' => $id === 11 ? 1 : 0,
+                        'is_legendary' => 0];
                 }
             }
             return (object)['rows' => $rows];
@@ -95,7 +98,7 @@ $refreshed = function ($r) {
     return $r['message'] === '已刷新状态栏' && ($r['options']['alert'] ?? '') === 'right'
         && $r['reads'] === 1 && $r['writes'] === 1 && $r['members'][8] === 'other-member-badge'
         && $badge['first'] === ['id' => 11, 'species_id' => 25, 'nickname' => "宠物 ' 11",
-            'level' => 10, 'site' => 1, 'is_shiny' => 1]
+            'level' => 10, 'site' => 1, 'is_shiny' => 1, 'is_legendary' => 0]
         && array_column($badge['creeps'], 'id') === [12, 13];
 };
 foreach (['', 'forum_'] as $prefix) {

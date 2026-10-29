@@ -156,6 +156,9 @@ pub struct PokemonBaseInfo {
     pub image: Option<String>,
     #[serde(default)]
     pub description: Option<String>,
+    /// 是否为神兽 / 论坛活动定制宠物（pm_data.is_legendary；旧载荷无此字段时为 false）
+    #[serde(default)]
+    pub is_legendary: bool,
 }
 
 /// 宠物能力值
@@ -461,4 +464,24 @@ pub struct UnequipItemResponse {
     pub new_hp: u32,
     #[serde(default)]
     pub new_maxhp: u32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn base_info_legendary_flag_defaults_off_for_legacy_payloads() {
+        let legacy: PokemonBaseInfo = serde_json::from_value(serde_json::json!({
+            "id": 25, "name": "Pikachu", "type_1": "电", "type_2": null
+        }))
+        .unwrap();
+        assert!(!legacy.is_legendary);
+
+        let legendary: PokemonBaseInfo = serde_json::from_value(serde_json::json!({
+            "id": 150, "name": "Mewtwo", "type_1": "超能", "type_2": null, "is_legendary": true
+        }))
+        .unwrap();
+        assert!(legendary.is_legendary);
+    }
 }

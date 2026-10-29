@@ -599,6 +599,7 @@ function api_get_pokemon_list()
                 'type_2' => ($info && $info['xs2']) ? $info['xs2'] : null,
                 'image' => '',
                 'description' => $info ? (isset($info['description']) ? $info['description'] : '') : '',
+                'is_legendary' => $info && intval($info['is_legendary']) === 1,
             ],
         ];
     }
@@ -756,6 +757,7 @@ function api_get_pokemon_detail()
             'type_1' => $info ? $info['xs'] : '',
             'type_2' => ($info && $info['xs2']) ? $info['xs2'] : null,
             'description' => $info ? (isset($info['description']) ? $info['description'] : '') : '',
+            'is_legendary' => $info && intval($info['is_legendary']) === 1,
         ],
     ]);
 }
@@ -810,6 +812,7 @@ function api_get_pokemon_card()
     ]);
 
     $shiny = ((int) $pm['is_shiny']) === 1;
+    $legendary = $info && intval($info['is_legendary']) === 1;
     $card_quality = pm_quality_of_pokemon($pm);
 
     // 反馈要求卡片补齐个人中心"属性栏"的基础数据：经验值与 HP 同级展示
@@ -824,6 +827,7 @@ function api_get_pokemon_card()
         'level' => (int) $pm['level'],
         'gender' => (int) $pm['sex'],
         'is_shiny' => $shiny,
+        'is_legendary' => $legendary,
         'hp' => $hp,
         'max_hp' => $max_hp,
         'exp' => $current_exp,

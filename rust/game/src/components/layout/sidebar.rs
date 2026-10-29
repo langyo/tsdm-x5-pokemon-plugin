@@ -43,6 +43,7 @@ fn to_mini_info(pm: &PokemonBasic, is_in_battle: bool) -> MiniPokemonInfo {
         max_hp: pm.max_hp,
         is_in_battle,
         is_shiny: pm.is_shiny,
+        is_legendary: pm.base_info.is_legendary,
         skills,
         state: pm.state,
         state_text: pm.state_text.clone(),

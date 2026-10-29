@@ -1391,8 +1391,11 @@ function api_get_badge_status()
 function _get_badge_pokemon_data($uid)
 {
     $rows = DB::fetch_all(pm_sql(
-        "SELECT id, species_id, nickname, level, site, is_shiny FROM " . pm_table('pm_mypm') . "
-        WHERE uid = %d AND site < 3",
+        "SELECT m.id, m.species_id, m.nickname, m.level, m.site, m.is_shiny,"
+            . " COALESCE(d.is_legendary, 0) AS is_legendary"
+            . " FROM " . pm_table('pm_mypm') . " m"
+            . " LEFT JOIN " . pm_table('pm_data') . " d ON m.species_id = d.id"
+            . " WHERE m.uid = %d AND m.site < 3",
         $uid
     ));
 

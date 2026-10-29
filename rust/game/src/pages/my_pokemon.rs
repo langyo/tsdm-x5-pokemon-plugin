@@ -2,7 +2,9 @@ use crate::prelude::*;
 
 use crate::{
     components::{
-        common::{use_popup, Modal, ModalLg, PopupMenu, PopupMenuItem, ShinyMark, TypeBadge},
+        common::{
+            use_popup, GodMark, Modal, ModalLg, PopupMenu, PopupMenuItem, ShinyMark, TypeBadge,
+        },
         layout::IMG_PATH,
     },
     state::{
@@ -212,6 +214,7 @@ pub fn MyPokemon() -> Element {
                                                 pm_type_id: pm.type_id,
                                                 pm_gender: pm.gender,
                                                 pm_is_shiny: pm.is_shiny,
+                                                pm_is_legendary: pm.base_info.is_legendary,
                                                 pm_level: pm.level as u32,
                                                 pm_hp: pm.hp,
                                                 pm_max_hp: pm.max_hp,
@@ -295,6 +298,7 @@ fn StatsTabContent(
     pm_type_id: u64,
     pm_gender: u8,
     pm_is_shiny: bool,
+    pm_is_legendary: bool,
     pm_level: u32,
     pm_hp: i64,
     pm_max_hp: i64,
@@ -545,6 +549,9 @@ fn StatsTabContent(
                     }
                     if pm_is_shiny {
                         ShinyMark {}
+                    }
+                    if pm_is_legendary {
+                        GodMark {}
                     }
                     if let Some(grade) = detail_data.as_ref().and_then(|d| d.quality_grade.clone()) {
                         {
