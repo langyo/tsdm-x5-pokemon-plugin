@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 use crate::{
-    components::common::{use_popup, PopupContext, PopupMenu, PopupMenuItem, ShinyMark},
+    components::common::{use_popup, GodMark, PopupContext, PopupMenu, PopupMenuItem, ShinyMark},
     state::{
         show_error, show_success, use_pokemon_state, use_user_profile_state, POKEMON_STATE,
         USER_STATE,
@@ -599,6 +599,9 @@ fn PokemonSlot(
                 span { class: "pokemon-slot-name-text", "{display_name}" }
                 if pokemon.is_shiny {
                     ShinyMark { class: "pet-mark-compact".to_string() }
+                }
+                if pokemon.base_info.is_legendary {
+                    GodMark { class: "pet-mark-compact".to_string() }
                 }
             }
             div { class: "pokemon-level", "Lv.{pokemon.level}" }

@@ -65,10 +65,21 @@ function pm_side_shiny($pet)
     return intval($pet['is_shiny'] ?? 0) === 1;
 }
 
+/**
+ * 神兽 / 论坛活动定制宠物（萌王、圣诞尼禄、美工部限定等）。
+ * 分类统一取 pm_data.is_legendary，由徽章数据写入 is_legendary。
+ */
+function pm_side_legendary($pet)
+{
+    return !empty($pet['is_legendary']);
+}
+
 function pm_side_pet_title($pet)
 {
     return htmlspecialchars(
-        (pm_side_shiny($pet) ? '【闪】' : '') . pm_side_name($pet) . ' Lv:' . pm_side_level($pet),
+        (pm_side_shiny($pet) ? '【闪】' : '')
+        . (pm_side_legendary($pet) ? '【神】' : '')
+        . pm_side_name($pet) . ' Lv:' . pm_side_level($pet),
         ENT_QUOTES
     );
 }
@@ -86,9 +97,12 @@ function pm_side_first_html($pet)
     $shiny = pm_side_shiny($pet)
         ? '<span class="pm-mark pm-mark-shiny" title="异色（闪光）宠物">闪</span>'
         : '';
+    $god = pm_side_legendary($pet)
+        ? '<span class="pm-mark pm-mark-god" title="神兽 / 活动定制宠物">神</span>'
+        : '';
     $html = '<div class="pm-first">'
         . '<a class="pm-pet" href="javascript:;" data-petid="' . $id . '" title="' . $title . '">' . $img . '</a>'
-        . '<div class="pm-first-name">' . $shiny
+        . '<div class="pm-first-name">' . $shiny . $god
         . '<a class="pm-pet" href="javascript:;" data-petid="' . $id . '">' . $name . '</a>'
         . ' Lv.' . pm_side_level($pet) . '</div>'
         . '</div>';
@@ -170,8 +184,9 @@ function pm_side_assets()
 .pm-side-badge .pm-first img{height:80px;width:auto;padding:0 24px;border:0}
 .pm-side-badge .pm-first-name{margin-top:2px}
 .pm-side-badge .pm-first-name a{color:inherit}
-.pm-mark{display:inline-block;padding:0 3px;border-radius:3px;font-size:10px;font-weight:700;line-height:1.5;color:#7a5a00;background:linear-gradient(135deg,#d9f0ff 0%,#fff3c4 55%,#ffd76e 100%);border:1px solid rgba(154,103,0,.28);box-shadow:0 0 3px rgba(255,215,110,.55);vertical-align:middle}
-.pm-mark-shiny{text-shadow:0 1px 0 rgba(255,255,255,.8)}
+.pm-mark{display:inline-block;padding:0 3px;border-radius:3px;font-size:10px;font-weight:700;line-height:1.5;color:#7a5a00;vertical-align:middle}
+.pm-mark-shiny{background:linear-gradient(135deg,#d9f0ff 0%,#fff3c4 55%,#ffd76e 100%);border:1px solid rgba(154,103,0,.28);box-shadow:0 0 3px rgba(255,215,110,.55);text-shadow:0 1px 0 rgba(255,255,255,.8)}
+.pm-mark-god{background:linear-gradient(135deg,#ffe9b0 0%,#ffb36b 50%,#e85d4a 100%);border:1px solid rgba(139,26,18,.35);box-shadow:0 0 3px rgba(232,93,74,.5);color:#5e1206;text-shadow:0 1px 0 rgba(255,255,255,.55)}
 .pm-side-badge .pm-mark{margin-right:2px}
 .pm-card-head .pm-mark{margin-right:4px}
 .pm-creeps-bar{display:flex;justify-content:center;margin:6px 0 2px}
@@ -316,6 +331,7 @@ function renderCard(p){
   }
   var g = GENDER[p.gender] || ['', ''];
   h += '<div class="pm-card-head">' + (p.is_shiny ? '<span class="pm-mark pm-mark-shiny" title="异色（闪光）宠物">闪</span>' : '')
+    + (p.is_legendary ? '<span class="pm-mark pm-mark-god" title="神兽 / 活动定制宠物">神</span>' : '')
     + esc(p.name) + (p.nickname ? '（' + esc(p.nickname) + '）' : '')
     + ' <span class="' + g[1] + '">' + g[0] + '</span></div>';
   h += '<div class="pm-card-sub">Lv.' + esc(p.level) + (p.owner ? ' · 主人：' + esc(p.owner) : '') + '</div>';

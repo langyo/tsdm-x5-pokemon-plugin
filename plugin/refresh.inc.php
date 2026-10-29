@@ -23,7 +23,7 @@ function get_my_pm_data()
 {
     global $_G;
     // Plugin tables use fixed pm_* names, matching install.php and the game API.
-    $query = DB::query('SELECT id, species_id, nickname, level, site, is_shiny FROM pm_mypm WHERE uid=%d AND site < 3', [
+    $query = DB::query('SELECT m.id, m.species_id, m.nickname, m.level, m.site, m.is_shiny, COALESCE(d.is_legendary, 0) AS is_legendary FROM pm_mypm m LEFT JOIN pm_data d ON m.species_id = d.id WHERE m.uid=%d AND m.site < 3', [
         (int)$_G['uid']
     ], true);
     if ($query === false) {

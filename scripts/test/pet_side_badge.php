@@ -76,6 +76,34 @@ assert_contains('<span class="pm-mark pm-mark-shiny" title="异色（闪光）�
 assert_contains('https://img.tsdm39.com/Pokemon/pmsg/25.gif', $shiny_first,
     'shiny first uses CDN pmsg big gif');
 
+// 神兽 / 活动定制宠物：标题【神】前缀 + 名字行「神」徽标
+$god_first = pm_side_badge_html([
+    'first' => ['id' => 15, 'species_id' => 150, 'nickname' => '超梦', 'level' => 70, 'is_legendary' => 1],
+]);
+assert_contains('title="【神】超梦 Lv:70"', $god_first, 'legendary first title has 神 prefix');
+assert_contains('<span class="pm-mark pm-mark-god" title="神兽 / 活动定制宠物">神</span>',
+    $god_first, 'legendary first name row carries 神 badge');
+if (strpos($god_first, 'pm-mark-shiny') !== false) {
+    $failures++;
+    echo "FAIL: non-shiny legendary pet must not carry the 闪 badge\n";
+}
+
+// 同时闪光 + 神兽：前缀顺序【闪】【神】，名字行顺序 闪→神
+$shiny_god = pm_side_badge_html([
+    'first' => ['id' => 16, 'species_id' => 150, 'nickname' => '超梦', 'level' => 70,
+        'is_shiny' => 1, 'is_legendary' => 1],
+]);
+assert_contains('title="【闪】【神】超梦 Lv:70"', $shiny_god, 'combined title orders 闪 then 神');
+assert_contains('>闪</span><span class="pm-mark pm-mark-god"', $shiny_god,
+    'combined name row orders 闪 then 神 badges');
+
+// 活动定制宠作为跟随宠：标题同样带【神】
+$god_creep = pm_side_badge_html([
+    'creeps' => [['id' => 17, 'species_id' => 20151, 'nickname' => '萌王Saber', 'level' => 1,
+        'is_legendary' => 1]],
+]);
+assert_contains('【神】萌王Saber Lv:1', $god_creep, 'legendary creep title has 神 prefix');
+
 // 无跟随宠物时不渲染切换按钮，但首发宠物仍在
 $first_only = pm_side_badge_html([
     'first' => ['id' => 11, 'species_id' => 25, 'nickname' => '皮卡丘', 'level' => 50],
@@ -84,6 +112,10 @@ assert_contains('pm-first', $first_only, 'first pet rendered');
 if (strpos($first_only, 'pm-mark') !== false) {
     $failures++;
     echo "FAIL: normal pet must not carry the 闪 badge\n";
+}
+if (strpos($first_only, 'pm-mark-god') !== false) {
+    $failures++;
+    echo "FAIL: normal pet must not carry the 神 badge\n";
 }
 if (strpos($first_only, 'pm-size-toggle') !== false) {
     $failures++;
@@ -109,6 +141,7 @@ assert_contains('.pm-size-toggle', $assets, 'assets embed toggle styles');
 assert_contains('action=card', $assets, 'popup fetches the card endpoint');
 assert_contains('.pm-mark', $assets, 'assets embed 闪 badge styles');
 assert_contains('.pm-mark-shiny', $assets, 'assets embed shiny badge style');
+assert_contains('.pm-mark-god', $assets, 'assets embed god badge style');
 assert_contains('data-pm-chain', $assets, 'assets embed fallback-chain logic');
 
 if ($failures) {

@@ -1,7 +1,10 @@
 use crate::prelude::*;
 
 use crate::{
-    components::{common::ShinyMark, layout::IMG_PATH},
+    components::{
+        common::{GodMark, ShinyMark},
+        layout::IMG_PATH,
+    },
     state::{
         clear_battle_scene, refresh_pokemon_list, refresh_user_profile_state, show_error,
         show_success, show_warning, use_pokemon_state, POKEMON_STATE, USER_STATE,
@@ -185,6 +188,7 @@ pub fn PokemonCenter() -> Element {
                                         let pm_state_text = pm.state_text.clone();
                                         let pm_state_class = pm.state_class.clone();
                                         let is_shiny = pm.is_shiny;
+                                        let is_legendary = pm.base_info.is_legendary;
 
                                         let is_in_battle = is_in_battle_state && pm.site == 1;
 
@@ -258,6 +262,9 @@ pub fn PokemonCenter() -> Element {
                                                         span { class: "heal-pm-name", "{pokemon_name_for_display}" }
                                                         if is_shiny {
                                                             ShinyMark { class: "pet-mark-compact".to_string() }
+                                                        }
+                                                        if is_legendary {
+                                                            GodMark { class: "pet-mark-compact".to_string() }
                                                         }
                                                         span { class: "heal-pm-level", "Lv.{level}" }
                                                     }

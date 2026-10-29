@@ -2753,7 +2753,7 @@
 }
 
 // =============================================================================
-// 闪光（异色）宠物标记 — 「闪」字徽标
+// 宠物特殊标记 — 「闪」（异色闪光）/「神」（神兽 / 活动定制宠）
 // 普通宠物不渲染；统一由 components/common/pet_marks.rs 输出。
 // =============================================================================
 
@@ -2780,6 +2780,15 @@
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
+// 神兽 / 活动定制宠：暖红金渐变，与闪光的蓝金明显区分
+.pet-mark-god {
+  background: linear-gradient(135deg, #ffe9b0 0%, #ffb36b 50%, #e85d4a 100%);
+  border: 1px solid rgba(139, 26, 18, 0.35);
+  box-shadow: 0 0 4px rgba(232, 93, 74, 0.5);
+  color: #5e1206;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
 // 紧凑场景（迷你网格、仓库卡片、宠物中心名字行）
 .pet-mark-compact {
   font-size: 8px;
@@ -2788,11 +2797,13 @@
   line-height: 1.4;
 }
 
-// 迷你网格槽位：左上角贴角显示，不挤压 36px 精灵图
-.pm-mini-slot .pet-mark-compact {
+// 迷你网格槽位：徽标组贴左上角显示，不挤压 36px 精灵图
+.pm-mini-slot .pm-mini-marks {
   position: absolute;
   top: -6px;
   left: -6px;
+  display: flex;
+  gap: 1px;
   z-index: 1;
 }
 

@@ -92,7 +92,8 @@ class DB
         }
         if (strpos($sql, 'FROM pm_data WHERE id =') !== false) {
             return ['id' => 25, 'name' => '皮卡丘', 'xs' => '电', 'xs2' => '',
-                'hp' => 35, 'atk' => 55, 'def' => 40, 'spatk' => 50, 'spdef' => 50, 'speed' => 90];
+                'hp' => 35, 'atk' => 55, 'def' => 40, 'spatk' => 50, 'spdef' => 50, 'speed' => 90,
+                'is_legendary' => !empty($GLOBALS['card_case']['species_legendary']) ? 1 : 0];
         }
         if (strpos($sql, 'FROM pre_common_member WHERE') !== false) {
             return ['username' => '训练家甲'];
@@ -149,6 +150,7 @@ try {
     assert_same(50, $card['level'], 'level');
     assert_same(1, $card['gender'], 'gender');
     assert_same(true, $card['is_shiny'], 'shiny flag');
+    assert_same(false, $card['is_legendary'], 'non-legendary card flag');
     assert_same('正常', $card['state_text'], 'state text');
     assert_same('电', $card['type_1'], 'type_1');
     assert_same('', $card['type_2'], 'type_2 empty for mono type');
@@ -186,7 +188,18 @@ try {
 } catch (CardResponse $r) {
     assert_same('https://img.tsdm39.com/Pokemon/pm/25.gif', $r->data['image_urls'][0],
         'normal card image chain starts at CDN pm');
+    assert_same(false, $r->data['is_legendary'], 'non-legendary card keeps flag false');
 }
+
+// --- 神兽 / 活动定制宠：卡片顶层 is_legendary=true ---
+$GLOBALS['card_case']['species_legendary'] = true;
+$GLOBALS['card_case']['pet'] = array_merge(base_pet(), ['site' => 1]);
+try {
+    api_get_pokemon_card();
+} catch (CardResponse $r) {
+    assert_same(true, $r->data['is_legendary'], 'legendary card flag');
+}
+$GLOBALS['card_case']['species_legendary'] = false;
 
 // --- 未携带（site>=3）或不存在：404 ---
 foreach ([['pet' => array_merge(base_pet(), ['site' => 5])], ['pet' => false]] as $case) {
