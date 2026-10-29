@@ -1112,6 +1112,13 @@ function api_use_item()
                     // 品质重洗药：先记录使用前的品质，重洗后回读宠物展示档位变化
                     $is_quality_reroll = ($item_module === 'quality');
                     $old_quality = $is_quality_reroll ? pm_quality_of_pokemon($pokemon) : null;
+                    // 怠惰药片：清空前记录努力值，成功消息报告前后变化，便于确认作用在哪只宠物
+                    $is_ev_reset = ($item_module === 'clean_equipment');
+                    $old_ev_total = $is_ev_reset ? pm_ev_total($pokemon) : 0;
+
+                    if ($is_ev_reset && $old_ev_total === 0) {
+                        pm_abort_battle_transaction("{$pokemon['nickname']} 的努力值已经是 0，无需使用", 400);
+                    }
 
                     // 解析物品参数
                     $params = [
@@ -1147,6 +1154,9 @@ function api_use_item()
                         $message = "成功对 {$pokemon['nickname']} 使用了 {$item_data['name']}："
                             . "品质 {$old_quality['grade']} → {$new_quality['grade']}"
                             . "（总个体值 {$old_quality['iv_total']} → {$new_quality['iv_total']}）";
+                    } elseif ($is_ev_reset) {
+                        $message = "成功对 {$pokemon['nickname']} 使用了 {$item_data['name']}"
+                            . "：努力值 {$old_ev_total} → 0";
                     } else {
                         $message = "成功对 {$pokemon['nickname']} 使用了 {$item_data['name']}";
                     }
@@ -1237,12 +1247,13 @@ function api_get_usable_pokemon()
 
     $item_type = $item_data['type'];
     $item_module = api_get_item_module($item_data);
-    // 品质重洗药只作用于携带中的宠物（site 1/2，最多 6 只），
+    // 这些道具只作用于携带中的宠物（site 1/2，最多 6 只）：
+    // quality=品质重洗药、clean_equipment=怠惰药片（清空努力值）。
     // 其余物品仍按原逻辑列出账号下全部宠物。
-    $is_quality_item = ($item_module === 'quality');
+    $is_carried_only_item = in_array($item_module, ['quality', 'clean_equipment'], true);
 
     $list_sql = "SELECT id, species_id, nickname, level, hp, hpg, atkg, defg, spatkg, spdefg, sdg, hpn, atkn, defn, spatkn, spdefn, sdn, state, is_shiny, site, equipmentid1, equipmentid2, equipmentid3, equipmentid4 FROM " . pm_table('pm_mypm') . " WHERE uid = %d";
-    if ($is_quality_item) {
+    if ($is_carried_only_item) {
         $list_sql .= " AND site < 3 ORDER BY site ASC, id ASC LIMIT 6";
     }
     $all_pokemon = DB::fetch_all(pm_sql($list_sql, $uid));
@@ -1258,6 +1269,8 @@ function api_get_usable_pokemon()
         $can_use = false;
         $level = (int) $pokemon['level'];
         $state = (int) $pokemon['state'];
+        // 努力值总和：怠惰药片的目标选择器展示并据此排除已清零的宠物
+        $ev_total = pm_ev_total($pokemon);
 
         // 获取宠物基础信息（包括名字）
         $pm_data = DB::fetch_first(pm_sql(
@@ -1294,6 +1307,10 @@ function api_get_usable_pokemon()
                 break;
             case '4': // 强化道具 - 所有宠物都可以使用
                 $can_use = true;
+                // 怠惰药片：努力值已清零的宠物再吃一片纯属浪费，不列为可选目标
+                if ($item_module === 'clean_equipment') {
+                    $can_use = $ev_total > 0;
+                }
                 break;
             case '5': // 装备道具 - 所有宠物都可以尝试装备
                 $can_use = true;
@@ -1319,6 +1336,7 @@ function api_get_usable_pokemon()
             'iv_total' => (int) $quality['iv_total'],
             'quality_rank' => (int) $quality['rank'],
             'quality_grade' => $quality['grade'],
+            'ev_total' => $ev_total,
         ];
 
         if ($can_use) {

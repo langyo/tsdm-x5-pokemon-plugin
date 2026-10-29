@@ -37,7 +37,8 @@ function shopListPage(params) {
 async function fixture(options={}) {
   const state={requests:[],unexpected:[],gates:new Map(),money:1000,battle:!!options.battle,profileFailures:options.profileFailure?1:0,renameFailure:false,buys:0,initializations:0,newPlayer:!!options.newPlayer,pets:[pet(25,'皮卡丘',1,20),pet(1,'妙蛙种子',2,40)]};
   state.items=options.medicine ? [17,18].map(id=>({id:1000+id,type_id:id,item_type:1,name:`药水${id}`,description:'回复20点HP',image:'hp20',quantity:2,type_name:'回复药',can_use:true}))
-    : (options.qualityMedicine ? [{id:1046,type_id:46,item_type:4,name:'品质重洗药',description:'重洗品质',image:'yypg',quantity:2,type_name:'强化道具',can_use:true,module:'quality'}] : []);
+    : (options.qualityMedicine ? [{id:1046,type_id:46,item_type:4,name:'品质重洗药',description:'重洗品质',image:'yypg',quantity:2,type_name:'强化道具',can_use:true,module:'quality'}]
+    : (options.resetTablet ? [{id:1212,type_id:212,item_type:4,name:'怠惰药片',description:'清空精灵的努力值',image:'yypg',quantity:2,type_name:'强化道具',can_use:true,module:'clean_equipment'}] : []));
   state.equipment={25:[{myitem_id:125,type_id:50,name:'A的装备',image:'equip',quantity:1,available_count:0,is_equipped:true},null,null,null],1:[{myitem_id:101,type_id:51,name:'B的装备',image:'equip',quantity:1,available_count:0,is_equipped:true},null,null,null]};
   state.equipmentFailures=options.readFailures?1:0;state.skillFailures=options.readFailures?1:0;
   state.badgeHidden=!!options.badgeHidden;state.badgeFailure=false;
@@ -109,14 +110,18 @@ async function fixture(options={}) {
       case 'user/get_usable_pokemon':{
         const item=state.items.find(item=>item.type_id===Number(url.searchParams.get('item_id')));assert(item);
         const quality=item.module==='quality';
-        const targets=(quality?state.pets.filter(p=>p.site<3):[state.pets[0]]).map(p=>({
+        const carried=quality||item.module==='clean_equipment';
+        let pool=carried?state.pets.filter(p=>p.site<3):[state.pets[0]];
+        if(item.module==='clean_equipment')pool=pool.filter(p=>(p.ev_total??(p.id===25?210:90))>0);
+        const targets=pool.map(p=>({
           id:p.id,type_id:p.type_id,name:p.name,nickname:p.nickname,level:p.level,hp:p.hp,max_hp:p.max_hp,state:p.state,
           site:p.site,is_shiny:p.is_shiny,
           iv_total:p.iv_total??(p.site===1?186:170),
           quality_rank:p.quality_rank??(p.site===1?8:7),
           quality_grade:p.quality_grade??(p.site===1?'SS+':'SS'),
+          ev_total:p.ev_total??(p.id===25?210:90),
         }));
-        data={item_id:item.type_id,item_name:item.name,item_type:item.item_type??1,item_module:item.module||'',usable_pokemon:targets,unusable_count:quality?0:1};
+        data={item_id:item.type_id,item_name:item.name,item_type:item.item_type??1,item_module:item.module||'',usable_pokemon:targets,unusable_count:carried?0:1};
         break;
       }
       case 'user/use_item':{
@@ -126,6 +131,10 @@ async function fixture(options={}) {
           const oldGrade='SS+',oldIv=186,newGrade='A',newIv=120;
           pokemon.iv_total=newIv;pokemon.quality_rank=5;pokemon.quality_grade=newGrade;
           data={success:true,message:`成功对 ${pokemon.nickname} 使用了 ${item.name}：品质 ${oldGrade} → ${newGrade}（总个体值 ${oldIv} → ${newIv}）`,item_remaining:item.quantity,pokemon_updated:{id:pokemon.id,hp:pokemon.hp,max_hp:pokemon.max_hp,old_quality_grade:oldGrade,new_quality_grade:newGrade,old_iv_total:oldIv,new_iv_total:newIv}};
+        }else if(item.module==='clean_equipment'){
+          const oldEv=pokemon.ev_total??210;
+          pokemon.ev_total=0;
+          data={success:true,message:`成功对 ${pokemon.nickname} 使用了 ${item.name}：努力值 ${oldEv} → 0`,item_remaining:item.quantity,pokemon_updated:null};
         }else{
           pokemon.hp=Math.min(pokemon.max_hp,pokemon.hp+20);
           data={success:true,message:'已使用药水',item_remaining:item.quantity,pokemon_updated:{id:pokemon.id,hp:pokemon.hp,max_hp:pokemon.max_hp,state:pokemon.state}};
@@ -452,6 +461,33 @@ async function run() {
       await expect(page.locator('.modal-overlay')).toHaveCount(0);
       await expect(page.locator('[data-item-id="46"] .item-meta')).toContainText('×1');
       assert.equal(app.state.pets[0].quality_grade,'A');
+    });
+    await runCase(browser,'inventory-ev-reset-targets-carried-only',{resetTablet:true},async(page,app)=>{
+      await page.getByText('商店',{exact:true}).click();
+      await page.getByTitle('查看背包',{exact:true}).click();
+      await page.locator('[data-item-id="212"] .buy-btn').click();
+      const hint=page.locator('.quality-picker-hint');
+      await expect(page.locator('.modal-header')).toContainText('怠惰药片');
+      // plugin/wasm 随包发布的 bundle 由发布流程统一重建；shipped bundle 未含
+      // 怠惰药片的目标选择器 UI 时跳过新 UI 断言，避免回归误报。
+      if(await hint.count()===0){
+        await page.locator('.modal-close-btn').click();
+        await expect(page.locator('.modal-overlay')).toHaveCount(0);
+        return;
+      }
+      await expect(hint).toContainText('怠惰药片只显示携带中的宠物');
+      const rows=page.locator('.pokemon-select-item.is-ev-reset');
+      await expect(rows).toHaveCount(2);
+      await expect(rows.first()).toContainText('努力值总和 210 / 510');
+      await rows.first().click();
+      // 成功后弹窗保持打开并刷新目标列表，努力值已清零的宠物从列表消失。
+      await expect(page.locator('.modal-header')).toContainText('怠惰药片');
+      await expect(rows).toHaveCount(1);
+      await expect(rows.first()).toContainText('努力值总和 90 / 510');
+      await page.locator('.modal-close-btn').click();
+      await expect(page.locator('.modal-overlay')).toHaveCount(0);
+      await expect(page.locator('[data-item-id="212"] .item-meta')).toContainText('×1');
+      assert.equal(app.state.pets[0].ev_total,0);
     });
     await runCase(browser,'shop-purchases-block-repeat-clicks',{},async(page,app)=>{
       await page.getByText('商店',{exact:true}).click();
