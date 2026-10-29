@@ -1,10 +1,7 @@
 use crate::prelude::*;
 
 use crate::{
-    components::{
-        common::{use_popup, PopupContext, PopupMenu, PopupMenuItem},
-        layout::IMG_PATH_REMOTE,
-    },
+    components::common::{use_popup, PopupContext, PopupMenu, PopupMenuItem, ShinyMark},
     state::{
         show_error, show_success, use_pokemon_state, use_user_profile_state, POKEMON_STATE,
         USER_STATE,
@@ -12,6 +9,7 @@ use crate::{
     utils::{
         api_client::NewApiClient,
         pokemon::{hp_class_storage, hp_health_status, hp_percent, is_weak_state},
+        sprite::front_sprite_url,
         storage_filters::{
             matching_storage_ids, parse_level_range, selected_matching_ids, StorageEntry,
             StorageFilters, StorageSort,
@@ -581,7 +579,7 @@ fn PokemonSlot(
             },
             div { class: "pokemon-sprite",
                 img {
-                    src: "{IMG_PATH_REMOTE}/pm/{pokemon.type_id}.gif",
+                    src: front_sprite_url(pokemon.type_id, pokemon.is_shiny),
                     alt: "{display_name}",
                 }
             }
@@ -597,7 +595,12 @@ fn PokemonSlot(
                     }
                 }
             }
-            div { class: "pokemon-slot-name", "{display_name}" }
+            div { class: "pokemon-slot-name",
+                span { class: "pokemon-slot-name-text", "{display_name}" }
+                if pokemon.is_shiny {
+                    ShinyMark { class: "pet-mark-compact".to_string() }
+                }
+            }
             div { class: "pokemon-level", "Lv.{pokemon.level}" }
             div { class: "pokemon-hp-bar",
                 if !is_critical {

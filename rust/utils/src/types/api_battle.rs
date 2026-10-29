@@ -176,6 +176,9 @@ pub struct BattlePokemon {
     pub level: u64,
     pub hp: i64,
     pub max_hp: i64,
+    /// 上场宠物是否异色（闪光）；旧服务端不回该字段时为 false。
+    #[serde(default)]
+    pub is_shiny: bool,
     pub skills: Vec<BattleSkill>,
 }
 
@@ -552,6 +555,7 @@ mod tests {
             level: 5,
             hp: 50,
             max_hp: 50,
+            is_shiny: false,
             skills: vec![BattleSkill {
                 id: 12,
                 name: "Tackle".into(),
@@ -631,6 +635,25 @@ mod tests {
         pokemon.hp = 0;
         assert!(!items[0].can_use_on(&pokemon));
         assert!(!items[1].can_use_on(&pokemon));
+    }
+
+    #[test]
+    fn battle_pokemon_shiny_flag_defaults_off_for_legacy_payloads() {
+        let legacy: BattlePokemon = serde_json::from_value(serde_json::json!({
+            "id":25,"instance_id":501,"name":"Pikachu","level":5,"hp":50,"max_hp":50,"skills":[]
+        }))
+        .unwrap();
+        assert!(!legacy.is_shiny);
+        assert!(!serde_json::to_value(&legacy).unwrap()["is_shiny"]
+            .as_bool()
+            .unwrap_or(true));
+
+        let shiny: BattlePokemon = serde_json::from_value(serde_json::json!({
+            "id":25,"instance_id":501,"name":"Pikachu","level":5,"hp":50,"max_hp":50,
+            "is_shiny":true,"skills":[]
+        }))
+        .unwrap();
+        assert!(shiny.is_shiny);
     }
 
     #[test]

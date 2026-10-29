@@ -148,7 +148,8 @@ async function run() {
 
       await page.locator('#storage-search').fill(' FARAWAY ');
       await expect(storageSlots(page)).toHaveCount(1);
-      await expect(storageSlots(page).first().locator('.pokemon-slot-name')).toHaveText('Faraway friend');
+      // Shiny cards append the 闪 badge to the name row, so match the name as a prefix.
+      await expect(storageSlots(page).first().locator('.pokemon-slot-name')).toContainText('Faraway friend');
       assert.deepEqual(await displayedIds(page),[125],'Search includes entries outside the initial rendered batch');
       await page.locator('#storage-clear-filters').click();
       await expect(storageSlots(page)).toHaveCount(60);

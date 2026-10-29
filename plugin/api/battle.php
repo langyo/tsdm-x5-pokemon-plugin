@@ -1976,6 +1976,7 @@ function build_battle_response($myusersdata, $mypokemon, $map = null, $is_boss =
             'level' => (int)$mypokemon['level'],
             'hp' => (int)$mypokemon['hp'],
             'max_hp' => $my_max_hp,
+            'is_shiny' => ((int)$mypokemon['is_shiny']) === 1,
             'skills' => $skills,
         ],
         'wild_pokemon' => [
