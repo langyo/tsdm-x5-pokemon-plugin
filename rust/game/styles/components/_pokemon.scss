@@ -1017,6 +1017,12 @@
   }
 }
 
+.iv-overflow-hint {
+  font-size: 10px;
+  color: #a16207;
+  font-weight: 600;
+}
+
 .iv-detail-row {
   display: flex;
   flex-wrap: wrap;
@@ -1034,7 +1040,7 @@
   padding: 1px 6px;
 }
 
-// 品质徽章配色：E/DC 灰阶、C 绿、B 蓝、A 紫、S 橙、SS 红、SS+ 金
+// 品质徽章配色：E/D 灰阶、C 绿、B 蓝、A 紫、S 橙、SS 红、SS+ 金、UnKnow 暗色金字
 .quality-badge {
   display: inline-block;
   min-width: 24px;
@@ -1055,6 +1061,8 @@
 .quality-rank-6 { background: #ffe9cc; color: #c96a00; }
 .quality-rank-7 { background: #ffe0e6; color: #d4375f; }
 .quality-rank-8 { background: linear-gradient(135deg, #fff3c4, #ffd76e); color: #9a6700; }
+// UnKnow：历史个体值突破 186 上限，用暗色底 + 金字与正常档位区分
+.quality-rank-9 { background: linear-gradient(135deg, #2b2f3a, #4a3f6b); color: #f5d76e; }
 
 // 努力值计算器按钮（与好感度样式一致）
 .ev-calculator-btn {

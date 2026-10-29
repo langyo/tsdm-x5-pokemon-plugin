@@ -196,9 +196,13 @@ function calculate_pokemon_stats($pokemon_data, $level, $ivs = null, $evs = null
 /**
  * 宠物品质体系（依据六项个体值总和判定）
  *
- * 总个体值满值为 186（6 × 31），按比例划分为八档：
- *   SS+ ≥ 92%（172）、SS ≥ 86%（160）、S ≥ 78%（145）、A ≥ 67%（125）
- *   B ≥ 56%（105）、C ≥ 45%（84）、D ≥ 32%（60）、E 为其余情况。
+ * 沿用旧版截图中的阶梯（总个体值满值 186 = 6 × 31）：
+ *   E 0-9、D 10-69、C 70-99、B 100-119、A 120-149、S 150-169、
+ *   SS 170-185、SS+ 恰好 186。
+ *
+ * 历史宠物的个体值可能突破单项 31 / 总和 186 的上限（例如活动发放的
+ * 雪拉比），此时档位记为 9 = UnKnow（未知）。该档位只用于前台展示，
+ * 后台发放与活动地图门槛仍限定在 1-8 档。
  *
  * 该体系同时供前台展示、后台发放与活动地图门槛使用；
  * Rust 侧 rust/utils/src/functions/quality.rs 维护了同一套阈值，
@@ -207,13 +211,13 @@ function calculate_pokemon_stats($pokemon_data, $level, $ivs = null, $evs = null
 
 function pm_quality_grades()
 {
-    return [1 => 'E', 2 => 'D', 3 => 'C', 4 => 'B', 5 => 'A', 6 => 'S', 7 => 'SS', 8 => 'SS+'];
+    return [1 => 'E', 2 => 'D', 3 => 'C', 4 => 'B', 5 => 'A', 6 => 'S', 7 => 'SS', 8 => 'SS+', 9 => 'UnKnow'];
 }
 
 function pm_quality_thresholds()
 {
-    // 档位 => 进入该档所需的最低总个体值
-    return [1 => 0, 2 => 60, 3 => 84, 4 => 105, 5 => 125, 6 => 145, 7 => 160, 8 => 172];
+    // 档位 => 进入该档所需的最低总个体值（UnKnow 无下界，由 pm_quality_rank() 单独判定）
+    return [1 => 0, 2 => 10, 3 => 70, 4 => 100, 5 => 120, 6 => 150, 7 => 170, 8 => 186];
 }
 
 /**
@@ -226,10 +230,16 @@ function pm_iv_total($pm)
 }
 
 /**
- * 总个体值 -> 品质档位 (1=E ... 8=SS+)
+ * 总个体值 -> 品质档位 (1=E ... 8=SS+，9=UnKnow)
+ *
+ * 超过满值 186 的历史个体值一律归入 UnKnow。
  */
 function pm_quality_rank($iv_total)
 {
+    $iv_total = intval($iv_total);
+    if ($iv_total > 186) {
+        return 9;
+    }
     $thresholds = pm_quality_thresholds();
     $rank = 1;
     foreach ($thresholds as $r => $min) {
@@ -242,6 +252,8 @@ function pm_quality_rank($iv_total)
 
 /**
  * 档位 -> 品质名；0 或越界返回空串（表示无品质要求）
+ *
+ * 1-8 依次为 E..SS+，9 为 UnKnow。
  */
 function pm_quality_name($rank)
 {
@@ -269,8 +281,12 @@ function pm_quality_of_pokemon($pm)
 /**
  * 掷出一组落在指定品质档位内的六项个体值 (0-31)
  *
+ * 档位按旧版阶梯划分：E 0-9 ... SS 170-185、SS+ 恒为 186（六项全 31）。
  * 采用“定和分配 + 随机搬移”策略：先在档位总区间内取目标总和并均分，
  * 再在保持总和不变的前提下随机搬移若干点，保证结果一定落在目标档位。
+ *
+ * 档位参数会收敛到 1-8：UnKnow（9）只描述历史溢出数据，
+ * 无法通过掷取生成，因此不会被发放。
  */
 function pm_roll_ivs_for_rank($rank)
 {

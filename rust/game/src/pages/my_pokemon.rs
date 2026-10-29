@@ -15,7 +15,7 @@ use crate::{
         pokemon::{gender_class, gender_symbol, hp_class, hp_percent},
     },
 };
-use _utils::functions::{quality_grade, quality_rank, IV_TOTAL_MAX};
+use _utils::functions::{quality_grade, quality_rank, IV_TOTAL_MAX, UNKNOWN_RANK};
 use _utils::types::api_pokemon::{EquipmentItem, EquipmentSlot, LearnableSkill, PokemonSkillSlot};
 
 #[component]
@@ -590,16 +590,30 @@ fn StatsTabContent(
                         span { class: "affection-label", "好感度" }
                         span { class: "affection-value", "{pm_affection}" }
                     }
-                    // 总个体值 + 品质：品质由六项个体值总和判定（旧端点无 ivs 字段时整行隐藏）
+                    // 总个体值 + 品质：优先使用载荷里的 quality_rank / quality_grade
+                    //（旧端点无 ivs 字段时整行隐藏）。历史宠物可能突破 186 上限，
+                    // 此时展示原始总和并提示溢出，徽章显示 UnKnow。
                     if let Some(ivs) = detail_data.as_ref().and_then(|d| d.ivs) {
                         {
                             let iv_total = ivs.total();
-                            let rank = quality_rank(iv_total);
+                            let rank = detail_data
+                                .as_ref()
+                                .and_then(|d| d.quality_rank)
+                                .unwrap_or_else(|| quality_rank(iv_total));
+                            let grade = detail_data
+                                .as_ref()
+                                .and_then(|d| d.quality_grade.clone())
+                                .unwrap_or_else(|| quality_grade(rank).to_string());
                             rsx! {
                                 div { class: "iv-summary-row",
                                     span { class: "affection-label", "总个体值" }
-                                    span { class: "affection-value", "{iv_total} / {IV_TOTAL_MAX}" }
-                                    span { class: "quality-badge quality-rank-{rank}", "{quality_grade(rank)}" }
+                                    if rank == UNKNOWN_RANK {
+                                        span { class: "affection-value", "{iv_total}" }
+                                        span { class: "iv-overflow-hint", "超出 {IV_TOTAL_MAX} 上限（历史个体值）" }
+                                    } else {
+                                        span { class: "affection-value", "{iv_total} / {IV_TOTAL_MAX}" }
+                                    }
+                                    span { class: "quality-badge quality-rank-{rank}", "{grade}" }
                                 }
                                 div { class: "iv-detail-row",
                                     span { class: "iv-chip", "HP {ivs.hp}" }
