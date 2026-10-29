@@ -2751,3 +2751,62 @@
     }
   }
 }
+
+// =============================================================================
+// 闪光（异色）宠物标记 — 「闪」字徽标
+// 普通宠物不渲染；统一由 components/common/pet_marks.rs 输出。
+// =============================================================================
+
+.pet-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #7a5a00;
+  vertical-align: middle;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.pet-mark-shiny {
+  background: linear-gradient(135deg, #d9f0ff 0%, #fff3c4 55%, #ffd76e 100%);
+  border: 1px solid rgba(154, 103, 0, 0.28);
+  box-shadow: 0 0 4px rgba(255, 215, 110, 0.55);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+// 紧凑场景（迷你网格、仓库卡片、宠物中心名字行）
+.pet-mark-compact {
+  font-size: 8px;
+  padding: 0 2px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+
+// 迷你网格槽位：左上角贴角显示，不挤压 36px 精灵图
+.pm-mini-slot .pet-mark-compact {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  z-index: 1;
+}
+
+// 仓库卡片名字行：长昵称以省略号截断，闪光标记始终完整可见
+.pokemon-slot .pokemon-slot-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+
+  .pokemon-slot-name-text {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+}

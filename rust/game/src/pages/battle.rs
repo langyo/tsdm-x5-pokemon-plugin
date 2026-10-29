@@ -5,9 +5,15 @@ use log::BattleLogPanel;
 
 use crate::components::common::Modal;
 use crate::{
-    components::{common::TypeBadge, layout::IMG_PATH, layout::IMG_PATH_REMOTE},
+    components::{
+        common::{ShinyMark, TypeBadge},
+        layout::IMG_PATH,
+    },
     state::{POKEMON_STATE, SWITCH_POKEMON_REQUEST},
-    utils::pokemon::{hp_class, hp_percent},
+    utils::{
+        pokemon::{hp_class, hp_percent},
+        sprite::{back_sprite_url, front_sprite_url},
+    },
 };
 use _utils::types::{
     api_battle::{
@@ -520,7 +526,7 @@ fn WildPokemonSection(pokemon: _utils::types::api_battle::WildPokemon) -> Elemen
             div { class: "enemy-sprite-container",
                 img {
                     class: "enemy-sprite",
-                    src: "{IMG_PATH_REMOTE}/pm/{pokemon.id}.gif",
+                    src: front_sprite_url(pokemon.id, pokemon.is_shiny),
                     alt: "{pokemon.name}",
                 }
             }
@@ -530,7 +536,7 @@ fn WildPokemonSection(pokemon: _utils::types::api_battle::WildPokemon) -> Elemen
                     div { class: "enemy-name-row",
                         span { class: "enemy-name", "{pokemon.name}" }
                         if pokemon.is_shiny {
-                            span { class: "shiny-icon", "★" }
+                            ShinyMark {}
                         }
                         span { class: "enemy-gender {gender_class(pokemon.gender)}",
                             "{gender_symbol(pokemon.gender)}"
@@ -571,6 +577,9 @@ fn MyPokemonSection(
                 div { class: "player-header",
                     div { class: "player-name-row",
                         span { class: "player-name", "{pokemon.name}" }
+                        if pokemon.is_shiny {
+                            ShinyMark {}
+                        }
                         span { class: "player-level", "Lv.{pokemon.level}" }
                     }
                 }
@@ -589,7 +598,7 @@ fn MyPokemonSection(
             div { class: "player-sprite-container",
                 img {
                     class: "player-sprite",
-                    src: "{IMG_PATH_REMOTE}/pmb/{pokemon.id}.gif",
+                    src: back_sprite_url(pokemon.id, pokemon.is_shiny),
                     alt: "{pokemon.name}",
                 }
             }

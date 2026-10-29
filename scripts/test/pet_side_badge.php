@@ -58,7 +58,7 @@ assert_contains('class="pm-side-badge"', $badge, 'badge wrapper present');
 assert_contains('data-petid="11"', $badge, 'first pet carries petid');
 assert_contains('https://img.tsdm39.com/Pokemon/pm/25.gif', $badge, 'first pet uses CDN big gif');
 assert_contains('data-petid="12"', $badge, 'creep pet carries petid');
-assert_contains('✨小火龙 Lv:12', $badge, 'shiny creep title has marker');
+assert_contains('【闪】小火龙 Lv:12', $badge, 'shiny creep title has 闪 prefix');
 assert_contains('data-pm-chain-lg="[&quot;https://img.tsdm39.com/Pokemon/pmsg/4.gif', $badge,
     'shiny creep large chain uses pmsg');
 assert_contains('source/plugin/pokemon/images/spm/7.gif', $badge, 'creep small chain uses local spm');
@@ -66,11 +66,25 @@ assert_contains('pm-size-toggle', $badge, 'size toggle rendered when creeps exis
 assert_contains('data-pm-size="lg"', $badge, 'large size button present');
 assert_contains('data-petid="13"', $badge, 'X3-legacy creep rendered');
 
+// 闪光首发宠物：标题前缀 + 名字行「闪」徽标，大图走 pmsg
+$shiny_first = pm_side_badge_html([
+    'first' => ['id' => 14, 'species_id' => 25, 'nickname' => '皮卡丘', 'level' => 50, 'is_shiny' => 1],
+]);
+assert_contains('title="【闪】皮卡丘 Lv:50"', $shiny_first, 'shiny first title has 闪 prefix');
+assert_contains('<span class="pm-mark pm-mark-shiny" title="异色（闪光）宠物">闪</span>',
+    $shiny_first, 'shiny first name row carries 闪 badge');
+assert_contains('https://img.tsdm39.com/Pokemon/pmsg/25.gif', $shiny_first,
+    'shiny first uses CDN pmsg big gif');
+
 // 无跟随宠物时不渲染切换按钮，但首发宠物仍在
 $first_only = pm_side_badge_html([
     'first' => ['id' => 11, 'species_id' => 25, 'nickname' => '皮卡丘', 'level' => 50],
 ]);
 assert_contains('pm-first', $first_only, 'first pet rendered');
+if (strpos($first_only, 'pm-mark') !== false) {
+    $failures++;
+    echo "FAIL: normal pet must not carry the 闪 badge\n";
+}
 if (strpos($first_only, 'pm-size-toggle') !== false) {
     $failures++;
     echo "FAIL: size toggle must be hidden without creeps\n";
@@ -93,6 +107,8 @@ $assets = pm_side_assets();
 assert_contains('window.__pmSideInit', $assets, 'assets embed the guard script');
 assert_contains('.pm-size-toggle', $assets, 'assets embed toggle styles');
 assert_contains('action=card', $assets, 'popup fetches the card endpoint');
+assert_contains('.pm-mark', $assets, 'assets embed 闪 badge styles');
+assert_contains('.pm-mark-shiny', $assets, 'assets embed shiny badge style');
 assert_contains('data-pm-chain', $assets, 'assets embed fallback-chain logic');
 
 if ($failures) {

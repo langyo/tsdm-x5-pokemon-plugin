@@ -2,8 +2,8 @@ use crate::prelude::*;
 
 use crate::{
     components::{
-        common::{use_popup, Modal, ModalLg, PopupMenu, PopupMenuItem, TypeBadge},
-        layout::{IMG_PATH, IMG_PATH_REMOTE},
+        common::{use_popup, Modal, ModalLg, PopupMenu, PopupMenuItem, ShinyMark, TypeBadge},
+        layout::IMG_PATH,
     },
     state::{
         refresh_pokemon_list, show_error, show_success, show_warning, update_pokemon_hp,
@@ -13,6 +13,7 @@ use crate::{
     utils::{
         api_client::NewApiClient,
         pokemon::{gender_class, gender_symbol, hp_class, hp_percent},
+        sprite::front_sprite_url,
     },
 };
 use _utils::functions::{quality_grade, quality_rank, IV_TOTAL_MAX, UNKNOWN_RANK};
@@ -191,7 +192,7 @@ pub fn MyPokemon() -> Element {
 
                                         img {
                                             class: "pokemon-sprite-img",
-                                            src: "{IMG_PATH_REMOTE}/pm/{pm.type_id}.gif",
+                                            src: front_sprite_url(pm.type_id, pm.is_shiny),
                                             alt: "{pm.name}",
                                         }
 
@@ -311,7 +312,6 @@ fn StatsTabContent(
     on_evolution_path_click: EventHandler<()>,
     on_evolution_click: EventHandler<()>,
 ) -> Element {
-    let _is_shiny = pm_is_shiny;
     let detail = use_resource(move || async move {
         let api = NewApiClient::new();
         api.get_pokemon_detail(pokemon_id).await
@@ -542,6 +542,9 @@ fn StatsTabContent(
                     }
                     span { class: "pokemon-gender {gender_class(pm_gender)}",
                         "{gender_symbol(pm_gender)}"
+                    }
+                    if pm_is_shiny {
+                        ShinyMark {}
                     }
                     if let Some(grade) = detail_data.as_ref().and_then(|d| d.quality_grade.clone()) {
                         {

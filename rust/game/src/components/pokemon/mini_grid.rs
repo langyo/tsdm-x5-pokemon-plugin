@@ -1,6 +1,9 @@
 use crate::prelude::*;
 
-use crate::{components::common::TypeBadge, components::layout::IMG_PATH};
+use crate::components::{
+    common::{ShinyMark, TypeBadge},
+    layout::IMG_PATH,
+};
 
 /// 技能简要信息（用于 tooltip 显示）
 #[derive(Clone, PartialEq)]
@@ -21,6 +24,8 @@ pub struct MiniPokemonInfo {
     pub hp: i64,
     pub max_hp: i64,
     pub is_in_battle: bool,
+    /// 是否异色（闪光）宠物
+    pub is_shiny: bool,
     pub skills: Vec<MiniSkillInfo>,
     pub state: u8,
     pub state_text: String,
@@ -121,6 +126,9 @@ fn PokemonMiniSlot(
                     src: "{IMG_PATH}/spm/{pokemon.type_id}.gif",
                     alt: "{pokemon.display_name()}",
                 }
+                if pokemon.is_shiny {
+                    ShinyMark { class: "pet-mark-compact".to_string() }
+                }
                 span { class: "pm-mini-level", "Lv.{pokemon.level}" }
                 if pokemon.is_in_battle {
                     span { class: "pm-mini-battle-icon", "⚔️" }
@@ -168,6 +176,9 @@ fn PokemonTooltip(pokemon: MiniPokemonInfo, hp_class: String) -> Element {
             div { class: "pm-tooltip-header",
                 div { class: "pm-tooltip-name-row",
                     span { class: "pm-tooltip-name", "{display_name}" }
+                    if pokemon.is_shiny {
+                        ShinyMark { class: "pet-mark-compact".to_string() }
+                    }
                     span { class: "pm-tooltip-level", "Lv.{pokemon.level}" }
                 }
                 if pokemon.has_negative_state() && !pokemon.state_text.is_empty() {
