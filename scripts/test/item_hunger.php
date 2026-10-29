@@ -8,6 +8,8 @@ define('IN_DISCUZ', true);
 require __DIR__ . '/../../plugin/api/utils.php';
 require __DIR__ . '/../../plugin/api/constants.php';
 require $argv[2] ?? __DIR__ . '/../../plugin/api/item_modules.php';
+// user.php 现在在文件顶部加载品质工具，端点回归测试同样需要这组函数。
+require __DIR__ . '/../../plugin/api/pokemon_utils.php';
 
 function load_item_functions($path, $wanted)
 {
@@ -105,7 +107,7 @@ $GLOBALS['_G'] = ['uid' => 7];
 function fixture($state, $hp = 10, $type = 1, $module = 'hunger')
 {
     $GLOBALS['input'] = ['item_id' => 42, 'pokemon_id' => 1];
-    DB::$pet = ['id' => 1, 'uid' => 7, 'site' => 1, 'species_id' => 1, 'nickname' => 'Test', 'hp' => $hp, 'level' => 50, 'hpg' => 20, 'hpn' => 0, 'state' => $state, 'is_shiny' => 0, 'equipmentid1' => 9, 'equipmentid2' => 0, 'equipmentid3' => 0, 'equipmentid4' => 0];
+    DB::$pet = ['id' => 1, 'uid' => 7, 'site' => 1, 'species_id' => 1, 'nickname' => 'Test', 'hp' => $hp, 'level' => 50, 'hpg' => 20, 'atkg' => 0, 'defg' => 0, 'spatkg' => 0, 'spdefg' => 0, 'sdg' => 0, 'hpn' => 0, 'state' => $state, 'is_shiny' => 0, 'equipmentid1' => 9, 'equipmentid2' => 0, 'equipmentid3' => 0, 'equipmentid4' => 0];
     // The seeded milk selects hunger through sitemname, not module.
     DB::$item = ['id' => 42, 'name' => 'Milk', 'type' => $type, 'module' => '', 'sitemname' => $module, 'tpname' => 'yypg', 'effects' => '{"hp":50}'];
     DB::$stock = ['id' => 2, 'uid' => 7, 'itemid' => 42, 'nums' => 2];

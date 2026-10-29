@@ -1051,6 +1051,176 @@
     }
   }
 
+  // 品质重洗药：仅携带宠物的目标列表
+  .quality-picker-hint {
+    margin-bottom: $spacing-sm;
+    padding: $spacing-xs $spacing-sm;
+    border-radius: $radius-sm;
+    background: rgba($color-primary, 0.08);
+    color: $color-gray-600;
+    font-size: $font-size-xs;
+    line-height: 1.5;
+  }
+
+  .pokemon-select-item.is-quality {
+    flex-direction: row;
+    align-items: center;
+    gap: $spacing-sm;
+
+    .pokemon-select-sprite {
+      position: relative;
+      flex-shrink: 0;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid $color-gray-200;
+      border-radius: $radius-md;
+      background: $color-white;
+
+      .pokemon-select-sprite-img {
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+
+      .pet-mark-compact {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+      }
+    }
+
+    .pokemon-select-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-xs;
+    }
+
+    .pokemon-select-quality-total {
+      font-size: $font-size-xs;
+      color: $color-gray-500;
+    }
+  }
+
+  // 品质重洗成功后的前后对比面板（弹窗保持打开）
+  .quality-compare-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-lg $spacing-md;
+  }
+
+  .quality-compare-pet {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  .quality-compare-sprite {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid $color-gray-200;
+    border-radius: $radius-md;
+    background: $color-white;
+
+    .quality-compare-sprite-img {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    .pet-mark-compact {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+    }
+  }
+
+  .quality-compare-pet-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .quality-compare-pet-name {
+    font-size: $font-size-base;
+    font-weight: 600;
+    color: $color-gray-800;
+  }
+
+  .quality-compare-pet-level {
+    font-size: $font-size-xs;
+    color: $color-gray-500;
+  }
+
+  .quality-compare-change {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+  }
+
+  .quality-compare-arrow {
+    font-size: $font-size-lg;
+    font-weight: 700;
+    color: $color-gray-400;
+  }
+
+  .quality-compare-ivs {
+    font-size: $font-size-sm;
+    color: $color-gray-600;
+  }
+
+  .quality-compare-remaining {
+    font-size: $font-size-xs;
+    color: $color-gray-500;
+  }
+
+  .quality-compare-actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-top: $spacing-xs;
+  }
+
+  .quality-compare-btn {
+    padding: $spacing-xs $spacing-lg;
+    border: 1px solid $color-gray-300;
+    border-radius: $radius-md;
+    background: $color-white;
+    color: $color-gray-700;
+    font-size: $font-size-sm;
+    font-family: $font-family-base;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover {
+      border-color: $color-primary;
+      color: $color-primary;
+    }
+
+    &.primary {
+      border-color: $color-primary;
+      background: $color-primary;
+      color: $color-white;
+
+      &:hover {
+        background: $color-primary-dark;
+        color: $color-white;
+      }
+    }
+  }
+
   .empty-pokemon-list,
   .loading-pokemon-list {
     text-align: center;

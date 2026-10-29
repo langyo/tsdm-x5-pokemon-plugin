@@ -182,6 +182,18 @@ pub struct PokemonUpdate {
     pub max_hp: Option<i64>,
     #[serde(rename = "state")]
     pub state: Option<u64>,
+    /// 品质重洗前的品质名（仅品质重洗药返回）
+    #[serde(default)]
+    pub old_quality_grade: Option<String>,
+    /// 品质重洗后的品质名（仅品质重洗药返回）
+    #[serde(default)]
+    pub new_quality_grade: Option<String>,
+    /// 品质重洗前的六项个体值总和（仅品质重洗药返回）
+    #[serde(default)]
+    pub old_iv_total: Option<u64>,
+    /// 品质重洗后的六项个体值总和（仅品质重洗药返回）
+    #[serde(default)]
+    pub new_iv_total: Option<u64>,
 }
 
 /// 在线玩家响应
@@ -229,6 +241,21 @@ pub struct UsablePokemon {
     #[serde(rename = "max_hp")]
     pub max_hp: i64,
     pub state: u64,
+    /// 携带位置（1=首位，2=随行，3=仓库；旧服务端缺该字段）
+    #[serde(default)]
+    pub site: u8,
+    /// 是否异色（闪光）
+    #[serde(default)]
+    pub is_shiny: bool,
+    /// 六项个体值总和（旧服务端缺该字段）
+    #[serde(default)]
+    pub iv_total: Option<u64>,
+    /// 品质档位（1=E .. 8=SS+，9=UnKnow；旧服务端缺该字段）
+    #[serde(default)]
+    pub quality_rank: Option<u8>,
+    /// 品质名（E/D/C/B/A/S/SS/SS+/UnKnow）
+    #[serde(default)]
+    pub quality_grade: Option<String>,
 }
 
 /// 获取可使用物品的宠物列表响应
@@ -240,6 +267,9 @@ pub struct UsablePokemonResponse {
     pub item_name: String,
     #[serde(rename = "item_type")]
     pub item_type: u64,
+    /// 物品模块名（如 quality；旧服务端缺该字段时为空串）
+    #[serde(default)]
+    pub item_module: String,
     #[serde(rename = "usable_pokemon")]
     pub usable_pokemon: Vec<UsablePokemon>,
     #[serde(rename = "unusable_count")]

@@ -36,7 +36,8 @@ function shopListPage(params) {
 }
 async function fixture(options={}) {
   const state={requests:[],unexpected:[],gates:new Map(),money:1000,battle:!!options.battle,profileFailures:options.profileFailure?1:0,renameFailure:false,buys:0,initializations:0,newPlayer:!!options.newPlayer,pets:[pet(25,'皮卡丘',1,20),pet(1,'妙蛙种子',2,40)]};
-  state.items=options.medicine ? [17,18].map(id=>({id:1000+id,type_id:id,item_type:1,name:`药水${id}`,description:'回复20点HP',image:'hp20',quantity:2,type_name:'回复药',can_use:true})) : [];
+  state.items=options.medicine ? [17,18].map(id=>({id:1000+id,type_id:id,item_type:1,name:`药水${id}`,description:'回复20点HP',image:'hp20',quantity:2,type_name:'回复药',can_use:true}))
+    : (options.qualityMedicine ? [{id:1046,type_id:46,item_type:4,name:'品质重洗药',description:'重洗品质',image:'yypg',quantity:2,type_name:'强化道具',can_use:true,module:'quality'}] : []);
   state.equipment={25:[{myitem_id:125,type_id:50,name:'A的装备',image:'equip',quantity:1,available_count:0,is_equipped:true},null,null,null],1:[{myitem_id:101,type_id:51,name:'B的装备',image:'equip',quantity:1,available_count:0,is_equipped:true},null,null,null]};
   state.equipmentFailures=options.readFailures?1:0;state.skillFailures=options.readFailures?1:0;
   state.badgeHidden=!!options.badgeHidden;state.badgeFailure=false;
@@ -105,8 +106,32 @@ async function fixture(options={}) {
       case 'battle/maps':data={maps:[],total:0};break;
       case 'battle/get_battle_items':data={items:[]};break;
       case 'user/inventory':data={items:state.items.filter(item=>item.quantity>0),total:state.items.filter(item=>item.quantity>0).length,page:1,per_page:50,total_pages:1};break;
-      case 'user/get_usable_pokemon':{const item=state.items.find(item=>item.type_id===Number(url.searchParams.get('item_id')));assert(item);data={item_id:item.type_id,item_name:item.name,item_type:1,usable_pokemon:[state.pets[0]],unusable_count:1};break;}
-      case 'user/use_item':{const item=state.items.find(item=>item.type_id===body.item_id);const pokemon=state.pets.find(p=>p.id===body.pokemon_id);assert(item&&pokemon);item.quantity--;pokemon.hp=Math.min(pokemon.max_hp,pokemon.hp+20);data={success:true,message:'已使用药水',item_remaining:item.quantity,pokemon_updated:{id:pokemon.id,hp:pokemon.hp,max_hp:pokemon.max_hp,state:pokemon.state}};break;}
+      case 'user/get_usable_pokemon':{
+        const item=state.items.find(item=>item.type_id===Number(url.searchParams.get('item_id')));assert(item);
+        const quality=item.module==='quality';
+        const targets=(quality?state.pets.filter(p=>p.site<3):[state.pets[0]]).map(p=>({
+          id:p.id,type_id:p.type_id,name:p.name,nickname:p.nickname,level:p.level,hp:p.hp,max_hp:p.max_hp,state:p.state,
+          site:p.site,is_shiny:p.is_shiny,
+          iv_total:p.iv_total??(p.site===1?186:170),
+          quality_rank:p.quality_rank??(p.site===1?8:7),
+          quality_grade:p.quality_grade??(p.site===1?'SS+':'SS'),
+        }));
+        data={item_id:item.type_id,item_name:item.name,item_type:item.item_type??1,item_module:item.module||'',usable_pokemon:targets,unusable_count:quality?0:1};
+        break;
+      }
+      case 'user/use_item':{
+        const item=state.items.find(item=>item.type_id===body.item_id);const pokemon=state.pets.find(p=>p.id===body.pokemon_id);assert(item&&pokemon);
+        item.quantity--;
+        if(item.module==='quality'){
+          const oldGrade='SS+',oldIv=186,newGrade='A',newIv=120;
+          pokemon.iv_total=newIv;pokemon.quality_rank=5;pokemon.quality_grade=newGrade;
+          data={success:true,message:`成功对 ${pokemon.nickname} 使用了 ${item.name}：品质 ${oldGrade} → ${newGrade}（总个体值 ${oldIv} → ${newIv}）`,item_remaining:item.quantity,pokemon_updated:{id:pokemon.id,hp:pokemon.hp,max_hp:pokemon.max_hp,old_quality_grade:oldGrade,new_quality_grade:newGrade,old_iv_total:oldIv,new_iv_total:newIv}};
+        }else{
+          pokemon.hp=Math.min(pokemon.max_hp,pokemon.hp+20);
+          data={success:true,message:'已使用药水',item_remaining:item.quantity,pokemon_updated:{id:pokemon.id,hp:pokemon.hp,max_hp:pokemon.max_hp,state:pokemon.state}};
+        }
+        break;
+      }
       case 'shop/list':data=shopListPage(url.searchParams);break;
       case 'shop/pets':{
         const keyword=(url.searchParams.get('keyword')||'').trim();
@@ -392,6 +417,32 @@ async function run() {
       assert.equal(app.state.pets[0].hp,40);
       await page.locator('.pm-mini-slot').first().hover();
       await expect(page.locator('.stat-hp-bar .stat-value-inside')).toHaveText('40/50');
+    });
+    await runCase(browser,'inventory-quality-reroll-shows-grade-change',{qualityMedicine:true},async(page,app)=>{
+      await page.getByText('商店',{exact:true}).click();
+      await page.getByTitle('查看背包',{exact:true}).click();
+      await page.locator('[data-item-id="46"] .buy-btn').click();
+      await expect(page.locator('.quality-picker-hint')).toContainText('携带中的宠物');
+      const row=page.locator('.pokemon-select-item.is-quality').first();
+      await expect(row).toBeVisible();
+      await expect(row.locator('.quality-badge')).toContainText('SS+');
+      await expect(row).toContainText('总个体值 186 / 186');
+      await row.click();
+      const panel=page.locator('.quality-compare-panel');
+      await expect(panel).toBeVisible();
+      await expect(panel.locator('.quality-compare-change .quality-badge').first()).toHaveText('SS+');
+      await expect(panel.locator('.quality-compare-change .quality-badge').last()).toHaveText('A');
+      await expect(panel.locator('.quality-compare-ivs')).toContainText('186 → 120');
+      await expect(panel.locator('.quality-compare-remaining')).toContainText('剩余 1 个');
+      const continueButton=panel.locator('.quality-compare-btn').filter({hasText:'继续使用'});
+      await expect(continueButton).toBeVisible();
+      await continueButton.click();
+      await expect(panel).toHaveCount(0);
+      await expect(page.locator('.quality-picker-hint')).toBeVisible();
+      await page.locator('.modal-close-btn').click();
+      await expect(page.locator('.modal-overlay')).toHaveCount(0);
+      await expect(page.locator('[data-item-id="46"] .item-meta')).toContainText('×1');
+      assert.equal(app.state.pets[0].quality_grade,'A');
     });
     await runCase(browser,'shop-purchases-block-repeat-clicks',{},async(page,app)=>{
       await page.getByText('商店',{exact:true}).click();
