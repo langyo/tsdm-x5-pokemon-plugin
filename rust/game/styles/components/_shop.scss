@@ -1051,7 +1051,7 @@
     }
   }
 
-  // 品质重洗药：仅携带宠物的目标列表
+  // 品质重洗药/怠惰药片：仅携带宠物的目标列表
   .quality-picker-hint {
     margin-bottom: $spacing-sm;
     padding: $spacing-xs $spacing-sm;
@@ -1062,7 +1062,8 @@
     line-height: 1.5;
   }
 
-  .pokemon-select-item.is-quality {
+  // 品质重洗药/怠惰药片：带头像与摘要行的目标条目
+  .pokemon-select-item.is-detailed {
     flex-direction: row;
     align-items: center;
     gap: $spacing-sm;
@@ -1101,7 +1102,7 @@
       gap: $spacing-xs;
     }
 
-    .pokemon-select-quality-total {
+    .pokemon-select-stat-total {
       font-size: $font-size-xs;
       color: $color-gray-500;
     }

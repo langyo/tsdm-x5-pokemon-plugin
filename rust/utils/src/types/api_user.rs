@@ -256,6 +256,9 @@ pub struct UsablePokemon {
     /// 品质名（E/D/C/B/A/S/SS/SS+/UnKnow）
     #[serde(default)]
     pub quality_grade: Option<String>,
+    /// 六项努力值总和（旧服务端缺该字段）
+    #[serde(default)]
+    pub ev_total: Option<u64>,
 }
 
 /// 获取可使用物品的宠物列表响应

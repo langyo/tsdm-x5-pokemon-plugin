@@ -230,6 +230,15 @@ function pm_iv_total($pm)
 }
 
 /**
+ * 计算宠物实例（pm_mypm 行）的六项努力值总和（上限 510）
+ */
+function pm_ev_total($pm)
+{
+    return intval($pm['hpn']) + intval($pm['atkn']) + intval($pm['defn'])
+        + intval($pm['spatkn']) + intval($pm['spdefn']) + intval($pm['sdn']);
+}
+
+/**
  * 总个体值 -> 品质档位 (1=E ... 8=SS+，9=UnKnow)
  *
  * 超过满值 186 的历史个体值一律归入 UnKnow。

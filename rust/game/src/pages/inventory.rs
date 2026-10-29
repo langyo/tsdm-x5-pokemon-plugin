@@ -196,7 +196,9 @@ pub fn Inventory() -> Element {
             let target_item_id = *item_id;
 
             // 品质重洗药的目标列表带 item_module=quality：成功后在原弹窗内展示
-            // 品质变化，不立即关闭；其余道具沿用“关闭弹窗 + 成功提示”的旧流程。
+            // 品质变化，不立即关闭；怠惰药片（clean_equipment）同样保留弹窗并
+            // 刷新目标列表（已清零的宠物会从列表消失）；其余道具沿用“关闭弹窗 +
+            // 成功提示”的旧流程。
             let quality_target = match usable_pokemon_list.read().as_ref().and_then(|r| r.as_ref())
             {
                 Some(Ok(data)) if data.item_module == "quality" => data
@@ -207,9 +209,14 @@ pub fn Inventory() -> Element {
                 _ => None,
             };
             let is_quality_item = quality_target.is_some();
+            let is_ev_reset_item =
+                match usable_pokemon_list.read().as_ref().and_then(|r| r.as_ref()) {
+                    Some(Ok(data)) => data.item_module == "clean_equipment",
+                    _ => false,
+                };
 
             using_item.set(Some(target_item_id));
-            if !is_quality_item {
+            if !is_quality_item && !is_ev_reset_item {
                 show_target_modal.set(false);
             }
 
@@ -250,6 +257,20 @@ pub fn Inventory() -> Element {
                                 // 已用尽则不再请求（服务端会因无库存报错）。
                                 if can_continue {
                                     usable_pokemon_list.restart();
+                                }
+                            }
+                            None if is_ev_reset_item => {
+                                // 怠惰药片：保留弹窗并刷新目标列表，努力值已清零的
+                                // 宠物会从列表消失，便于确认刚对哪只使用；用尽则关闭。
+                                show_success(result.message);
+                                inventory_data.restart();
+                                refresh_pokemon_list();
+                                refresh_inventory_state();
+                                if result.item_remaining.unwrap_or(0) > 0 {
+                                    usable_pokemon_list.restart();
+                                } else {
+                                    selected_item.set(None);
+                                    show_target_modal.set(false);
                                 }
                             }
                             None => {
@@ -497,6 +518,9 @@ pub fn Inventory() -> Element {
                     match modal_content {
                         Some(Ok(data)) => {
                             let is_quality = data.item_module == "quality";
+                            // 怠惰药片与品质重洗药一样，服务端只返回携带中的宠物
+                            let is_ev_reset = data.item_module == "clean_equipment";
+                            let is_carried_only = is_quality || is_ev_reset;
                             let result_panel = quality_result.read().clone();
                             rsx! {
                                 div { class: "pokemon-select-modal",
@@ -560,16 +584,16 @@ pub fn Inventory() -> Element {
                                         }
                                     } else if data.usable_pokemon.is_empty() {
                                         div { class: "empty-pokemon-list",
-                                            if is_quality {
-                                                "没有携带中的宠物可以使用品质重洗药"
+                                            if is_carried_only {
+                                                "没有携带中的宠物可以使用该物品"
                                             } else {
                                                 "没有可以使用该物品的宝可梦"
                                             }
                                         }
                                     } else {
-                                        if is_quality {
+                                        if is_carried_only {
                                             div { class: "quality-picker-hint",
-                                                "品质重洗药只显示携带中的宠物（最多 6 只）"
+                                                "{data.item_name}只显示携带中的宠物（最多 6 只）"
                                             }
                                         }
                                         div { class: "pokemon-select-list custom-scrollbar",
@@ -580,11 +604,13 @@ pub fn Inventory() -> Element {
                                                     let pokemon_hp = p.hp;
                                                     let pokemon_max_hp = p.max_hp;
                                                     let show_quality = is_quality;
+                                                    let show_sprite = is_carried_only;
                                                     let pokemon_type_id = p.type_id;
                                                     let pokemon_is_shiny = p.is_shiny;
                                                     let pokemon_quality_grade = p.quality_grade.clone();
                                                     let pokemon_quality_rank = p.quality_rank.unwrap_or(0);
                                                     let pokemon_iv_total = p.iv_total;
+                                                    let pokemon_ev_total = p.ev_total;
                                                     let hp_percent = if pokemon_max_hp > 0 {
                                                         ((pokemon_hp as f64 / pokemon_max_hp as f64) * 100.0) as u32
                                                     } else {
@@ -596,9 +622,15 @@ pub fn Inventory() -> Element {
 
                                                     rsx! {
                                                         div {
-                                                            class: if show_quality { "pokemon-select-item is-quality" } else { "pokemon-select-item" },
+                                                            class: if show_quality {
+                                                                "pokemon-select-item is-detailed is-quality"
+                                                            } else if show_sprite {
+                                                                "pokemon-select-item is-detailed is-ev-reset"
+                                                            } else {
+                                                                "pokemon-select-item"
+                                                            },
                                                             onclick: move |_| confirm_use_on_pokemon(pokemon_id),
-                                                            if show_quality {
+                                                            if show_sprite {
                                                                 div { class: "pokemon-select-sprite",
                                                                     img {
                                                                         class: "pokemon-select-sprite-img",
@@ -625,8 +657,15 @@ pub fn Inventory() -> Element {
                                                                 }
                                                                 if show_quality {
                                                                     if let Some(total) = pokemon_iv_total {
-                                                                        div { class: "pokemon-select-quality-total",
+                                                                        div { class: "pokemon-select-stat-total",
                                                                             "总个体值 {total} / 186"
+                                                                        }
+                                                                    }
+                                                                }
+                                                                if is_ev_reset {
+                                                                    if let Some(total) = pokemon_ev_total {
+                                                                        div { class: "pokemon-select-stat-total",
+                                                                            "努力值总和 {total} / 510"
                                                                         }
                                                                     }
                                                                 }
@@ -643,8 +682,8 @@ pub fn Inventory() -> Element {
                                                 }
                                             }
 
-                                            // 显示无法使用的宠物数量（品质重洗药的目标已按携带状态筛选）
-                                            if !is_quality && data.unusable_count > 0 {
+                                            // 显示无法使用的宠物数量（品质重洗药/怠惰药片的目标已按携带状态筛选）
+                                            if !is_carried_only && data.unusable_count > 0 {
                                                 div { class: "unusable-pokemon-hint",
                                                     "剩余 {data.unusable_count} 个宠物无法使用该物品"
                                                 }
