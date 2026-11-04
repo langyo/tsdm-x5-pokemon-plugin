@@ -3,7 +3,7 @@
 ## Behavior covered
 
 | Area | Expected behavior | Verification |
-|------|-------------------|--------------|
+| --- | --- | --- |
 | Battle reconnect | An interrupted action retains its request ID; recovery reads the current battle; retry replays a committed result without repeating it. | PHP replay tests, MariaDB concurrency, Chromium lost-response scenarios |
 | Database transactions | Money, inventory, HP, PP, events and action receipts commit or roll back together. | Independent PHP CGI processes against MariaDB |
 | Purchase capacity | A bulk purchase writes its quantity once. Full or invalid inventory rejects the whole purchase without keeping the debit, including in non-strict SQL mode. | Both MariaDB SQL modes, final-capacity races and injected failures |

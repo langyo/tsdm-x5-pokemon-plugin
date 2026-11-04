@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 use crate::{
-    components::common::Modal,
+    components::common::{Icon, IconName, Modal},
     components::layout::IMG_PATH_REMOTE,
     pages::BattlePage,
     state::{
@@ -376,7 +376,10 @@ pub fn Adventure() -> Element {
                                 .is_some();
                                 rsx! {
                                     div { class: "map-detail-section boss-challenge-section",
-                                        h4 { "👑 Boss 挑战" }
+                                        h4 {
+                                            Icon { name: IconName::Crown, size: 14, class: "lucide-inline".to_string() }
+                                            "Boss 挑战"
+                                        }
                                         div { class: "boss-list-simple",
                                             Fragment {
                                                 for (position, boss) in bosses_vec {
@@ -397,7 +400,10 @@ pub fn Adventure() -> Element {
                                                                      "Lv.{boss.level} · 倍率 x{boss.boss_multiplier}"
                                                                  }
                                                              }
-                                                             span { class: "boss-row-action", "⚔️ 挑战" }
+                                                             span { class: "boss-row-action",
+                                                                 Icon { name: IconName::Swords, size: 12, class: "lucide-inline".to_string() }
+                                                                 "挑战"
+                                                             }
                                                          }
                                                      }
                                                  }
@@ -560,7 +566,10 @@ pub fn Adventure() -> Element {
                                                                         let mid = map_id_for_boss_card;
                                                                         rsx! {
                                                                             div { class: "card-boss-list",
-                                                                                div { class: "card-boss-title", "👑 Boss:" }
+                                                                                div { class: "card-boss-title",
+                                                                                    Icon { name: IconName::Crown, size: 12, class: "lucide-inline".to_string() }
+                                                                                    "Boss:"
+                                                                                }
                                                                                 Fragment {
                                                                                     for (position, boss) in bosses_vec {
                                                                                         div {
@@ -607,7 +616,8 @@ pub fn Adventure() -> Element {
 
                                             if pokemon_list_empty {
                                                 div { class: "warning-box-zoomed",
-                                                    "⚠️ 你还没有宝可梦！请先去商店购买或捕捉一只宝可梦。"
+                                                    Icon { name: IconName::TriangleAlert, size: 14, class: "lucide-inline".to_string() }
+                                                    "你还没有宝可梦！请先去商店购买或捕捉一只宝可梦。"
                                                 }
                                             }
                                         }
@@ -649,7 +659,8 @@ pub fn Adventure() -> Element {
                                 }
                                 if pokemon_list_empty {
                                     div { class: "warning-box-map",
-                                        "⚠️ 你还没有宝可梦！请先去商店购买或捕捉一只宝可梦。"
+                                        Icon { name: IconName::TriangleAlert, size: 14, class: "lucide-inline".to_string() }
+                                        "你还没有宝可梦！请先去商店购买或捕捉一只宝可梦。"
                                     }
                                 }
                             }

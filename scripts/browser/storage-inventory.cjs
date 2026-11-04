@@ -202,7 +202,7 @@ async function run() {
       await page.locator('#inventory-search-submit').click();
       await expect(page.locator('#inventory-result-count')).toHaveText('当前分类共 60 项');
       await expect(page.locator('[data-item-id]')).toHaveCount(50);
-      await page.getByRole('button',{name:'下一页 →',exact:true}).click();
+      await page.getByRole('button',{name:'下一页',exact:true}).click();
       await expect(page.locator('.page-info')).toHaveText('第 2 / 2 页');
       await expect(page.locator('[data-item-id]')).toHaveCount(10);
       await expect(page.locator('[data-item-id="60"]')).toBeVisible();

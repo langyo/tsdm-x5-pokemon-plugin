@@ -1,7 +1,10 @@
 use crate::prelude::*;
 
 use crate::{
-    components::layout::IMG_PATH,
+    components::{
+        common::{Icon, IconName},
+        layout::IMG_PATH,
+    },
     hooks::{use_shop, use_shop_pets},
     state::{
         refresh_inventory_state, refresh_pokemon_list, refresh_user_profile_state, show_error,
@@ -11,6 +14,11 @@ use crate::{
 };
 
 const PET_CATEGORY: Option<u32> = None;
+
+/// tooltip 估算高度（px），用于入点定位：商品详情较矮，宠物六维详情较高。
+/// 需与 .shop-tile-tooltip 的 CSS 尺寸保持一致。
+const ITEM_TOOLTIP_H: f64 = 130.0;
+const PET_TOOLTIP_H: f64 = 190.0;
 
 #[component]
 pub fn Shop() -> Element {
@@ -62,7 +70,7 @@ pub fn Shop() -> Element {
                 if is_battle_active {
                     div { class: "battle-disabled-overlay",
                         div { class: "battle-disabled-message",
-                            span { class: "battle-icon", "⚔️" }
+                            Icon { name: IconName::Swords, size: 40, class: "battle-icon".to_string() }
                             p { "战斗中无法使用商店" }
                             p { class: "battle-hint", "请先结束当前战斗" }
                         }
@@ -70,7 +78,7 @@ pub fn Shop() -> Element {
                 }
 
                 div { class: "shop-card-header",
-                    span { class: "header-icon-emoji", "🛒" }
+                    Icon { name: IconName::Shoppingcart, size: 18, class: "header-icon".to_string() }
                     span { "道具商店" }
                 }
 
@@ -237,7 +245,7 @@ fn ShopNameFilter(
                                     search_input.set(String::new());
                                     on_keyword_change.call(());
                                 },
-                                "✕"
+                                Icon { name: IconName::X, size: 12 }
                             }
                         }
                     }
@@ -266,7 +274,7 @@ fn ShopPaginator(mut current_page: Signal<u32>, total_pages: usize) -> Element {
                     let p = (*current_page.read()).saturating_sub(1).max(1);
                     current_page.set(p);
                 },
-                "‹"
+                Icon { name: IconName::ChevronLeft, size: 14 }
             }
             for entry in pages {
                 if let Some(p) = entry {
@@ -297,7 +305,7 @@ fn ShopPaginator(mut current_page: Signal<u32>, total_pages: usize) -> Element {
                     let p = (*current_page.read() + 1).min(total as u32);
                     current_page.set(p);
                 },
-                "›"
+                Icon { name: IconName::ChevronRight, size: 14 }
             }
         }
     }
@@ -322,6 +330,37 @@ fn windowed_pages(current: usize, total: usize) -> Vec<Option<usize>> {
     }
     pages.push(Some(total));
     pages
+}
+
+/// 悬浮详情定位（视口坐标，配合 .shop-tile-tooltip 的 position:fixed）：
+/// 显示在光标上方，避免盖住当前卡片下方的价格与购买按钮；上边距不足时
+/// 翻到光标下方，横向按估算宽度收拢在视口内。`tooltip_h` 为按内容高度的
+/// 估算上限，需与 .shop-tile-tooltip 的 CSS 尺寸保持一致。
+fn shop_tooltip_position(client_x: f64, client_y: f64, tooltip_h: f64) -> (f64, f64) {
+    const TOOLTIP_W: f64 = 230.0; // CSS max-width
+    const GAP: f64 = 12.0;
+    const MARGIN: f64 = 8.0;
+
+    let window = web_sys::window().expect("window should exist in wasm");
+    let win_w = window
+        .inner_width()
+        .ok()
+        .and_then(|v| v.as_f64())
+        .unwrap_or(1280.0);
+    let win_h = window
+        .inner_height()
+        .ok()
+        .and_then(|v| v.as_f64())
+        .unwrap_or(720.0);
+
+    let mut x = client_x - TOOLTIP_W / 2.0;
+    x = x.max(MARGIN).min((win_w - TOOLTIP_W - MARGIN).max(MARGIN));
+
+    let mut y = client_y - tooltip_h - GAP;
+    if y < MARGIN {
+        y = (client_y + GAP).min((win_h - tooltip_h - MARGIN).max(MARGIN));
+    }
+    (x, y)
 }
 
 #[component]
@@ -377,11 +416,19 @@ fn ShopItemsTab(
 #[component]
 fn ShopItemTile(item: _utils::types::api_shop::ShopItem, mut buying: Signal<bool>) -> Element {
     let mut show_tooltip = use_signal(|| false);
+    // tooltip 显示在入点上方（固定定位 + 视口内收拢），不遮挡本卡片的价格/购买按钮。
+    let mut tooltip_pos = use_signal(|| (0.0f64, 0.0f64));
+    // rsx 内不便解构元组信号，这里先读出（仅在 mouseenter 后有意义，隐藏时不使用）。
+    let tip = tooltip_pos();
 
     rsx! {
         div {
             class: "shop-tile",
-            onmouseenter: move |_| show_tooltip.set(true),
+            onmouseenter: move |evt| {
+                let c = evt.data().client_coordinates();
+                tooltip_pos.set(shop_tooltip_position(c.x, c.y, ITEM_TOOLTIP_H));
+                show_tooltip.set(true);
+            },
             onmouseleave: move |_| show_tooltip.set(false),
             div { class: "shop-tile-icon",
                 img {
@@ -396,7 +443,7 @@ fn ShopItemTile(item: _utils::types::api_shop::ShopItem, mut buying: Signal<bool
             }
             div { class: "shop-tile-foot",
                 div { class: "item-price",
-                    span { class: "price-icon-emoji", "💰" }
+                    Icon { name: IconName::Coins, size: 12, class: "price-icon".to_string() }
                     span { class: "price-value", "{item.price}" }
                 }
                 button {
@@ -434,18 +481,19 @@ fn ShopItemTile(item: _utils::types::api_shop::ShopItem, mut buying: Signal<bool
                 }
             }
             if *show_tooltip.read() {
-                ShopItemTooltip { item: item.clone() }
+                ShopItemTooltip { item: item.clone(), x: tip.0, y: tip.1 }
             }
         }
     }
 }
 
-/// 商品详情 Tooltip（fixed 定位，不拦截鼠标事件）。
+/// 商品详情 Tooltip（fixed 定位，坐标由入点光标位置计算，不拦截鼠标事件）。
 #[component]
-fn ShopItemTooltip(item: _utils::types::api_shop::ShopItem) -> Element {
+fn ShopItemTooltip(item: _utils::types::api_shop::ShopItem, x: f64, y: f64) -> Element {
     let effect = &item.effect;
     rsx! {
         div { class: "shop-tile-tooltip",
+            style: "left: {x}px; top: {y}px;",
             div { class: "tile-tooltip-header",
                 span { class: "tile-tooltip-name", "{item.name}" }
                 span { class: "item-type-badge", "{item.type_name}" }
@@ -465,7 +513,7 @@ fn ShopItemTooltip(item: _utils::types::api_shop::ShopItem) -> Element {
                 }
             }
             div { class: "tile-tooltip-price",
-                span { class: "price-icon-emoji", "💰" }
+                Icon { name: IconName::Coins, size: 14, class: "price-icon".to_string() }
                 span { "{item.price}" }
             }
         }
@@ -525,11 +573,18 @@ fn ShopPetsTab(
 #[component]
 fn ShopPetTile(pet: _utils::types::api_shop::ShopPet, mut buying: Signal<bool>) -> Element {
     let mut show_tooltip = use_signal(|| false);
+    // 与商品宫格一致：tooltip 显示在入点上方，不遮挡价格/购买按钮。
+    let mut tooltip_pos = use_signal(|| (0.0f64, 0.0f64));
+    let tip = tooltip_pos();
 
     rsx! {
         div {
             class: "shop-tile pet-tile",
-            onmouseenter: move |_| show_tooltip.set(true),
+            onmouseenter: move |evt| {
+                let c = evt.data().client_coordinates();
+                tooltip_pos.set(shop_tooltip_position(c.x, c.y, PET_TOOLTIP_H));
+                show_tooltip.set(true);
+            },
             onmouseleave: move |_| show_tooltip.set(false),
             div { class: "shop-tile-icon",
                 img {
@@ -549,7 +604,7 @@ fn ShopPetTile(pet: _utils::types::api_shop::ShopPet, mut buying: Signal<bool>) 
             }
             div { class: "shop-tile-foot",
                 div { class: "item-price",
-                    span { class: "price-icon-emoji", "💰" }
+                    Icon { name: IconName::Coins, size: 12, class: "price-icon".to_string() }
                     span { class: "price-value", "{pet.price}" }
                 }
                 button {
@@ -590,7 +645,7 @@ fn ShopPetTile(pet: _utils::types::api_shop::ShopPet, mut buying: Signal<bool>) 
                 }
             }
             if *show_tooltip.read() {
-                ShopPetTooltip { pet: pet.clone() }
+                ShopPetTooltip { pet: pet.clone(), x: tip.0, y: tip.1 }
             }
         }
     }
@@ -598,9 +653,10 @@ fn ShopPetTile(pet: _utils::types::api_shop::ShopPet, mut buying: Signal<bool>) 
 
 /// 宠物详情 Tooltip：六维种族值 + 属性 + 价格。
 #[component]
-fn ShopPetTooltip(pet: _utils::types::api_shop::ShopPet) -> Element {
+fn ShopPetTooltip(pet: _utils::types::api_shop::ShopPet, x: f64, y: f64) -> Element {
     rsx! {
         div { class: "shop-tile-tooltip",
+            style: "left: {x}px; top: {y}px;",
             div { class: "tile-tooltip-header",
                 span { class: "tile-tooltip-name", "{pet.name}" }
                 span { class: "badge badge-type-{pet.type_1}", "{pet.type_1}" }
@@ -619,7 +675,7 @@ fn ShopPetTooltip(pet: _utils::types::api_shop::ShopPet) -> Element {
                 span { class: "tile-tooltip-stat", "速度 {pet.speed}" }
             }
             div { class: "tile-tooltip-price",
-                span { class: "price-icon-emoji", "💰" }
+                Icon { name: IconName::Coins, size: 14, class: "price-icon".to_string() }
                 span { "{pet.price}" }
             }
         }

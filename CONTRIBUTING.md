@@ -19,11 +19,11 @@
 A PR may be merged (squash) once all of the following hold:
 
 1. It targets the `master` branch.
-2. Its title follows the commit message convention below, with the `(#<PR_ID>)`
+1. Its title follows the commit message convention below, with the `(#<PR_ID>)`
    suffix appended once the number is known.
-3. The local gates pass: `just fmt-check`, `just lint`, `just test`,
+1. The local gates pass: `just fmt-check`, `just lint`, `just test`,
    `just test-php`.
-4. CI shows no code-level failure (compile/test/lint). Purely environmental
+1. CI shows no code-level failure (compile/test/lint). Purely environmental
    failures (network hiccups, queueing) may be recorded in the PR and waived
    after the local gates pass — see AGENTS.md §6/§8.
 
@@ -35,12 +35,12 @@ the repository settings permit them. Delete your feature branch after merging.
 All commits follow the [gitmoji](https://gitmoji.dev) convention based on
 Celestia Island standards:
 
-```
+```text
 <gitmoji> <Capitalized English summary.>
 ```
 
 | Rule | Example (pass) | Example (fail) |
-|---|---|---|
+| --- | --- | --- |
 | Starts with a gitmoji | `🐛 Fix the parser crash.` | `Fix the parser crash.` |
 | No Conventional Commits prefix | `🐛 Fix the parser crash.` | `🐛 fix: crash.` |
 | No colon-prefix subject of any shape | `♻️ Drop dead queries after audit round 23.` | `♻️ Audit round 23: drop dead queries.` |
@@ -59,7 +59,7 @@ already conveys the change type — never repeat it as a `type:` prefix.
 PR titles follow the exact same rule as commit summaries — **without** any PR
 number suffix:
 
-```
+```text
 <gitmoji> <Capitalized English summary.>
 ```
 
@@ -91,7 +91,7 @@ just commit-msg-hook-install
 ### Quick Reference
 
 | Gitmoji | When to use |
-|---|---|
+| --- | --- |
 | ✨ | New feature |
 | 🐛 | Bug fix |
 | 📝 | Documentation |
@@ -145,9 +145,9 @@ Migration scripts live in `migrations/`:
 
 1. `from-x3/001_x3_to_x5_migration.sql` — engine/charset upgrade, table
    normalization (idempotent; safe to re-run)
-2. `2026-*.sql` — dated incremental upgrades for already-installed sites,
+1. `2026-*.sql` — dated incremental upgrades for already-installed sites,
    applied in filename order (idempotent; safe to re-run)
-3. `seed-fixes/` — one-off repairs for early seed data (apply explicitly
+1. `seed-fixes/` — one-off repairs for early seed data (apply explicitly
    when affected)
 
 Always back up the database before running migration scripts.

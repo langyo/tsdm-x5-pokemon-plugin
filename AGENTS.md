@@ -10,7 +10,7 @@
 
 ## 1. Commit Message Format
 
-```
+```text
 <gitmoji> <Capitalized English summary ending with period.>
 ```
 
@@ -52,7 +52,7 @@
 ## 2. Repository Layout
 
 | Path | Purpose |
-|------|---------|
+| --- | --- |
 | `plugin/` | The Discuz X5 plugin itself (PHP): game logic, admin panel, API, i18n, images. `_x5-ref/` inside is read-only Discuz reference code — never modify it. |
 | `rust/` | Rust/WASM frontends (`_admin`, `_game`, `_utils`), built into `plugin/wasm/` by `scripts/publish/build.py`. |
 | `template/` | Discuz X5 page templates. |
@@ -71,22 +71,24 @@ Every change — human or agent — lands through this exact pattern:
    `chore/<name>` / `refactor/<name>`). Never commit directly on `master`. If you
    use git worktrees, keep them outside the main checkout and remove them after
    the branch is merged and deleted.
-2. **3-Round Verify Cycle** for each change:
+1. **3-Round Verify Cycle** for each change:
+
    - Round 1: Analyze → Improve → Verify
    - Round 2: Analyze again → Improve → Verify
    - Round 3: Final analysis → Polish → Verify
    - If ANY round fails, restart the 3-round count from zero.
-3. **Commit** with the gitmoji message format (§1).
-4. **Push** the branch.
-5. **Create the PR** via `gh pr create`. The PR title follows the exact same
+
+1. **Commit** with the gitmoji message format (§1).
+1. **Push** the branch.
+1. **Create the PR** via `gh pr create`. The PR title follows the exact same
    rule as a commit subject (`<gitmoji> <one-sentence description.>`) —
    **without** any `(#<PR_ID>)` suffix: GitHub appends the number automatically
    when squashing (repo setting: commit-or-PR title), and a manually added
    number doubles it (see the `(#17) (#17)` subject of #17).
-6. **Squash merge** (autonomous per §6). Never use a merge commit or rebase
+1. **Squash merge** (autonomous per §6). Never use a merge commit or rebase
    merge through the UI/API — squash only, even though the repo settings permit
    the other styles.
-7. **Delete** the feature branch after merge.
+1. **Delete** the feature branch after merge.
 
 ### Agent Working Patterns
 
@@ -159,7 +161,7 @@ by `just publish`); do NOT create standalone version-bump PRs.
   1. **Message compliance**: the squash subject must be
      `<gitmoji> <one English sentence ending with .>` with no colon-prefix; the
      PR title follows the same rule.
-  2. **Checks gate**: CI checks should pass before merging. This repo is a
+  1. **Checks gate**: CI checks should pass before merging. This repo is a
      private repo on a GitHub Free plan — branch protection and required checks
      are unavailable, so the gate is enforced by this file, not by GitHub. A
      check that fails for a documented environment/infra reason (e.g. `pip
@@ -167,7 +169,7 @@ by `just publish`); do NOT create standalone version-bump PRs.
      queueing) may be bypassed only when the failure is recorded in the PR and
      the change passes the local gates (§5). **Never merge over a genuine code
      failure** (compile/test/lint).
-  3. **PR economy**: do NOT create a PR per trivial change. A PR should bundle a
+  1. **PR economy**: do NOT create a PR per trivial change. A PR should bundle a
      meaningful batch of mergeable functionality. Small PRs are allowed only
      when there is genuinely nothing else to bundle (urgent hotfix, single
      rule/CLI change).
@@ -185,24 +187,25 @@ by `just publish`); do NOT create standalone version-bump PRs.
 1. **Never commit real passwords / keys / tokens / internal IPs** into the git
    tree — any branch, any file, including comments, examples, defaults, test
    data, README, docs, and dev-stack configs.
-2. When code needs a credential:
+1. When code needs a credential:
+
    - use environment variables or untracked config files, or placeholders
      (`<your-password>` / `CHANGE_ME`);
    - use RFC 5737 documentation addresses (192.0.2.x / 198.51.100.x /
      203.0.113.x) and obviously fake values (`test-password` / `sk-xxx`) in
      examples.
-3. If a real credential is genuinely required, **ask the user first**; never
+1. If a real credential is genuinely required, **ask the user first**; never
    write it in on your own judgment.
-4. **Pre-commit self-check**: for changes touching config / deployment / dev
+1. **Pre-commit self-check**: for changes touching config / deployment / dev
    scripts / seed data, grep the diff for `password|secret|token|api_key` and
    confirm no real values before committing.
-5. Credentials that live in workspace-local files outside the repo must never
+1. Credentials that live in workspace-local files outside the repo must never
    be copied into any repo file — including this one.
-6. If a leak happens anyway:
+1. If a leak happens anyway:
    1. remove the credential from the current branch/PR immediately;
-   2. assess the exposure (tags / branches / forks / clones);
-   3. report to the user, who decides on history rewriting;
-   4. regardless of rewriting, treat the credential as public and rotate it.
+   1. assess the exposure (tags / branches / forks / clones);
+   1. report to the user, who decides on history rewriting;
+   1. regardless of rewriting, treat the credential as public and rotate it.
 
 ---
 
@@ -239,7 +242,7 @@ Operating rules:
    shows a **code-level failure** (compile/test/lint). If yes — fix it. If all
    failures are environmental (network, queueing) — record in the PR and merge
    after local gates pass. Do not stare at CI for more than ~15 minutes.
-2. Redundant runs (e.g. superseded pushes) may be cancelled:
+1. Redundant runs (e.g. superseded pushes) may be cancelled:
    `gh run cancel <id> --repo langyo/tsdm-x5-pokemon-plugin`.
-3. `concurrency` + `cancel-in-progress` is configured in the workflows to reap
+1. `concurrency` + `cancel-in-progress` is configured in the workflows to reap
    superseded runs automatically.

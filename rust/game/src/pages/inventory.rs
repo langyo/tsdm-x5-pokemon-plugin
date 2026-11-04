@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 use crate::{
     components::{
-        common::{Modal, ShinyMark},
+        common::{Icon, IconName, Modal, ShinyMark},
         layout::{Page, CURRENT_PAGE, IMG_PATH, INITIAL_INVENTORY_CATEGORY},
     },
     state::{
@@ -314,7 +314,7 @@ pub fn Inventory() -> Element {
                 if use_battle_state() {
                     div { class: "battle-disabled-overlay",
                         div { class: "battle-disabled-message",
-                            span { class: "battle-icon", "⚔️" }
+                            Icon { name: IconName::Swords, size: 40, class: "battle-icon".to_string() }
                             p { "战斗中无法使用背包" }
                             p { class: "battle-hint", "请先结束当前战斗" }
                         }
@@ -475,7 +475,8 @@ pub fn Inventory() -> Element {
                                             current_page.set(p);
                                             scroll_to_top();
                                         },
-                                        "← 上一页"
+                                        Icon { name: IconName::ChevronLeft, size: 12, class: "lucide-inline".to_string() }
+                                        "上一页"
                                     }
                                     span { class: "page-info",
                                         "第 {data.page} / {data.total_pages} 页"
@@ -488,7 +489,8 @@ pub fn Inventory() -> Element {
                                             current_page.set(p);
                                             scroll_to_top();
                                         },
-                                        "下一页 →"
+                                        "下一页"
+                                        Icon { name: IconName::ChevronRight, size: 12, class: "lucide-inline-end".to_string() }
                                     }
                                 }
                             }

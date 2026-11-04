@@ -24,23 +24,23 @@ schema migration does not infer which item numbering system a rule uses.
 ### Apply to an existing seeded database
 
 1. Back up the selected site's database and retain the backup until verified.
-2. Review the guarded rows in the SQL file against the site's `pm_evolution`
+1. Review the guarded rows in the SQL file against the site's `pm_evolution`
    table. Confirm that it uses the original item catalog and seed rules.
-3. From the repository root, connect to that database. The client prompts for
+1. From the repository root, connect to that database. The client prompts for
    the password; replace the placeholders below with the site's own settings.
 
    ```sh
    mariadb --host='<database-host>' --user='<database-user>' -p '<site-database>'
    ```
 
-4. Check the selected database, then apply the targeted repair:
+1. Check the selected database, then apply the targeted repair:
 
    ```sql
    SELECT DATABASE();
    SOURCE migrations/seed-fixes/001_item_evolution_ids.sql;
    ```
 
-5. Check the affected rules against the corrected seed and verify an intended
+1. Check the affected rules against the corrected seed and verify an intended
    item evolution in a test copy of the site.
 
 Do not reimport the full installation seeds into an existing site. The targeted

@@ -414,7 +414,8 @@
     }
     
     .attack-btn-icon {
-      font-size: $font-size-2xl;
+      width: 22px;
+      height: 22px;
       color: $color-gray-600;
     }
     
@@ -772,7 +773,8 @@
     }
     
     .flee-icon {
-      font-size: $font-size-lg;
+      width: 16px;
+      height: 16px;
     }
   }
 }
@@ -847,7 +849,9 @@
       gap: $spacing-xs;
       
       .reward-icon {
-        font-size: $font-size-base;
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
       }
       
       .reward-value {
@@ -871,7 +875,9 @@
     animation: levelUpPulse 1.5s ease-in-out infinite;
 
     .level-up-icon {
-      font-size: $font-size-lg;
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
     }
 
     .level-up-text {

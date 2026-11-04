@@ -470,13 +470,8 @@
   }
 }
 
-// portal-card-header 也支持 emoji/img icon
+// portal-card-header 的 img icon（lucide 图标走 .header-icon，见上方基础样式）
 .portal-card-header {
-  .header-icon-emoji {
-    font-size: 18px;
-    line-height: 1;
-  }
-
   .header-icon-img {
     width: 18px;
     height: 18px;

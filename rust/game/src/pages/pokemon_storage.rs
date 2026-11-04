@@ -1,7 +1,9 @@
 use crate::prelude::*;
 
 use crate::{
-    components::common::{use_popup, GodMark, PopupContext, PopupMenu, PopupMenuItem, ShinyMark},
+    components::common::{
+        use_popup, GodMark, Icon, IconName, PopupContext, PopupMenu, PopupMenuItem, ShinyMark,
+    },
     state::{
         show_error, show_success, use_pokemon_state, use_user_profile_state, POKEMON_STATE,
         USER_STATE,
@@ -584,12 +586,12 @@ fn PokemonSlot(
                 }
             }
             if is_in_battle {
-                span { class: "pokemon-battle-icon", "⚔️" }
+                Icon { name: IconName::Swords, size: 8, class: "pokemon-battle-icon".to_string() }
             }
             if is_select_mode {
                 div { class: "pokemon-select-checkbox",
                     if is_selected {
-                        span { class: "checkbox-icon checked", "✓" }
+                        span { class: "checkbox-icon checked", Icon { name: IconName::Check, size: 10 } }
                     } else {
                         span { class: "checkbox-icon", "" }
                     }

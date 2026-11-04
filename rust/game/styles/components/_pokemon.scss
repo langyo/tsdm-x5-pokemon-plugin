@@ -297,7 +297,6 @@
       border: none;
       padding: 0;
       cursor: pointer;
-      font-size: $font-size-base;
       opacity: 0.6;
       transition: opacity $transition-fast;
       display: inline-flex;
@@ -393,7 +392,6 @@
         border-radius: $radius-sm;
         border: none;
         cursor: pointer;
-        font-size: $font-size-lg;
         font-weight: bold;
         display: flex;
         align-items: center;
@@ -779,7 +777,6 @@
     border: none;
     padding: 0;
     cursor: pointer;
-    font-size: $font-size-base;
     opacity: 0.6;
     transition: opacity $transition-fast;
     display: inline-flex;
@@ -871,7 +868,6 @@
       border-radius: $radius-sm;
       border: none;
       cursor: pointer;
-      font-size: $font-size-lg;
       font-weight: bold;
       display: flex;
       align-items: center;
@@ -2682,7 +2678,8 @@
   position: absolute;
   top: 2px;
   right: 2px;
-  font-size: 10px;
+  width: 10px;
+  height: 10px;
   animation: pm-pulse 1.5s ease-in-out infinite;
 }
 

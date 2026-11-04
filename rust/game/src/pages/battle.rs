@@ -6,7 +6,7 @@ use log::BattleLogPanel;
 use crate::components::common::Modal;
 use crate::{
     components::{
-        common::{ShinyMark, TypeBadge},
+        common::{Icon, IconName, ShinyMark, TypeBadge},
         layout::IMG_PATH,
     },
     state::{POKEMON_STATE, SWITCH_POKEMON_REQUEST},
@@ -376,7 +376,8 @@ pub fn BattlePage(
                         BattleEvent::SwitchPokemon => rsx! {
                             div { class: "switch-pokemon-modal",
                                 p { class: "switch-pokemon-warning",
-                                    "⚠️ 切换宠物可能会让当前上场宠物再受到一次攻击！"
+                                    Icon { name: IconName::TriangleAlert, size: 14, class: "lucide-inline".to_string() }
+                                    "切换宠物可能会让当前上场宠物再受到一次攻击！"
                                 }
                                 p { class: "switch-pokemon-hint", "确定要切换吗？" }
                                 div { class: "switch-pokemon-actions",
@@ -482,7 +483,8 @@ pub fn BattlePage(
                                         onclick: move |_| {
                                             on_flee.call(());
                                         },
-                                        "🏃 逃跑（无惩罚）"
+                                        Icon { name: IconName::Footprints, size: 14, class: "lucide-inline".to_string() }
+                                        "逃跑（无惩罚）"
                                     }
                                 }
                             }
@@ -653,7 +655,7 @@ fn SkillsTabContent(
                     class: if loading { "normal-attack-btn disabled" } else { "normal-attack-btn" },
                     onclick: move |_| on_attack.call(()),
                     disabled: loading,
-                    span { class: "attack-btn-icon", "⚔" }
+                    Icon { name: IconName::Swords, size: 22, class: "attack-btn-icon".to_string() }
                     span { class: "attack-btn-label", "普通攻击" }
                 }
             }
@@ -979,7 +981,7 @@ fn FleeTabContent(loading: bool, on_flee: EventHandler<()>) -> Element {
                 class: if loading { "flee-button disabled" } else { "flee-button" },
                 onclick: move |_| on_flee.call(()),
                 disabled: loading,
-                span { class: "flee-icon", "❌" }
+                Icon { name: IconName::CircleX, size: 16, class: "flee-icon".to_string() }
                 span { "退出战斗" }
             }
         }
@@ -998,29 +1000,34 @@ fn BattleResultSection(
     on_continue: EventHandler<()>,
     on_view_log: EventHandler<()>,
 ) -> Element {
-    let (result_text, result_class) = match status {
-        BattleStatus::Victory => ("🎉 战斗胜利！", "victory"),
-        BattleStatus::Defeat => ("💔 战斗失败...", "defeat"),
-        BattleStatus::Fled => ("🏃 成功逃脱！", "fled"),
-        BattleStatus::Captured => ("🎉 捕捉成功！", "victory"),
-        BattleStatus::Active => ("", ""),
+    let (result_icon, result_text, result_class) = match status {
+        BattleStatus::Victory => (Some(IconName::PartyPopper), "战斗胜利！", "victory"),
+        BattleStatus::Defeat => (Some(IconName::HeartCrack), "战斗失败...", "defeat"),
+        BattleStatus::Fled => (Some(IconName::Footprints), "成功逃脱！", "fled"),
+        BattleStatus::Captured => (Some(IconName::PartyPopper), "捕捉成功！", "victory"),
+        BattleStatus::Active => (None, "", ""),
     };
 
     rsx! {
         div { class: "battle-result-section",
             div { class: "battle-result {result_class}",
-                h2 { "{result_text}" }
+                h2 {
+                    if let Some(icon) = result_icon {
+                        Icon { name: icon, size: 20, class: "lucide-inline".to_string() }
+                    }
+                    "{result_text}"
+                }
 
                 if let Some(r) = rewards {
                     div { class: "battle-rewards",
                         h4 { "获得奖励" }
                         div { class: "reward-items",
                             div { class: "reward-item",
-                                span { class: "reward-icon", "⭐" }
+                                Icon { name: IconName::Star, size: 14, class: "reward-icon".to_string() }
                                 span { class: "reward-value", "{r.exp} 经验" }
                             }
                             div { class: "reward-item",
-                                span { class: "reward-icon", "💰" }
+                                Icon { name: IconName::Coins, size: 14, class: "reward-icon".to_string() }
                                 span { class: "reward-value", "{r.money} 金币" }
                             }
                         }
@@ -1038,7 +1045,7 @@ fn BattleResultSection(
                 if let Some(lu) = level_up {
                     if lu.level_up {
                         div { class: "level-up-notice",
-                            span { class: "level-up-icon", "⬆️" }
+                            Icon { name: IconName::ArrowUp, size: 14, class: "level-up-icon".to_string() }
                             span { class: "level-up-text", "{my_pokemon_name} 升级了！" }
                             span { class: "level-up-levels", "Lv.{lu.old_level} → Lv.{lu.new_level}" }
                         }
