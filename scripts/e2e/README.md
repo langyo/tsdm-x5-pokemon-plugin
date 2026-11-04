@@ -16,9 +16,10 @@ With `--http`, the app must serve HTTPS at `$E2E_BASE_URL`
 ## Test Coverage
 
 Currently 63 dispatch-level tests plus the HTTP-level suite, covering:
+
 - 9 of the 10 admin entities (pokemon, items, maps, evolutions, skills, config, users, etc.; `effect_data` is not yet covered)
 - CRUD operations: count, list, get, set, filter
-- Special operations: pokemon_info, item_info per-user queries
+- Special operations: `pokemon_info`, `item_info` per-user queries
 - Global config read/write
 
 ## Adding Tests

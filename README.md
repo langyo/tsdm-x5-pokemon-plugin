@@ -18,7 +18,7 @@ python scripts/docker/dev.py up
 打开浏览器访问:
 
 | URL | 说明 |
-|---|---|
+| --- | --- |
 | `https://localhost/` | 论坛首页 (HTTPS，自签证书) |
 | `http://localhost/` | 自动重定向至 HTTPS |
 
@@ -73,7 +73,7 @@ just logs          # 查看日志
 无需 wasm-pack），整合 DB 迁移脚本与种子 SQL，剔除开发期文件后组装插件
 目录，生成安装包，然后自动 bump patch 版本号、打 git tag 并推送：
 
-```
+```text
 dist/
 └── tsdm-pokemon-<version>.zip
     └── pokemon/                  # 插件目录（与 discuz_plugin_pokemon.json 的 directory 一致）
@@ -99,8 +99,8 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 在 X5 论坛安装：
 
 1. 解压 zip，将 `pokemon/` 文件夹上传到 `source/plugin/pokemon`
-2. 后台 → 应用 → 插件，找到「TSDM 宠物小精灵」，点击安装（执行 `install.php`）
-3. 启用插件并确认 `api/index.php` 可被 Caddy/Nginx 访问（伪静态需放行）
+1. 后台 → 应用 → 插件，找到「TSDM 宠物小精灵」，点击安装（执行 `install.php`）
+1. 启用插件并确认 `api/index.php` 可被 Caddy/Nginx 访问（伪静态需放行）
 
 插件自带头像接口（`endpoint=avatar`）与徽章图片接口（`endpoint=badge`），
 不依赖 X5 已移除的 `uc_server`，覆盖插件目录即可用，无需改动论坛本体文件。
@@ -110,7 +110,7 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 
 ## Project Structure
 
-```
+```text
 ├── docker/                   Docker 配置
 │   ├── docker-compose.yml    编排文件 (app + db + setup)
 │   ├── Dockerfile            生产镜像 (FROM izumiko/discuz)
@@ -139,9 +139,9 @@ patch 自增，同时更新 `rust/admin/Cargo.toml` 和 `rust/game/Cargo.toml`�
 
 1. `from-x3/001_x3_to_x5_migration.sql` — 引擎升级 MyISAM→InnoDB，
    字符集 utf8mb3→utf8mb4，数据表结构归一（含后续重整，脚本可重复执行）
-2. `2026-*.sql` — 日期前缀的增量升级脚本，面向已安装站点按文件名顺序
+1. `2026-*.sql` — 日期前缀的增量升级脚本，面向已安装站点按文件名顺序
    执行（幂等，可重复执行）
-3. `seed-fixes/` — 修复早期种子数据的一次性修复脚本（按需显式执行）
+1. `seed-fixes/` — 修复早期种子数据的一次性修复脚本（按需显式执行）
 
 ```bash
 # 生产环境手动执行
@@ -152,7 +152,7 @@ mysql -u discuz -p discuz < migrations/from-x3/001_x3_to_x5_migration.sql
 
 遵循 [gitmoji](https://gitmoji.dev) 规范:
 
-```
+```text
 <gitmoji> <Capitalized English summary.>
 ```
 
