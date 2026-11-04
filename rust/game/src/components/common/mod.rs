@@ -1,3 +1,4 @@
+mod icon;
 mod loading_overlay;
 mod modal;
 mod pet_marks;
@@ -6,6 +7,7 @@ mod providers;
 mod toast;
 mod type_badge;
 
+pub use icon::{Icon, IconName};
 pub use loading_overlay::LoadingOverlay;
 pub use modal::{Modal, ModalLg};
 pub use pet_marks::{GodMark, ShinyMark};

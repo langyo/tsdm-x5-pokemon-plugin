@@ -1,7 +1,7 @@
 use crate::prelude::*;
 
 use crate::components::{
-    common::{GodMark, ShinyMark, TypeBadge},
+    common::{GodMark, Icon, IconName, ShinyMark, TypeBadge},
     layout::IMG_PATH,
 };
 
@@ -54,7 +54,7 @@ impl MiniPokemonInfo {
 
 /// 宠物迷你网格组件 — 统一的 2行×3列 布局
 /// - 有宠物的格子显示精灵图 + 右下角等级标
-/// - 空位显示灰色 ✕ 占位
+/// - 空位显示灰色 X 图标占位
 /// - 支持可选的选中高亮（active_index）和点击回调（on_select）
 /// - 支持悬浮显示宠物详细信息 tooltip
 #[component]
@@ -80,7 +80,7 @@ pub fn PokemonMiniGrid(
                     }
                 } else {
                     div { class: "pm-mini-slot empty-slot",
-                        span { class: "pm-mini-cross", "✕" }
+                        Icon { name: IconName::X, size: 12, class: "pm-mini-cross".to_string() }
                     }
                 }
             }
@@ -140,14 +140,14 @@ fn PokemonMiniSlot(
                 }
                 span { class: "pm-mini-level", "Lv.{pokemon.level}" }
                 if pokemon.is_in_battle {
-                    span { class: "pm-mini-battle-icon", "⚔️" }
+                    Icon { name: IconName::Swords, size: 8, class: "pm-mini-battle-icon".to_string() }
                 }
                 // HP 状态指示器
                 if hp_pct > 0 && hp_pct <= 50 {
                     span { class: "pm-mini-hp-indicator {hp_class}" }
                 }
                 if pokemon.has_negative_state() {
-                    span { class: "pm-mini-status-indicator", "⚠️" }
+                    Icon { name: IconName::TriangleAlert, size: 10, class: "pm-mini-status-indicator".to_string() }
                 }
             }
 

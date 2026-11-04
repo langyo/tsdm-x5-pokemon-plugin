@@ -554,9 +554,11 @@
   max-width: 300px;
 
   .battle-icon {
-    font-size: 48px;
+    width: 40px;
+    height: 40px;
     display: block;
-    margin-bottom: $spacing-md;
+    margin: 0 auto $spacing-md;
+    color: $color-gray-600;
   }
 
   p {
@@ -570,4 +572,16 @@
       margin-top: $spacing-sm;
     }
   }
+}
+
+// 行内文本旁的 lucide 图标（标题、按钮、列表项内嵌文字）
+.lucide-inline {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+
+// 位于文本之后的行内图标（如「下一页 →」）
+.lucide-inline-end {
+  vertical-align: -2px;
+  margin-left: 4px;
 }

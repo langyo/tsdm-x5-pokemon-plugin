@@ -3,7 +3,8 @@ use crate::prelude::*;
 use crate::{
     components::{
         common::{
-            use_popup, GodMark, Modal, ModalLg, PopupMenu, PopupMenuItem, ShinyMark, TypeBadge,
+            use_popup, GodMark, Icon, IconName, Modal, ModalLg, PopupMenu, PopupMenuItem,
+            ShinyMark, TypeBadge,
         },
         layout::IMG_PATH,
     },
@@ -499,7 +500,7 @@ fn StatsTabContent(
                                 },
                                 r#type: "button",
                                 title: "保存",
-                                "✓"
+                                Icon { name: IconName::Check, size: 14 }
                             }
                             button {
                                 class: "edit-action-btn cancel",
@@ -512,7 +513,7 @@ fn StatsTabContent(
                                 },
                                 r#type: "button",
                                 title: "取消",
-                                "✕"
+                                Icon { name: IconName::X, size: 14 }
                             }
                         }
                         if let Some(error) = save_error.read().as_ref() {
@@ -542,7 +543,7 @@ fn StatsTabContent(
                             save_success.set(false);
                         },
                         r#type: "button",
-                        "✏️"
+                        Icon { name: IconName::Pencil, size: 12 }
                     }
                     span { class: "pokemon-gender {gender_class(pm_gender)}",
                         "{gender_symbol(pm_gender)}"
@@ -879,7 +880,7 @@ fn EquipmentTabContent(pokemon_id: u64) -> Element {
             if use_battle_state() {
                 div { class: "battle-disabled-overlay",
                     div { class: "battle-disabled-message",
-                        span { class: "battle-icon", "⚔️" }
+                        Icon { name: IconName::Swords, size: 40, class: "battle-icon".to_string() }
                         p { "战斗中无法调整装备" }
                         p { class: "battle-hint", "请先结束当前战斗" }
                     }
@@ -1317,9 +1318,15 @@ fn EquipmentTooltipInline(item: EquipmentItem, left: f64, bottom: f64, width: f6
                 }
             }
             if item.is_equipped {
-                div { class: "tooltip-equipped-hint", "⚠ 此装备已被装备" }
+                div { class: "tooltip-equipped-hint",
+                    Icon { name: IconName::TriangleAlert, size: 12, class: "lucide-inline".to_string() }
+                    "此装备已被装备"
+                }
             } else if item.equipped_count > 0 {
-                div { class: "tooltip-equipped-hint", "⚠ 其他宠物使用中，请先卸下装备" }
+                div { class: "tooltip-equipped-hint",
+                    Icon { name: IconName::TriangleAlert, size: 12, class: "lucide-inline".to_string() }
+                    "其他宠物使用中，请先卸下装备"
+                }
             }
         }
     }
@@ -1726,7 +1733,7 @@ pub fn SkillsTabContent(
             if use_battle_state() {
                 div { class: "battle-disabled-overlay",
                     div { class: "battle-disabled-message",
-                        span { class: "battle-icon", "⚔️" }
+                        Icon { name: IconName::Swords, size: 40, class: "battle-icon".to_string() }
                         p { "战斗中无法调整技能" }
                         p { class: "battle-hint", "请先结束当前战斗" }
                     }
@@ -2193,9 +2200,9 @@ fn EffortValueCalculatorModal(on_close: EventHandler<()>) -> Element {
 
                 div { class: "ev-status",
                     if stats_valid {
-                        span { class: "ev-status-valid", "✓ 配置有效" }
+                        span { class: "ev-status-valid", Icon { name: IconName::Check, size: 12, class: "lucide-inline".to_string() } "配置有效" }
                     } else {
-                        span { class: "ev-status-invalid", "✕ 配置无效（超过限制）" }
+                        span { class: "ev-status-invalid", Icon { name: IconName::X, size: 12, class: "lucide-inline".to_string() } "配置无效（超过限制）" }
                     }
                 }
             }
@@ -2292,7 +2299,7 @@ fn EvolutionPathModal(pokemon_type_id: u64, on_close: EventHandler<()>) -> Eleme
                                                         }
                                                     }
                                                     div { class: "evo-path-condition",
-                                                        span { "📦 {node.condition_display}" }
+                                                        span { Icon { name: IconName::Package, size: 12, class: "lucide-inline".to_string() } "{node.condition_display}" }
                                                     }
                                                 }
                                             }
@@ -2329,7 +2336,7 @@ fn EvolutionPathModal(pokemon_type_id: u64, on_close: EventHandler<()>) -> Eleme
                                                         }
                                                     }
                                                     div { class: "evo-path-condition",
-                                                        span { "📦 {node.condition_display}" }
+                                                        span { Icon { name: IconName::Package, size: 12, class: "lucide-inline".to_string() } "{node.condition_display}" }
                                                     }
                                                 }
                                             }
@@ -2434,9 +2441,9 @@ fn EvolutionModal(
                                     },
                                 );
                                 let status_text = if evo.can_evolve {
-                                    "✓ 满足进化条件".to_string()
+                                    "满足进化条件".to_string()
                                 } else {
-                                    format!("✗ {}", evo.conditions.reason)
+                                    evo.conditions.reason.clone()
                                 };
                                 let to_id = evo.to_id;
                                 let to_name = evo.to_name.clone();
@@ -2450,10 +2457,17 @@ fn EvolutionModal(
                                         div { class: "evo-path-node-info",
                                             span { class: "evo-path-name", "{evo.to_name}" }
                                             div { class: "evo-path-condition",
-                                                span { "📦 {condition_text}" }
+                                                span { Icon { name: IconName::Package, size: 12, class: "lucide-inline".to_string() } "{condition_text}" }
                                             }
                                             div { class: "evo-path-condition",
-                                                span { "{status_text}" }
+                                                span {
+                                                    if evo.can_evolve {
+                                                        Icon { name: IconName::Check, size: 12, class: "lucide-inline".to_string() }
+                                                    } else {
+                                                        Icon { name: IconName::X, size: 12, class: "lucide-inline".to_string() }
+                                                    }
+                                                    "{status_text}"
+                                                }
                                             }
                                         }
                                         if evo.can_evolve {

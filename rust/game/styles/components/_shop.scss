@@ -555,9 +555,10 @@
       gap: 3px;
       min-width: 0;
 
-      .price-icon-emoji {
-        font-size: 12px;
-        line-height: 1;
+      .price-icon {
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
       }
 
       .price-value {
@@ -624,7 +625,9 @@
   }
 }
 
-// ===== 宫格悬浮详情 Tooltip（fixed 定位，脱离卡片 overflow 裁剪） =====
+// ===== 宫格悬浮详情 Tooltip =====
+// fixed 定位，left/top 由 shop_tooltip_position() 按入点光标计算（光标上方、
+// 视口内收拢），脱离卡片 overflow 裁剪且不遮挡当前卡片的价格/购买按钮。
 .shop-tile-tooltip {
   position: fixed;
   z-index: 1000;
@@ -775,8 +778,9 @@
   }
 
   .pager-nav {
-    font-size: $font-size-lg;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .pager-ellipsis {

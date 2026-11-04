@@ -2,6 +2,7 @@ use crate::prelude::*;
 
 use super::{Page, CURRENT_PAGE, INITIAL_INVENTORY_CATEGORY};
 use crate::{
+    components::common::{Icon, IconName},
     components::pokemon::{MiniPokemonInfo, MiniSkillInfo, PokemonMiniGrid},
     state::{
         refresh_pokemon_list, request_switch_pokemon, show_error, show_success, BATTLE_STATE,
@@ -253,11 +254,11 @@ pub fn Sidebar() -> Element {
                                 }
                                 div { class: "trainer-stats-row",
                                     span { class: "stat-chip",
-                                        span { class: "stat-icon", "💰" }
+                                        Icon { name: IconName::Coins, size: 12, class: "stat-icon".to_string() }
                                         "{money}"
                                     }
                                     span { class: "stat-chip",
-                                        span { class: "stat-icon", "⚔️" }
+                                        Icon { name: IconName::Swords, size: 12, class: "stat-icon".to_string() }
                                         "{wins}/{losses}"
                                     }
                                 }
@@ -373,7 +374,7 @@ pub fn Sidebar() -> Element {
                                     *CURRENT_PAGE.write() = Page::Inventory;
                                 }
                             },
-                            span { class: "bag-item-icon", "💊" }
+                            Icon { name: IconName::Pill, size: 16, class: "bag-item-icon".to_string() }
                             span { class: "bag-item-label", "回复药" }
                             span { class: "bag-count-badge", "{get_count(1)}" }
                         }
@@ -386,7 +387,7 @@ pub fn Sidebar() -> Element {
                                     *CURRENT_PAGE.write() = Page::Inventory;
                                 }
                             },
-                            span { class: "bag-item-icon", "🔴" }
+                            Icon { name: IconName::Circle, size: 16, class: "bag-item-icon".to_string() }
                             span { class: "bag-item-label", "精灵球" }
                             span { class: "bag-count-badge", "{get_count(2)}" }
                         }
@@ -399,7 +400,7 @@ pub fn Sidebar() -> Element {
                                     *CURRENT_PAGE.write() = Page::Inventory;
                                 }
                             },
-                            span { class: "bag-item-icon", "💎" }
+                            Icon { name: IconName::Gem, size: 16, class: "bag-item-icon".to_string() }
                             span { class: "bag-item-label", "进化石" }
                             span { class: "bag-count-badge", "{get_count(3)}" }
                         }
@@ -412,7 +413,7 @@ pub fn Sidebar() -> Element {
                                     *CURRENT_PAGE.write() = Page::Inventory;
                                 }
                             },
-                            span { class: "bag-item-icon", "⚡" }
+                            Icon { name: IconName::Zap, size: 16, class: "bag-item-icon".to_string() }
                             span { class: "bag-item-label", "强化" }
                             span { class: "bag-count-badge", "{get_count(4)}" }
                         }

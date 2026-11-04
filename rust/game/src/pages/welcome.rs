@@ -1,6 +1,10 @@
 use crate::prelude::*;
 
-use crate::{components::layout::IMG_PATH, utils::api_client::NewApiClient};
+use crate::{
+    components::common::{Icon, IconName},
+    components::layout::IMG_PATH,
+    utils::api_client::NewApiClient,
+};
 
 #[component]
 pub fn Welcome() -> Element {
@@ -78,13 +82,25 @@ pub fn Welcome() -> Element {
                         }
 
                         ul { class: "welcome-benefits",
-                            li { "🥚 获得一个宝可梦作为起始伙伴" }
-                            li { "🎮 解锁所有游戏功能" }
-                            li { "🌟 探索广阔的宝可梦世界" }
+                            li {
+                                Icon { name: IconName::Egg, size: 14, class: "lucide-inline".to_string() }
+                                "获得一个宝可梦作为起始伙伴"
+                            }
+                            li {
+                                Icon { name: IconName::Gamepad2, size: 14, class: "lucide-inline".to_string() }
+                                "解锁所有游戏功能"
+                            }
+                            li {
+                                Icon { name: IconName::Sparkles, size: 14, class: "lucide-inline".to_string() }
+                                "探索广阔的宝可梦世界"
+                            }
                         }
 
                         if let Some(error) = error_message.read().as_ref() {
-                            div { class: "error-message", "❌ {error}" }
+                            div { class: "error-message",
+                                Icon { name: IconName::CircleX, size: 14, class: "lucide-inline".to_string() }
+                                "{error}"
+                            }
                         }
 
                         button {

@@ -442,7 +442,9 @@
       line-height: 1.4;
 
       .stat-icon {
-        font-size: 11px;
+        width: 12px;
+        height: 12px;
+        flex-shrink: 0;
         line-height: 1;
       }
 
@@ -521,7 +523,8 @@
     position: absolute;
     top: -6px;
     right: -6px;
-    font-size: 10px;
+    width: 8px;
+    height: 8px;
     background: $color-danger;
     color: $color-white;
     padding: 2px 4px;
@@ -535,7 +538,8 @@
   }
 
   .pm-mini-cross {
-    font-size: $font-size-base;
+    width: 12px;
+    height: 12px;
     color: $color-gray-300;
     line-height: 1;
   }
@@ -614,7 +618,9 @@
   }
 
   .bag-item-icon {
-    font-size: 18px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
     line-height: 1;
   }
 
