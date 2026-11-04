@@ -1,0 +1,33 @@
+[package]
+name = "_game2"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "POC: tairitsu + hikari rebuild of the game frontend (Phase 1, docs/refactor-tairitsu-hikari-research.md)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# POC 依赖策略：tairitsu 以 git rev 锁 master（crates.io 0.5.26 的宏在
+# 「属性后文本子节点」路径不做字符串插值，master 4a93466e 修复；见研究文档 §5.5）。
+# hikari 用本地 path 便于迭代；其声明的 tairitsu ^0.5.18 registry 依赖经
+# [patch.crates-io] 统一到同一 git 源，避免双版本类型冲突。
+[dependencies]
+tairitsu-vdom = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/vdom" }
+tairitsu-hooks = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/hooks" }
+tairitsu-macros = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/macros" }
+tairitsu-web = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/web", default-features = false, features = [
+    "browser",
+    "vdom",
+    "wit-bindings",
+] }
+hikari-components = { path = "D:/源代码/工程项目/celestia/hikari/packages/components" }
+hikari-icons = { path = "D:/源代码/工程项目/celestia/hikari/packages/icons", features = ["tairitsu"] }
+hikari-palette = { path = "D:/源代码/工程项目/celestia/hikari/packages/palette" }
+anyhow = "1"
+
+[patch.crates-io]
+tairitsu-vdom = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/vdom" }
+tairitsu-hooks = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/hooks" }
+tairitsu-macros = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/macros" }
+tairitsu-style = { git = "https://github.com/celestia-island/tairitsu", rev = "4a93466e1c30b2b47fa027d52d7d9237cb246fa1" }

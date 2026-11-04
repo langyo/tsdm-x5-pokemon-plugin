@@ -1,0 +1,12 @@
+/** @module Interface tairitsu-browser:full/pointer-event@0.2.0 **/
+export function getPointerId(self: PointerEventHandle): number;
+export function getWidth(self: PointerEventHandle): number;
+export function getHeight(self: PointerEventHandle): number;
+export function getPressure(self: PointerEventHandle): number;
+export function getTangentialPressure(self: PointerEventHandle): number;
+export function getTiltX(self: PointerEventHandle): number;
+export function getTiltY(self: PointerEventHandle): number;
+export function getTwist(self: PointerEventHandle): number;
+export function getPointerType(self: PointerEventHandle): string;
+export function getIsPrimary(self: PointerEventHandle): boolean;
+export type PointerEventHandle = bigint;

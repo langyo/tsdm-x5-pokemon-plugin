@@ -5,6 +5,15 @@ resolver = "2"
 [workspace.dependencies]
 getrandom = { version = "0.4", features = ["wasm_js"] }
 
+# game2（tairitsu+hikari POC）以 git rev 锁定 tairitsu master；
+# hikari 声明的 tairitsu ^0.5.18 registry 依赖经此 patch 统一到同一源，
+# 避免双版本类型冲突（docs/refactor-tairitsu-hikari-research.md §5.5）。
+[patch.crates-io]
+tairitsu-vdom = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/vdom" }
+tairitsu-hooks = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/hooks" }
+tairitsu-macros = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/macros" }
+tairitsu-style = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/style" }
+
 [profile.release]
 lto = true
 opt-level = "z"

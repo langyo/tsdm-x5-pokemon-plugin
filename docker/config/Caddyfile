@@ -31,7 +31,7 @@ localhost {
 		# Only published frontend assets are public inside source/.
 		@private_source {
 			path /source /source/*
-			not path_regexp plugin_assets (?i)^/source/plugin/pokemon/(wasm/.*\.(js|wasm|css)|images/.*\.(gif|jpg|png|svg|bmp))$
+			not path_regexp plugin_assets (?i)^/source/plugin/pokemon/(wasm/.*\.(js|wasm|css)|wasm2/.*\.(js|wasm|css|json|html)|images/.*\.(gif|jpg|png|svg|bmp))$
 		}
 		respond @private_source 403
 

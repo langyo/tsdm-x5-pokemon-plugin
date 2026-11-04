@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POC：tairitsu + hikari</title>
+<script type="importmap">
+{
+  "imports": {
+    "@bytecodealliance/preview2-shim/cli": "./wasi/cli.js",
+    "@bytecodealliance/preview2-shim/clocks": "./wasi/clocks.js",
+    "@bytecodealliance/preview2-shim/io": "./wasi/io.js",
+    "@bytecodealliance/preview2-shim/random": "./wasi/random.js",
+    "tairitsu-browser:full/css-style-declaration": "./shims/css-style-declaration.js?v=1793802635",
+    "tairitsu-browser:full/document": "./shims/document.js?v=1793802635",
+    "tairitsu-browser:full/dom-token-list": "./shims/dom-token-list.js?v=1793802635",
+    "tairitsu-browser:full/element": "./shims/element.js?v=1793802635",
+    "tairitsu-browser:full/element-css-inline-style": "./shims/element-css-inline-style.js?v=1793802635",
+    "tairitsu-browser:full/event": "./shims/event.js?v=1793802635",
+    "tairitsu-browser:full/event-target": "./shims/event-target.js?v=1793802635",
+    "tairitsu-browser:full/html-input-element": "./shims/html-input-element.js?v=1793802635",
+    "tairitsu-browser:full/mouse-event": "./shims/mouse-event.js?v=1793802635",
+    "tairitsu-browser:full/node": "./shims/node.js?v=1793802635",
+    "tairitsu-browser:full/node-list": "./shims/node-list.js?v=1793802635",
+    "tairitsu-browser:full/non-element-parent-node": "./shims/non-element-parent-node.js?v=1793802635",
+    "tairitsu-browser:full/parent-node": "./shims/parent-node.js?v=1793802635",
+    "tairitsu-browser:full/platform-helpers": "./shims/platform-helpers.js?v=1793802635",
+    "tairitsu-browser:full/pointer-event": "./shims/pointer-event.js?v=1793802635",
+    "tairitsu-browser:full/wheel-event": "./shims/wheel-event.js?v=1793802635",
+    "tairitsu-browser:full/window": "./shims/window.js?v=1793802635"
+  }
+}
+</script>
+<script src="./glue-core.js"></script>
+<style>
+body { margin: 0; background: #f7f9fa; font-family: "Noto Sans SC", system-ui, sans-serif; }
+#main { max-width: 960px; margin: 24px auto; padding: 0 12px; }
+#app { min-height: 120px; }
+#app[data-booting] { color: #999; padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+<div id="main"><div id="app" data-booting>正在加载 POC…</div></div>
+<script type="module">
+// POC boot：静态 import 经 importmap 解析 glue/wasi，随后调用组件导出的 lifecycle.start。
+globalThis.__setWasmExports = globalThis.__setWasmExports || ((e) => { globalThis.__wasmExports = e; });
+const mod = await import('./component-wrapper/_game2.js');
+
+// 命名对齐：npm glue（0.5.4）按 snake_case 回连旧组件回调，而 0.5.26 组件导出
+// camelCase（WIT kebab 提升）。用 Proxy 给回调接口加 snake_case 别名。
+const CALLBACK_ALIASES = {
+  'animation-callbacks': { on_animation_frame: 'onFrame' },
+  'timer-callbacks': { on_timeout: 'onTimeout', on_interval: 'onInterval' },
+  'promise-callbacks': { on_promise_resolve: 'onPromiseResolved', on_promise_reject: 'onPromiseRejected' },
+  'scroll-callbacks': { on_scroll_event: 'onScrollEvent' },
+  'resize-observer-callbacks': { on_resize: 'onResize' },
+  'mutation-observer-callbacks': { on_mutate: 'onMutate' },
+  'media-query-list-callbacks': { on_change: 'onChange' },
+  'window-resize-callbacks': { on_window_resize: 'onWindowResize' },
+};
+const aligned = { ...mod };
+for (const [iface, aliases] of Object.entries(CALLBACK_ALIASES)) {
+  const key = 'tairitsu-browser:full/' + iface + '@0.2.0';
+  const src = aligned[key];
+  if (!src) continue;
+  aligned[key] = new Proxy(src, {
+    get(t, p) {
+      if (typeof p === 'string' && aliases[p] !== undefined) {
+        // 返回包装：记录调用并转发到 camelCase 真名（debug 由 poc 模式自行扩展）
+        const real = t[aliases[p]];
+        return function (...args) { return real.apply(t, args); };
+      }
+      return t[p];
+    },
+  });
+}
+globalThis.__setWasmExports(aligned);
+
+const findStart = (obj, depth = 0, seen = new Set()) => {
+  if (!obj || typeof obj !== 'object' || depth > 3 || seen.has(obj)) return null;
+  seen.add(obj);
+  for (const [name, value] of Object.entries(obj)) {
+    if (typeof value === 'function' && name.toLowerCase() === 'start') return value;
+  }
+  for (const value of Object.values(obj)) {
+    if (value && typeof value === 'object') {
+      const found = findStart(value, depth + 1, seen);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+const start = findStart(aligned);
+if (!start) {
+  document.getElementById('app').textContent = '未找到 lifecycle.start 导出';
+  throw new Error('lifecycle.start not found in component exports');
+}
+await start();
+const app = document.getElementById('app');
+if (app) app.removeAttribute('data-booting');
+console.log('[poc] component started');
+</script>
+</body>
+</html>
