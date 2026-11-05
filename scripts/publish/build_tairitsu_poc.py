@@ -337,10 +337,22 @@ def write_boot_assets() -> None:
 // 后台/隐藏标签页的 rAF 不触发，会让 tairitsu 调度器永久卡死（rt.scheduled
 // 无法复位）。POC 页面用 setTimeout 驱动帧；前台真实使用无此问题。
 (function () {{
-  window.requestAnimationFrame = function (cb) {{
-    return setTimeout(function () {{ cb(performance.now()); }}, 16);
-  }};
-  window.cancelAnimationFrame = function (id) {{ clearTimeout(id); }};
+  // 用 MessageChannel 驱动帧：它不受后台标签页的 timer/rAF 节流影响，
+  // 宏任务队列正常执行。rAF 语义（每帧一次）在 POC 中不是必需的。
+  (function () {{
+    var ch = new MessageChannel();
+    var pending = [];
+    ch.port1.onmessage = function () {{
+      var cbs = pending; pending = [];
+      for (var i = 0; i < cbs.length; i++) cbs[i](performance.now());
+    }};
+    window.requestAnimationFrame = function (cb) {{
+      pending.push(cb);
+      ch.port2.postMessage(0);
+      return pending.length;
+    }};
+    window.cancelAnimationFrame = function () {{}};
+  }})();
 }})();
 </script>
 <script src="./glue-core.js"></script>

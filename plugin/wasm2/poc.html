@@ -11,23 +11,23 @@
     "@bytecodealliance/preview2-shim/clocks": "./wasi/clocks.js",
     "@bytecodealliance/preview2-shim/io": "./wasi/io.js",
     "@bytecodealliance/preview2-shim/random": "./wasi/random.js",
-    "tairitsu-browser:full/css-style-declaration": "./shims/css-style-declaration.js?v=1793861765",
-    "tairitsu-browser:full/document": "./shims/document.js?v=1793861765",
-    "tairitsu-browser:full/dom-token-list": "./shims/dom-token-list.js?v=1793861765",
-    "tairitsu-browser:full/element": "./shims/element.js?v=1793861765",
-    "tairitsu-browser:full/element-css-inline-style": "./shims/element-css-inline-style.js?v=1793861765",
-    "tairitsu-browser:full/event": "./shims/event.js?v=1793861765",
-    "tairitsu-browser:full/event-target": "./shims/event-target.js?v=1793861765",
-    "tairitsu-browser:full/html-input-element": "./shims/html-input-element.js?v=1793861765",
-    "tairitsu-browser:full/mouse-event": "./shims/mouse-event.js?v=1793861765",
-    "tairitsu-browser:full/node": "./shims/node.js?v=1793861765",
-    "tairitsu-browser:full/node-list": "./shims/node-list.js?v=1793861765",
-    "tairitsu-browser:full/non-element-parent-node": "./shims/non-element-parent-node.js?v=1793861765",
-    "tairitsu-browser:full/parent-node": "./shims/parent-node.js?v=1793861765",
-    "tairitsu-browser:full/platform-helpers": "./shims/platform-helpers.js?v=1793861765",
-    "tairitsu-browser:full/pointer-event": "./shims/pointer-event.js?v=1793861765",
-    "tairitsu-browser:full/wheel-event": "./shims/wheel-event.js?v=1793861765",
-    "tairitsu-browser:full/window": "./shims/window.js?v=1793861765"
+    "tairitsu-browser:full/css-style-declaration": "./shims/css-style-declaration.js?v=1793867137",
+    "tairitsu-browser:full/document": "./shims/document.js?v=1793867137",
+    "tairitsu-browser:full/dom-token-list": "./shims/dom-token-list.js?v=1793867137",
+    "tairitsu-browser:full/element": "./shims/element.js?v=1793867137",
+    "tairitsu-browser:full/element-css-inline-style": "./shims/element-css-inline-style.js?v=1793867137",
+    "tairitsu-browser:full/event": "./shims/event.js?v=1793867137",
+    "tairitsu-browser:full/event-target": "./shims/event-target.js?v=1793867137",
+    "tairitsu-browser:full/html-input-element": "./shims/html-input-element.js?v=1793867137",
+    "tairitsu-browser:full/mouse-event": "./shims/mouse-event.js?v=1793867137",
+    "tairitsu-browser:full/node": "./shims/node.js?v=1793867137",
+    "tairitsu-browser:full/node-list": "./shims/node-list.js?v=1793867137",
+    "tairitsu-browser:full/non-element-parent-node": "./shims/non-element-parent-node.js?v=1793867137",
+    "tairitsu-browser:full/parent-node": "./shims/parent-node.js?v=1793867137",
+    "tairitsu-browser:full/platform-helpers": "./shims/platform-helpers.js?v=1793867137",
+    "tairitsu-browser:full/pointer-event": "./shims/pointer-event.js?v=1793867137",
+    "tairitsu-browser:full/wheel-event": "./shims/wheel-event.js?v=1793867137",
+    "tairitsu-browser:full/window": "./shims/window.js?v=1793867137"
   }
 }
 </script>
@@ -35,10 +35,22 @@
 // 后台/隐藏标签页的 rAF 不触发，会让 tairitsu 调度器永久卡死（rt.scheduled
 // 无法复位）。POC 页面用 setTimeout 驱动帧；前台真实使用无此问题。
 (function () {
-  window.requestAnimationFrame = function (cb) {
-    return setTimeout(function () { cb(performance.now()); }, 16);
-  };
-  window.cancelAnimationFrame = function (id) { clearTimeout(id); };
+  // 用 MessageChannel 驱动帧：它不受后台标签页的 timer/rAF 节流影响，
+  // 宏任务队列正常执行。rAF 语义（每帧一次）在 POC 中不是必需的。
+  (function () {
+    var ch = new MessageChannel();
+    var pending = [];
+    ch.port1.onmessage = function () {
+      var cbs = pending; pending = [];
+      for (var i = 0; i < cbs.length; i++) cbs[i](performance.now());
+    };
+    window.requestAnimationFrame = function (cb) {
+      pending.push(cb);
+      ch.port2.postMessage(0);
+      return pending.length;
+    };
+    window.cancelAnimationFrame = function () {};
+  })();
 })();
 </script>
 <script src="./glue-core.js"></script>

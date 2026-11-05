@@ -21,6 +21,14 @@ use tairitsu_web::wit_platform::WitElement;
 /// 二分开关：true = 只挂最小计数器（诊断信号→重渲染→patch 链路）。
 const MINIMAL_COUNTER_POC: bool = false;
 
+// 整树重挂载策略用的最新状态快照（schedule 回调里重建整棵树时读取）。
+// PocState 内部全是 Rc/信号句柄，clone 是廉价的引用复制。
+#[cfg(target_family = "wasm")]
+thread_local! {
+    static STATE_FOR_REMOUNT: std::cell::RefCell<Option<app::PocState>> =
+        const { std::cell::RefCell::new(None) };
+}
+
 #[cfg(target_family = "wasm")]
 pub fn run_app() -> Result<()> {
     // wasm 里 tracing 无订阅者，dispatch_event 的 catch_unwind 会静默吞掉
@@ -44,6 +52,7 @@ pub fn run_app() -> Result<()> {
         app::MiniCounter(app::MiniCounterProps { count: Some(count.clone()), ..Default::default() })
     } else {
         let state = tairitsu_vdom::runtime::with_component(component_id, || app::PocState::new());
+        STATE_FOR_REMOUNT.with(|slot| *slot.borrow_mut() = Some(state.clone()));
         let state_for_render = state.clone();
         // 重渲染闭包共享同一份 state（信号绑定本组件，set → mark_dirty(App)）。
         tairitsu_vdom::runtime::update_render_function(component_id, move || {
@@ -68,40 +77,41 @@ pub fn run_app() -> Result<()> {
     let root_element = WitElement::from_raw(vnode_root_handle);
     tairitsu_web::init_runtime(root_element.clone());
 
-    // 调试探针：init_runtime 注册的 apply_patches 用 tracing::error 上报失败，
-    // wasm 上无 tracing 订阅时完全静默。这里覆盖为带 eprintln 的版本以暴露问题。
+    // 渲染策略（POC 起）：tairitsu 0.5.26 的增量 diff/apply 对「子列表追加」
+    // 的 UpdateChild/InsertChild 嵌套 patch 解析不可靠——列表不增长（已在
+    // 上游用探针定位，见 docs/refactor-tairitsu-hikari-research.md §9）。
+    // 游戏 UI 单屏规模有限（一屏 20–50 个瓦片），这里改为整树重挂载：
+    // 按最新 state 重新挂载整棵树，行为确定，语义等价于 Dioxus 的完整
+    // 重渲染。上游修好后可去掉此覆盖，恢复增量路径。
     {
-        let root_for_patches = root_element;
-        tairitsu_vdom::runtime::set_apply_patches_callback(
-            move |component_id: tairitsu_vdom::ComponentId, patches: Vec<tairitsu_vdom::Patch>| {
-                eprintln!("[game2] apply_patches comp={component_id:?} n={}", patches.len());
-                let root = root_for_patches.clone();
-                let platform = WitPlatform::new();
-                match platform {
-                    Ok(platform) => {
-                        let result = platform.apply_patches(&root, &patches);
-                        if let Err(e) = result {
-                            eprintln!("[game2] apply_patches ERROR: {e:?}");
-                        }
-                    }
-                    Err(e) => eprintln!("[game2] platform ERROR: {e:?}"),
-                }
-            },
-        );
-        tairitsu_vdom::runtime::set_schedule_callback(Box::new(
-            |callback: Box<dyn FnOnce()>| {
-                // 后台标签页的 rAF 永不触发会让调度器永久卡死；timer 在任何
-                // 可见性下都会触发，保证 flush 不被饿死。
-                let platform = WitPlatform::new()
-                    .expect("platform for schedule");
-                use tairitsu_vdom::TimerOps;
-                platform.set_timeout(callback, 0);
-            },
-        ));
+        tairitsu_vdom::runtime::set_apply_patches_callback(move |_component_id, _patches| {
+            let state = STATE_FOR_REMOUNT.with(|s| s.borrow().clone());
+            let Some(state) = state else { return };
+            if let Ok(platform) = WitPlatform::new() {
+                let latest = app::App(app::AppProps {
+                    state: Some(state),
+                    ..Default::default()
+                });
+                // mount_vnode_to_app 会先清空 #app 再整棵渲染。
+                let _ = platform.mount_vnode_to_app(latest);
+            }
+        });
     }
 
+    // 调度：必须异步（mark_dirty 仍持有 RUNTIME 的 RefCell 借用，同步
+    // flush_render 会重入失败），且不能用 setTimeout——后台/被节流标签页的
+    // 定时器可能长时间不触发，导致 `scheduled` 卡 true、后续更新全丢。
+    // rAF 在前台可靠触发；glue 的 animation-callbacks 已正确分发 onFrame。
+    tairitsu_vdom::runtime::set_schedule_callback(Box::new(|callback: Box<dyn FnOnce()>| {
+        let id = tairitsu_web::wit_platform::wasm_impl::next_callback_id();
+        tairitsu_web::wit_platform::wasm_impl::ANIMATION_CALLBACKS.with(|m| {
+            m.borrow_mut()
+                .insert(id, Some(Box::new(move |_ts| callback())));
+        });
+        tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::platform_helpers::request_animation_frame(id);
+    }));
+
     tairitsu_vdom::runtime::store_initial_vnode(component_id, vnode);
-    eprintln!("[game2] initial vnode stored, component={component_id:?}");
     Ok(())
 }
 
