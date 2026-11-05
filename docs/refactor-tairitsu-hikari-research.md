@@ -423,6 +423,26 @@ rAF 与 `TimerOps::set_timeout` 两条异步路径在本机实测都观察不到
 同步 flush 行为确定，游戏单屏元素量（20–50 个瓦片）下开销可接受。
 上游 #119 合入后应改回异步批处理，并补一条「点击 → 断言 DOM」的浏览器回归。
 
+### 10.1.1 异步回调桥同样不达
+
+fetch 已验证：请求发出、`status 200`、glue 的 `fetchPromise` 也 resolve，
+但 `globalThis.__wasmExports["tairitsu-browser:full/promise-callbacks@0.2.0"]
+.onPromiseResolved` **一次都没有被调用**（在页面里 hook 该导出实测）。
+
+与 10.1 的 rAF / setTimeout 同属一类：**wasm 导出只在其同步调用栈内可重入**，
+JS 侧 microtask / 宏任务里回调进 wasm 时没有生效路径。三个症状（帧不投递、
+定时器不投递、promise 不投递）指向同一个机制，不是三个独立缺陷。
+
+这也说明 Phase 1 记录的「fetch 回调桥 ✅」是在 `poc.html` 的独立页面里
+观察到的，接进 Discuz 页面（jco + 自装配 glue）后并不成立——两者差异在
+启动路径，不在业务代码。
+
+影响：任何依赖异步结果的页面（商店列表、背包、对战）在迁移前都必须先解决
+这条链路。下一步是在上游那侧定位：给 `onFrame` / `onTimeout` /
+`onPromiseResolved` 各加一条最小复现（一个不碰 DOM 的组件，只 `fetch`
+一个静态文件并回写一个信号），确认是 jco 的导出调用约定还是 glue 的回连
+时机问题。
+
 ### 10.2 双站点并行（行为对照）
 
 入口按 `ui` 参数分流，两套前端共用同一 Discuz 外壳与 API：
