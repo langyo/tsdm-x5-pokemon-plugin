@@ -354,6 +354,11 @@ Hikari 结构：Vue 3 包（`packages/vue`）是**规范源**；Rust 端每个�
 A. 向上游反馈 diff/apply 缺口（附复现），期间游戏列表用「整棵重挂载」
    workaround（set_text_content(app,'') + mount_vnode_to_app 全量重渲染，
    游戏规模可接受）。
-B. 临时切 path 依赖到本地 tairitsu checkout 修 apply 语义（把 UpdateChild
-   越界+InsertChild 情形降级为 append），验证后向上游提 PR。
+B. 【已执行】向 tairitsu 提交修复 PR：
+   celestia-island/tairitsu#116（fix/init-runtime-rendered-root 分支）。
+   根因实为 init_runtime 根元素接线错误：patch 相对「组件 vnode 根」计算，
+   文档/示例/模板却传挂载父级 #app，顶层索引全部错位一层（首条撞巧命中、
+   其余静默丢弃）。修复 = mount_vnode_to_app 返回渲染后的根元素，
+   示例/模板/迁移文档统一改为以该根调用 init_runtime。
+   合入后插件侧的「列表更新失效」即随之消失，届时重验 POC 清单即可。
 C. 暂缓列表类页面，先迁无列表页面（welcome/home）验证范式后随上游修复推进。
