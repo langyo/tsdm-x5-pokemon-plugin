@@ -235,8 +235,15 @@ def vendor_copy() -> None:
     print("[poc] vendored glue domains + wasi browser shims")
 
 
-def shims_from_glue() -> None:
+def shims_from_glue(build_id: str) -> None:
     """为每个接口生成 shim 模块：从域模块的 INTERFACES 映射导出平铺函数。
+
+    glue 导入必须带 ?v=构建戳：shim→glue 的相对导入在 HTTP 层可能命中
+    旧缓存条目（早于 no-cache 头的条目按启发式新鲜度直接复用、不再回源），
+    而模块实例按 URL 缓存。旧版 glue（0.5.4 tarball）回连的是 snake_case
+    旧回调名（on_timeout/on_animation_frame/on_promise_resolve），经 `?.`
+    可选链全部静默无操作——帧/定时器/promise 三条投递链路一起失效，
+    且不报任何错。带版本参数的 URL 是新缓存键，彻底切断这条污染路径。
 
     tarball 缺口补写：
     - node.getChildNodes（0.5.26 world 新增，tarball 未实现）
@@ -270,7 +277,7 @@ def shims_from_glue() -> None:
         else:
             lines = [
                 f"// shim for tairitsu-browser:full/{iface}",
-                f"import {{ INTERFACES }} from '../glue/{domain}/index.js';",
+                f"import {{ INTERFACES }} from '../glue/{domain}/index.js?v={build_id}';",
                 f"const obj = INTERFACES['@tairitsu-glue/{iface}'];",
             ]
             for fn in functions:
@@ -297,6 +304,27 @@ def glue_core() -> None:
     for table in HANDLE_TABLES:
         # __dispatchingEvents 是 Set（events glue 用 .add() 去重），其余为 Map。
         kind = "new Set()" if table == "__dispatchingEvents" else "new Map()"
+        # __listenerHandles 特殊：同 (element, type) 只允许一个条目。
+        # 重渲染的 UpdateEvent 补丁是 remove+add，remove 半路被 jco 吞掉时
+        # add 仍会执行——表里出现双活条目，而事件分发取 first-match，若命中的
+        # 是旧僵尸（wasm 回调已被 take 走）则整次点击静默无效。插入时驱逐
+        # 同 (element, type) 的旧条目，让 first-match 永远是最新注册的那个。
+        if table == "__listenerHandles":
+            lines.append(
+                "if (!globalThis.__listenerHandles) globalThis.__listenerHandles = "
+                "new (class extends Map {"
+                "  set(h, info) {"
+                "    for (const [k, v] of this) {"
+                "      if (k !== h && v.element === info.element && v.type === info.type) {"
+                "        try { v.element.removeEventListener(v.type, v.listener); } catch (e) {}"
+                "        this.delete(k);"
+                "      }"
+                "    }"
+                "    return super.set(h, info);"
+                "  }"
+                "})();"
+            )
+            continue
         lines.append(f"if (!globalThis.{table}) globalThis.{table} = {kind};")
     for counter in HANDLE_COUNTERS:
         lines.append(f"if (!globalThis.{counter}) globalThis.{counter} = 1n;")
@@ -305,10 +333,23 @@ def glue_core() -> None:
         "// 统一句柄空间：元素/文本/文档都是节点，全部落在 __allNodes，",
         "// 再按类别写入分表（分表供域模块直接 .get() 的场景）。",
         "// handle 分配集中于 __nextHandle，保证跨表唯一。",
+        "//",
+        "// 句柄按对象幂等（WeakMap 反查）：同一个 DOM 节点每次被解析（如",
+        "// apply 期间反复 get_child_at → nodeList.item）必须返回同一个句柄。",
+        "// 否则 wasm 侧的「元素身份」每次都变，按 (句柄, 事件) 键的监听器",
+        "// 去重全部失配——重渲染一次叠一个 DOM 监听器，第 N 次点击触发",
+        "// N 次 handler（实测一个按钮上堆到 7 个 click 监听）。",
         "if (!globalThis.__allNodes) globalThis.__allNodes = new Map();",
+        "if (!globalThis.__nodeIdentity) globalThis.__nodeIdentity = new WeakMap();",
         "const storeDom = function (obj, kindTable) {",
-        "  const h = globalThis.__nextHandle; globalThis.__nextHandle = h + 1n;",
+        "  let h = globalThis.__nodeIdentity.get(obj);",
+        "  if (h !== undefined) {",
+        "    if (kindTable) kindTable.set(h, obj);",
+        "    return h;",
+        "  }",
+        "  h = globalThis.__nextHandle; globalThis.__nextHandle = h + 1n;",
         "  globalThis.__allNodes.set(h, obj);",
+        "  globalThis.__nodeIdentity.set(obj, h);",
         "  if (kindTable) kindTable.set(h, obj);",
         "  return h;",
         "};",
@@ -359,22 +400,28 @@ def write_boot_assets() -> None:
     }, ensure_ascii=False, indent=2)
     (OUT / "poc.json").write_text(poc_json + "\n", encoding="utf-8")
 
-    import_map = {
-        "@bytecodealliance/preview2-shim/cli": "./wasi/cli.js",
-        "@bytecodealliance/preview2-shim/clocks": "./wasi/clocks.js",
-        "@bytecodealliance/preview2-shim/io": "./wasi/io.js",
-        "@bytecodealliance/preview2-shim/random": "./wasi/random.js",
-    }
     # shim 与入口地址统一带构建时间戳（wasm 的 mtime），避免浏览器缓存
     # 旧 shim / 旧 boot.js / 旧组件。必须取 wasm 的 mtime 而不是脚本自身：
     # 脚本没改、只重编 wasm 时，脚本 mtime 不变会把缓存当成有效。
+    # wasi 一样要带：模块实例按 URL 缓存，且早于 no-cache 头的 HTTP 缓存
+    # 条目按启发式新鲜度复用、不回源——版本参数是新缓存键，绕开两者。
     build_id = str(int(WASM_ARTIFACT.stat().st_mtime))
+    import_map = {
+        "@bytecodealliance/preview2-shim/cli": f"./wasi/cli.js?v={build_id}",
+        "@bytecodealliance/preview2-shim/clocks": f"./wasi/clocks.js?v={build_id}",
+        "@bytecodealliance/preview2-shim/io": f"./wasi/io.js?v={build_id}",
+        "@bytecodealliance/preview2-shim/random": f"./wasi/random.js?v={build_id}",
+    }
     for iface in INTERFACE_MAP:
         import_map[f"tairitsu-browser:full/{iface}"] = f"./shims/{iface}.js?v={build_id}"
 
     # 嵌入 Discuz 页面用的启动脚本：importmap 必须是绝对地址（页面 URL 是
     # /plugin.php?id=pokemon:game，相对路径会解析到站点根，不是 wasm2/）。
     abs_map = {k: f"/{OUT_REL}/{v.lstrip('./')}" for k, v in import_map.items()}
+    # glue-core 的缓存键取它自身的 mtime：它的内容会独立于 wasm 变化
+    # （如句柄幂等修复），若沿用 wasm 的 BUILD_ID，浏览器会继续用旧
+    # 缓存里的 glue-core。
+    glue_core_id = str(int((OUT / "glue-core.js").stat().st_mtime))
     boot_js = f"""// 由 scripts/publish/build_tairitsu_poc.py 生成 — 请勿手改。
 // tairitsu 组件的浏览器启动脚本：注册 importmap、装 glue 运行时、
 // 载入 jco 转译产物并调用组件导出的 lifecycle.start。
@@ -386,6 +433,7 @@ def write_boot_assets() -> None:
   'use strict';
 
   var BUILD_ID = {build_id!r};
+  var GLUE_CORE_ID = {glue_core_id!r};
   var BASE = {OUT_REL_URL!r};
 
   // importmap 必须在任何 module 载入前注册，且每页只能有一个。
@@ -438,7 +486,7 @@ def write_boot_assets() -> None:
     if (globalThis.__TAIRITSU_GLUE__) return Promise.resolve();
     return new Promise(function (resolve, reject) {{
       var script = document.createElement('script');
-      script.src = BASE + '/glue-core.js?v=' + BUILD_ID;
+      script.src = BASE + '/glue-core.js?v=' + GLUE_CORE_ID;
       script.onload = resolve;
       script.onerror = reject;
       document.head.appendChild(script);
@@ -592,7 +640,7 @@ def main() -> None:
         vendor_copy()
     elif not (OUT / "glue").is_dir() or not (OUT / "wasi").is_dir():
         sys.exit("--skip-vendor requires existing plugin/wasm2/glue and plugin/wasm2/wasi")
-    shims_from_glue()
+    shims_from_glue(build_id)
     glue_core()
     write_boot_assets()
     print("[poc] done →", OUT)

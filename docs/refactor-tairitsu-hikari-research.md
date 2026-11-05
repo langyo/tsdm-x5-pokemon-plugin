@@ -423,25 +423,49 @@ rAF 与 `TimerOps::set_timeout` 两条异步路径在本机实测都观察不到
 同步 flush 行为确定，游戏单屏元素量（20–50 个瓦片）下开销可接受。
 上游 #119 合入后应改回异步批处理，并补一条「点击 → 断言 DOM」的浏览器回归。
 
-### 10.1.1 异步回调桥同样不达
+### 10.1.2 「三条投递链路全哑」的最终根因与全链路打通
 
-fetch 已验证：请求发出、`status 200`、glue 的 `fetchPromise` 也 resolve，
-但 `globalThis.__wasmExports["tairitsu-browser:full/promise-callbacks@0.2.0"]
-.onPromiseResolved` **一次都没有被调用**（在页面里 hook 该导出实测）。
+§10.1.1 记录的 rAF / setTimeout / promise 三条回调链路「全部不达」，根因
+**不是** wasm 重入限制，而是两层叠加：
 
-与 10.1 的 rAF / setTimeout 同属一类：**wasm 导出只在其同步调用栈内可重入**，
-JS 侧 microtask / 宏任务里回调进 wasm 时没有生效路径。三个症状（帧不投递、
-定时器不投递、promise 不投递）指向同一个机制，不是三个独立缺陷。
+1. **旧版 glue 的浏览器缓存**。shim→glue 的相对导入（`../glue/platform/index.js`）
+   没带版本参数，浏览器一直复用 npm tarball 0.5.4 的旧 glue——它回连的是
+   snake_case 旧回调名（`on_timeout` / `on_animation_frame` /
+   `on_promise_resolve`），经 `?.` 可选链**全部静默无操作**。三条链路同时哑、
+   且不报任何错，正是这个特性。构建脚本已给 shim→glue 导入与 wasi
+   importmap 全部加 `?v=<构建戳>`，glue-core 单独用自己的 mtime 打戳。
+2. **apply 路径残留的 eprintln 探针**（上游 #116 带进 master 的调试代码，
+   #120/#119 移除）。wasm 的 stderr 是 wasi:cli 的 OutputStream **资源**，
+   绑定在首次解析它的线程上；从 onFrame 的回调线程写 stderr 直接抛
+   "Not a valid OutputStream resource"，把 InsertChild 的 apply 中途打断——
+   而 Phase 3 已把新 vnode 存进 component_vnodes，后续 diff 全部视为无变化，
+   UI 永久冻结且无任何报错。这也解释了 §10.1 时代「点几下不动、过一会儿
+   一次性冒出来」：只有 FRAME_DEADLINE 兜底在 32ms 后把积压刷出。
 
-这也说明 Phase 1 记录的「fetch 回调桥 ✅」是在 `poc.html` 的独立页面里
-观察到的，接进 Discuz 页面（jco + 自装配 glue）后并不成立——两者差异在
-启动路径，不在业务代码。
+另有两处独立缺陷一并修复（均在 tairitsu#119）：
 
-影响：任何依赖异步结果的页面（商店列表、背包、对战）在迁移前都必须先解决
-这条链路。下一步是在上游那侧定位：给 `onFrame` / `onTimeout` /
-`onPromiseResolved` 各加一条最小复现（一个不碰 DOM 的组件，只 `fetch`
-一个静态文件并回写一个信号），确认是 jco 的导出调用约定还是 glue 的回连
-时机问题。
+- **重入 flush 双借用**：apply 回调内部的 mark_dirty 兜底路径会再次进入
+  flush_render，嵌套 drain 重入 render_component 时撞上外层 apply 回调的
+  RefCell 借用（"RefCell already borrowed"），unwind 后存储 vnode 已被污染。
+  现在 flush 带重入守卫（RAII），嵌套调用让位给外层排空循环。
+- **监听器每渲染叠一个**：UpdateEvent 补丁是 remove+add，remove 半路被吞时
+  add 仍执行，DOM 上叠出 N 个监听（实测一个按钮 7 个 click），第 N 次点击
+  触发 N 次 handler。上游 `add_event_listener` 现在先撤同 (element, event)
+  的旧条目；消费侧 glue-core 的 `__listenerHandles` 也改为唯一表 + DOM 级
+  驱逐（插入新条目时 detach 旧 DOM 闭包），双保险。
+- **句柄幂等**（glue-core）：`__storeElement/__storeNode` 加 WeakMap 反查，
+  同一 DOM 节点永远解析回同一句柄——否则 wasm 侧「元素身份」每次都变，
+  监听去重全部失配。
+
+**验证（真实浏览器 + Discuz 页面 + 异步 rAF 调度）**：连续 5 次点击每次
+恰好 +1 行（2→3→4→5→6→7，增量 patch，无整树重挂载）；一次点击恰好一次
+请求；fetch 异步往返打通（状态文本更新为「OK（163 字节）」）；rAF 帧投递
+7/7；信号值与 DOM 行数一致无漂移。§10.1 的同步 flush 绕行已移除，恢复
+异步批处理调度。
+
+panic 上报注意：wasm 的 eprintln 在 jco 隐式线程里不可用（stderr 资源跨线程
+无效，panic hook 里的 eprintln 自身会崩并把真 panic 吞掉）。game2 的 panic
+hook 先写 `#app[data-panic]` 再尝试 stderr，任何 panic 都能在 DOM 上读到。
 
 ### 10.2 双站点并行（行为对照）
 

@@ -183,6 +183,20 @@ pub fn PocPanel(state: PocState) -> VNode {
             let mut cur = state.items.get();
             cur.push(format!("POC 物品 #{n}"));
             state.items.set(cur);
+            // 诊断：把 mark_dirty 之后的运行时状态写进 DOM。
+            // 「点了没反应且无报错」时看 data-diag：sched/flush 卡 true 即
+            // 调度或排空标志未复位（上游 runtime 疑难，见研究文档 §10.1.2）。
+            #[cfg(target_family = "wasm")]
+            {
+                use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::{
+                    element::set_attribute, non_element_parent_node::get_element_by_id,
+                };
+                let (sched, flushing, dirty, comps) = tairitsu_vdom::runtime::debug_state();
+                let diag = format!("sched={sched} flush={flushing} dirty={dirty} comps={comps} items={}", state.items.get().len());
+                if let Some(app) = get_element_by_id(0, "app") {
+                    let _ = set_attribute(app, "data-diag", &diag);
+                }
+            }
         })
     };
 

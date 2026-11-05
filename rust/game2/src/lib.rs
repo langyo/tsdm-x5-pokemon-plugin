@@ -29,10 +29,26 @@ thread_local! {
 
 #[cfg(target_family = "wasm")]
 pub fn run_app() -> Result<()> {
-    // wasm 里 tracing 无订阅者，dispatch_event 的 catch_unwind 会静默吞掉
-    // handler panic——装 hook 让 panic 走 stderr 可见。
+    // panic 上报：写进 #app 的 data-panic 属性，再尝试 stderr。
+    //
+    // 不能只走 eprintln！wasm 的 stderr 是 wasi:cli 的 OutputStream 资源，
+    // jco 把资源句柄登记在「发起调用的隐式线程」的表里：从 lifecycle.start
+    // 所在线程之外（如 onFrame/onTimeout 的回调线程）调 get-stderr 会抛
+    // "Not a valid OutputStream resource"——panic hook 里的 eprintln 自身
+    // 崩掉，把真正的 panic 信息整个吞掉（实测踩坑，见研究文档 §10.1.2）。
+    // DOM 属性在任何线程都能写，先写它保底。
     std::panic::set_hook(Box::new(|info| {
-        eprintln!("[game2] PANIC: {info}");
+        let msg = format!("[game2] PANIC: {info}");
+        #[cfg(target_family = "wasm")]
+        {
+            use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::{
+                element::set_attribute, non_element_parent_node::get_element_by_id,
+            };
+            if let Some(app) = get_element_by_id(0, "app") {
+                let _ = set_attribute(app, "data-panic", &msg);
+            }
+        }
+        eprintln!("{msg}");
     }));
     // 状态归属：先注册组件拿到 id，再在 with_component 上下文里创建信号，
     // 这样 ReactiveSignal::set 的 mark_dirty 会落到本组件（而非兜底空组件）。
@@ -97,22 +113,48 @@ pub fn run_app() -> Result<()> {
     // 该缺陷已在上游修复（celestia-island/tairitsu#119：VElement 的
     // child/children 递归展平 Fragment），因此不再需要绕行。
     //
-    // 调度策略（迁移期）：同步 flush，等价于 Dioxus 的同步重渲染。
+    // 调度：异步 rAF。mark_dirty 可能仍在 RUNTIME 借用的调用栈上，回调
+    // 不能同步 flush（会重入），因此注册进 ANIMATION_CALLBACKS 后请求
+    // 下一帧，由 glue 的 onFrame 投递。
     //
-    // 曾试过两条异步路径，都不可靠：
-    //   1. rAF（platform-helpers.requestAnimationFrame → glue 的 animationId
-    //      映射 → animation-callbacks.onFrame）：实测帧被吞，`scheduled` 卡
-    //      true，之后每次更新都走 AlreadyScheduled 被丢弃；
-    //   2. setTimeout（TimerOps::set_timeout → timer-callbacks.onTimeout）：
-    //      同样观察不到回调到达。
-    // 两者都只有 mark_dirty 的 FRAME_DEADLINE 兜底能让更新生效，表现为
-    // 「点几下不动，过一会儿一次性全冒出来」。同步 flush 行为确定，
-    // 游戏单屏元素量下开销可接受；上游修好帧投递后可换回异步批处理。
-    //
-    // 重入安全：mark_dirty 在调用回调前已释放 RUNTIME 借用，flush_render
-    // 自己取走 dirty 列表再渲染，不会重复进入。
+    // 历史教训（为什么这里曾经退化成同步 flush）：shim→glue 的相对导入
+    // 没带构建戳时，浏览器会一直用旧版 glue（0.5.4 tarball）——它回连的
+    // 是 snake_case 旧回调名，经 `?.` 可选链全部静默无操作，帧/定时器/
+    // promise 三条投递链路一起失效。构建脚本已给全部 glue/wasi 导入加
+    // ?v=构建戳（见 build_tairitsu_poc.py 的 shims_from_glue），此路径
+    // 恢复可用。boot.js 在后台标签页把 rAF 改写到 MessageChannel 上，
+    // 规避节流；mark_dirty 的 FRAME_DEADLINE 兜底（上游 #119）保证即使
+    // 帧真的丢了也不会永久冻结。
     tairitsu_vdom::runtime::set_schedule_callback(Box::new(|callback: Box<dyn FnOnce()>| {
-        callback();
+        use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::{
+            element::set_attribute, non_element_parent_node::get_element_by_id,
+        };
+        let write_diag = |msg: &str| {
+            if let Some(app) = get_element_by_id(0, "app") {
+                let _ = set_attribute(app, "data-sched", msg);
+            }
+        };
+        let id = tairitsu_web::wit_platform::wasm_impl::next_callback_id();
+        tairitsu_web::wit_platform::wasm_impl::ANIMATION_CALLBACKS.with(|m| {
+            m.borrow_mut()
+                .insert(id, Some(Box::new(move |_ts| callback())));
+        });
+        // 宿主调用可能抛（jco 异步机制 / glue），而 dispatch_event 会把
+        // handler 里的 panic 静默吞掉——捕捉后写进 DOM 才能看到。
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::platform_helpers::request_animation_frame(id);
+        }));
+        match result {
+            Ok(()) => write_diag(&format!("ok id={id}")),
+            Err(e) => {
+                let msg = e
+                    .downcast_ref::<String>()
+                    .cloned()
+                    .or_else(|| e.downcast_ref::<&str>().map(|s| s.to_string()))
+                    .unwrap_or_else(|| "unknown".to_string());
+                write_diag(&format!("THREW id={id}: {msg}"));
+            }
+        }
     }));
 
     tairitsu_vdom::runtime::store_initial_vnode(component_id, vnode);
