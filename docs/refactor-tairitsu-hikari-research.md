@@ -467,6 +467,49 @@ panic 上报注意：wasm 的 eprintln 在 jco 隐式线程里不可用（stderr
 无效，panic hook 里的 eprintln 自身会崩并把真 panic 吞掉）。game2 的 panic
 hook 先写 `#app[data-panic]` 再尝试 stderr，任何 panic 都能在 DOM 上读到。
 
+### 10.1.3 商店页移植与 jco 任务/锁机制的边界
+
+商店页（shop.rs，首个真实页面）移植完成后，交互主循环在**带数据的树**上
+暴露出 jco（componentize-js 运行时）任务机制的更深边界，与 POC（纯内存
+列表）表现不同：
+
+**已确认的事实（全部带 DOM 探针证据）**：
+1. promise 回调线程里发起的**异步导入**（`request-animation-frame` 等）
+   会被 jco 排队而非执行；一旦锁账本损坏（日志可见
+   `exclusiveRelease ignoring foreign release`），排队操作永不落地——
+   表现为 rAF 预订「完成」但 `window.requestAnimationFrame` 从未被调用。
+2. promise 回调线程里直接 `flush_render()` 会在渲染路径的某次接口调用上
+   **永久挂起**（排空标志卡 true，后续所有 flush 被重入守卫推迟）。
+3. 同步 DOM 写入（`set-attribute`）在任何隐式线程都可靠。
+4. 事件任务（DOM 事件处理器）上下文渲染**空树**（loading 态）完整可行。
+
+**当前采用的调度设计（双通道）**：
+- 事件/挂载线程 → 经典 rAF 预订（POC 验证过的路径）。
+- promise 线程回调 → `Signal::inner().set()`（纯内存，不触发 mark_dirty
+  的调度路径）+ `mark_dirty_deferred`（入队不调度）+ 写
+  `#app[data-flush-pending]`（同步导入）；boot.js 的 MutationObserver
+  看到后向 #app 派发 `pm-flush` 自定义事件，lib.rs 注册的监听器在事件
+  任务里执行 `flush_render()`。
+
+**剩余卡点（下一会话从这里开始）**：pm-flush 事件正常送达（on-generic-event
+有完整的 enter/Return），但带数据（8 个瓦片）的重渲染仍未落地——dirty 在
+队列里、监听器命中、事件返回，DOM 不变。怀疑点按优先级：
+1. 渲染路径中某个特定接口调用在事件任务上仍被排队（用 JCO_DEBUG 对比
+   挂载期 flush（成功）与 pm-flush flush（失败）的日志行差集可定位）；
+2. `exclusiveRelease ignoring foreign release` 的锁账本损坏来源——检查
+   jco wrapper 的 `exclusiveAcquire/Release` 配对与 promise 任务的
+   task id 归属；
+3. 规避方案：把整个渲染搬到 JS 侧不可行；可尝试 componentize-js 新版本
+   或 `tairitsu-web` 增加「整树重挂载」降级 API（POC 时代验证过
+   mount_vnode_to_app 在挂载任务上对任意规模树都可靠）。
+
+上游配套修复（本轮，tairitsu#119 分支）：
+- `mark_dirty` 的过期检测从 `Instant::now()`（wasi:clocks 同步导入，
+  在 promise 线程会陷阱致死）改为**标记计数**（OVERDUE_MARKS=8，纯内存）；
+- `flush_render` 增加 DEBUG_FLUSHES/DEBUG_DEFERRED_FLUSHES 原子计数与
+  `debug_flush_counts()`，配合 `debug_state()` 把「调度未到/排空挂起/
+  队列孤儿」三种冻结形态分开。
+
 ### 10.2 双站点并行（行为对照）
 
 入口按 `ui` 参数分流，两套前端共用同一 Discuz 外壳与 API：

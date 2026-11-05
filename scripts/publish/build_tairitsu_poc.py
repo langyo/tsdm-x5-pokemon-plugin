@@ -524,6 +524,20 @@ def write_boot_assets() -> None:
     }}).then(function () {{
       var app = document.getElementById('app');
       if (app) app.removeAttribute('data-booting');
+      // 渲染调度桥：组件的调度回调写 #app[data-flush-pending]=N（同步
+      // 导入，任何 jco 隐式线程都可靠），这里看到后向 #app 派发 pm-flush
+      // 事件；组件在 #app 上的 pm-flush 监听器里执行 flush_render()。
+      // DOM 事件处理器任务上下文与挂载/点击一致（已验证可靠），
+      // 从而完全绕开 jco 对异步导入（rAF/setTimeout）的排队与锁损坏。
+      var last = null;
+      var observer = new MutationObserver(function () {{
+        var v = app.getAttribute('data-flush-pending');
+        if (v !== null && v !== last) {{
+          last = v;
+          app.dispatchEvent(new CustomEvent('pm-flush'));
+        }}
+      }});
+      observer.observe(app, {{ attributes: true, attributeFilter: ['data-flush-pending'] }});
     }});
   }};
 }})();

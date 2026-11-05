@@ -55,6 +55,13 @@ include template('common/header');
 .pm-ui-switch a:hover { text-decoration:underline; }
 .pm-ui-switch .current { font-weight:600; color:#333; }
 </style>
+<?php
+// tairitsu 版直接复用 Dioxus 版的 game.css：页面组件与 Dioxus 版
+// 同名同类（.page-shop / .shop-tile / .buy-btn …），一份样式两套前端共用，
+// 迁移期的行为对照才是像素级的。
+$game_css_ver = time();
+?>
+<link rel="stylesheet" href="/source/plugin/pokemon/wasm/game.css?v=<?php echo $game_css_ver; ?>">
 
 <div class="pm-ui-switch">
   <span>界面版本：</span>
