@@ -29,11 +29,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "plugin" / "wasm2"
 
-# npm 解包目录：`npm pack @celestia-island/tairitsu-web-glue@0.5.4` 与
-# `npm pack @bytecodealliance/preview2-shim`，解压后合并为同一个 package/ 目录。
+# glue/wasi 产物目录：glue 来自本地 tairitsu checkout 重编译后的 npm dist
+# （含 0.5.26 兼容修复），wasi 为 @bytecodealliance/preview2-shim 的 browser 子集。
 NPM_VENDOR = Path(os.environ.get(
     "TAIRITSU_POC_NPM_VENDOR",
-    r"C:\Users\langy\AppData\Local\Temp\pm-poc\package",
+    r"D:\源代码\工程项目\celestia\tairitsu\packages\npm\celestia-tairitsu-web-glue\dist",
+))
+WASI_VENDOR = Path(os.environ.get(
+    "TAIRITSU_POC_WASI_VENDOR",
+    r"C:\Users\langy\AppData\Local\Temp\pm-poc\package\dist\browser",
 ))
 
 # 组件实际 import 的 tairitsu-browser 接口 → 覆盖它的 glue 域模块 + 函数清单。
@@ -97,26 +101,7 @@ HANDLE_COUNTERS = [
     "__nextResizeObserverSizeHandle",
 ]
 
-FETCH_PROMISE_PATCH = """// fetchPromise：tarball glue 传原始 Response（WIT 签名期望 String），修正为 text()。
-export function fetchPromise(url, optionsJson) {
-  const id = globalThis.__nextHandle ?? 1n;
-  globalThis.__nextHandle = id + 1n;
-  let options;
-  try { options = optionsJson ? JSON.parse(optionsJson) : undefined; } catch { options = undefined; }
-  const pcb = () => {
-    const exports = globalThis.__wasmExports || {};
-    return exports["tairitsu-browser:full/promise-callbacks@0.2.0"] || {};
-  };
-  fetch(url, options).then(async (resp) => {
-    const text = await resp.text();
-    const iface = pcb();
-    (iface.onPromiseResolved || iface.on_promise_resolved || (() => {}))(id, text);
-  }).catch((err) => {
-    const iface = pcb();
-    (iface.onPromiseRejected || iface.on_promise_rejected || (() => {}))(id, String(err));
-  });
-  return id;
-}"""
+
 
 
 def cargo_build(skip: bool) -> Path:
@@ -156,6 +141,18 @@ def jco_transpile(wasm: Path) -> None:
         sys.exit(result.returncode)
 
 
+def bust_wrapper_cache(build_id: str) -> None:
+    """给 jco 产物内的 core-wasm 引用加版本参数。
+
+    jco 产物 URL 固定，浏览器启发式缓存会让新 wasm 永远加载不到
+    （POC 排查时最大的坑）。
+    """
+    wrapper = OUT / 'component-wrapper' / '_game2.js'
+    js = wrapper.read_text(encoding='utf-8')
+    js = js.replace('./_game2.core.wasm', './_game2.core.wasm?v=' + build_id)
+    wrapper.write_text(js, encoding='utf-8')
+
+
 def verify_imports() -> None:
     """从转译产物提取全部 tairitsu-browser 导入接口名，与 INTERFACE_MAP 对账。"""
     wrapper = OUT / "component-wrapper" / "_game2.js"
@@ -175,7 +172,7 @@ def vendor_copy() -> None:
     if glue_dir.exists():
         shutil.rmtree(glue_dir)
     for domain in sorted({dom for dom, _ in INTERFACE_MAP.values() if dom}):
-        src = NPM_VENDOR / "dist" / domain / "index.js"
+        src = NPM_VENDOR / domain / "index.js"
         dst = glue_dir / domain / "index.js"
         if not src.exists():
             sys.exit(f"vendor glue missing: {src}")
@@ -185,7 +182,7 @@ def vendor_copy() -> None:
     wasi_dir = OUT / "wasi"
     if wasi_dir.exists():
         shutil.rmtree(wasi_dir)
-    src_browser = NPM_VENDOR / "dist" / "browser"
+    src_browser = WASI_VENDOR
     if not src_browser.exists():
         sys.exit(f"vendor wasi missing: {src_browser}")
     shutil.copytree(src_browser, wasi_dir, ignore=shutil.ignore_patterns("*.d.ts"))
@@ -231,26 +228,19 @@ def shims_from_glue() -> None:
                 f"const obj = INTERFACES['@tairitsu-glue/{iface}'];",
             ]
             for fn in functions:
-                # node.getChildNodes 与 platform.fetchPromise 由下方补写段提供。
-                if iface == "node" and fn == "getChildNodes":
-                    continue
-                if iface == "platform-helpers" and fn == "fetchPromise":
-                    continue
                 lines.append(f"export const {fn} = obj.{fn};")
             if iface == "node":
                 lines += [
                     "// getChildNodes：0.5.26 world 新增（tarball glue 未实现）。",
-                    "// 关键：返回 Element-only 集合（node.children 而非 childNodes）——",
-                    "// diff 的子索引只数元素节点；走 childNodes 会因空白文本节点错位，",
-                    "// UpdateChild/InsertChild 会打到错误的 DOM 节点（静默失败）。",
+                    "// 必须返回 childNodes（全节点）：diff 的子索引把 Text vnode 也计入",
+                    "// （如 span 的动态文本是 child 0），用 element-only 的 children 会",
+                    "// 让 UpdateText/UpdateChild 寻址错位（静默失败）。",
                     "export function getChildNodes(self) {",
                     "  const node = globalThis.__lookupNode(self);",
-                    "  const list = node.children;",
+                    "  const list = node.childNodes;",
                     "  return globalThis.__storeNodeList(list);",
                     "}",
                 ]
-            if iface == "platform-helpers":
-                lines.append(FETCH_PROMISE_PATCH)
             code = "\n".join(lines)
         (shims / f"{iface}.js").write_text(code + "\n", encoding="utf-8")
     print("[poc] wrote", len(INTERFACE_MAP), "interface shims")
@@ -354,39 +344,12 @@ body {{ margin: 0; background: #f7f9fa; font-family: "Noto Sans SC", system-ui, 
 <body>
 <div id="main"><div id="app" data-booting>正在加载 POC…</div></div>
 <script type="module">
+const BUILD_ID = '__BUILD_ID__';
 // POC boot：静态 import 经 importmap 解析 glue/wasi，随后调用组件导出的 lifecycle.start。
 globalThis.__setWasmExports = globalThis.__setWasmExports || ((e) => {{ globalThis.__wasmExports = e; }});
-const mod = await import('./component-wrapper/_game2.js');
+const mod = await import('./component-wrapper/_game2.js?b=' + BUILD_ID);
 
-// 命名对齐：npm glue（0.5.4）按 snake_case 回连旧组件回调，而 0.5.26 组件导出
-// camelCase（WIT kebab 提升）。用 Proxy 给回调接口加 snake_case 别名。
-const CALLBACK_ALIASES = {{
-  'animation-callbacks': {{ on_animation_frame: 'onFrame' }},
-  'timer-callbacks': {{ on_timeout: 'onTimeout', on_interval: 'onInterval' }},
-  'promise-callbacks': {{ on_promise_resolve: 'onPromiseResolved', on_promise_reject: 'onPromiseRejected' }},
-  'scroll-callbacks': {{ on_scroll_event: 'onScrollEvent' }},
-  'resize-observer-callbacks': {{ on_resize: 'onResize' }},
-  'mutation-observer-callbacks': {{ on_mutate: 'onMutate' }},
-  'media-query-list-callbacks': {{ on_change: 'onChange' }},
-  'window-resize-callbacks': {{ on_window_resize: 'onWindowResize' }},
-}};
-const aligned = {{ ...mod }};
-for (const [iface, aliases] of Object.entries(CALLBACK_ALIASES)) {{
-  const key = 'tairitsu-browser:full/' + iface + '@0.2.0';
-  const src = aligned[key];
-  if (!src) continue;
-  aligned[key] = new Proxy(src, {{
-    get(t, p) {{
-      if (typeof p === 'string' && aliases[p] !== undefined) {{
-        // 返回包装：记录调用并转发到 camelCase 真名（debug 由 poc 模式自行扩展）
-        const real = t[aliases[p]];
-        return function (...args) {{ return real.apply(t, args); }};
-      }}
-      return t[p];
-    }},
-  }});
-}}
-globalThis.__setWasmExports(aligned);
+globalThis.__setWasmExports(mod);
 
 const findStart = (obj, depth = 0, seen = new Set()) => {{
   if (!obj || typeof obj !== 'object' || depth > 3 || seen.has(obj)) return null;
@@ -403,7 +366,7 @@ const findStart = (obj, depth = 0, seen = new Set()) => {{
   return null;
 }};
 
-const start = findStart(aligned);
+const start = findStart(mod);
 if (!start) {{
   document.getElementById('app').textContent = '未找到 lifecycle.start 导出';
   throw new Error('lifecycle.start not found in component exports');
@@ -428,6 +391,8 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     wasm = cargo_build(args.skip_build)
     jco_transpile(wasm)
+    build_id = str(int(wasm.stat().st_mtime))
+    bust_wrapper_cache(build_id)
     verify_imports()
     vendor_copy()
     shims_from_glue()

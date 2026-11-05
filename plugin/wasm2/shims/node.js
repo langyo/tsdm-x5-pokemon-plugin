@@ -7,11 +7,11 @@ export const insertBefore = obj.insertBefore;
 export const removeChild = obj.removeChild;
 export const setTextContent = obj.setTextContent;
 // getChildNodes：0.5.26 world 新增（tarball glue 未实现）。
-// 关键：返回 Element-only 集合（node.children 而非 childNodes）——
-// diff 的子索引只数元素节点；走 childNodes 会因空白文本节点错位，
-// UpdateChild/InsertChild 会打到错误的 DOM 节点（静默失败）。
+// 必须返回 childNodes（全节点）：diff 的子索引把 Text vnode 也计入
+// （如 span 的动态文本是 child 0），用 element-only 的 children 会
+// 让 UpdateText/UpdateChild 寻址错位（静默失败）。
 export function getChildNodes(self) {
   const node = globalThis.__lookupNode(self);
-  const list = node.children;
+  const list = node.childNodes;
   return globalThis.__storeNodeList(list);
 }

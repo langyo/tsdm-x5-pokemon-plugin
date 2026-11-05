@@ -8,6 +8,11 @@ localhost {
 
 	encode zstd gzip
 
+	# POC（wasm2/）开发期间禁用缓存：jco 产物 URL 无版本参数，
+	# 浏览器启发式缓存会让新旧 wasm 混用，排查问题时极其迷惑。
+	@wasm2_cache path /source/plugin/pokemon/wasm2/*
+	header @wasm2_cache Cache-Control "no-cache, must-revalidate"
+
 	php_server
 
 	file_server

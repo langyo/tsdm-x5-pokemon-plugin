@@ -73,7 +73,7 @@ fn shell_styles() -> (&'static str, Vec<&'static str>) {
 #[component]
 pub fn App(state: PocState) -> VNode {
     // 二分层：true = 走 hikari ThemeProvider 完整版；false = 原生元素精简版。
-    const FULL_UI: bool = false;
+    const FULL_UI: bool = true;
     if FULL_UI {
         // 品牌：游戏蓝主色 + 橙次色（对齐现有 $color-primary/$color-secondary）。
         rsx! {
@@ -167,11 +167,13 @@ pub fn PocPanel(state: PocState) -> VNode {
     let add_item = {
         let state = state.clone();
         tairitsu_vdom::Callback::new(move |_| {
+            eprintln!("[game2] add_item invoked");
             let n = state.counter.get() + 1;
             state.counter.set(n);
             let mut cur = state.items.get();
             cur.push(format!("POC 物品 #{n}"));
             state.items.set(cur);
+            eprintln!("[game2] items.set done, len={}", state.items.get().len());
         })
     };
 

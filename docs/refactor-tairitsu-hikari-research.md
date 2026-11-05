@@ -350,6 +350,17 @@ Hikari 结构：Vue 3 包（`packages/vue`）是**规范源**；Rust 端每个�
   需要 eprintln 探针（stderr → console.error）。git rev 锁定时 checkout
   内改动会被 cargo 还原，调试需临时切 path 依赖。
 
+### 追加发现（PR #117 验证过程中确认的上游缺陷）
+1. **调度非确定性**：ReactiveSignal::set → mark_dirty → schedule 回调在部分
+   页面加载中不触发（stderr 探针证实 set 完成但 schedule 未执行），疑似
+   flush_render/rt.scheduled 状态机问题；同构建不同加载表现不一致。
+2. **嵌套 InsertChild 丢失**：即使 flush+apply 携带完整 patch
+   （span UpdateText 落地 ✓），ul 的 InsertChild{2, li} 不产生 DOM 变更
+   （原生 createElement/appendChild 包装计数为 0）。疑似 apply 递归下降
+   对 Fragment/深层子树索引解析仍有缺口。
+以上两项需在上游用 browser e2e（scripts/browser_e2e.py + shirabe）建立
+「挂载→点击→断言 DOM」回归用例后修复，消费侧无法绕过。
+
 ### 下一步（Phase 1 收尾选项）
 A. 向上游反馈 diff/apply 缺口（附复现），期间游戏列表用「整棵重挂载」
    workaround（set_text_content(app,'') + mount_vnode_to_app 全量重渲染，

@@ -23,6 +23,11 @@ const MINIMAL_COUNTER_POC: bool = false;
 
 #[cfg(target_family = "wasm")]
 pub fn run_app() -> Result<()> {
+    // wasm 里 tracing 无订阅者，dispatch_event 的 catch_unwind 会静默吞掉
+    // handler panic——装 hook 让 panic 走 stderr 可见。
+    std::panic::set_hook(Box::new(|info| {
+        eprintln!("[game2] PANIC: {info}");
+    }));
     // 状态归属：先注册组件拿到 id，再在 with_component 上下文里创建信号，
     // 这样 ReactiveSignal::set 的 mark_dirty 会落到本组件（而非兜底空组件）。
     let component_id = tairitsu_vdom::use_component(|| tairitsu_vdom::VNode::empty());
@@ -53,14 +58,20 @@ pub fn run_app() -> Result<()> {
     let platform = WitPlatform::new()?;
     platform.mount_vnode_to_app(vnode.clone())?;
 
-    let root_handle = get_element_by_id(0, "app").expect("#app mount point not found");
-    let root_element = WitElement::from_raw(root_handle);
-    tairitsu_web::init_runtime(root_element);
+    // 关键：diff 产出的 patch 相对「组件 vnode 根元素」（mount 后 #app 的第一个
+    // 子元素）计算，init_runtime/apply 必须以同一元素为根；传 #app 会差一层，
+    // 顶层 patch 索引解析到 None 被静默丢弃（列表更新失效的根因）。
+    let app_handle = get_element_by_id(0, "app").expect("#app mount point not found");
+    let children_handle = tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::node::get_child_nodes(app_handle);
+    let vnode_root_handle = tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::node_list::item(children_handle, 0)
+        .expect("rendered vnode root not found");
+    let root_element = WitElement::from_raw(vnode_root_handle);
+    tairitsu_web::init_runtime(root_element.clone());
 
     // 调试探针：init_runtime 注册的 apply_patches 用 tracing::error 上报失败，
     // wasm 上无 tracing 订阅时完全静默。这里覆盖为带 eprintln 的版本以暴露问题。
     {
-        let root_for_patches = root_element.clone();
+        let root_for_patches = root_element;
         tairitsu_vdom::runtime::set_apply_patches_callback(
             move |component_id: tairitsu_vdom::ComponentId, patches: Vec<tairitsu_vdom::Patch>| {
                 eprintln!("[game2] apply_patches comp={component_id:?} n={}", patches.len());
