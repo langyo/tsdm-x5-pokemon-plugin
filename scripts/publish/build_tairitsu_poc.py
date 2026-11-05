@@ -29,16 +29,30 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "plugin" / "wasm2"
 
+# 站点内路径：Discuz 从站点根提供插件静态资源。嵌入页面（/plugin.php?...）
+# 必须用绝对 URL，相对路径会解析到站点根而非 wasm2/。
+OUT_REL = "source/plugin/pokemon/wasm2"
+OUT_REL_URL = "/" + OUT_REL
+
+# 组件构建产物（game2 被排除在根 workspace 之外，有独立的 target/）。
+WASM_ARTIFACT = (
+    ROOT / "rust" / "game2" / "target" / "wasm32-wasip2" / "release" / "_game2.wasm"
+)
+
 # glue/wasi 产物目录：glue 来自本地 tairitsu checkout 重编译后的 npm dist
-# （含 0.5.26 兼容修复），wasi 为 @bytecodealliance/preview2-shim 的 browser 子集。
-NPM_VENDOR = Path(os.environ.get(
-    "TAIRITSU_POC_NPM_VENDOR",
-    r"D:\源代码\工程项目\celestia\tairitsu\packages\npm\celestia-tairitsu-web-glue\dist",
-))
-WASI_VENDOR = Path(os.environ.get(
-    "TAIRITSU_POC_WASI_VENDOR",
-    r"C:\Users\langy\AppData\Local\Temp\pm-poc\package\dist\browser",
-))
+# （含 0.5.26 兼容修复，celestia-island/tairitsu#118），wasi 为
+# @bytecodealliance/preview2-shim 的 browser 子集。
+#
+# 两者都不是本仓库的产物，没有合理默认值可猜：必须通过环境变量指定，
+# 或用 --skip-vendor 复用 plugin/wasm2/ 里已经装配好的 glue 与 wasi。
+#
+#   export TAIRITSU_POC_NPM_VENDOR=<tairitsu>/packages/npm/celestia-tairitsu-web-glue/dist
+#   export TAIRITSU_POC_WASI_VENDOR=<unpacked preview2-shim>/dist/browser
+NPM_VENDOR = os.environ.get("TAIRITSU_POC_NPM_VENDOR")
+WASI_VENDOR = os.environ.get("TAIRITSU_POC_WASI_VENDOR")
+WASI_VENDOR_URL = (
+    "https://unpkg.com/@bytecodealliance/preview2-shim/dist/browser"
+)
 
 # 组件实际 import 的 tairitsu-browser 接口 → 覆盖它的 glue 域模块 + 函数清单。
 # 函数清单以 component-wrapper/_game2.js 顶部 import 语句为准（构建后核对）。
@@ -105,13 +119,28 @@ HANDLE_COUNTERS = [
 
 
 def cargo_build(skip: bool) -> Path:
-    wasm = ROOT / "target" / "wasm32-wasip2" / "release" / "_game2.wasm"
+    # game2 被排除在根 workspace 之外（见根 Cargo.toml 的 exclude），
+    # 因此必须显式指定 manifest，产物落在 game2 自己的 target/ 下。
+    #
+    # cwd 必须是 game2 目录：cargo 只从「当前目录向上」读取 .cargo/config.toml，
+    # 在仓库根跑会拿到根 workspace 的配置，看不到 game2 的本地 [patch]
+    # （指向 ../../celestia 工作副本），于是解析到 git rev 的 tairitsu/hikari。
+    manifest = ROOT / "rust" / "game2" / "Cargo.toml"
+    game2_dir = ROOT / "rust" / "game2"
+    wasm = WASM_ARTIFACT
     if skip and wasm.exists():
         print("[poc] skip cargo build")
         return wasm
-    # 固定参数列表：cargo build -p _game2 --target wasm32-wasip2 --release
+    # 固定参数列表：cargo build --manifest-path rust/game2/Cargo.toml
+    #             --target wasm32-wasip2 --release
     result = subprocess.run(
-        ["cargo", "build", "-p", "_game2", "--target", "wasm32-wasip2", "--release"],
+        [
+            "cargo", "build",
+            "--manifest-path", str(manifest),
+            "--target", "wasm32-wasip2",
+            "--release",
+        ],
+        cwd=str(game2_dir),
         check=False,
         shell=False,
     )
@@ -168,11 +197,28 @@ def verify_imports() -> None:
 
 def vendor_copy() -> None:
     """从 npm 解包目录拷贝 glue 域模块与 wasi browser shims。"""
+    if not NPM_VENDOR:
+        sys.exit(
+            "TAIRITSU_POC_NPM_VENDOR is not set.\n"
+            "Point it at the built glue dist, e.g.\n"
+            "  <tairitsu>/packages/npm/celestia-tairitsu-web-glue/dist\n"
+            "(build it with `pnpm -C <tairitsu>/packages/npm/celestia-tairitsu-web-glue build`),"
+            "\nor pass --skip-vendor to reuse the glue already in plugin/wasm2/."
+        )
+    if not WASI_VENDOR:
+        sys.exit(
+            "TAIRITSU_POC_WASI_VENDOR is not set.\n"
+            "Unpack @bytecodealliance/preview2-shim and point it at dist/browser, e.g.\n"
+            f"  curl -L {WASI_VENDOR_URL}  (or the npm tarball) into a temp dir,\n"
+            "or pass --skip-vendor to reuse the wasi shims already in plugin/wasm2/."
+        )
+
+    glue_src = Path(NPM_VENDOR)
     glue_dir = OUT / "glue"
     if glue_dir.exists():
         shutil.rmtree(glue_dir)
     for domain in sorted({dom for dom, _ in INTERFACE_MAP.values() if dom}):
-        src = NPM_VENDOR / domain / "index.js"
+        src = glue_src / domain / "index.js"
         dst = glue_dir / domain / "index.js"
         if not src.exists():
             sys.exit(f"vendor glue missing: {src}")
@@ -182,7 +228,7 @@ def vendor_copy() -> None:
     wasi_dir = OUT / "wasi"
     if wasi_dir.exists():
         shutil.rmtree(wasi_dir)
-    src_browser = WASI_VENDOR
+    src_browser = Path(WASI_VENDOR)
     if not src_browser.exists():
         sys.exit(f"vendor wasi missing: {src_browser}")
     shutil.copytree(src_browser, wasi_dir, ignore=shutil.ignore_patterns("*.d.ts"))
@@ -319,10 +365,133 @@ def write_boot_assets() -> None:
         "@bytecodealliance/preview2-shim/io": "./wasi/io.js",
         "@bytecodealliance/preview2-shim/random": "./wasi/random.js",
     }
-    # shim 地址带构建时间戳，避免浏览器缓存旧 shim（POC 期间频繁重生成）。
-    build_id = str(int(Path(__file__).stat().st_mtime))
+    # shim 与入口地址统一带构建时间戳（wasm 的 mtime），避免浏览器缓存
+    # 旧 shim / 旧 boot.js / 旧组件。必须取 wasm 的 mtime 而不是脚本自身：
+    # 脚本没改、只重编 wasm 时，脚本 mtime 不变会把缓存当成有效。
+    build_id = str(int(WASM_ARTIFACT.stat().st_mtime))
     for iface in INTERFACE_MAP:
         import_map[f"tairitsu-browser:full/{iface}"] = f"./shims/{iface}.js?v={build_id}"
+
+    # 嵌入 Discuz 页面用的启动脚本：importmap 必须是绝对地址（页面 URL 是
+    # /plugin.php?id=pokemon:game，相对路径会解析到站点根，不是 wasm2/）。
+    abs_map = {k: f"/{OUT_REL}/{v.lstrip('./')}" for k, v in import_map.items()}
+    boot_js = f"""// 由 scripts/publish/build_tairitsu_poc.py 生成 — 请勿手改。
+// tairitsu 组件的浏览器启动脚本：注册 importmap、装 glue 运行时、
+// 载入 jco 转译产物并调用组件导出的 lifecycle.start。
+//
+// 与 poc.html 的区别：资源一律用绝对 URL（页面是 /plugin.php?...，
+// 相对路径会解析到站点根），帧调度换成 MessageChannel（后台标签页的
+// rAF 会被节流到停摆，调度器会永久卡住）。
+(function () {{
+  'use strict';
+
+  var BUILD_ID = {build_id!r};
+  var BASE = {OUT_REL_URL!r};
+
+  // importmap 必须在任何 module 载入前注册，且每页只能有一个。
+  if (!document.querySelector('script[type="importmap"]')) {{
+    var map = document.createElement('script');
+    map.type = 'importmap';
+    map.textContent = JSON.stringify({{ imports: {json.dumps(abs_map)} }});
+    document.head.appendChild(map);
+  }}
+
+  // tairitsu 的调度器在后台标签页会卡死（rAF 不触发 → rt.scheduled 无法复位）。
+  // MessageChannel 不受节流影响，把 rAF 改写到它上面。
+  //
+  // 计数暴露在 window.__tairitsuFrames 上：帧投递失败时（组件点不动、
+  // 列表不更新）第一个要看的就是它 —— scheduled=0 说明调度器根本没走
+  // rAF，scheduled>0 而 ran=0 说明 MessageChannel 的帧没跑起来。
+  if (!window.__tairitsuRafPatched) {{
+    window.__tairitsuRafPatched = true;
+    window.__tairitsuFrames = {{ scheduled: 0, ran: 0 }};
+    var channel = new MessageChannel();
+    var pending = [];
+    channel.port1.onmessage = function () {{
+      var callbacks = pending;
+      pending = [];
+      for (var i = 0; i < callbacks.length; i++) {{
+        window.__tairitsuFrames.ran++;
+        try {{
+          callbacks[i](performance.now());
+        }} catch (err) {{
+          console.error('[tairitsu] frame callback failed', err);
+        }}
+      }}
+    }};
+    window.requestAnimationFrame = function (cb) {{
+      window.__tairitsuFrames.scheduled++;
+      pending.push(cb);
+      channel.port2.postMessage(0);
+      return pending.length;
+    }};
+    window.cancelAnimationFrame = function () {{}};
+  }}
+
+  globalThis.__setWasmExports = globalThis.__setWasmExports || function (e) {{
+    globalThis.__wasmExports = e;
+  }};
+
+  // glue-core 是普通 script（不是 module），用同步 script 注入保证
+  // glue 的全局句柄表在组件模块求值前就位。
+  function loadGlueCore() {{
+    if (globalThis.__TAIRITSU_GLUE__) return Promise.resolve();
+    return new Promise(function (resolve, reject) {{
+      var script = document.createElement('script');
+      script.src = BASE + '/glue-core.js?v=' + BUILD_ID;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    }});
+  }}
+
+  function findStart(obj, depth, seen) {{
+    depth = depth || 0;
+    seen = seen || new Set();
+    if (!obj || typeof obj !== 'object' || depth > 3 || seen.has(obj)) return null;
+    seen.add(obj);
+    for (var name in obj) {{
+      var value = obj[name];
+      if (typeof value === 'function' && name.toLowerCase() === 'start') return value;
+    }}
+    for (var key in obj) {{
+      var nested = obj[key];
+      if (nested && typeof nested === 'object') {{
+        var found = findStart(nested, depth + 1, seen);
+        if (found) return found;
+      }}
+    }}
+    return null;
+  }}
+
+  // 挂载点：#app 由 PHP 模板预置。组件自身会往 #app 里渲染第一层。
+  window.__tairitsuBoot = function () {{
+    return loadGlueCore().then(function () {{
+      return import(BASE + '/component-wrapper/_game2.js?b=' + BUILD_ID);
+    }}).then(function (mod) {{
+      globalThis.__setWasmExports(mod);
+      var start = findStart(mod);
+      if (!start) throw new Error('lifecycle.start not found in component exports');
+      return start();
+    }}).then(function () {{
+      var app = document.getElementById('app');
+      if (app) app.removeAttribute('data-booting');
+    }});
+  }};
+}})();
+"""
+    (OUT / "boot.js").write_text(boot_js, encoding="utf-8")
+
+    manifest = {
+        "build_id": build_id,
+        "base": OUT_REL_URL,
+        "entry": f"{OUT_REL_URL}/boot.js?v={build_id}",
+        "component": f"{OUT_REL_URL}/component-wrapper/_game2.js?b={build_id}",
+        "interfaces": sorted(INTERFACE_MAP),
+    }
+    (OUT / "manifest.json").write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
     html = f"""<!DOCTYPE html>
 <html lang="zh-Hans">
@@ -335,10 +504,8 @@ def write_boot_assets() -> None:
 </script>
 <script>
 // 后台/隐藏标签页的 rAF 不触发，会让 tairitsu 调度器永久卡死（rt.scheduled
-// 无法复位）。POC 页面用 setTimeout 驱动帧；前台真实使用无此问题。
+// 无法复位）。POC 页面用 MessageChannel 驱动帧；前台真实使用无此问题。
 (function () {{
-  // 用 MessageChannel 驱动帧：它不受后台标签页的 timer/rAF 节流影响，
-  // 宏任务队列正常执行。rAF 语义（每帧一次）在 POC 中不是必需的。
   (function () {{
     var ch = new MessageChannel();
     var pending = [];
@@ -402,12 +569,17 @@ console.log('[poc] component started');
 </html>
 """
     (OUT / "poc.html").write_text(html, encoding="utf-8")
-    print("[poc] wrote poc.html")
+    print("[poc] wrote poc.html, boot.js, manifest.json")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-build", action="store_true", help="复用已有 wasm 产物")
+    parser.add_argument(
+        "--skip-vendor",
+        action="store_true",
+        help="复用 plugin/wasm2/ 里已装配的 glue 与 wasi（不需要 npm 解包目录）",
+    )
     args = parser.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -416,7 +588,10 @@ def main() -> None:
     build_id = str(int(wasm.stat().st_mtime))
     bust_wrapper_cache(build_id)
     verify_imports()
-    vendor_copy()
+    if not args.skip_vendor:
+        vendor_copy()
+    elif not (OUT / "glue").is_dir() or not (OUT / "wasi").is_dir():
+        sys.exit("--skip-vendor requires existing plugin/wasm2/glue and plugin/wasm2/wasi")
     shims_from_glue()
     glue_core()
     write_boot_assets()

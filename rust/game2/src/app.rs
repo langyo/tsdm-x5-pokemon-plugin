@@ -136,14 +136,19 @@ pub fn App(state: PocState) -> VNode {
 /// 二分诊断用最小计数器：无 hikari、无 style 元素、最小树。
 /// 信号由 run_app 在 with_component 上下文创建后经 props 传入。
 #[component]
-pub fn MiniCounter(count: ReactiveSignal<i32>) -> VNode {
+pub fn MiniCounter(count: ReactiveSignal<i32>, renders: usize) -> VNode {
     let count2 = count.clone();
+    // 诊断信息直接进 DOM（wasm 的 eprintln 在 jco 下会被截断）：
+    //   count  —— 信号值，变了说明 set 成功
+    //   cid    —— 信号绑定的组件 id
+    //   render —— 渲染闭包被调用次数，不涨说明 mark_dirty/flush 没把渲染跑起来
+    let label = format!("count={} cid={} render={}", count.get(), count.component_id(), renders);
     rsx! {
         div {
             id: "mini",
             span {
                 ..vec![tairitsu_vdom::VNode::Text(tairitsu_vdom::VText {
-                    text: format!("count={}", count.get()),
+                    text: label,
                 })]
             },
             button {

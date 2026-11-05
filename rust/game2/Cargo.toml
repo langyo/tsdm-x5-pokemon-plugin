@@ -3,31 +3,36 @@ name = "_game2"
 version = "0.1.0"
 edition = "2021"
 publish = false
-description = "POC: tairitsu + hikari rebuild of the game frontend (Phase 1, docs/refactor-tairitsu-hikari-research.md)"
+description = "tairitsu + hikari rebuild of the game frontend (docs/refactor-tairitsu-hikari-research.md)"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# POC 依赖策略：tairitsu 以 git rev 锁 master（crates.io 0.5.26 的宏在
-# 「属性后文本子节点」路径不做字符串插值，master 4a93466e 修复；见研究文档 §5.5）。
-# hikari 用本地 path 便于迭代；其声明的 tairitsu ^0.5.18 registry 依赖经
-# [patch.crates-io] 统一到同一 git 源，避免双版本类型冲突。
+# 依赖策略（迁移期）：
+# - tairitsu 与 hikari 都锁 git rev。CI 上没有 ../../celestia 这两个本地
+#   checkout，path 依赖会让构建直接失败；rev 锁定让任何机器都可复现。
+# - 本地迭代：在 rust/game2/.cargo/config.toml（不提交）里用 [patch] 把
+#   这些 crate 指向工作副本，见 docs/refactor-tairitsu-hikari-research.md §10。
+# - hikari 声明 tairitsu ^0.5.18；下面的 [patch.crates-io] 把它统一到同一
+#   rev，避免双版本类型冲突（§5.5）。
 [dependencies]
-tairitsu-vdom = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/vdom" }
-tairitsu-hooks = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/hooks" }
-tairitsu-macros = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/macros" }
-tairitsu-web = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/web", default-features = false, features = [
+tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "7a4a9857", default-features = false }
+tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "7a4a9857", default-features = false }
+tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "7a4a9857", default-features = false }
+tairitsu-web = { git = "https://github.com/celestia-island/tairitsu", rev = "7a4a9857", default-features = false, features = [
     "browser",
     "vdom",
     "wit-bindings",
 ] }
-hikari-components = { path = "D:/源代码/工程项目/celestia/hikari/packages/components" }
-hikari-icons = { path = "D:/源代码/工程项目/celestia/hikari/packages/icons", features = ["tairitsu"] }
-hikari-palette = { path = "D:/源代码/工程项目/celestia/hikari/packages/palette" }
+hikari-components = { git = "https://github.com/celestia-island/hikari", rev = "ed699a6b" }
+hikari-icons = { git = "https://github.com/celestia-island/hikari", rev = "ed699a6b", features = ["tairitsu"] }
+hikari-palette = { git = "https://github.com/celestia-island/hikari", rev = "ed699a6b" }
 anyhow = "1"
+serde = { version = "^1", features = ["derive"] }
+serde_json = "^1"
 
 [patch.crates-io]
-tairitsu-vdom = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/vdom" }
-tairitsu-hooks = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/hooks" }
-tairitsu-macros = { path = "D:/源代码/工程项目/celestia/tairitsu/packages/macros" }
-tairitsu-style = { git = "https://github.com/celestia-island/tairitsu", rev = "4a93466e1c30b2b47fa027d52d7d9237cb246fa1" }
+tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "7a4a9857" }
+tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "7a4a9857" }
+tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "7a4a9857" }
+tairitsu-style = { git = "https://github.com/celestia-island/tairitsu", rev = "7a4a9857" }

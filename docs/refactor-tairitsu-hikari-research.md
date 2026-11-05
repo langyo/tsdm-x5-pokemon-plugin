@@ -379,3 +379,74 @@ B. 【已执行】向 tairitsu 提交修复 PR：
    示例/模板/迁移文档统一改为以该根调用 init_runtime。
    合入后插件侧的「列表更新失效」即随之消失，届时重验 POC 清单即可。
 C. 暂缓列表类页面，先迁无列表页面（welcome/home）验证范式后随上游修复推进。
+
+---
+
+## 10. Phase 2：列表不增长的真正根因与上游修复
+
+Phase 1 记录的「列表追加 patch 被吞」有一个更深的原因，不是 init_runtime 的
+根元素接线，而是 **Fragment 的 vnode 形状与 DOM 形状不一致**：
+
+- `rsx!` 把 `for` / `if` 的产物包成 `VNode::Fragment(...)`，作为元素的
+  **一个** child 存进 `VElement::children`；
+- 渲染器（`render_vnode`）、HTML 序列化（`write_html`）都把 Fragment 当透明
+  容器，把成员直接 append 到父元素；
+- diff 按 `VElement::children` 的下标算 patch，apply 却按 **DOM** 的下标去取
+  节点。
+
+于是只要出现一个 Fragment，它之后的所有下标都错位一格，patch 落到错误节点，
+或取到 `None` 被静默丢弃。这正是「列表点几下不动」的根因，也解释了为什么
+整树重挂载能绕过它（重挂载不经过 patch 下标）。
+
+已在 `celestia-island/tairitsu#119` 修复（`VElement::child/children` 递归
+展平 Fragment），同一 PR 还修了三个会让「一次点击永久失灵」的调度缺陷：
+
+1. **丢一帧 = 永久冻结**：`scheduled` 只在 `flush_render` 里复位，帧一旦没
+   送达（后台标签页节流、animation callback id 丢失、宿主中途换调度器），
+   之后每次 `mark_dirty` 都在 `AlreadyScheduled` 提前返回，更新被静默丢弃。
+   现在 booking 带请求时间，超过 `FRAME_DEADLINE`（32ms）就当丢失并直接
+   flush，损失上界是一帧而不是整个会话。
+2. **依赖列表无上限增长**：`track_signal` / `subscribe_component` 每次渲染
+   都 push 一次组件 id，而 `notify_signal` 会遍历它——一次写入会触发
+   O(已渲染次数) 次冗余渲染。两处现已去重。
+3. **`flush_render` 只渲染一轮**：渲染期间被标脏的组件留在队列里，
+   `scheduled` 已清空、无人再调度它们。现在循环排空队列。
+
+### 10.1 迁移期采用的调度策略
+
+插件侧（`rust/game2/src/lib.rs`）当前用**同步 flush**作为 schedule callback，
+等价于 Dioxus 的同步重渲染。原因：上面 1 的根因在消费侧无法绕过，而
+rAF 与 `TimerOps::set_timeout` 两条异步路径在本机实测都观察不到回调到达
+（`onFrame` / `onTimeout` 均未被调用），只有 `FRAME_DEADLINE` 兜底能让更新
+生效——表现为「点几下不动，过一会儿一次性全冒出来」。
+
+同步 flush 行为确定，游戏单屏元素量（20–50 个瓦片）下开销可接受。
+上游 #119 合入后应改回异步批处理，并补一条「点击 → 断言 DOM」的浏览器回归。
+
+### 10.2 双站点并行（行为对照）
+
+入口按 `ui` 参数分流，两套前端共用同一 Discuz 外壳与 API：
+
+| 入口 | 实现 | 状态 |
+| --- | --- | --- |
+| `plugin.php?id=pokemon:game` | `game.inc.php`（Dioxus，`plugin/wasm/`） | 存量，完整 |
+| `plugin.php?id=pokemon:game&ui=v2` | `game_v2.inc.php`（tairitsu，`plugin/wasm2/`） | 迁移中，POC 骨架 |
+
+两个页面顶部各有「界面版本」切换条，便于逐页对照。
+
+### 10.3 构建与本地开发
+
+- 构建：`python scripts/publish/build_tairitsu_poc.py`
+  （`--skip-build` 复用 wasm，`--skip-vendor` 复用已装配的 glue/wasi）。
+  产物写入 `plugin/wasm2/`：`boot.js`（页面启动脚本，绝对 URL + importmap +
+  MessageChannel 帧驱动）、`manifest.json`（构建 id 与入口）、`poc.html`
+  （独立验证页）。
+- `game2` 已从根 workspace 的 `members` 中 `exclude`：它依赖整个
+  tairitsu/hikari 组件库、只能在 `wasm32-wasip2` 下产出，并入会让
+  `cargo clippy --workspace` 与 CI 的 rust 门禁背上无关成本。它的门禁就是
+  上面那条构建脚本。
+- 依赖用 git rev 锁定，CI 可复现；本地迭代在
+  `rust/game2/.cargo/config.toml`（**不提交**，见 `.gitignore`）里用
+  `[patch]` 指向 `../../celestia` 下的工作副本。
+- `docker/entrypoint.sh` 每次启动都把 `/plugin` 同步进容器（`cp -R`，不用
+  `cp -a`——后者保留源时间戳会跳过目标里更新的文件，构建产物改了不生效）。

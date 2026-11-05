@@ -21,12 +21,10 @@ use tairitsu_web::wit_platform::WitElement;
 /// 二分开关：true = 只挂最小计数器（诊断信号→重渲染→patch 链路）。
 const MINIMAL_COUNTER_POC: bool = false;
 
-// 整树重挂载策略用的最新状态快照（schedule 回调里重建整棵树时读取）。
-// PocState 内部全是 Rc/信号句柄，clone 是廉价的引用复制。
+/// 复渲染闭包被调用的次数（诊断用，渲染进 DOM 便于在页面上直接读）。
 #[cfg(target_family = "wasm")]
 thread_local! {
-    static STATE_FOR_REMOUNT: std::cell::RefCell<Option<app::PocState>> =
-        const { std::cell::RefCell::new(None) };
+    static RENDER_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
 #[cfg(target_family = "wasm")]
@@ -46,13 +44,28 @@ pub fn run_app() -> Result<()> {
             || tairitsu_hooks::use_signal(|| 0i32),
         );
         let count_for_render = count.clone();
+        // 诊断：记录 render_fn 被调用了几次，并让组件把它显示出来。
+        // 「信号变了但界面不动」时先看这个数：不涨说明 render 没被调度到
+        // （mark_dirty/flush 链路），涨了但界面不变说明 diff/apply 没落地。
         tairitsu_vdom::runtime::update_render_function(component_id, move || {
-            app::MiniCounter(app::MiniCounterProps { count: Some(count_for_render.clone()), ..Default::default() })
+            let n = RENDER_CALLS.with(|c| {
+                let v = c.get() + 1;
+                c.set(v);
+                v
+            });
+            app::MiniCounter(app::MiniCounterProps {
+                count: Some(count_for_render.clone()),
+                renders: Some(n),
+                ..Default::default()
+            })
         });
-        app::MiniCounter(app::MiniCounterProps { count: Some(count.clone()), ..Default::default() })
+        app::MiniCounter(app::MiniCounterProps {
+            count: Some(count.clone()),
+            renders: Some(1),
+            ..Default::default()
+        })
     } else {
         let state = tairitsu_vdom::runtime::with_component(component_id, || app::PocState::new());
-        STATE_FOR_REMOUNT.with(|slot| *slot.borrow_mut() = Some(state.clone()));
         let state_for_render = state.clone();
         // 重渲染闭包共享同一份 state（信号绑定本组件，set → mark_dirty(App)）。
         tairitsu_vdom::runtime::update_render_function(component_id, move || {
@@ -77,38 +90,29 @@ pub fn run_app() -> Result<()> {
     let root_element = WitElement::from_raw(vnode_root_handle);
     tairitsu_web::init_runtime(root_element.clone());
 
-    // 渲染策略（POC 起）：tairitsu 0.5.26 的增量 diff/apply 对「子列表追加」
-    // 的 UpdateChild/InsertChild 嵌套 patch 解析不可靠——列表不增长（已在
-    // 上游用探针定位，见 docs/refactor-tairitsu-hikari-research.md §9）。
-    // 游戏 UI 单屏规模有限（一屏 20–50 个瓦片），这里改为整树重挂载：
-    // 按最新 state 重新挂载整棵树，行为确定，语义等价于 Dioxus 的完整
-    // 重渲染。上游修好后可去掉此覆盖，恢复增量路径。
-    {
-        tairitsu_vdom::runtime::set_apply_patches_callback(move |_component_id, _patches| {
-            let state = STATE_FOR_REMOUNT.with(|s| s.borrow().clone());
-            let Some(state) = state else { return };
-            if let Ok(platform) = WitPlatform::new() {
-                let latest = app::App(app::AppProps {
-                    state: Some(state),
-                    ..Default::default()
-                });
-                // mount_vnode_to_app 会先清空 #app 再整棵渲染。
-                let _ = platform.mount_vnode_to_app(latest);
-            }
-        });
-    }
-
-    // 调度：必须异步（mark_dirty 仍持有 RUNTIME 的 RefCell 借用，同步
-    // flush_render 会重入失败），且不能用 setTimeout——后台/被节流标签页的
-    // 定时器可能长时间不触发，导致 `scheduled` 卡 true、后续更新全丢。
-    // rAF 在前台可靠触发；glue 的 animation-callbacks 已正确分发 onFrame。
+    // 渲染走 tairitsu 的增量路径：init_runtime 已接好 apply_patches（以上面
+    // 的 vnode 根为基准）。早期这里覆盖过 apply_patches 做整树重挂载，因为
+    // rsx 的 `for` 生成的 Fragment 被当成单个子节点、diff 索引与 DOM 索引
+    // 错位，列表追加的 InsertChild 会落到不存在的下标上被静默丢弃。
+    // 该缺陷已在上游修复（celestia-island/tairitsu#119：VElement 的
+    // child/children 递归展平 Fragment），因此不再需要绕行。
+    //
+    // 调度策略（迁移期）：同步 flush，等价于 Dioxus 的同步重渲染。
+    //
+    // 曾试过两条异步路径，都不可靠：
+    //   1. rAF（platform-helpers.requestAnimationFrame → glue 的 animationId
+    //      映射 → animation-callbacks.onFrame）：实测帧被吞，`scheduled` 卡
+    //      true，之后每次更新都走 AlreadyScheduled 被丢弃；
+    //   2. setTimeout（TimerOps::set_timeout → timer-callbacks.onTimeout）：
+    //      同样观察不到回调到达。
+    // 两者都只有 mark_dirty 的 FRAME_DEADLINE 兜底能让更新生效，表现为
+    // 「点几下不动，过一会儿一次性全冒出来」。同步 flush 行为确定，
+    // 游戏单屏元素量下开销可接受；上游修好帧投递后可换回异步批处理。
+    //
+    // 重入安全：mark_dirty 在调用回调前已释放 RUNTIME 借用，flush_render
+    // 自己取走 dirty 列表再渲染，不会重复进入。
     tairitsu_vdom::runtime::set_schedule_callback(Box::new(|callback: Box<dyn FnOnce()>| {
-        let id = tairitsu_web::wit_platform::wasm_impl::next_callback_id();
-        tairitsu_web::wit_platform::wasm_impl::ANIMATION_CALLBACKS.with(|m| {
-            m.borrow_mut()
-                .insert(id, Some(Box::new(move |_ts| callback())));
-        });
-        tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::platform_helpers::request_animation_frame(id);
+        callback();
     }));
 
     tairitsu_vdom::runtime::store_initial_vnode(component_id, vnode);

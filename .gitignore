@@ -58,3 +58,6 @@ dist/
 styles-core/
 # Mimosa 安全插件的工作状态与本地安全策略
 .mimosa/
+
+# === 本地上游覆盖（指向 ../../celestia 工作副本）===
+rust/game2/.cargo/

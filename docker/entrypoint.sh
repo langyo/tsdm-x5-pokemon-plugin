@@ -56,13 +56,22 @@ if [ ! -f "$DISCUZ_ROOT/config/config_global.php" ]; then
 fi
 
 # --- 4. 安装插件与模板 ---
+# 插件目录每次启动都从只读挂载同步：仓库是唯一事实来源，本地改完
+# PHP/WASM 资源重启容器即可生效。用 `cp -R src/. dst/`（覆盖但不清空）
+# 而不是 `cp -r`，这样容器内 Discuz 生成的文件（缓存、上传）不会被删。
+# 不能用 `cp -a`：它保留源时间戳，目标里时间更新的同名文件会被跳过，
+# 构建产物改了却不生效（WASM 资源尤其容易踩）。
 if [ -d "/plugin" ] && [ -f "/plugin/discuz_plugin_pokemon.json" ]; then
     PLUGIN_DIR="$DISCUZ_ROOT/source/plugin/pokemon"
     if [ ! -d "$PLUGIN_DIR" ]; then
         echo "[tsdm] installing Pokemon plugin..."
-        cp -r /plugin "$PLUGIN_DIR"
+        cp -R /plugin "$PLUGIN_DIR"
         chown -R www-data:www-data "$PLUGIN_DIR" 2>/dev/null || true
         echo "[tsdm] plugin installed."
+    else
+        echo "[tsdm] syncing Pokemon plugin from /plugin..."
+        cp -R /plugin/. "$PLUGIN_DIR/"
+        echo "[tsdm] plugin synced."
     fi
 fi
 

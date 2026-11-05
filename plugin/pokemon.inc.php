@@ -71,6 +71,12 @@ if (!in_array($index, $allowed_routes)) {
 }
 
 if ($index === 'game') {
+    // 迁移期双前端：&ui=v2 走 tairitsu 版（game_v2.inc.php），默认仍是
+    // Dioxus 版。两者共享同一套 API 与 Discuz 外壳，便于逐页行为对照。
+    if (isset($_GET['ui']) && $_GET['ui'] === 'v2') {
+        include_once __DIR__ . '/game_v2.inc.php';
+        return;
+    }
     include_once __DIR__ . '/game.inc.php';
     return;
 }
