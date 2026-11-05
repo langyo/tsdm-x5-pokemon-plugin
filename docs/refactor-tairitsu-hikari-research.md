@@ -361,6 +361,12 @@ Hikari 结构：Vue 3 包（`packages/vue`）是**规范源**；Rust 端每个�
 以上两项需在上游用 browser e2e（scripts/browser_e2e.py + shirabe）建立
 「挂载→点击→断言 DOM」回归用例后修复，消费侧无法绕过。
 
+补充判定（后台自动化标签的 rAF 节流会造成冻结假象）：前台可见标签页 +
+原生 rAF 下，span 的 DynamicText effect 更新实时生效；列表追加在根元素
+修正 + glue 修复齐备后亦曾观测到成功（MutationObserver 记录 +1 li）。
+结论：页面在用户真实前台会话中可用；后台冻结问题建议上游给 flush 加
+setTimeout 兜底调度（game2 的 schedule 回调已改为 timer 驱动作验证）。
+
 ### 下一步（Phase 1 收尾选项）
 A. 向上游反馈 diff/apply 缺口（附复现），期间游戏列表用「整棵重挂载」
    workaround（set_text_content(app,'') + mount_vnode_to_app 全量重渲染，

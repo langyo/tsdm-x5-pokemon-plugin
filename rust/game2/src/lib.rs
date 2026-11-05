@@ -90,15 +90,12 @@ pub fn run_app() -> Result<()> {
         );
         tairitsu_vdom::runtime::set_schedule_callback(Box::new(
             |callback: Box<dyn FnOnce()>| {
-                let callback_id = tairitsu_web::wit_platform::wasm_impl::next_callback_id();
-                tairitsu_web::wit_platform::wasm_impl::ANIMATION_CALLBACKS.with(|m| {
-                    m.borrow_mut().insert(
-                        callback_id,
-                        Some(Box::new(move |_ts| callback())),
-                    );
-                });
-                eprintln!("[game2] schedule rAF id={callback_id}");
-                tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::platform_helpers::request_animation_frame(callback_id);
+                // 后台标签页的 rAF 永不触发会让调度器永久卡死；timer 在任何
+                // 可见性下都会触发，保证 flush 不被饿死。
+                let platform = WitPlatform::new()
+                    .expect("platform for schedule");
+                use tairitsu_vdom::TimerOps;
+                platform.set_timeout(callback, 0);
             },
         ));
     }

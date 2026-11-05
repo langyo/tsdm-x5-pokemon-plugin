@@ -333,6 +333,16 @@ def write_boot_assets() -> None:
 <script type="importmap">
 {json.dumps({"imports": import_map}, indent=2)}
 </script>
+<script>
+// 后台/隐藏标签页的 rAF 不触发，会让 tairitsu 调度器永久卡死（rt.scheduled
+// 无法复位）。POC 页面用 setTimeout 驱动帧；前台真实使用无此问题。
+(function () {{
+  window.requestAnimationFrame = function (cb) {{
+    return setTimeout(function () {{ cb(performance.now()); }}, 16);
+  }};
+  window.cancelAnimationFrame = function (id) {{ clearTimeout(id); }};
+}})();
+</script>
 <script src="./glue-core.js"></script>
 <style>
 body {{ margin: 0; background: #f7f9fa; font-family: "Noto Sans SC", system-ui, sans-serif; }}

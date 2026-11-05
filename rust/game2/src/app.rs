@@ -173,6 +173,8 @@ pub fn PocPanel(state: PocState) -> VNode {
             let mut cur = state.items.get();
             cur.push(format!("POC 物品 #{n}"));
             state.items.set(cur);
+            // POC 诊断：调度器不可靠，同步 flush 验证 diff/apply 链路。
+            tairitsu_vdom::runtime::flush_render();
             eprintln!("[game2] items.set done, len={}", state.items.get().len());
         })
     };
