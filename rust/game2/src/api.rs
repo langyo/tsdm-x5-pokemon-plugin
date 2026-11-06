@@ -1398,3 +1398,184 @@ pub fn move_pokemon_to_site(
         Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
     );
 }
+
+// ===========================================================================
+// 战斗（adventure + battle）
+// ===========================================================================
+
+/// 幂等请求 ID：服务端要求 16-64 位 [A-Za-z0-9_-]。
+/// 不引入 uuid 依赖——时间戳(纳秒)+计数器已满足唯一性。
+pub fn battle_request_id() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("g2{ts:x}{n:06x}")
+}
+
+/// 战斗动作载荷（request_id + 乐观锁 + 动作字段，flatten 合并）。
+pub fn battle_action_body(
+    engine_battle_id: u64,
+    expected_revision: u64,
+    fields: serde_json::Value,
+) -> String {
+    let mut map = serde_json::json!({
+        "request_id": battle_request_id(),
+        "engine_battle_id": engine_battle_id,
+        "expected_revision": expected_revision,
+    });
+    if let (Some(base), Some(extra)) = (map.as_object_mut(), fields.as_object()) {
+        for (k, v) in extra {
+            base.insert(k.clone(), v.clone());
+        }
+    }
+    map.to_string()
+}
+
+/// 战斗动作结果：新场景或 PP 恢复道具的技能选择。
+pub enum BattleMutation {
+    Scene(crate::battle_types::BattleScene),
+    Selection(crate::battle_types::SkillSelection),
+}
+
+fn parse_battle_mutation(v: serde_json::Value) -> Result<BattleMutation, String> {
+    if v.get("requires_skill_selection").is_some() {
+        let sel: crate::battle_types::SkillSelection =
+            serde_json::from_value(v).map_err(|e| format!("响应解析失败: {e}"))?;
+        Ok(BattleMutation::Selection(sel))
+    } else {
+        let scene: crate::battle_types::BattleScene =
+            serde_json::from_value(v).map_err(|e| format!("响应解析失败: {e}"))?;
+        Ok(BattleMutation::Scene(scene))
+    }
+}
+
+/// 恢复当前战斗：Ok(None) = 没有进行中的战斗（服务端 404）。
+pub fn recover_battle(
+    on_done: Box<dyn FnOnce(Result<Option<crate::battle_types::BattleScene>, String>)>,
+) {
+    request(
+        "battle",
+        "recover",
+        None,
+        Box::new(|result: Result<serde_json::Value, String>| {
+            on_done(
+                result
+                    .map(|v| {
+                        // 「无进行中的战斗」时服务端回 404 错误信封——那是正常态，
+                        // 与 data:null 一样折叠为 None（Dioxus 版按 status()==404 判定）。
+                        if v.is_null() {
+                            None
+                        } else {
+                            serde_json::from_value::<crate::battle_types::BattleScene>(v).ok()
+                        }
+                    })
+                    .or_else(|e| {
+                        if e.to_lowercase().contains("no active battle") {
+                            Ok(None)
+                        } else {
+                            Err(e)
+                        }
+                    }),
+            )
+        }),
+    );
+}
+
+/// 执行战斗动作（start/turn/flee/capture/use_item/use_item_on_skill/
+/// switch_pokemon/replace_pokemon）。
+pub fn perform_battle_action(
+    action: &str,
+    body: String,
+    on_done: Box<dyn FnOnce(Result<BattleMutation, String>)>,
+) {
+    request(
+        "battle",
+        action,
+        Some(body),
+        Box::new(|result: Result<serde_json::Value, String>| {
+            on_done(result.and_then(parse_battle_mutation))
+        }),
+    );
+}
+
+#[derive(Deserialize)]
+struct MapsResponseDto {
+    #[serde(default)]
+    maps: Vec<crate::battle_types::MapInfo>,
+}
+
+pub fn get_maps(on_done: Box<dyn FnOnce(Result<Vec<crate::battle_types::MapInfo>, String>)>) {
+    request(
+        "battle",
+        "maps",
+        None,
+        Box::new(|result: Result<MapsResponseDto, String>| on_done(result.map(|dto| dto.maps))),
+    );
+}
+
+#[derive(Deserialize)]
+struct BattleItemsDto {
+    #[serde(default)]
+    items: Vec<crate::battle_types::BattleItem>,
+}
+
+pub fn get_battle_items(
+    on_done: Box<dyn FnOnce(Result<Vec<crate::battle_types::BattleItem>, String>)>,
+) {
+    request(
+        "battle",
+        "get_battle_items",
+        None,
+        Box::new(|result: Result<BattleItemsDto, String>| on_done(result.map(|dto| dto.items))),
+    );
+}
+
+/// 战斗球结果别名。
+pub type BattleBallsResult = Result<Vec<crate::state::InventoryItem>, String>;
+
+/// 战斗精灵球：背包接口 type=2 的第一页（id 为物品类型 ID）。
+pub fn get_battle_balls(on_done: Box<dyn FnOnce(BattleBallsResult)>) {
+    request(
+        "user",
+        "inventory&page=1&type=2",
+        None,
+        Box::new(|result: Result<InventoryDto, String>| {
+            on_done(result.map(|dto| {
+                dto.items
+                    .into_iter()
+                    .map(|i| crate::state::InventoryItem {
+                        id: i.id,
+                        type_id: i.type_id,
+                        item_type: i.item_type,
+                        use_target: i.use_target,
+                        name: i.name,
+                        description: i.description,
+                        image: i.image,
+                        quantity: i.quantity,
+                        type_name: i.type_name,
+                    })
+                    .collect()
+            }))
+        }),
+    );
+}
+
+/// 战报结果别名。
+pub type BattleLogResult = Result<Vec<String>, String>;
+
+pub fn get_battle_log(battle_id: u64, on_done: Box<dyn FnOnce(BattleLogResult)>) {
+    request(
+        "battle",
+        &format!("battle_log&battle_id={battle_id}"),
+        None,
+        Box::new(
+            |result: Result<crate::battle_types::BattleLogResponse, String>| {
+                on_done(result.map(|dto| dto.lines))
+            },
+        ),
+    );
+}

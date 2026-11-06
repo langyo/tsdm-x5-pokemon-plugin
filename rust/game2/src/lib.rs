@@ -7,6 +7,9 @@
 pub mod api;
 pub mod app_state;
 #[cfg(target_family = "wasm")]
+pub mod battle;
+pub mod battle_types;
+#[cfg(target_family = "wasm")]
 pub mod delegation;
 #[cfg(target_family = "wasm")]
 pub mod home;
@@ -112,6 +115,9 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     if state.route.get() == Route::PokemonStorage {
         pokemon_storage::ensure_loaded(state);
     }
+    if state.route.get() == Route::Adventure {
+        battle::ensure_loaded(state);
+    }
     if state.route.get() == Route::Welcome {
         return welcome::Welcome(welcome::WelcomeProps {
             state: Some(Box::new(state.clone())),
@@ -148,6 +154,10 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                 ..Default::default()
             })
         }
+        Route::Adventure => battle::Adventure(battle::AdventureProps {
+            state: Some(Box::new(state.clone())),
+            ..Default::default()
+        }),
     };
 
     let home_active = state.route.get() == Route::Home;
@@ -156,6 +166,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     let center_active = state.route.get() == Route::PokemonCenter;
     let mypm_active = state.route.get() == Route::MyPokemon;
     let storage_active = state.route.get() == Route::PokemonStorage;
+    let adventure_active = state.route.get() == Route::Adventure;
     let home_cls = if home_active {
         "nav-link active"
     } else {
@@ -186,6 +197,11 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     } else {
         "nav-link"
     };
+    let adventure_cls = if adventure_active {
+        "nav-link active"
+    } else {
+        "nav-link"
+    };
     let img_logo = "source/plugin/pokemon/images/item/jlq.gif";
 
     rsx! {
@@ -207,6 +223,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                         button { class: center_cls, "data-pm-nav": "center", "宠物中心" }
                         button { class: mypm_cls, "data-pm-nav": "my-pokemon", "我的宠物" }
                         button { class: storage_cls, "data-pm-nav": "storage", "仓库" }
+                        button { class: adventure_cls, "data-pm-nav": "adventure", "冒险" }
                     }
                 }
             }
@@ -247,6 +264,7 @@ pub fn run_app() -> Result<()> {
     state.center.component_id.set(component_id as u32);
     state.my_pm.component_id.set(component_id as u32);
     state.storage.component_id.set(component_id as u32);
+    state.battle.component_id.set(component_id as u32);
 
     let state_for_render = state.clone();
     let latest_for_remount = state.clone();

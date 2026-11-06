@@ -172,6 +172,7 @@ fn dispatch_click(state: &AppState, target: u64) {
             "center" => crate::app_state::Route::PokemonCenter,
             "my-pokemon" => crate::app_state::Route::MyPokemon,
             "storage" => crate::app_state::Route::PokemonStorage,
+            "adventure" => crate::app_state::Route::Adventure,
             _ => crate::app_state::Route::Home,
         };
         state.route.set(route);
@@ -383,6 +384,133 @@ fn dispatch_click(state: &AppState, target: u64) {
     }
     if find_with_attr(target, "data-pm-inv-modal-close").is_some() {
         crate::inventory::close_target_modal(state);
+        return;
+    }
+    // 冒险/战斗页。注意顺序：弹窗内部的具体按钮必须先于遮罩关闭属性
+    // （data-pm-bt-map-close / select-cancel / log-close / switch-cancel）。
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-boss") {
+        let parts: Vec<&str> = v.split('|').collect();
+        if parts.len() == 3 {
+            if let (Ok(map_id), Ok(type_id), Ok(idx)) = (
+                parts[0].parse::<u64>(),
+                parts[1].parse::<u64>(),
+                parts[2].parse::<u64>(),
+            ) {
+                crate::battle::start_boss(state, map_id, type_id, Some(idx));
+            }
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-start") {
+        if let Ok(map_id) = v.parse::<u64>() {
+            crate::battle::start_adventure(state, map_id);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-skill") {
+        if let Ok(sid) = v.parse::<u64>() {
+            crate::battle::use_skill(state, sid);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-attack").is_some() {
+        crate::battle::normal_attack(state);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-item") {
+        if let Ok(id) = v.parse::<u64>() {
+            crate::battle::use_item_in_battle(state, id);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-ball") {
+        if let Ok(id) = v.parse::<u64>() {
+            crate::battle::capture(state, id);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-flee").is_some() {
+        crate::battle::flee(state);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-tab") {
+        if let Ok(tab) = v.parse::<u8>() {
+            crate::battle::switch_tab(state, tab.min(3));
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-replace") {
+        if let Ok(id) = v.parse::<u64>() {
+            crate::battle::replace_pokemon(state, id);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-switch-confirm").is_some() {
+        crate::battle::switch_pokemon(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-switch-cancel").is_some() {
+        crate::battle::close_switch_modal(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-switch-open").is_some() {
+        crate::battle::open_switch_modal(state);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-select-skill") {
+        let parts: Vec<&str> = v.split('|').collect();
+        if parts.len() == 2 {
+            if let (Ok(item_id), Ok(skill_id)) = (parts[0].parse::<u64>(), parts[1].parse::<u64>())
+            {
+                crate::battle::use_item_on_skill(state, item_id, skill_id);
+            }
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-select-cancel").is_some() {
+        crate::battle::cancel_selection(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-log-open").is_some() {
+        crate::battle::open_log(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-log-close").is_some() {
+        crate::battle::close_log(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-end").is_some() {
+        crate::battle::end_battle(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-continue").is_some() {
+        crate::battle::continue_battle(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-conn-action").is_some() {
+        if state.battle.pending.get().is_some() {
+            crate::battle::retry(state);
+        } else {
+            crate::battle::reconnect(state);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-map-open") {
+        if let Ok(map_id) = v.parse::<u64>() {
+            crate::battle::open_map_detail(state, map_id);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-map-close").is_some() {
+        crate::battle::close_map_detail(state);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-bt-region") {
+        crate::battle::select_region(state, Some(v));
+        return;
+    }
+    if find_with_attr(target, "data-pm-bt-region-back").is_some() {
+        crate::battle::select_region(state, None);
         return;
     }
     // 仓库页：单只操作按钮在卡片内部，必须先于 data-pm-st-card 命中

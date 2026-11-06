@@ -1,6 +1,6 @@
 "use components";
 import { environment, exit as exit$1, stderr, stdin, stdout, terminalInput, terminalOutput, terminalStderr, terminalStdin, terminalStdout } from "@bytecodealliance/preview2-shim/cli";
-import { monotonicClock } from "@bytecodealliance/preview2-shim/clocks";
+import { monotonicClock, wallClock } from "@bytecodealliance/preview2-shim/clocks";
 import { error, poll as poll$1, streams } from "@bytecodealliance/preview2-shim/io";
 import { insecureSeed as insecureSeed$1 } from "@bytecodealliance/preview2-shim/random";
 import { getPropertyValue, setProperty } from "tairitsu-browser:full/css-style-declaration";
@@ -100,10 +100,26 @@ if (getTerminalStdout=== undefined) {
   throw err;
 }
 
-const { subscribeDuration } = monotonicClock;
+const { now,
+  subscribeDuration } = monotonicClock;
+
+if (now=== undefined) {
+  const err = new Error("unexpectedly undefined local import 'now', was 'now' available at instantiation?");
+  console.error("ERROR:", err.toString());
+  throw err;
+}
+
 
 if (subscribeDuration=== undefined) {
   const err = new Error("unexpectedly undefined local import 'subscribeDuration', was 'subscribeDuration' available at instantiation?");
+  console.error("ERROR:", err.toString());
+  throw err;
+}
+
+const { now: now$1 } = wallClock;
+
+if (now$1=== undefined) {
+  const err = new Error("unexpectedly undefined local import 'now$1', was 'now' available at instantiation?");
   console.error("ERROR:", err.toString());
   throw err;
 }
@@ -9340,7 +9356,89 @@ const _trampoline58 = function() {
 }
 _trampoline58.fnName = 'wasi:cli/stderr@0.2.12#getStderr';
 
-const _trampoline59 = function(arg0) {
+const _trampoline59 = function() {
+  _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.12", function="now"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'now',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => now()),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.12", function="now"][Instruction::Return]', {
+    funcName: 'now',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint64(ret)]);
+  task.exit();
+  return toUint64(ret);
+}
+_trampoline59.fnName = 'wasi:clocks/monotonic-clock@0.2.12#now';
+
+const _trampoline60 = function(arg0) {
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.12", function="subscribe-duration"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -9433,13 +9531,13 @@ const _trampoline59 = function(arg0) {
   task.exit();
   return handle0;
 }
-_trampoline59.fnName = 'wasi:clocks/monotonic-clock@0.2.12#subscribeDuration';
+_trampoline60.fnName = 'wasi:clocks/monotonic-clock@0.2.12#subscribeDuration';
 let exports1;
 let memory0;
 let realloc0;
 let realloc0Async;
 
-const _trampoline60 = function(arg0, arg1, arg2, arg3, arg4) {
+const _trampoline61 = function(arg0, arg1, arg2, arg3, arg4) {
   var ptr0 = (arg0 >>> 0) >>> 0;
   var len0 = arg1;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -9539,9 +9637,9 @@ const _trampoline60 = function(arg0, arg1, arg2, arg3, arg4) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline60.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#fetchPromise';
+_trampoline61.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#fetchPromise';
 
-const _trampoline61 = function(arg0, arg1, arg2, arg3, arg4) {
+const _trampoline62 = function(arg0, arg1, arg2, arg3, arg4) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -9626,9 +9724,9 @@ const _trampoline61 = function(arg0, arg1, arg2, arg3, arg4) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline61.fnName = 'tairitsu-browser:full/element@0.2.0#setAttribute';
+_trampoline62.fnName = 'tairitsu-browser:full/element@0.2.0#setAttribute';
 
-const _trampoline62 = function(arg0, arg1, arg2, arg3) {
+const _trampoline63 = function(arg0, arg1, arg2, arg3) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -9748,9 +9846,9 @@ const _trampoline62 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline62.fnName = 'tairitsu-browser:full/element@0.2.0#getAttribute';
+_trampoline63.fnName = 'tairitsu-browser:full/element@0.2.0#getAttribute';
 
-const _trampoline63 = function(arg0, arg1, arg2) {
+const _trampoline64 = function(arg0, arg1, arg2) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -9832,9 +9930,9 @@ const _trampoline63 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline63.fnName = 'tairitsu-browser:full/element@0.2.0#setInnerHtml';
+_trampoline64.fnName = 'tairitsu-browser:full/element@0.2.0#setInnerHtml';
 
-const _trampoline64 = function(arg0, arg1, arg2) {
+const _trampoline65 = function(arg0, arg1, arg2) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -9916,9 +10014,9 @@ const _trampoline64 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline64.fnName = 'tairitsu-browser:full/element@0.2.0#removeAttribute';
+_trampoline65.fnName = 'tairitsu-browser:full/element@0.2.0#removeAttribute';
 
-const _trampoline65 = function(arg0, arg1) {
+const _trampoline66 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-bounding-client-rect"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10002,9 +10100,9 @@ const _trampoline65 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline65.fnName = 'tairitsu-browser:full/element@0.2.0#getBoundingClientRect';
+_trampoline66.fnName = 'tairitsu-browser:full/element@0.2.0#getBoundingClientRect';
 
-const _trampoline66 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+const _trampoline67 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -10106,9 +10204,9 @@ const _trampoline66 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline66.fnName = 'tairitsu-browser:full/css-style-declaration@0.2.0#setProperty';
+_trampoline67.fnName = 'tairitsu-browser:full/css-style-declaration@0.2.0#setProperty';
 
-const _trampoline67 = function(arg0, arg1, arg2, arg3) {
+const _trampoline68 = function(arg0, arg1, arg2, arg3) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -10221,9 +10319,9 @@ const _trampoline67 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline67.fnName = 'tairitsu-browser:full/css-style-declaration@0.2.0#getPropertyValue';
+_trampoline68.fnName = 'tairitsu-browser:full/css-style-declaration@0.2.0#getPropertyValue';
 
-const _trampoline68 = function(arg0, arg1) {
+const _trampoline69 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="get-first-child"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10310,9 +10408,9 @@ const _trampoline68 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline68.fnName = 'tairitsu-browser:full/node@0.2.0#getFirstChild';
+_trampoline69.fnName = 'tairitsu-browser:full/node@0.2.0#getFirstChild';
 
-const _trampoline69 = function(arg0, arg1, arg2, arg3) {
+const _trampoline70 = function(arg0, arg1, arg2, arg3) {
   let variant1;
   switch (arg1) {
     case 0: {
@@ -10408,9 +10506,9 @@ const _trampoline69 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline69.fnName = 'tairitsu-browser:full/node@0.2.0#setTextContent';
+_trampoline70.fnName = 'tairitsu-browser:full/node@0.2.0#setTextContent';
 
-const _trampoline70 = function(arg0, arg1) {
+const _trampoline71 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="get-parent-element"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10497,9 +10595,9 @@ const _trampoline70 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline70.fnName = 'tairitsu-browser:full/node@0.2.0#getParentElement';
+_trampoline71.fnName = 'tairitsu-browser:full/node@0.2.0#getParentElement';
 
-const _trampoline71 = function(arg0, arg1) {
+const _trampoline72 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/html-input-element@0.2.0", function="get-value"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10609,9 +10707,9 @@ const _trampoline71 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline71.fnName = 'tairitsu-browser:full/html-input-element@0.2.0#getValue';
+_trampoline72.fnName = 'tairitsu-browser:full/html-input-element@0.2.0#getValue';
 
-const _trampoline72 = function(arg0, arg1, arg2, arg3) {
+const _trampoline73 = function(arg0, arg1, arg2, arg3) {
   let variant1;
   switch (arg1) {
     case 0: {
@@ -10708,9 +10806,9 @@ const _trampoline72 = function(arg0, arg1, arg2, arg3) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline72.fnName = 'tairitsu-browser:full/window@0.2.0#getComputedStyle';
+_trampoline73.fnName = 'tairitsu-browser:full/window@0.2.0#getComputedStyle';
 
-const _trampoline73 = function(arg0) {
+const _trampoline74 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="get-body"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10797,9 +10895,9 @@ const _trampoline73 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline73.fnName = 'tairitsu-browser:full/document@0.2.0#getBody';
+_trampoline74.fnName = 'tairitsu-browser:full/document@0.2.0#getBody';
 
-const _trampoline74 = function(arg0, arg1, arg2, arg3, arg4) {
+const _trampoline75 = function(arg0, arg1, arg2, arg3, arg4) {
   var ptr0 = (arg0 >>> 0) >>> 0;
   var len0 = arg1;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -10899,9 +10997,9 @@ const _trampoline74 = function(arg0, arg1, arg2, arg3, arg4) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline74.fnName = 'tairitsu-browser:full/document@0.2.0#createElement';
+_trampoline75.fnName = 'tairitsu-browser:full/document@0.2.0#createElement';
 
-const _trampoline75 = function(arg0, arg1) {
+const _trampoline76 = function(arg0, arg1) {
   var ptr0 = (arg0 >>> 0) >>> 0;
   var len0 = arg1;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -10984,9 +11082,9 @@ const _trampoline75 = function(arg0, arg1) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline75.fnName = 'tairitsu-browser:full/document@0.2.0#createTextNode';
+_trampoline76.fnName = 'tairitsu-browser:full/document@0.2.0#createTextNode';
 
-const _trampoline76 = function(arg0, arg1) {
+const _trampoline77 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/event@0.2.0", function="get-target"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -11073,9 +11171,9 @@ const _trampoline76 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline76.fnName = 'tairitsu-browser:full/event@0.2.0#getTarget';
+_trampoline77.fnName = 'tairitsu-browser:full/event@0.2.0#getTarget';
 
-const _trampoline77 = function(arg0, arg1) {
+const _trampoline78 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/event@0.2.0", function="get-current-target"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -11162,9 +11260,9 @@ const _trampoline77 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline77.fnName = 'tairitsu-browser:full/event@0.2.0#getCurrentTarget';
+_trampoline78.fnName = 'tairitsu-browser:full/event@0.2.0#getCurrentTarget';
 
-const _trampoline78 = function(arg0, arg1, arg2, arg3) {
+const _trampoline79 = function(arg0, arg1, arg2, arg3) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -11254,9 +11352,9 @@ const _trampoline78 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline78.fnName = 'tairitsu-browser:full/parent-node@0.2.0#querySelector';
+_trampoline79.fnName = 'tairitsu-browser:full/parent-node@0.2.0#querySelector';
 
-const _trampoline79 = function(arg0, arg1, arg2, arg3, arg4) {
+const _trampoline80 = function(arg0, arg1, arg2, arg3, arg4) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -11382,9 +11480,9 @@ const _trampoline79 = function(arg0, arg1, arg2, arg3, arg4) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline79.fnName = 'tairitsu-browser:full/event-target@0.2.0#addEventListener';
+_trampoline80.fnName = 'tairitsu-browser:full/event-target@0.2.0#addEventListener';
 
-const _trampoline80 = function(arg0, arg1, arg2) {
+const _trampoline81 = function(arg0, arg1, arg2) {
   _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="remove-event-listener"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -11505,9 +11603,9 @@ const _trampoline80 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline80.fnName = 'tairitsu-browser:full/event-target@0.2.0#removeEventListener';
+_trampoline81.fnName = 'tairitsu-browser:full/event-target@0.2.0#removeEventListener';
 
-const _trampoline81 = function(arg0, arg1, arg2, arg3) {
+const _trampoline82 = function(arg0, arg1, arg2, arg3) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -11597,9 +11695,9 @@ const _trampoline81 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline81.fnName = 'tairitsu-browser:full/non-element-parent-node@0.2.0#getElementById';
+_trampoline82.fnName = 'tairitsu-browser:full/non-element-parent-node@0.2.0#getElementById';
 
-const _trampoline82 = function(arg0, arg1, arg2) {
+const _trampoline83 = function(arg0, arg1, arg2) {
   _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="item"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -11686,9 +11784,9 @@ const _trampoline82 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline82.fnName = 'tairitsu-browser:full/node-list@0.2.0#item';
+_trampoline83.fnName = 'tairitsu-browser:full/node-list@0.2.0#item';
 
-const _trampoline83 = function(arg0, arg1, arg2) {
+const _trampoline84 = function(arg0, arg1, arg2) {
   var len1 = arg2;
   var base1 = (arg1 >>> 0) >>> 0;
   if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError('wasm trap: out of bounds memory access');
@@ -11779,9 +11877,9 @@ const _trampoline83 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline83.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#add';
+_trampoline84.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#add';
 
-const _trampoline84 = function(arg0, arg1, arg2) {
+const _trampoline85 = function(arg0, arg1, arg2) {
   var len1 = arg2;
   var base1 = (arg1 >>> 0) >>> 0;
   if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError('wasm trap: out of bounds memory access');
@@ -11872,9 +11970,9 @@ const _trampoline84 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline84.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#remove';
+_trampoline85.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#remove';
 
-const _trampoline85 = function(arg0, arg1, arg2) {
+const _trampoline86 = function(arg0, arg1, arg2) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -11957,9 +12055,9 @@ const _trampoline85 = function(arg0, arg1, arg2) {
   task.exit();
   return ret ? 1 : 0;
 }
-_trampoline85.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#contains';
+_trampoline86.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#contains';
 
-const _trampoline86 = function(arg0, arg1) {
+const _trampoline87 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pointer-type"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -12069,9 +12167,9 @@ const _trampoline86 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline86.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getPointerType';
+_trampoline87.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getPointerType';
 
-const _trampoline87 = function(arg0) {
+const _trampoline88 = function(arg0) {
   _debugLog('[iface="wasi:random/insecure-seed@0.2.12", function="insecure-seed"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -12153,9 +12251,9 @@ const _trampoline87 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline87.fnName = 'wasi:random/insecure-seed@0.2.12#insecureSeed';
+_trampoline88.fnName = 'wasi:random/insecure-seed@0.2.12#insecureSeed';
 
-const _trampoline88 = function(arg0, arg1, arg2) {
+const _trampoline89 = function(arg0, arg1, arg2) {
   var len3 = arg1;
   var base3 = (arg0 >>> 0) >>> 0;
   if (base3 < 0 || len3 < 0 || len3 > 67108863 || base3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - base3) / 4)) throw new WebAssemblyRuntimeError('wasm trap: out of bounds memory access');
@@ -12312,7 +12410,7 @@ const _trampoline88 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline88.fnName = 'wasi:io/poll@0.2.12#poll';
+_trampoline89.fnName = 'wasi:io/poll@0.2.12#poll';
 
 const handleTable1 = [T_FLAG, 0];
 handleTable1._createdReps = new Set();
@@ -12324,7 +12422,7 @@ let captureCnt1= 0;
 
 HANDLE_TABLES[1] = handleTable1;
 
-const _trampoline89 = function(arg0, arg1) {
+const _trampoline90 = function(arg0, arg1) {
   var handle1 = arg0;
   
   var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
@@ -12465,9 +12563,9 @@ const _trampoline89 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline89.fnName = 'wasi:io/streams@0.2.12#checkWrite';
+_trampoline90.fnName = 'wasi:io/streams@0.2.12#checkWrite';
 
-const _trampoline90 = function(arg0, arg1, arg2, arg3) {
+const _trampoline91 = function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   
   var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
@@ -12612,9 +12710,9 @@ const _trampoline90 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline90.fnName = 'wasi:io/streams@0.2.12#write';
+_trampoline91.fnName = 'wasi:io/streams@0.2.12#write';
 
-const _trampoline91 = function(arg0, arg1) {
+const _trampoline92 = function(arg0, arg1) {
   var handle1 = arg0;
   
   var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
@@ -12754,9 +12852,9 @@ const _trampoline91 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline91.fnName = 'wasi:io/streams@0.2.12#blockingFlush';
+_trampoline92.fnName = 'wasi:io/streams@0.2.12#blockingFlush';
 
-const _trampoline92 = function(arg0) {
+const _trampoline93 = function(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.12", function="get-environment"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -12931,7 +13029,7 @@ const _trampoline92 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline92.fnName = 'wasi:cli/environment@0.2.12#getEnvironment';
+_trampoline93.fnName = 'wasi:cli/environment@0.2.12#getEnvironment';
 
 const handleTable4 = [T_FLAG, 0];
 handleTable4._createdReps = new Set();
@@ -12943,7 +13041,7 @@ let captureCnt4= 0;
 
 HANDLE_TABLES[4] = handleTable4;
 
-const _trampoline93 = function(arg0) {
+const _trampoline94 = function(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdin@0.2.12", function="get-terminal-stdin"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -13043,7 +13141,7 @@ const _trampoline93 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline93.fnName = 'wasi:cli/terminal-stdin@0.2.12#getTerminalStdin';
+_trampoline94.fnName = 'wasi:cli/terminal-stdin@0.2.12#getTerminalStdin';
 
 const handleTable5 = [T_FLAG, 0];
 handleTable5._createdReps = new Set();
@@ -13055,7 +13153,7 @@ let captureCnt5= 0;
 
 HANDLE_TABLES[5] = handleTable5;
 
-const _trampoline94 = function(arg0) {
+const _trampoline95 = function(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdout@0.2.12", function="get-terminal-stdout"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -13155,9 +13253,9 @@ const _trampoline94 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline94.fnName = 'wasi:cli/terminal-stdout@0.2.12#getTerminalStdout';
+_trampoline95.fnName = 'wasi:cli/terminal-stdout@0.2.12#getTerminalStdout';
 
-const _trampoline95 = function(arg0) {
+const _trampoline96 = function(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stderr@0.2.12", function="get-terminal-stderr"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -13257,7 +13355,91 @@ const _trampoline95 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline95.fnName = 'wasi:cli/terminal-stderr@0.2.12#getTerminalStderr';
+_trampoline96.fnName = 'wasi:cli/terminal-stderr@0.2.12#getTerminalStderr';
+
+const _trampoline97 = function(arg0) {
+  _debugLog('[iface="wasi:clocks/wall-clock@0.2.12", function="now"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'now$1',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => now$1()),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  var {seconds: v0_0, nanoseconds: v0_1 } = ret;
+  dataView(memory0).setBigInt64(((arg0 >>> 0)) + 0, toUint64(v0_0), true);
+  dataView(memory0).setInt32(((arg0 >>> 0)) + 8, toUint32(v0_1), true);
+  _debugLog('[iface="wasi:clocks/wall-clock@0.2.12", function="now"][Instruction::Return]', {
+    funcName: 'now',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline97.fnName = 'wasi:clocks/wall-clock@0.2.12#now$1';
 let exports2;
 let postReturn0;
 let postReturn0Async;
@@ -18027,7 +18209,7 @@ function transition(arg0, arg1) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(61);
+  task.setReturnResultTypeIdx(62);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18598,7 +18780,7 @@ function defaultAnimationConfig() {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(66);
+  task.setReturnResultTypeIdx(67);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18766,7 +18948,7 @@ function resourceStatusQuery(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(67);
+  task.setReturnResultTypeIdx(68);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -20402,6 +20584,27 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline59.manuallyAsync,
+  paramLiftFns: [],
+  resultLowerFns: [_lowerFlatU64],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline59,
+},
+);
+let trampoline60 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 60,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline60.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
   resultLowerFns: [_lowerFlatOwn({
     componentIdx: 0,
@@ -20430,16 +20633,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => null,
   getReallocFn: undefined,
-  importFn: _trampoline59,
+  importFn: _trampoline60,
 },
 );
-let trampoline60 = _lowerImportBackwardsCompat.bind(
+let trampoline61 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 60,
+  trampolineIdx: 61,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline60.manuallyAsync,
+  isManualAsync: _trampoline61.manuallyAsync,
   paramLiftFns: [_liftFlatStringAny,
   _liftFlatOption({
     caseMetas: [
@@ -20464,16 +20667,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline60,
+  importFn: _trampoline61,
 },
 );
-let trampoline61 = _lowerImportBackwardsCompat.bind(
+let trampoline62 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 61,
+  trampolineIdx: 62,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline61.manuallyAsync,
+  isManualAsync: _trampoline62.manuallyAsync,
   paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatStringAny],
   resultLowerFns: [],
   hasResultPointer: false,
@@ -20485,16 +20688,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline61,
+  importFn: _trampoline62,
 },
 );
-let trampoline62 = _lowerImportBackwardsCompat.bind(
+let trampoline63 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 62,
+  trampolineIdx: 63,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline62.manuallyAsync,
+  isManualAsync: _trampoline63.manuallyAsync,
   paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
   resultLowerFns: [
   _lowerFlatOption({
@@ -20518,27 +20721,6 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: () => realloc0,
-  importFn: _trampoline62,
-},
-);
-let trampoline63 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 63,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline63.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
-  resultLowerFns: [],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: undefined,
   importFn: _trampoline63,
 },
 );
@@ -20570,9 +20752,9 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline65.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatRecord({ fieldMetas: [['x', _lowerFlatFloat64, 8, 8 ],['y', _lowerFlatFloat64, 8, 8 ],['width', _lowerFlatFloat64, 8, 8 ],['height', _lowerFlatFloat64, 8, 8 ],], size32: 32, align32: 8 })],
-  hasResultPointer: true,
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
+  resultLowerFns: [],
+  hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -20591,6 +20773,27 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline66.manuallyAsync,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatRecord({ fieldMetas: [['x', _lowerFlatFloat64, 8, 8 ],['y', _lowerFlatFloat64, 8, 8 ],['width', _lowerFlatFloat64, 8, 8 ],['height', _lowerFlatFloat64, 8, 8 ],], size32: 32, align32: 8 })],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: undefined,
+  importFn: _trampoline66,
+},
+);
+let trampoline67 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 67,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline67.manuallyAsync,
   paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatStringAny,
   _liftFlatOption({
     caseMetas: [
@@ -20615,16 +20818,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline66,
+  importFn: _trampoline67,
 },
 );
-let trampoline67 = _lowerImportBackwardsCompat.bind(
+let trampoline68 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 67,
+  trampolineIdx: 68,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline67.manuallyAsync,
+  isManualAsync: _trampoline68.manuallyAsync,
   paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
   resultLowerFns: [_lowerFlatStringAny],
   hasResultPointer: true,
@@ -20636,16 +20839,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: () => realloc0,
-  importFn: _trampoline67,
+  importFn: _trampoline68,
 },
 );
-let trampoline68 = _lowerImportBackwardsCompat.bind(
+let trampoline69 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 68,
+  trampolineIdx: 69,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline68.manuallyAsync,
+  isManualAsync: _trampoline69.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
   resultLowerFns: [
   _lowerFlatOption({
@@ -20669,16 +20872,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline68,
+  importFn: _trampoline69,
 },
 );
-let trampoline69 = _lowerImportBackwardsCompat.bind(
+let trampoline70 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 69,
+  trampolineIdx: 70,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline69.manuallyAsync,
+  isManualAsync: _trampoline70.manuallyAsync,
   paramLiftFns: [_liftFlatU64,
   _liftFlatOption({
     caseMetas: [
@@ -20703,16 +20906,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline69,
+  importFn: _trampoline70,
 },
 );
-let trampoline70 = _lowerImportBackwardsCompat.bind(
+let trampoline71 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 70,
+  trampolineIdx: 71,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline70.manuallyAsync,
+  isManualAsync: _trampoline71.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
   resultLowerFns: [
   _lowerFlatOption({
@@ -20736,16 +20939,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline70,
+  importFn: _trampoline71,
 },
 );
-let trampoline71 = _lowerImportBackwardsCompat.bind(
+let trampoline72 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 71,
+  trampolineIdx: 72,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline71.manuallyAsync,
+  isManualAsync: _trampoline72.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
   resultLowerFns: [_lowerFlatStringAny],
   hasResultPointer: true,
@@ -20757,16 +20960,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: () => realloc0,
-  importFn: _trampoline71,
+  importFn: _trampoline72,
 },
 );
-let trampoline72 = _lowerImportBackwardsCompat.bind(
+let trampoline73 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 72,
+  trampolineIdx: 73,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline72.manuallyAsync,
+  isManualAsync: _trampoline73.manuallyAsync,
   paramLiftFns: [_liftFlatU64,
   _liftFlatOption({
     caseMetas: [
@@ -20791,16 +20994,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline72,
+  importFn: _trampoline73,
 },
 );
-let trampoline73 = _lowerImportBackwardsCompat.bind(
+let trampoline74 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 73,
+  trampolineIdx: 74,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline73.manuallyAsync,
+  isManualAsync: _trampoline74.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [
   _lowerFlatOption({
@@ -20824,16 +21027,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline73,
+  importFn: _trampoline74,
 },
 );
-let trampoline74 = _lowerImportBackwardsCompat.bind(
+let trampoline75 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 74,
+  trampolineIdx: 75,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline74.manuallyAsync,
+  isManualAsync: _trampoline75.manuallyAsync,
   paramLiftFns: [_liftFlatStringAny,
   _liftFlatOption({
     caseMetas: [
@@ -20858,27 +21061,6 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline74,
-},
-);
-let trampoline75 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 75,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline75.manuallyAsync,
-  paramLiftFns: [_liftFlatStringAny],
-  resultLowerFns: [_lowerFlatU64],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: undefined,
   importFn: _trampoline75,
 },
 );
@@ -20889,21 +21071,9 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline76.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [
-  _lowerFlatOption({
-    caseMetas: [
-    [ 'none', null, 0, 0, 0 ],
-    [ 'some', _lowerFlatU64, 8, 8, 1],
-    ],
-    variantSize32: 16,
-    variantAlign32: 8,
-    variantPayloadOffset32: 8,
-    variantFlatCount: 2,
-    payloadMaybeNull: false,
-  })
-  ],
-  hasResultPointer: true,
+  paramLiftFns: [_liftFlatStringAny],
+  resultLowerFns: [_lowerFlatU64],
+  hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -20955,7 +21125,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline78.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
+  paramLiftFns: [_liftFlatU64],
   resultLowerFns: [
   _lowerFlatOption({
     caseMetas: [
@@ -20988,70 +21158,6 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline79.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatBool],
-  resultLowerFns: [
-  _lowerFlatResult({
-    caseMetas: [
-    [ 'ok', _lowerFlatU64, 16, 8, 8 ],
-    [ 'err', _lowerFlatStringAny, 16, 8, 8 ],
-    ],
-    variantSize32: 16,
-    variantAlign32: 8,
-    variantPayloadOffset32: 8,
-    variantFlatCount: 3,
-  })
-  ],
-  hasResultPointer: true,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: () => realloc0,
-  importFn: _trampoline79,
-},
-);
-let trampoline80 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 80,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline80.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatU64],
-  resultLowerFns: [
-  _lowerFlatResult({
-    caseMetas: [
-    [ 'ok', null, 12, 4, 4 ],
-    [ 'err', _lowerFlatStringAny, 12, 4, 4 ],
-    ],
-    variantSize32: 12,
-    variantAlign32: 4,
-    variantPayloadOffset32: 4,
-    variantFlatCount: 3,
-  })
-  ],
-  hasResultPointer: true,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: () => realloc0,
-  importFn: _trampoline80,
-},
-);
-let trampoline81 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 81,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline81.manuallyAsync,
   paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
   resultLowerFns: [
   _lowerFlatOption({
@@ -21075,6 +21181,70 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
+  importFn: _trampoline79,
+},
+);
+let trampoline80 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 80,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline80.manuallyAsync,
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatBool],
+  resultLowerFns: [
+  _lowerFlatResult({
+    caseMetas: [
+    [ 'ok', _lowerFlatU64, 16, 8, 8 ],
+    [ 'err', _lowerFlatStringAny, 16, 8, 8 ],
+    ],
+    variantSize32: 16,
+    variantAlign32: 8,
+    variantPayloadOffset32: 8,
+    variantFlatCount: 3,
+  })
+  ],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: () => realloc0,
+  importFn: _trampoline80,
+},
+);
+let trampoline81 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 81,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline81.manuallyAsync,
+  paramLiftFns: [_liftFlatU64,_liftFlatU64],
+  resultLowerFns: [
+  _lowerFlatResult({
+    caseMetas: [
+    [ 'ok', null, 12, 4, 4 ],
+    [ 'err', _lowerFlatStringAny, 12, 4, 4 ],
+    ],
+    variantSize32: 12,
+    variantAlign32: 4,
+    variantPayloadOffset32: 4,
+    variantFlatCount: 3,
+  })
+  ],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: () => realloc0,
   importFn: _trampoline81,
 },
 );
@@ -21085,7 +21255,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline82.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatU32],
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
   resultLowerFns: [
   _lowerFlatOption({
     caseMetas: [
@@ -21118,14 +21288,21 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline83.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatList({
-    elemLiftFn: _liftFlatStringAny,
-    elemAlign32: 4,
-    elemSize32: 8,
-    typedArray: undefined,
-  })],
-  resultLowerFns: [],
-  hasResultPointer: false,
+  paramLiftFns: [_liftFlatU64,_liftFlatU32],
+  resultLowerFns: [
+  _lowerFlatOption({
+    caseMetas: [
+    [ 'none', null, 0, 0, 0 ],
+    [ 'some', _lowerFlatU64, 8, 8, 1],
+    ],
+    variantSize32: 16,
+    variantAlign32: 8,
+    variantPayloadOffset32: 8,
+    variantFlatCount: 2,
+    payloadMaybeNull: false,
+  })
+  ],
+  hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -21170,8 +21347,13 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline85.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
-  resultLowerFns: [_lowerFlatBool],
+  paramLiftFns: [_liftFlatU64,_liftFlatList({
+    elemLiftFn: _liftFlatStringAny,
+    elemAlign32: 4,
+    elemSize32: 8,
+    typedArray: undefined,
+  })],
+  resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -21191,6 +21373,27 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline86.manuallyAsync,
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
+  resultLowerFns: [_lowerFlatBool],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: undefined,
+  importFn: _trampoline86,
+},
+);
+let trampoline87 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 87,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline87.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
   resultLowerFns: [_lowerFlatStringAny],
   hasResultPointer: true,
@@ -21202,16 +21405,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: () => realloc0,
-  importFn: _trampoline86,
+  importFn: _trampoline87,
 },
 );
-let trampoline87 = _lowerImportBackwardsCompat.bind(
+let trampoline88 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 87,
+  trampolineIdx: 88,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline87.manuallyAsync,
+  isManualAsync: _trampoline88.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [_lowerFlatTuple({ elemLowerMetas: [[_lowerFlatU64, 8, 8],[_lowerFlatU64, 8, 8],], size32: 16, align32: 8 })],
   hasResultPointer: true,
@@ -21223,16 +21426,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline87,
+  importFn: _trampoline88,
 },
 );
-let trampoline88 = _lowerImportBackwardsCompat.bind(
+let trampoline89 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 88,
+  trampolineIdx: 89,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline88.manuallyAsync,
+  isManualAsync: _trampoline89.manuallyAsync,
   paramLiftFns: [_liftFlatList({
     elemLiftFn: _liftFlatBorrow.bind(null, 0),
     elemAlign32: 4,
@@ -21253,16 +21456,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: () => realloc0,
-  importFn: _trampoline88,
+  importFn: _trampoline89,
 },
 );
-let trampoline89 = _lowerImportBackwardsCompat.bind(
+let trampoline90 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 89,
+  trampolineIdx: 90,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline89.manuallyAsync,
+  isManualAsync: _trampoline90.manuallyAsync,
   paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
   resultLowerFns: [
   _lowerFlatResult({
@@ -21308,66 +21511,6 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline89,
-},
-);
-let trampoline90 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 90,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline90.manuallyAsync,
-  paramLiftFns: [_liftFlatBorrow.bind(null, 3),_liftFlatList({
-    elemLiftFn: _liftFlatU8,
-    elemAlign32: 1,
-    elemSize32: 1,
-    typedArray: Uint8Array,
-  })],
-  resultLowerFns: [
-  _lowerFlatResult({
-    caseMetas: [
-    [ 'ok', null, 12, 4, 4 ],
-    [ 'err', _lowerFlatVariant({
-      caseMetas: [[ "last-operation-failed", _lowerFlatOwn({
-        componentIdx: 0,
-        tableIdx: 1,
-        lowerFn: 
-        function lowerImportedOwnedHost_Error$1(obj) {
-          if (!(obj instanceof Error$1)) {
-            throw new TypeError('Resource error: Not a valid \"Error$1\" resource.');
-          }
-          let handle = obj[symbolRscHandle];
-          if (!handle) {
-            const rep = (obj[symbolRscRep] ?? ++captureCnt1) >>> 0;
-            captureTable1.set(rep, obj);
-            handle = rscTableCreateOwn(handleTable1, rep);
-          }
-          return handle;
-        }
-        ,
-      }), 4, 4, 1 ],[ "closed", null, 0, 0, 0 ],],
-      variantSize32: 8,
-      variantAlign32: 4,
-      variantPayloadOffset32: 4,
-      variantFlatCount: 2,
-    } ), 12, 4, 4 ],
-    ],
-    variantSize32: 12,
-    variantAlign32: 4,
-    variantPayloadOffset32: 4,
-    variantFlatCount: 3,
-  })
-  ],
-  hasResultPointer: true,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: undefined,
   importFn: _trampoline90,
 },
 );
@@ -21378,7 +21521,12 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline91.manuallyAsync,
-  paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
+  paramLiftFns: [_liftFlatBorrow.bind(null, 3),_liftFlatList({
+    elemLiftFn: _liftFlatU8,
+    elemAlign32: 1,
+    elemSize32: 1,
+    typedArray: Uint8Array,
+  })],
   resultLowerFns: [
   _lowerFlatResult({
     caseMetas: [
@@ -21433,6 +21581,61 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline92.manuallyAsync,
+  paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
+  resultLowerFns: [
+  _lowerFlatResult({
+    caseMetas: [
+    [ 'ok', null, 12, 4, 4 ],
+    [ 'err', _lowerFlatVariant({
+      caseMetas: [[ "last-operation-failed", _lowerFlatOwn({
+        componentIdx: 0,
+        tableIdx: 1,
+        lowerFn: 
+        function lowerImportedOwnedHost_Error$1(obj) {
+          if (!(obj instanceof Error$1)) {
+            throw new TypeError('Resource error: Not a valid \"Error$1\" resource.');
+          }
+          let handle = obj[symbolRscHandle];
+          if (!handle) {
+            const rep = (obj[symbolRscRep] ?? ++captureCnt1) >>> 0;
+            captureTable1.set(rep, obj);
+            handle = rscTableCreateOwn(handleTable1, rep);
+          }
+          return handle;
+        }
+        ,
+      }), 4, 4, 1 ],[ "closed", null, 0, 0, 0 ],],
+      variantSize32: 8,
+      variantAlign32: 4,
+      variantPayloadOffset32: 4,
+      variantFlatCount: 2,
+    } ), 12, 4, 4 ],
+    ],
+    variantSize32: 12,
+    variantAlign32: 4,
+    variantPayloadOffset32: 4,
+    variantFlatCount: 3,
+  })
+  ],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: undefined,
+  importFn: _trampoline92,
+},
+);
+let trampoline93 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 93,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline93.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [_lowerFlatList({
     elemLowerFn: _lowerFlatTuple({ elemLowerMetas: [[_lowerFlatStringAny, 8, 4],[_lowerFlatStringAny, 8, 4],], size32: 16, align32: 4 }),
@@ -21448,16 +21651,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: () => realloc0,
-  importFn: _trampoline92,
+  importFn: _trampoline93,
 },
 );
-let trampoline93 = _lowerImportBackwardsCompat.bind(
+let trampoline94 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 93,
+  trampolineIdx: 94,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline93.manuallyAsync,
+  isManualAsync: _trampoline94.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [
   _lowerFlatOption({
@@ -21476,56 +21679,6 @@ null,
           const rep = (obj[symbolRscRep] ?? ++captureCnt4) >>> 0;
           captureTable4.set(rep, obj);
           handle = rscTableCreateOwn(handleTable4, rep);
-        }
-        return handle;
-      }
-      ,
-    }), 4, 4, 1],
-    ],
-    variantSize32: 8,
-    variantAlign32: 4,
-    variantPayloadOffset32: 4,
-    variantFlatCount: 2,
-    payloadMaybeNull: false,
-  })
-  ],
-  hasResultPointer: true,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: undefined,
-  importFn: _trampoline93,
-},
-);
-let trampoline94 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 94,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline94.manuallyAsync,
-  paramLiftFns: [],
-  resultLowerFns: [
-  _lowerFlatOption({
-    caseMetas: [
-    [ 'none', null, 0, 0, 0 ],
-    [ 'some', _lowerFlatOwn({
-      componentIdx: 0,
-      tableIdx: 5,
-      lowerFn: 
-      function lowerImportedOwnedHost_TerminalOutput(obj) {
-        if (!(obj instanceof TerminalOutput)) {
-          throw new TypeError('Resource error: Not a valid \"TerminalOutput\" resource.');
-        }
-        let handle = obj[symbolRscHandle];
-        if (!handle) {
-          const rep = (obj[symbolRscRep] ?? ++captureCnt5) >>> 0;
-          captureTable5.set(rep, obj);
-          handle = rscTableCreateOwn(handleTable5, rep);
         }
         return handle;
       }
@@ -21601,14 +21754,85 @@ null,
   importFn: _trampoline95,
 },
 );
+let trampoline96 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 96,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline96.manuallyAsync,
+  paramLiftFns: [],
+  resultLowerFns: [
+  _lowerFlatOption({
+    caseMetas: [
+    [ 'none', null, 0, 0, 0 ],
+    [ 'some', _lowerFlatOwn({
+      componentIdx: 0,
+      tableIdx: 5,
+      lowerFn: 
+      function lowerImportedOwnedHost_TerminalOutput(obj) {
+        if (!(obj instanceof TerminalOutput)) {
+          throw new TypeError('Resource error: Not a valid \"TerminalOutput\" resource.');
+        }
+        let handle = obj[symbolRscHandle];
+        if (!handle) {
+          const rep = (obj[symbolRscRep] ?? ++captureCnt5) >>> 0;
+          captureTable5.set(rep, obj);
+          handle = rscTableCreateOwn(handleTable5, rep);
+        }
+        return handle;
+      }
+      ,
+    }), 4, 4, 1],
+    ],
+    variantSize32: 8,
+    variantAlign32: 4,
+    variantPayloadOffset32: 4,
+    variantFlatCount: 2,
+    payloadMaybeNull: false,
+  })
+  ],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: undefined,
+  importFn: _trampoline96,
+},
+);
+let trampoline97 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 97,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline97.manuallyAsync,
+  paramLiftFns: [],
+  resultLowerFns: [_lowerFlatRecord({ fieldMetas: [['seconds', _lowerFlatU64, 8, 8 ],['nanoseconds', _lowerFlatU32, 4, 4 ],], size32: 16, align32: 8 })],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: undefined,
+  importFn: _trampoline97,
+},
+);
 
 const $init = (() => {
   let gen= (function* _initGenerator () {
-    const module0 = fetchCompile(new URL('./_game2.core.wasm?v=1793971188', import.meta.url));
+    const module0 = fetchCompile(new URL('./_game2.core.wasm?v=1793978554', import.meta.url));
     Promise.resolve(module0).catch(() => {});
-    const module1 = base64Compile('AGFzbQEAAAABdRFgBX9/f39/AX5gBX5/f39/AGAEfn9/fwBgA35/fwBgAn5/AGAIfn9/f39/f38AYAR+f39/AGAEfn9/fwF+YAF/AGACf38BfmAFfn9/f38AYAN+fn8AYAN+f38AYAN+f38Bf2ADf39/AGACf38AYAR/f39/AAMlJAABAgMDBAUCBAYEBAcIAAkEBAIKCwIMAwMNBAgODxAPCAgICAQFAXABJCQHtgElATAAAAExAAEBMgACATMAAwE0AAQBNQAFATYABgE3AAcBOAAIATkACQIxMAAKAjExAAsCMTIADAIxMwANAjE0AA4CMTUADwIxNgAQAjE3ABECMTgAEgIxOQATAjIwABQCMjEAFQIyMgAWAjIzABcCMjQAGAIyNQAZAjI2ABoCMjcAGwIyOAAcAjI5AB0CMzAAHgIzMQAfAjMyACACMzMAIQIzNAAiAjM1ACMIJGltcG9ydHMBAAr1AyQRACAAIAEgAiADIARBABEAAAsRACAAIAEgAiADIARBAREBAAsPACAAIAEgAiADQQIRAgALDQAgACABIAJBAxEDAAsNACAAIAEgAkEEEQMACwsAIAAgAUEFEQQACxcAIAAgASACIAMgBCAFIAYgB0EGEQUACw8AIAAgASACIANBBxECAAsLACAAIAFBCBEEAAsPACAAIAEgAiADQQkRBgALCwAgACABQQoRBAALCwAgACABQQsRBAALDwAgACABIAIgA0EMEQcACwkAIABBDREIAAsRACAAIAEgAiADIARBDhEAAAsLACAAIAFBDxEJAAsLACAAIAFBEBEEAAsLACAAIAFBEREEAAsPACAAIAEgAiADQRIRAgALEQAgACABIAIgAyAEQRMRCgALDQAgACABIAJBFBELAAsPACAAIAEgAiADQRURAgALDQAgACABIAJBFhEMAAsNACAAIAEgAkEXEQMACw0AIAAgASACQRgRAwALDQAgACABIAJBGRENAAsLACAAIAFBGhEEAAsJACAAQRsRCAALDQAgACABIAJBHBEOAAsLACAAIAFBHREPAAsPACAAIAEgAiADQR4REAALCwAgACABQR8RDwALCQAgAEEgEQgACwkAIABBIREIAAsJACAAQSIRCAALCQAgAEEjEQgACwAvCXByb2R1Y2VycwEMcHJvY2Vzc2VkLWJ5AQ13aXQtY29tcG9uZW50BzAuMjU0LjA');
+    const module1 = base64Compile('AGFzbQEAAAABdRFgBX9/f39/AX5gBX5/f39/AGAEfn9/fwBgA35/fwBgAn5/AGAIfn9/f39/f38AYAR+f39/AGAEfn9/fwF+YAF/AGACf38BfmAFfn9/f38AYAN+fn8AYAN+f38AYAN+f38Bf2ADf39/AGACf38AYAR/f39/AAMmJQABAgMDBAUCBAYEBAcIAAkEBAIKCwIMAwMNBAgODxAPCAgICAgEBQFwASUlB7sBJgEwAAABMQABATIAAgEzAAMBNAAEATUABQE2AAYBNwAHATgACAE5AAkCMTAACgIxMQALAjEyAAwCMTMADQIxNAAOAjE1AA8CMTYAEAIxNwARAjE4ABICMTkAEwIyMAAUAjIxABUCMjIAFgIyMwAXAjI0ABgCMjUAGQIyNgAaAjI3ABsCMjgAHAIyOQAdAjMwAB4CMzEAHwIzMgAgAjMzACECMzQAIgIzNQAjAjM2ACQIJGltcG9ydHMBAAr/AyURACAAIAEgAiADIARBABEAAAsRACAAIAEgAiADIARBAREBAAsPACAAIAEgAiADQQIRAgALDQAgACABIAJBAxEDAAsNACAAIAEgAkEEEQMACwsAIAAgAUEFEQQACxcAIAAgASACIAMgBCAFIAYgB0EGEQUACw8AIAAgASACIANBBxECAAsLACAAIAFBCBEEAAsPACAAIAEgAiADQQkRBgALCwAgACABQQoRBAALCwAgACABQQsRBAALDwAgACABIAIgA0EMEQcACwkAIABBDREIAAsRACAAIAEgAiADIARBDhEAAAsLACAAIAFBDxEJAAsLACAAIAFBEBEEAAsLACAAIAFBEREEAAsPACAAIAEgAiADQRIRAgALEQAgACABIAIgAyAEQRMRCgALDQAgACABIAJBFBELAAsPACAAIAEgAiADQRURAgALDQAgACABIAJBFhEMAAsNACAAIAEgAkEXEQMACw0AIAAgASACQRgRAwALDQAgACABIAJBGRENAAsLACAAIAFBGhEEAAsJACAAQRsRCAALDQAgACABIAJBHBEOAAsLACAAIAFBHREPAAsPACAAIAEgAiADQR4REAALCwAgACABQR8RDwALCQAgAEEgEQgACwkAIABBIREIAAsJACAAQSIRCAALCQAgAEEjEQgACwkAIABBJBEIAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI1NC4w');
     Promise.resolve(module1).catch(() => {});
-    const module2 = base64Compile('AGFzbQEAAAABdRFgBX9/f39/AX5gBX5/f39/AGAEfn9/fwBgA35/fwBgAn5/AGAIfn9/f39/f38AYAR+f39/AGAEfn9/fwF+YAF/AGACf38BfmAFfn9/f38AYAN+fn8AYAN+f38AYAN+f38Bf2ADf39/AGACf38AYAR/f39/AALeASUAATAAAAABMQABAAEyAAIAATMAAwABNAADAAE1AAQAATYABQABNwACAAE4AAQAATkABgACMTAABAACMTEABAACMTIABwACMTMACAACMTQAAAACMTUACQACMTYABAACMTcABAACMTgAAgACMTkACgACMjAACwACMjEAAgACMjIADAACMjMAAwACMjQAAwACMjUADQACMjYABAACMjcACAACMjgADgACMjkADwACMzAAEAACMzEADwACMzIACAACMzMACAACMzQACAACMzUACAAIJGltcG9ydHMBcAEkJAkqAQBBAAskAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjAC8JcHJvZHVjZXJzAQxwcm9jZXNzZWQtYnkBDXdpdC1jb21wb25lbnQHMC4yNTQuMA');
+    const module2 = base64Compile('AGFzbQEAAAABdRFgBX9/f39/AX5gBX5/f39/AGAEfn9/fwBgA35/fwBgAn5/AGAIfn9/f39/f38AYAR+f39/AGAEfn9/fwF+YAF/AGACf38BfmAFfn9/f38AYAN+fn8AYAN+f38AYAN+f38Bf2ADf39/AGACf38AYAR/f39/AALkASYAATAAAAABMQABAAEyAAIAATMAAwABNAADAAE1AAQAATYABQABNwACAAE4AAQAATkABgACMTAABAACMTEABAACMTIABwACMTMACAACMTQAAAACMTUACQACMTYABAACMTcABAACMTgAAgACMTkACgACMjAACwACMjEAAgACMjIADAACMjMAAwACMjQAAwACMjUADQACMjYABAACMjcACAACMjgADgACMjkADwACMzAAEAACMzEADwACMzIACAACMzMACAACMzQACAACMzUACAACMzYACAAIJGltcG9ydHMBcAElJQkrAQBBAAslAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJAAvCXByb2R1Y2VycwEMcHJvY2Vzc2VkLWJ5AQ13aXQtY29tcG9uZW50BzAuMjU0LjA');
     Promise.resolve(module2).catch(() => {});
     const instanceFlags0 = new WebAssembly.Global({ value: "i32", mutable: true }, 1);
     INSTANCE_FLAGS.set(0, instanceFlags0);
@@ -21753,7 +21977,11 @@ const $init = (() => {
         "get-terminal-stdout": Object.assign(exports0["34"], { _jcoMaySuspend: false }),
       },
       "wasi:clocks/monotonic-clock@0.2.0": {
-        "subscribe-duration": Object.assign(_guardTrap(0, trampoline59, false), { _jcoMaySuspend: false }),
+        now: Object.assign(_guardTrap(0, trampoline59, false), { _jcoMaySuspend: false }),
+        "subscribe-duration": Object.assign(_guardTrap(0, trampoline60, false), { _jcoMaySuspend: false }),
+      },
+      "wasi:clocks/wall-clock@0.2.0": {
+        now: Object.assign(exports0["36"], { _jcoMaySuspend: false }),
       },
       "wasi:io/error@0.2.0": {
         "[resource-drop]error": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline47), true), { _jcoMaySuspend: false }),
@@ -21788,42 +22016,43 @@ const $init = (() => {
     ({ exports: exports2 } = yield instantiateCore(yield module2, {
       "": {
         $imports: exports0.$imports,
-        "0": Object.assign(_guardTrap(0, trampoline60, false), { _jcoMaySuspend: false }),
-        "1": Object.assign(_guardTrap(0, trampoline61, false), { _jcoMaySuspend: false }),
-        "10": Object.assign(_guardTrap(0, trampoline70, false), { _jcoMaySuspend: false }),
-        "11": Object.assign(_guardTrap(0, trampoline71, false), { _jcoMaySuspend: false }),
-        "12": Object.assign(_guardTrap(0, trampoline72, false), { _jcoMaySuspend: false }),
-        "13": Object.assign(_guardTrap(0, trampoline73, false), { _jcoMaySuspend: false }),
-        "14": Object.assign(_guardTrap(0, trampoline74, false), { _jcoMaySuspend: false }),
-        "15": Object.assign(_guardTrap(0, trampoline75, false), { _jcoMaySuspend: false }),
-        "16": Object.assign(_guardTrap(0, trampoline76, false), { _jcoMaySuspend: false }),
-        "17": Object.assign(_guardTrap(0, trampoline77, false), { _jcoMaySuspend: false }),
-        "18": Object.assign(_guardTrap(0, trampoline78, false), { _jcoMaySuspend: false }),
-        "19": Object.assign(_guardTrap(0, trampoline79, false), { _jcoMaySuspend: false }),
-        "2": Object.assign(_guardTrap(0, trampoline62, false), { _jcoMaySuspend: false }),
-        "20": Object.assign(_guardTrap(0, trampoline80, false), { _jcoMaySuspend: false }),
-        "21": Object.assign(_guardTrap(0, trampoline81, false), { _jcoMaySuspend: false }),
-        "22": Object.assign(_guardTrap(0, trampoline82, false), { _jcoMaySuspend: false }),
-        "23": Object.assign(_guardTrap(0, trampoline83, false), { _jcoMaySuspend: false }),
-        "24": Object.assign(_guardTrap(0, trampoline84, false), { _jcoMaySuspend: false }),
-        "25": Object.assign(_guardTrap(0, trampoline85, false), { _jcoMaySuspend: false }),
-        "26": Object.assign(_guardTrap(0, trampoline86, false), { _jcoMaySuspend: false }),
-        "27": Object.assign(_guardTrap(0, trampoline87, false), { _jcoMaySuspend: false }),
-        "28": Object.assign(_guardTrap(0, trampoline88, false), { _jcoMaySuspend: false }),
-        "29": Object.assign(_guardTrap(0, trampoline89, false), { _jcoMaySuspend: false }),
-        "3": Object.assign(_guardTrap(0, trampoline63, false), { _jcoMaySuspend: false }),
-        "30": Object.assign(_guardTrap(0, trampoline90, false), { _jcoMaySuspend: false }),
-        "31": Object.assign(_guardTrap(0, trampoline91, false), { _jcoMaySuspend: false }),
-        "32": Object.assign(_guardTrap(0, trampoline92, false), { _jcoMaySuspend: false }),
-        "33": Object.assign(_guardTrap(0, trampoline93, false), { _jcoMaySuspend: false }),
-        "34": Object.assign(_guardTrap(0, trampoline94, false), { _jcoMaySuspend: false }),
-        "35": Object.assign(_guardTrap(0, trampoline95, false), { _jcoMaySuspend: false }),
-        "4": Object.assign(_guardTrap(0, trampoline64, false), { _jcoMaySuspend: false }),
-        "5": Object.assign(_guardTrap(0, trampoline65, false), { _jcoMaySuspend: false }),
-        "6": Object.assign(_guardTrap(0, trampoline66, false), { _jcoMaySuspend: false }),
-        "7": Object.assign(_guardTrap(0, trampoline67, false), { _jcoMaySuspend: false }),
-        "8": Object.assign(_guardTrap(0, trampoline68, false), { _jcoMaySuspend: false }),
-        "9": Object.assign(_guardTrap(0, trampoline69, false), { _jcoMaySuspend: false }),
+        "0": Object.assign(_guardTrap(0, trampoline61, false), { _jcoMaySuspend: false }),
+        "1": Object.assign(_guardTrap(0, trampoline62, false), { _jcoMaySuspend: false }),
+        "10": Object.assign(_guardTrap(0, trampoline71, false), { _jcoMaySuspend: false }),
+        "11": Object.assign(_guardTrap(0, trampoline72, false), { _jcoMaySuspend: false }),
+        "12": Object.assign(_guardTrap(0, trampoline73, false), { _jcoMaySuspend: false }),
+        "13": Object.assign(_guardTrap(0, trampoline74, false), { _jcoMaySuspend: false }),
+        "14": Object.assign(_guardTrap(0, trampoline75, false), { _jcoMaySuspend: false }),
+        "15": Object.assign(_guardTrap(0, trampoline76, false), { _jcoMaySuspend: false }),
+        "16": Object.assign(_guardTrap(0, trampoline77, false), { _jcoMaySuspend: false }),
+        "17": Object.assign(_guardTrap(0, trampoline78, false), { _jcoMaySuspend: false }),
+        "18": Object.assign(_guardTrap(0, trampoline79, false), { _jcoMaySuspend: false }),
+        "19": Object.assign(_guardTrap(0, trampoline80, false), { _jcoMaySuspend: false }),
+        "2": Object.assign(_guardTrap(0, trampoline63, false), { _jcoMaySuspend: false }),
+        "20": Object.assign(_guardTrap(0, trampoline81, false), { _jcoMaySuspend: false }),
+        "21": Object.assign(_guardTrap(0, trampoline82, false), { _jcoMaySuspend: false }),
+        "22": Object.assign(_guardTrap(0, trampoline83, false), { _jcoMaySuspend: false }),
+        "23": Object.assign(_guardTrap(0, trampoline84, false), { _jcoMaySuspend: false }),
+        "24": Object.assign(_guardTrap(0, trampoline85, false), { _jcoMaySuspend: false }),
+        "25": Object.assign(_guardTrap(0, trampoline86, false), { _jcoMaySuspend: false }),
+        "26": Object.assign(_guardTrap(0, trampoline87, false), { _jcoMaySuspend: false }),
+        "27": Object.assign(_guardTrap(0, trampoline88, false), { _jcoMaySuspend: false }),
+        "28": Object.assign(_guardTrap(0, trampoline89, false), { _jcoMaySuspend: false }),
+        "29": Object.assign(_guardTrap(0, trampoline90, false), { _jcoMaySuspend: false }),
+        "3": Object.assign(_guardTrap(0, trampoline64, false), { _jcoMaySuspend: false }),
+        "30": Object.assign(_guardTrap(0, trampoline91, false), { _jcoMaySuspend: false }),
+        "31": Object.assign(_guardTrap(0, trampoline92, false), { _jcoMaySuspend: false }),
+        "32": Object.assign(_guardTrap(0, trampoline93, false), { _jcoMaySuspend: false }),
+        "33": Object.assign(_guardTrap(0, trampoline94, false), { _jcoMaySuspend: false }),
+        "34": Object.assign(_guardTrap(0, trampoline95, false), { _jcoMaySuspend: false }),
+        "35": Object.assign(_guardTrap(0, trampoline96, false), { _jcoMaySuspend: false }),
+        "36": Object.assign(_guardTrap(0, trampoline97, false), { _jcoMaySuspend: false }),
+        "4": Object.assign(_guardTrap(0, trampoline65, false), { _jcoMaySuspend: false }),
+        "5": Object.assign(_guardTrap(0, trampoline66, false), { _jcoMaySuspend: false }),
+        "6": Object.assign(_guardTrap(0, trampoline67, false), { _jcoMaySuspend: false }),
+        "7": Object.assign(_guardTrap(0, trampoline68, false), { _jcoMaySuspend: false }),
+        "8": Object.assign(_guardTrap(0, trampoline69, false), { _jcoMaySuspend: false }),
+        "9": Object.assign(_guardTrap(0, trampoline70, false), { _jcoMaySuspend: false }),
       },
     }));
     postReturn0 = exports1["cabi_post_tairitsu-browser:full/lifecycle@0.2.0#start"];

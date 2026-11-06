@@ -687,3 +687,90 @@ pub fn storage_show_toast_silent(state: &StorageState, kind: ToastKind, message:
     state.toast_message.inner().set(message);
     state.toast_visible.inner().set(true);
 }
+
+/// 待确认的战斗动作（重试用；与 Dioxus 版 PendingBattleAction 对应，
+/// 幂等键在提交时生成）。
+#[derive(Clone)]
+pub struct PendingBattleAction {
+    pub action: String,
+    pub engine_battle_id: u64,
+    pub expected_revision: u64,
+    pub fields: serde_json::Value,
+}
+
+/// 战斗/冒险页持久状态。
+///
+/// 场景态全部从 scene 派生（整树重挂架构不做边沿检测）：
+/// - needs_replacement() → 换宠弹窗；
+/// - effective_battle_over() → 结算弹窗（on_end 清 scene 退出）。
+#[derive(Clone)]
+pub struct BattleState {
+    pub component_id: std::cell::Cell<u32>,
+    /// None = 恢复中/未加载；Some(None) = 无战斗；Some(Some(scene)) = 战斗中。
+    pub scene: ReactiveSignal<Option<Option<crate::battle_types::BattleScene>>>,
+    /// 动作进行中（互斥守卫，阻断一切入口）。
+    pub loading: ReactiveSignal<bool>,
+    /// 上次操作结果未确认（网络不确定失败）→ 连接错误弹窗。
+    pub conn_error: ReactiveSignal<Option<String>>,
+    pub pending: ReactiveSignal<Option<PendingBattleAction>>,
+    /// 地图列表。
+    pub maps: ReactiveSignal<Option<Result<Vec<crate::battle_types::MapInfo>, String>>>,
+    pub selected_region: ReactiveSignal<Option<String>>,
+    /// 详情弹窗中的地图 ID。
+    pub selected_map: ReactiveSignal<Option<u64>>,
+    /// 战斗快捷栏。
+    pub battle_items: ReactiveSignal<Vec<crate::battle_types::BattleItem>>,
+    pub battle_balls: ReactiveSignal<Vec<InventoryItem>>,
+    /// PP 恢复道具的技能选择弹窗。
+    pub selection: ReactiveSignal<Option<crate::battle_types::SkillSelection>>,
+    /// 战斗页当前标签：0=技能 1=道具 2=捕捉 3=逃跑。
+    pub tab: ReactiveSignal<u8>,
+    /// 手动打开的换宠确认弹窗。
+    pub show_switch_modal: ReactiveSignal<bool>,
+    /// 战报弹窗（lines 由拉取结果暂存）。
+    pub show_log: ReactiveSignal<bool>,
+    pub log_lines: ReactiveSignal<Vec<String>>,
+    /// 上次开战的地图（结算「继续战斗」用）。
+    pub last_map_id: ReactiveSignal<u64>,
+    pub toast_visible: ReactiveSignal<bool>,
+    pub toast_message: ReactiveSignal<String>,
+    pub toast_kind: ReactiveSignal<ToastKind>,
+}
+
+impl BattleState {
+    pub fn new() -> Self {
+        Self {
+            component_id: std::cell::Cell::new(0),
+            scene: use_signal(|| None),
+            loading: use_signal(|| false),
+            conn_error: use_signal(|| None),
+            pending: use_signal(|| None),
+            maps: use_signal(|| None),
+            selected_region: use_signal(|| None),
+            selected_map: use_signal(|| None),
+            battle_items: use_signal(Vec::new),
+            battle_balls: use_signal(Vec::new),
+            selection: use_signal(|| None),
+            tab: use_signal(|| 0u8),
+            show_switch_modal: use_signal(|| false),
+            show_log: use_signal(|| false),
+            log_lines: use_signal(Vec::new),
+            last_map_id: use_signal(|| 0u64),
+            toast_visible: use_signal(|| false),
+            toast_message: use_signal(String::new),
+            toast_kind: use_signal(|| ToastKind::Success),
+        }
+    }
+}
+
+impl std::fmt::Debug for BattleState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BattleState").finish()
+    }
+}
+
+pub fn battle_show_toast_silent(state: &BattleState, kind: ToastKind, message: String) {
+    state.toast_kind.inner().set(kind);
+    state.toast_message.inner().set(message);
+    state.toast_visible.inner().set(true);
+}
