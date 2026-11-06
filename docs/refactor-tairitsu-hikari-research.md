@@ -549,6 +549,43 @@ hook 先写 `#app[data-panic]` 再尝试 stderr，任何 panic 都能在 DOM 上
   `debug_flush_counts()`，配合 `debug_state()` 把「调度未到/排空挂起/
   队列孤儿」三种冻结形态分开。
 
+### 10.1.3 glue `getParentElement` 补丁的退役复查点
+
+`scripts/publish/build_tairitsu_poc.py` 里的 `patch_glue()` 修的是 vendored
+glue 的一个缺陷：`getParentElement` 用「元素对象」当 key 去查
+`__elementHandles`——那张表的键是 bigint 句柄，元素当 key 永远查不到，
+parent 链第一跳就断。事件委托全靠向上找祖先属性，所以这个缺陷会让
+所有 `data-pm-*` 委托失效、点任何按钮都没反应。
+
+本地修法：改走 glue-core 维护的 `__nodeIdentity`（WeakMap 元素 → 句柄）。
+上游修法在 `celestia-island/tairitsu#124`，等价但用的是 `__storeNode`——
+两者都是「元素 → 句柄」反查，只是辅助函数不同。**因此上游版落地后必须
+删掉本地补丁，不能并存**（并存会让同一处代码被改两次，第二次替换不再命中，
+且阅读时容易误判实际生效的是哪一版）。
+
+**复查步骤**（三步都满足才可退役）：
+
+1. `gh pr view 124 --repo celestia-island/tairitsu --json state,mergedAt`
+   → 期望 `state=MERGED` 且 `mergedAt` 非空；
+2. `gh release list --repo celestia-island/tairitsu --limit 3`
+   → 期望出现晚于合并时间的新 release；
+3. 升级 vendor 后 `grep '__elementHandles.get(t)' plugin/wasm2/glue/dom/index.js`
+   → 期望不再命中（说明上游实现已就位）。
+
+退役动作：删除 `patch_glue()` 及其两处调用
+（`build_tairitsu_poc.py` 主流程、`build_tairitsu_admin.py`），重建产物，
+然后重跑八路由后台回归 + `scripts/verify_game2.mjs`——事件委托全链路都
+依赖 parent 链，回归必须覆盖到点击行为，不能只看页面能渲染。
+
+**复查记录**：
+
+| 日期 | PR 状态 | mergedAt | 最新 release | 结论 |
+| --- | --- | --- | --- | --- |
+| 2026-11-07 | OPEN | null | v0.5.26（2026-11-03） | 受上游阻塞，补丁保留 |
+
+下次复查条件：PR #124 出现 `mergedAt`，或 tairitsu 发布晚于
+2026-11-06 的新版本（当前 v0.5.26 早于 PR 最后更新时间，因此必然不含该修复）。
+
 ### 10.2 双站点并行（行为对照）
 
 入口按 `ui` 参数分流，两套前端共用同一 Discuz 外壳与 API：

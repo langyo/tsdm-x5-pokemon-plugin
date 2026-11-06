@@ -244,6 +244,27 @@ def patch_glue() -> None:
       那是 handle→元素 的表，键是 bigint 句柄，元素当 key 永远查不到，
       parent 链在第一跳就断（事件委托的 closest 语义全灭）。改用
       glue-core 维护的 __nodeIdentity（WeakMap 元素→句柄）。
+
+    退役条件（TairitsuGluePatch 复查点）：
+    上游修复是 celestia-island/tairitsu#124，改法与本补丁等价但用的是
+    `__storeNode` 而不是 `__nodeIdentity`——两者都是「元素→句柄」反查，
+    只是辅助函数不同，因此上游版落地后必须删掉本补丁、不能并存。
+
+    复查方式：
+      1. gh pr view 124 --repo celestia-island/tairitsu --json state,mergedAt
+         期望 state=MERGED 且 mergedAt 非空；
+      2. gh release list --repo celestia-island/tairitsu --limit 3
+         期望出现晚于合并时间的新版本（当前最新 v0.5.26 发布于 2026-11-03，
+         早于 PR 的最后更新 2026-11-06，因此截至那次复查仍未发版）；
+      3. 升级 vendor 后确认 glue/dom/index.js 已自带正确实现
+         （grep 不再命中 `__elementHandles.get(t)` 这段错误写法）。
+
+    三步都满足后：删除本函数、删掉两处调用（build_tairitsu_poc.py 主流程
+    与 build_tairitsu_admin.py），重建产物并重跑八路由回归 +
+    scripts/verify_game2.mjs（事件委托全链路依赖 parent 链，回归必须覆盖）。
+
+    当前状态（最后一次复查 2026-11-07）：PR 仍 OPEN、mergedAt=null，
+    最新 release 仍是 v0.5.26 —— 受上游阻塞，补丁保留。
     """
     dom = OUT / "glue" / "dom" / "index.js"
     if not dom.exists():
