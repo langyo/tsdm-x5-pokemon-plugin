@@ -44,7 +44,13 @@ impl AdminRoute {
 
     /// 该路由是否已移植到 tairitsu。
     pub fn ported(self) -> bool {
-        matches!(self, AdminRoute::GlobalConfig | AdminRoute::PokemonData)
+        matches!(
+            self,
+            AdminRoute::GlobalConfig
+                | AdminRoute::PokemonData
+                | AdminRoute::ItemData
+                | AdminRoute::MapData
+        )
     }
 }
 
@@ -197,6 +203,23 @@ pub const ITEM_SPEC: EntitySpec = EntitySpec {
     }),
 };
 
+/// 地图数据（切片 4 实例化）。地形筛选传英文 snake_case 名
+/// （服务端 translate_map_full_name_to_alpha 转单字符）；等级筛选走数字列。
+pub const MAP_SPEC: EntitySpec = EntitySpec {
+    entity: "map_info",
+    title: "地图数据",
+    a: Some(FilterSpec {
+        tag: "地形类型",
+        operator: "equal",
+        placeholder: "地形（如 plain/grass/sea/cave）",
+    }),
+    b: Some(FilterSpec {
+        tag: "野怪最低等级",
+        operator: "greater_or_equal",
+        placeholder: "最低等级 ≥",
+    }),
+};
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -205,6 +228,7 @@ pub struct AppState {
     pub config: GlobalConfigState,
     pub pokemon: ListState,
     pub item: ListState,
+    pub map: ListState,
 }
 
 impl AppState {
@@ -215,6 +239,7 @@ impl AppState {
             config: GlobalConfigState::new(),
             pokemon: ListState::new(),
             item: ListState::new(),
+            map: ListState::new(),
         }
     }
 }

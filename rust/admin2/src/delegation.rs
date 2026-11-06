@@ -82,6 +82,7 @@ fn list_of(st: &AppState, page: &str) -> (crate::state::ListState, crate::state:
     match page {
         "pk" => (st.pokemon.clone(), crate::state::POKEMON_SPEC),
         "it" => (st.item.clone(), crate::state::ITEM_SPEC),
+        "mp" => (st.map.clone(), crate::state::MAP_SPEC),
         _ => (st.pokemon.clone(), crate::state::POKEMON_SPEC),
     }
 }

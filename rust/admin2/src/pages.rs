@@ -28,6 +28,11 @@ pub fn ensure_loaded(state: &AppState) {
                 reload_list(crate::state::ITEM_SPEC, &state.item);
             }
         }
+        AdminRoute::MapData => {
+            if state.map.loaded.get().is_none() && !state.map.busy.get() {
+                reload_list(crate::state::MAP_SPEC, &state.map);
+            }
+        }
         _ => {}
     }
 }
@@ -373,6 +378,7 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         AdminRoute::GlobalConfig => global_config_page(&st),
         AdminRoute::PokemonData => pokemon_data_page(&st),
         AdminRoute::ItemData => item_data_page(&st),
+        AdminRoute::MapData => map_data_page(&st),
         _ => {
             let title = route.title();
             rsx! {
@@ -934,6 +940,218 @@ fn item_data_page(st: &AppState) -> VNode {
                     class: "admin-btn",
                     disabled: busy,
                     "data-pm-adm-l-reload": "it",
+                    "刷新"
+                }
+            }
+            ..vec![body]
+        }
+    }
+}
+
+/// 地形单字符 → 中文名（载荷 area_type 为 "l"/"g"/… 单字符）。
+fn area_name(code: &str) -> &'static str {
+    match code {
+        "l" => "平原",
+        "g" => "草丛",
+        "p" => "水池",
+        "s" => "海洋",
+        "b" => "海底",
+        "m" => "山谷",
+        "c" => "山洞",
+        "d" => "沙漠",
+        "f" => "工厂",
+        "t" => "基地",
+        "v" => "市镇",
+        "n" => "道馆",
+        "h" => "天空",
+        "o" => "深海",
+        "k" => "熔岩",
+        _ => "？",
+    }
+}
+
+/// 地图数据页（切片 4）：列表页模板 + 泛型动作/属性（mp 页键）。
+fn map_data_page(st: &AppState) -> VNode {
+    let ls = st.map.clone();
+    let load_state = ls.loaded.get();
+    let busy = ls.busy.get();
+    let filtered = ls.filtered.get();
+    let err = ls.err.get();
+    let rows = ls.rows.get();
+    let total = ls.total.get();
+    let loaded_count = ls.loaded_count.get();
+    let has_more = !filtered && loaded_count < total;
+    let f_id = ls.f_id.get();
+    let f_name = ls.f_name.get();
+    let f_a = ls.f_a.get();
+    let f_b = ls.f_b.get();
+    let count_text = if filtered {
+        format!("筛选结果 {loaded_count} 条")
+    } else {
+        format!("已加载 {loaded_count} / {total} 条")
+    };
+
+    let body = match &load_state {
+        None => rsx! { div { class: "admin-loading", "正在加载地图数据..." } },
+        Some(Err(e)) => {
+            let msg = format!("加载失败：{e}");
+            rsx! {
+                div { class: "admin-card admin-error",
+                    p { "{msg}" }
+                    button {
+                        class: "admin-btn",
+                        disabled: busy,
+                        "data-pm-adm-l-reload": "mp",
+                        "重新加载"
+                    }
+                }
+            }
+        }
+        Some(Ok(())) => {
+            let err_bar = match &err {
+                Some(e) => {
+                    let msg = format!("筛选失败：{e}");
+                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
+                }
+                None => VNode::empty(),
+            };
+            let table = if rows.is_empty() {
+                rsx! { p { class: "admin-empty-hint", "暂无地图数据。" } }
+            } else {
+                let mut trs: Vec<VNode> = Vec::new();
+                for item in rows.iter() {
+                    let id = json_u64(item, "id").to_string();
+                    let name = json_str(item, "name");
+                    let area = area_name(&json_str(item, "area_type")).to_string();
+                    let enabled_text = if json_bool(item, "is_enabled") {
+                        "启用"
+                    } else {
+                        "停用"
+                    };
+                    let min_lv = json_u64(item, "min_level");
+                    let max_lv = json_u64(item, "max_level");
+                    let range_text = format!("Lv.{min_lv} ~ Lv.{max_lv}");
+                    let min_quality = json_u64(item, "min_quality");
+                    let quality_text = if min_quality > 0 {
+                        min_quality.to_string()
+                    } else {
+                        "—".to_string()
+                    };
+                    // mode 是扁平字符串："wild"/"boss"/"hybrid"
+                    let mode_label = match json_str(item, "mode").as_str() {
+                        "wild" => "野生".to_string(),
+                        "boss" => "Boss".to_string(),
+                        "hybrid" => "混合".to_string(),
+                        _ => "？".to_string(),
+                    };
+                    trs.push(rsx! {
+                        tr {
+                            td { "{id}" }
+                            td { "{name}" }
+                            td { "{area}" }
+                            td { "{enabled_text}" }
+                            td { "{range_text}" }
+                            td { "{mode_label}" }
+                            td { "{quality_text}" }
+                        }
+                    });
+                }
+                rsx! {
+                    table { class: "adm-table",
+                        thead {
+                            tr {
+                                th { "ID" }
+                                th { "名称" }
+                                th { "地形" }
+                                th { "状态" }
+                                th { "等级范围" }
+                                th { "模式" }
+                                th { "品质门槛" }
+                            }
+                        }
+                        tbody {
+                            for i in 0..trs.len() {
+                                ..vec![trs[i].clone()]
+                            }
+                        }
+                    }
+                }
+            };
+            let more_btn = if has_more {
+                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
+                rsx! {
+                    div { class: "adm-load-more",
+                        button {
+                            class: "admin-btn",
+                            disabled: busy,
+                            "data-pm-adm-l-more": "mp",
+                            "{label}"
+                        }
+                    }
+                }
+            } else {
+                VNode::empty()
+            };
+            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
+            rsx! {
+                for i in 0..parts.len() {
+                    ..vec![parts[i].clone()]
+                }
+            }
+        }
+    };
+
+    rsx! {
+        section { class: "admin-page admin-config-page",
+            div { class: "admin-page-header",
+                h2 { "地图数据" }
+                span { class: "adm-count", "{count_text}" }
+            }
+            div { class: "admin-card adm-filter-bar",
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "ID（精确）",
+                    value: f_id,
+                    "data-pm-adm-f-id": "mp"
+                }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "名称（包含）",
+                    value: f_name,
+                    "data-pm-adm-f-name": "mp"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-kind",
+                    r#type: "text",
+                    placeholder: "地形（plain/grass/sea/cave…）",
+                    value: f_a,
+                    "data-pm-adm-f-a": "mp"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-num",
+                    r#type: "text",
+                    placeholder: "最低等级 ≥",
+                    value: f_b,
+                    "data-pm-adm-f-b": "mp"
+                }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-l-apply": "mp",
+                    "筛选"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reset": "mp",
+                    "重置"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reload": "mp",
                     "刷新"
                 }
             }
