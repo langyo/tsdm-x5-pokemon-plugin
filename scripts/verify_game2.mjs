@@ -784,11 +784,15 @@ try {
       || !!document.getElementById('app')?.getAttribute('data-panic'));
   const hasNav = () => evaljs(() => !!document.querySelector('[data-pm-nav]'));
   await waitFor(mounted, 30000, 'wasm 挂载');
-  if (!(await hasNav())) {
+  // 访客停在欢迎页属预期（profile 401）；登录态必须进入主导航，
+  // profile 偶发失败时重载一次自愈。
+  if (authed && !(await hasNav())) {
     await goto(`${BASE}/plugin.php?id=pokemon:game&ui=v2&t=${Date.now()}`);
     await waitFor(mounted, 30000, 'wasm 挂载（重载后）');
   }
-  ok('启动进入主导航', await hasNav(), '停在欢迎页（profile 拉取失败）');
+  if (authed) {
+    ok('启动进入主导航', await hasNav(), '停在欢迎页（profile 拉取失败）');
+  }
 
   await stepShell();
   if (authed) {
