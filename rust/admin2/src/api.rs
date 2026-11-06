@@ -152,3 +152,37 @@ pub fn filter_entity(
         }),
     );
 }
+
+/// `set::<entity>`（data 为完整记录 JSON 字符串）→ 保存后的记录。
+pub fn set_entity(entity: &str, data_json: String, on_done: Box<dyn FnOnce(Result<Value, String>)>) {
+    let body = serde_json::json!({
+        "action": format!("set::{entity}"),
+        "data": data_json,
+    })
+    .to_string();
+    request(
+        body,
+        Box::new(|result: Result<Value, String>| {
+            on_done(result.and_then(|data| extract_config(&data, "保存响应为空")))
+        }),
+    );
+}
+
+/// `insert::<entity>`（data 为完整记录 JSON 字符串）→ 新建后的记录。
+pub fn insert_entity(
+    entity: &str,
+    data_json: String,
+    on_done: Box<dyn FnOnce(Result<Value, String>)>,
+) {
+    let body = serde_json::json!({
+        "action": format!("insert::{entity}"),
+        "data": data_json,
+    })
+    .to_string();
+    request(
+        body,
+        Box::new(|result: Result<Value, String>| {
+            on_done(result.and_then(|data| extract_config(&data, "新建响应为空")))
+        }),
+    );
+}

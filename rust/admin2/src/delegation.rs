@@ -59,6 +59,11 @@ pub fn install(app: &WitElement, state: &AppState) {
                 if attr_of(target, "data-pm-adm-config-input").is_some() {
                     st.config.draft.inner().set(ev.value.clone());
                     crate::request_remount();
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-pkf") {
+                    // 编辑弹窗字段：整树重挂会把输入框重建，光标位置随之丢失
+                    // —— 这是既有架构的取舍（与全局配置页一致），change 事件
+                    // 在失焦/回车时才发，编辑中途不打断输入。
+                    crate::pages::set_pokemon_editor_field(&st, &key, &ev.value, false);
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -92,6 +97,44 @@ fn list_of(st: &AppState, page: &str) -> (crate::state::ListState, crate::state:
 }
 
 fn dispatch_click(state: &AppState, target: u64) {
+    // 宝可梦编辑弹窗：内部按钮必须先于遮罩关闭属性判定（否则保存/取消
+    // 会连带命中 data-pm-adm-pk-close 只关不存）。
+    if let Some((_, key)) = find_with_attr(target, "data-pm-adm-pk-toggle") {
+        let ed = state.pokemon_editor.clone();
+        match key.as_str() {
+            "selling" => ed.is_selling.inner().set(!ed.is_selling.get()),
+            "legendary" => ed.is_legendary.inner().set(!ed.is_legendary.get()),
+            _ => {}
+        }
+        crate::request_remount();
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-pk-save").is_some() {
+        crate::pages::submit_pokemon_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-pk-close").is_some() {
+        crate::pages::close_pokemon_editor(state);
+        return;
+    }
+    // 遮罩只有点在遮罩自身上才关（点弹窗内部空白不关）。find_with_attr
+    // 会一路向上找到遮罩，所以这里要比对命中的句柄是不是点击目标本身。
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-pk-overlay") {
+        if hit == target {
+            crate::pages::close_pokemon_editor(state);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-pk-new").is_some() {
+        crate::pages::open_pokemon_new(state);
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-pk-edit") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::open_pokemon_edit(state, id);
+        }
+        return;
+    }
     if let Some((_, v)) = find_with_attr(target, "data-pm-adm-nav") {
         let route = match v.as_str() {
             "pokemon-data" => AdminRoute::PokemonData,

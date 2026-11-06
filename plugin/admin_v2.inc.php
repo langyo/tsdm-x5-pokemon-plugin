@@ -99,6 +99,27 @@ include template('common/header');
 .adm-pk-stats { font-size:12px; color:#777; }
 .adm-load-more { text-align:center; padding:14px 0 4px; }
 .admin-empty-hint { color:#999; padding:24px; text-align:center; }
+
+/* 宝可梦编辑弹窗（切片 8） */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:flex-start; justify-content:center; padding:40px 16px; overflow:auto; z-index:900; }
+.adm-editor-modal { background:#fff; border-radius:8px; width:720px; max-width:100%; box-shadow:0 8px 32px rgba(0,0,0,.25); }
+.modal-header { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid #eee; }
+.modal-header h3 { margin:0; font-size:15px; color:#333; }
+.modal-close { border:none; background:none; font-size:20px; line-height:1; color:#999; cursor:pointer; padding:0 4px; }
+.modal-close:hover { color:#333; }
+.adm-editor-body { padding:16px 18px; }
+.adm-editor-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px 12px; }
+.adm-editor-field { display:flex; flex-direction:column; gap:4px; font-size:12px; color:#666; }
+.adm-editor-field .adm-filter-input { width:100%; box-sizing:border-box; }
+.adm-editor-wide { display:flex; flex-direction:column; gap:4px; margin-top:12px; }
+.adm-editor-wide .adm-editor-textarea { width:100%; box-sizing:border-box; }
+.adm-editor-section-title { margin:16px 0 8px; font-size:13px; font-weight:600; color:#333; }
+.adm-editor-textarea { font-family:Consolas,Monaco,monospace; font-size:12px; line-height:1.5; border:1px solid #d8d8d8; border-radius:6px; padding:8px 10px; resize:vertical; }
+.adm-editor-textarea:focus { outline:none; border-color:#d33774; }
+.adm-editor-toggle { align-self:flex-end; }
+.adm-editor-error { color:#c0392b; font-size:12px; margin:12px 0 0; }
+.adm-editor-footer { display:flex; justify-content:flex-end; gap:10px; padding:12px 18px; border-top:1px solid #eee; }
+.adm-row-edit { padding:3px 12px; font-size:12px; }
 </style>
 
 <div class="pm-ui-switch">

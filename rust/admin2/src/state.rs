@@ -44,13 +44,9 @@ impl AdminRoute {
 
     /// 该路由是否已移植到 tairitsu。
     pub fn ported(self) -> bool {
-        matches!(
-            self,
-            AdminRoute::GlobalConfig
-                | AdminRoute::PokemonData
-                | AdminRoute::ItemData
-                | AdminRoute::MapData
-        )
+        // 八个数据页都已移植（切片 1-7）；保留该函数是为了后续新增路由
+        // 时导航徽章仍能自动生效。
+        true
     }
 }
 
@@ -308,6 +304,61 @@ pub const EFFECT_SPEC: EntitySpec = EntitySpec {
     name_placeholder: "名称（包含）",
 };
 
+/// 宝可梦编辑弹窗状态（切片 8）。
+///
+/// 表单值以字符串/布尔的扁平结构保存（输入框直接绑定），提交时组装成
+/// 服务端要求的完整 PokemonType JSON；`extra_json` 兜底承载表单未覆盖的
+/// 字段（map_ids/evolution_info_ids/drop_money_range 等），保持载荷完整。
+#[derive(Clone)]
+pub struct PokemonEditorState {
+    pub open: ReactiveSignal<bool>,
+    /// None = 新增；Some(id) = 编辑现有。
+    pub editing_id: ReactiveSignal<Option<u64>>,
+    pub name: ReactiveSignal<String>,
+    pub description: ReactiveSignal<String>,
+    pub cost: ReactiveSignal<String>,
+    pub is_selling: ReactiveSignal<bool>,
+    /// 六项初始个体值（0-255）。
+    pub stat: ReactiveSignal<[String; 6]>,
+    /// 六项初始努力值（0-3）。
+    pub base: ReactiveSignal<[String; 6]>,
+    /// 双属性（中文名，空串 = 无）。
+    pub kind1: ReactiveSignal<String>,
+    pub kind2: ReactiveSignal<String>,
+    pub is_legendary: ReactiveSignal<bool>,
+    /// 表单未覆盖字段的 JSON 原文（新建时给出默认骨架）。
+    pub extra_json: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl PokemonEditorState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            editing_id: use_signal(|| None),
+            name: use_signal(String::new),
+            description: use_signal(String::new),
+            cost: use_signal(String::new),
+            is_selling: use_signal(|| false),
+            stat: use_signal(|| std::array::from_fn(|_| String::new())),
+            base: use_signal(|| std::array::from_fn(|_| String::new())),
+            kind1: use_signal(String::new),
+            kind2: use_signal(String::new),
+            is_legendary: use_signal(|| false),
+            extra_json: use_signal(|| "{}".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for PokemonEditorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PokemonEditorState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -321,6 +372,7 @@ pub struct AppState {
     pub evolution: ListState,
     pub skill: ListState,
     pub effect: ListState,
+    pub pokemon_editor: PokemonEditorState,
 }
 
 impl AppState {
@@ -336,6 +388,7 @@ impl AppState {
             evolution: ListState::new(),
             skill: ListState::new(),
             effect: ListState::new(),
+            pokemon_editor: PokemonEditorState::new(),
         }
     }
 }

@@ -621,6 +621,7 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                 let mut trs: Vec<VNode> = Vec::new();
                 for item in rows.iter() {
                     let id = json_u64(item, "id").to_string();
+                    let id_for_edit = id.clone();
                     let name = json_str(item, "name");
                     // kind: ["fire", "water"] / ["normal", null]
                     let kinds: Vec<&str> = item
@@ -682,6 +683,14 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                             td { "{kind_text}" }
                             td { "{cost_text}" }
                             td { class: "adm-pk-stats", "{stats_text}" }
+                            td {
+                                button {
+                                    class: "admin-btn adm-row-edit",
+                                    disabled: busy,
+                                    "data-pm-adm-pk-edit": id_for_edit,
+                                    "编辑"
+                                }
+                            }
                         }
                     });
                 }
@@ -694,6 +703,7 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                                 th { "属性" }
                                 th { "售价" }
                                 th { "六维" }
+                                th { "操作" }
                             }
                         }
                         tbody {
@@ -774,8 +784,14 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-l-reload": "pk",
                     "刷新"
                 }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-pk-new": "1",
+                    "新增宠物"
+                }
             }
-            ..vec![body]
+            ..vec![body, pokemon_editor_modal(st)]
         }
     }
 }
@@ -1858,6 +1874,520 @@ fn effect_data_page(st: &AppState) -> VNode {
                 }
             }
             ..vec![body]
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 宝可梦编辑弹窗（切片 8）
+// ---------------------------------------------------------------------------
+
+const STAT_KEYS: [&str; 6] = [
+    "hit_points",
+    "attack",
+    "defense",
+    "special_attack",
+    "special_defense",
+    "speed",
+];
+const STAT_LABELS: [&str; 6] = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
+
+/// 打开新增弹窗（默认骨架）。
+pub fn open_pokemon_new(state: &AppState) {
+    let ed = state.pokemon_editor.clone();
+    ed.editing_id.inner().set(None);
+    ed.name.inner().set(String::new());
+    ed.description.inner().set(String::new());
+    ed.cost.inner().set("0".to_string());
+    ed.is_selling.inner().set(false);
+    ed.stat
+        .inner()
+        .set(std::array::from_fn(|_| "50".to_string()));
+    ed.base
+        .inner()
+        .set(std::array::from_fn(|_| "0".to_string()));
+    ed.kind1.inner().set("普通".to_string());
+    ed.kind2.inner().set(String::new());
+    ed.is_legendary.inner().set(false);
+    // 表单未覆盖字段的默认值：服务端要求这些键存在。
+    ed.extra_json.inner().set(
+        serde_json::json!({
+            "sex_weight": 0.5,
+            "map_ids": [],
+            "evolution_info_ids": [],
+            "capture_weight": 0,
+            "meet_weight": 0,
+            "birth_order": 0,
+            "strength_weight": 0,
+            "drop_money_range": [0, 0]
+        })
+        .to_string(),
+    );
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+/// 打开编辑弹窗（从当前行数据填充表单）。
+pub fn open_pokemon_edit(state: &AppState, id: u64) {
+    let ed = state.pokemon_editor.clone();
+    let row = state
+        .pokemon
+        .rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == id);
+    let Some(row) = row else { return };
+    ed.editing_id.inner().set(Some(id));
+    ed.name.inner().set(json_str(&row, "name"));
+    ed.description.inner().set(json_str(&row, "description"));
+    ed.cost.inner().set(json_u64(&row, "cost").to_string());
+    ed.is_selling.inner().set(json_bool(&row, "is_selling"));
+    let stat = row.get("initial_statistic").cloned().unwrap_or_default();
+    let base = row.get("initial_base_points").cloned().unwrap_or_default();
+    ed.stat.inner().set(std::array::from_fn(|i| {
+        stat.get(STAT_KEYS[i])
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+            .to_string()
+    }));
+    ed.base.inner().set(std::array::from_fn(|i| {
+        base.get(STAT_KEYS[i])
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+            .to_string()
+    }));
+    // kind: ["fire", null] → 中文名（kind_name 反向查表）
+    let kinds: Vec<&str> = row
+        .get("kind")
+        .and_then(|k| k.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
+        .unwrap_or_default();
+    let to_cn = |code: &str| -> String {
+        let name = kind_name(code);
+        if name == "？" {
+            String::new()
+        } else {
+            name.to_string()
+        }
+    };
+    ed.kind1
+        .inner()
+        .set(kinds.first().map(|k| to_cn(k)).unwrap_or_default());
+    ed.kind2
+        .inner()
+        .set(kinds.get(1).map(|k| to_cn(k)).unwrap_or_default());
+    ed.is_legendary
+        .inner()
+        .set(json_bool(&row, "is_legendary"));
+    // 未覆盖字段原样保留（避免保存时丢数据）。
+    let extra = serde_json::json!({
+        "sex_weight": row.get("sex_weight").cloned().unwrap_or(serde_json::Value::Null),
+        "map_ids": row.get("map_ids").cloned().unwrap_or(serde_json::json!([])),
+        "evolution_info_ids": row.get("evolution_info_ids").cloned().unwrap_or(serde_json::json!([])),
+        "capture_weight": json_u64(&row, "capture_weight"),
+        "meet_weight": json_u64(&row, "meet_weight"),
+        "birth_order": json_u64(&row, "birth_order"),
+        "strength_weight": json_u64(&row, "strength_weight"),
+        "drop_money_range": row.get("drop_money_range").cloned().unwrap_or(serde_json::json!([0, 0])),
+    });
+    ed.extra_json
+        .inner()
+        .set(serde_json::to_string_pretty(&extra).unwrap_or_default());
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_pokemon_editor(state: &AppState) {
+    state.pokemon_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+/// 表单字段变更（key 见 delegation 的 data-pm-adm-pkf）。数组字段用
+/// `stat:i` / `base:i` 形式。
+pub fn set_pokemon_editor_field(state: &AppState, key: &str, value: &str, checked: bool) {
+    let ed = state.pokemon_editor.clone();
+    match key {
+        "name" => ed.name.inner().set(value.to_string()),
+        "description" => ed.description.inner().set(value.to_string()),
+        "cost" => ed.cost.inner().set(value.to_string()),
+        "selling" => ed.is_selling.inner().set(checked),
+        "kind1" => ed.kind1.inner().set(value.to_string()),
+        "kind2" => ed.kind2.inner().set(value.to_string()),
+        "legendary" => ed.is_legendary.inner().set(checked),
+        "extra" => ed.extra_json.inner().set(value.to_string()),
+        _ => {
+            if let Some((group, idx)) = key.split_once(':') {
+                if let Ok(i) = idx.parse::<usize>() {
+                    if i < 6 {
+                        if group == "stat" {
+                            let mut arr = ed.stat.get();
+                            arr[i] = value.to_string();
+                            ed.stat.inner().set(arr);
+                        } else if group == "base" {
+                            let mut arr = ed.base.get();
+                            arr[i] = value.to_string();
+                            ed.base.inner().set(arr);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    crate::request_remount();
+}
+
+/// 提交：组装完整 PokemonType JSON → set/insert。
+pub fn submit_pokemon_editor(state: &AppState) {
+    let ed = state.pokemon_editor.clone();
+    if ed.saving.get() {
+        return;
+    }
+    let name = ed.name.get().trim().to_string();
+    if name.is_empty() {
+        ed.err.inner().set(Some("名称不能为空".to_string()));
+        crate::request_remount();
+        return;
+    }
+    // extra JSON 必须合法（承载表单未覆盖字段）。
+    let extra: serde_json::Value = match serde_json::from_str(&ed.extra_json.get()) {
+        Ok(v) => v,
+        Err(e) => {
+            ed.err
+                .inner()
+                .set(Some(format!("扩展字段 JSON 无效：{e}")));
+            crate::request_remount();
+            return;
+        }
+    };
+    let stat = ed.stat.get();
+    let base = ed.base.get();
+    let parse_num = |s: &str| s.trim().parse::<u64>().unwrap_or(0);
+    // 个体值 0-255、努力值 0-3（服务端硬校验）。
+    if stat.iter().any(|s| parse_num(s) > 255) {
+        ed.err
+            .inner()
+            .set(Some("初始个体值必须在 0-255".to_string()));
+        crate::request_remount();
+        return;
+    }
+    if base.iter().any(|s| parse_num(s) > 3) {
+        ed.err
+            .inner()
+            .set(Some("初始努力值必须在 0-3".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let kind_code = |cn: &str| -> serde_json::Value {
+        const MAP: [(&str, &str); 18] = [
+            ("普通", "normal"),
+            ("火", "fire"),
+            ("水", "water"),
+            ("草", "grass"),
+            ("电", "electric"),
+            ("冰", "ice"),
+            ("格斗", "fighting"),
+            ("毒", "poison"),
+            ("地面", "ground"),
+            ("飞行", "flying"),
+            ("超能", "psychic"),
+            ("虫", "bug"),
+            ("岩石", "rock"),
+            ("幽灵", "ghost"),
+            ("龙", "dragon"),
+            ("恶", "dark"),
+            ("钢", "steel"),
+            ("妖精", "fairy"),
+        ];
+        MAP.iter()
+            .find(|(n, _)| *n == cn)
+            .map(|(_, c)| serde_json::json!(c))
+            .unwrap_or(serde_json::Value::Null)
+    };
+    let kind2 = kind_code(&ed.kind2.get());
+    // 属性 1 必填：服务端会把 null 写进 xs 列（translate_kind_id_to_chinese_kind
+    // 的 default 分支返回 null），落库后该宠物无法按属性筛选。
+    if kind_code(&ed.kind1.get()).is_null() {
+        ed.err
+            .inner()
+            .set(Some("属性 1 必须是合法中文属性名（如 火/水/电）".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let mut payload = serde_json::json!({
+        "name": name,
+        "description": ed.description.get(),
+        "cost": parse_num(&ed.cost.get()),
+        "is_selling": ed.is_selling.get(),
+        "initial_statistic": {
+            STAT_KEYS[0]: parse_num(&stat[0]),
+            STAT_KEYS[1]: parse_num(&stat[1]),
+            STAT_KEYS[2]: parse_num(&stat[2]),
+            STAT_KEYS[3]: parse_num(&stat[3]),
+            STAT_KEYS[4]: parse_num(&stat[4]),
+            STAT_KEYS[5]: parse_num(&stat[5]),
+        },
+        "initial_base_points": {
+            STAT_KEYS[0]: parse_num(&base[0]),
+            STAT_KEYS[1]: parse_num(&base[1]),
+            STAT_KEYS[2]: parse_num(&base[2]),
+            STAT_KEYS[3]: parse_num(&base[3]),
+            STAT_KEYS[4]: parse_num(&base[4]),
+            STAT_KEYS[5]: parse_num(&base[5]),
+        },
+        "kind": [kind_code(&ed.kind1.get()), kind2],
+        "is_legendary": ed.is_legendary.get(),
+    });
+    let Some(extra_obj) = extra.as_object() else {
+        ed.err
+            .inner()
+            .set(Some("扩展字段必须是一个 JSON 对象".to_string()));
+        crate::request_remount();
+        return;
+    };
+    if let Some(dst) = payload.as_object_mut() {
+        for (k, v) in extra_obj {
+            dst.insert(k.clone(), v.clone());
+        }
+        // 服务端会无条件读这些键（foreach / 下标），缺一个就落 PHP 警告。
+        for (k, default) in [
+            ("sex_weight", serde_json::Value::Null),
+            ("map_ids", serde_json::json!([])),
+            ("evolution_info_ids", serde_json::json!([])),
+            ("capture_weight", serde_json::json!(0)),
+            ("meet_weight", serde_json::json!(0)),
+            ("birth_order", serde_json::json!(0)),
+            ("strength_weight", serde_json::json!(0)),
+            ("drop_money_range", serde_json::json!([0, 0])),
+        ] {
+            dst.entry(k.to_string()).or_insert(default);
+        }
+    }
+    let editing = ed.editing_id.get();
+    if let Some(id) = editing {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("id".to_string(), serde_json::json!(id));
+        }
+    }
+    let body = payload.to_string();
+    ed.saving.inner().set(true);
+    ed.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    let on_done: Box<dyn FnOnce(Result<serde_json::Value, String>)> = Box::new(move |result| {
+        let ed = st.pokemon_editor.clone();
+        match result {
+            Ok(_) => {
+                ed.open.inner().set(false);
+                ed.saving.inner().set(false);
+                // 刷新列表（mock 信号复位后由 ensure_loaded 重新拉取）。
+                st.pokemon.loaded.inner().set(None);
+                st.pokemon.rows.inner().set(Vec::new());
+                crate::request_remount();
+                reload_list(crate::state::POKEMON_SPEC, &st.pokemon);
+            }
+            Err(e) => {
+                ed.saving.inner().set(false);
+                ed.err.inner().set(Some(format!("保存失败：{e}")));
+                crate::request_remount();
+            }
+        }
+    });
+    if editing.is_some() {
+        crate::api::set_entity("pokemon_type", body, on_done);
+    } else {
+        crate::api::insert_entity("pokemon_type", body, on_done);
+    }
+}
+
+/// 编辑弹窗渲染（未打开时为空 VNode）。
+fn pokemon_editor_modal(st: &AppState) -> VNode {
+    let ed = st.pokemon_editor.clone();
+    if !ed.open.get() {
+        return VNode::empty();
+    }
+    let editing = ed.editing_id.get();
+    let title = match editing {
+        Some(id) => format!("编辑宠物 #{id}"),
+        None => "新增宠物".to_string(),
+    };
+    let saving = ed.saving.get();
+    let err = ed.err.get();
+    let stat = ed.stat.get();
+    let base = ed.base.get();
+    // 布尔字段用双态按钮而不是 checkbox：jco 下 ChangeEvent 只带 value，
+    // 读不到 checkbox 的 checked（要额外接 html-input-element.get_checked
+    // 与 shim 导出），按钮 + 重挂是同一份架构里最省的一条路。
+    let selling_label = if ed.is_selling.get() {
+        "商店出售：是"
+    } else {
+        "商店出售：否"
+    };
+    let legendary_label = if ed.is_legendary.get() {
+        "神兽：是"
+    } else {
+        "神兽：否"
+    };
+    let save_label = if saving { "保存中..." } else { "保存" };
+    let selling_cls = if ed.is_selling.get() {
+        "admin-btn admin-btn-primary adm-editor-toggle"
+    } else {
+        "admin-btn adm-editor-toggle"
+    };
+    let legendary_cls = if ed.is_legendary.get() {
+        "admin-btn admin-btn-primary adm-editor-toggle"
+    } else {
+        "admin-btn adm-editor-toggle"
+    };
+
+    let mut stat_inputs: Vec<VNode> = Vec::new();
+    let mut base_inputs: Vec<VNode> = Vec::new();
+    for i in 0..6 {
+        let sv = stat[i].clone();
+        let sa = format!("stat:{i}");
+        let sl = STAT_LABELS[i];
+        stat_inputs.push(rsx! {
+            label { class: "adm-editor-field",
+                span { "{sl}" }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "number",
+                    min: "0",
+                    max: "255",
+                    value: sv,
+                    "data-pm-adm-pkf": sa
+                }
+            }
+        });
+        let bv = base[i].clone();
+        let ba = format!("base:{i}");
+        base_inputs.push(rsx! {
+            label { class: "adm-editor-field",
+                span { "{sl}" }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "number",
+                    min: "0",
+                    max: "3",
+                    value: bv,
+                    "data-pm-adm-pkf": ba
+                }
+            }
+        });
+    }
+
+    let err_block = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-pk-overlay": "1",
+            div { class: "adm-editor-modal", "data-pm-adm-pk-modal": "1",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-pk-close": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    div { class: "adm-editor-grid",
+                        label { class: "adm-editor-field",
+                            span { "名称" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.name.get(),
+                                "data-pm-adm-pkf": "name"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "售价" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "0",
+                                value: ed.cost.get(),
+                                "data-pm-adm-pkf": "cost"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "属性 1（中文，如 火）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.kind1.get(),
+                                "data-pm-adm-pkf": "kind1"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "属性 2（可空）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.kind2.get(),
+                                "data-pm-adm-pkf": "kind2"
+                            }
+                        }
+                        button {
+                            class: selling_cls,
+                            disabled: saving,
+                            "data-pm-adm-pk-toggle": "selling",
+                            "{selling_label}"
+                        }
+                        button {
+                            class: legendary_cls,
+                            disabled: saving,
+                            "data-pm-adm-pk-toggle": "legendary",
+                            "{legendary_label}"
+                        }
+                    }
+                    label { class: "adm-editor-field adm-editor-wide",
+                        span { "描述" }
+                        textarea {
+                            class: "adm-editor-textarea",
+                            rows: 2,
+                            "data-pm-adm-pkf": "description",
+                            "{ed.description.get()}"
+                        }
+                    }
+                    div { class: "adm-editor-section-title", "初始个体值（0-255）" }
+                    div { class: "adm-editor-grid",
+                        for i in 0..stat_inputs.len() {
+                            ..vec![stat_inputs[i].clone()]
+                        }
+                    }
+                    div { class: "adm-editor-section-title", "初始努力值（0-3）" }
+                    div { class: "adm-editor-grid",
+                        for i in 0..base_inputs.len() {
+                            ..vec![base_inputs[i].clone()]
+                        }
+                    }
+                    label { class: "adm-editor-field adm-editor-wide",
+                        span { "扩展字段 JSON（sex_weight / map_ids / evolution_info_ids / capture_weight / meet_weight / birth_order / strength_weight / drop_money_range）" }
+                        textarea {
+                            class: "adm-editor-textarea",
+                            rows: 8,
+                            "data-pm-adm-pkf": "extra",
+                            "{ed.extra_json.get()}"
+                        }
+                    }
+                    ..vec![err_block]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: saving,
+                        "data-pm-adm-pk-close": "1",
+                        "取消"
+                    }
+                    button {
+                        class: "admin-btn admin-btn-primary",
+                        disabled: saving,
+                        "data-pm-adm-pk-save": "1",
+                        "{save_label}"
+                    }
+                }
+            }
         }
     }
 }
