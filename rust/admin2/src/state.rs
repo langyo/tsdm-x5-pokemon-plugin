@@ -165,6 +165,12 @@ pub struct EntitySpec {
     /// f_a 筛选；None 则该输入框不渲染。
     pub a: Option<FilterSpec>,
     pub b: Option<FilterSpec>,
+    /// ID 筛选的服务端 tag（绝大多数实体是「ID」，用户页是「UID」）。
+    pub id_tag: &'static str,
+    /// 名称筛选的服务端 tag（绝大多数实体是「名称」，用户页是「昵称」）。
+    pub name_tag: &'static str,
+    /// 名称筛选的 operator（默认 contains；用户页昵称也用 contains）。
+    pub name_operator: &'static str,
 }
 
 #[derive(Clone, Copy)]
@@ -185,6 +191,9 @@ pub const POKEMON_SPEC: EntitySpec = EntitySpec {
         placeholder: "属性（如火）",
     }),
     b: None,
+    id_tag: "ID",
+    name_tag: "名称",
+    name_operator: "contains",
 };
 
 /// 物品数据（切片 3 实例化）。类型筛选对数字列（1药品/2球/3素材/4强化/5装备）。
@@ -201,6 +210,9 @@ pub const ITEM_SPEC: EntitySpec = EntitySpec {
         operator: "greater_or_equal",
         placeholder: "价格 ≥",
     }),
+    id_tag: "ID",
+    name_tag: "名称",
+    name_operator: "contains",
 };
 
 /// 地图数据（切片 4 实例化）。地形筛选传英文 snake_case 名
@@ -218,6 +230,29 @@ pub const MAP_SPEC: EntitySpec = EntitySpec {
         operator: "greater_or_equal",
         placeholder: "最低等级 ≥",
     }),
+    id_tag: "ID",
+    name_tag: "名称",
+    name_operator: "contains",
+};
+
+/// 用户数据（切片 5 实例化）。ID 筛选的 tag 是「UID」，名称是「昵称」
+/// （服务端按 common_member.username 反查 uid）；胜场/金钱走数字列。
+pub const USER_SPEC: EntitySpec = EntitySpec {
+    entity: "user_info",
+    title: "用户数据",
+    a: Some(FilterSpec {
+        tag: "胜场",
+        operator: "greater_or_equal",
+        placeholder: "胜场 ≥",
+    }),
+    b: Some(FilterSpec {
+        tag: "金钱",
+        operator: "greater_or_equal",
+        placeholder: "金钱 ≥",
+    }),
+    id_tag: "UID",
+    name_tag: "昵称",
+    name_operator: "contains",
 };
 
 /// 应用级状态。
@@ -229,6 +264,7 @@ pub struct AppState {
     pub pokemon: ListState,
     pub item: ListState,
     pub map: ListState,
+    pub user: ListState,
 }
 
 impl AppState {
@@ -240,6 +276,7 @@ impl AppState {
             pokemon: ListState::new(),
             item: ListState::new(),
             map: ListState::new(),
+            user: ListState::new(),
         }
     }
 }

@@ -1,8 +1,8 @@
 {
-  "build_id": "1793992105",
+  "build_id": "1793993531",
   "base": "/source/plugin/pokemon/wasm2",
-  "entry": "/source/plugin/pokemon/wasm2/admin-boot.js?v=1793992105",
-  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_admin2.js?b=1793992105",
+  "entry": "/source/plugin/pokemon/wasm2/admin-boot.js?v=1793993531",
+  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_admin2.js?b=1793993531",
   "interfaces": [
     "css-style-declaration",
     "document",

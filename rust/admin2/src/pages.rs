@@ -33,6 +33,11 @@ pub fn ensure_loaded(state: &AppState) {
                 reload_list(crate::state::MAP_SPEC, &state.map);
             }
         }
+        AdminRoute::UserData => {
+            if state.user.loaded.get().is_none() && !state.user.busy.get() {
+                reload_list(crate::state::USER_SPEC, &state.user);
+            }
+        }
         _ => {}
     }
 }
@@ -178,10 +183,10 @@ fn apply_list_filters(
     }
     let mut packages: Vec<serde_json::Value> = Vec::new();
     if !id.is_empty() {
-        packages.push(crate::api::filter_package("ID", "equal", &id));
+        packages.push(crate::api::filter_package(spec.id_tag, "equal", &id));
     }
     if !name.is_empty() {
-        packages.push(crate::api::filter_package("名称", "contains", &name));
+        packages.push(crate::api::filter_package(spec.name_tag, spec.name_operator, &name));
     }
     if !a.is_empty() {
         if let Some(sa) = spec.a {
@@ -379,6 +384,7 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         AdminRoute::PokemonData => pokemon_data_page(&st),
         AdminRoute::ItemData => item_data_page(&st),
         AdminRoute::MapData => map_data_page(&st),
+        AdminRoute::UserData => user_data_page(&st),
         _ => {
             let title = route.title();
             rsx! {
@@ -1152,6 +1158,193 @@ fn map_data_page(st: &AppState) -> VNode {
                     class: "admin-btn",
                     disabled: busy,
                     "data-pm-adm-l-reload": "mp",
+                    "刷新"
+                }
+            }
+            ..vec![body]
+        }
+    }
+}
+
+/// 用户数据页（切片 5）：列表页模板 + 泛型动作/属性（us 页键）。
+/// ID 筛选 tag 是 UID、名称是 昵称（服务端反查 common_member.username）。
+fn user_data_page(st: &AppState) -> VNode {
+    let ls = st.user.clone();
+    let load_state = ls.loaded.get();
+    let busy = ls.busy.get();
+    let filtered = ls.filtered.get();
+    let err = ls.err.get();
+    let rows = ls.rows.get();
+    let total = ls.total.get();
+    let loaded_count = ls.loaded_count.get();
+    let has_more = !filtered && loaded_count < total;
+    let f_id = ls.f_id.get();
+    let f_name = ls.f_name.get();
+    let f_a = ls.f_a.get();
+    let f_b = ls.f_b.get();
+    let count_text = if filtered {
+        format!("筛选结果 {loaded_count} 条")
+    } else {
+        format!("已加载 {loaded_count} / {total} 条")
+    };
+
+    let body = match &load_state {
+        None => rsx! { div { class: "admin-loading", "正在加载用户数据..." } },
+        Some(Err(e)) => {
+            let msg = format!("加载失败：{e}");
+            rsx! {
+                div { class: "admin-card admin-error",
+                    p { "{msg}" }
+                    button {
+                        class: "admin-btn",
+                        disabled: busy,
+                        "data-pm-adm-l-reload": "us",
+                        "重新加载"
+                    }
+                }
+            }
+        }
+        Some(Ok(())) => {
+            let err_bar = match &err {
+                Some(e) => {
+                    let msg = format!("筛选失败：{e}");
+                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
+                }
+                None => VNode::empty(),
+            };
+            let table = if rows.is_empty() {
+                rsx! { p { class: "admin-empty-hint", "暂无用户数据。" } }
+            } else {
+                let mut trs: Vec<VNode> = Vec::new();
+                for item in rows.iter() {
+                    let id = json_u64(item, "id").to_string();
+                    let name = json_str(item, "name");
+                    let win = json_u64(item, "win_count").to_string();
+                    let lose = json_u64(item, "lose_count").to_string();
+                    let money = json_u64(item, "money").to_string();
+                    let exp = json_u64(item, "experience").to_string();
+                    let pm_count = item
+                        .get("pokemon_list")
+                        .and_then(|l| l.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0)
+                        .to_string();
+                    let item_count = item
+                        .get("item_list")
+                        .and_then(|l| l.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0)
+                        .to_string();
+                    trs.push(rsx! {
+                        tr {
+                            td { "{id}" }
+                            td { "{name}" }
+                            td { "{win}" }
+                            td { "{lose}" }
+                            td { "{money}" }
+                            td { "{exp}" }
+                            td { "{pm_count}" }
+                            td { "{item_count}" }
+                        }
+                    });
+                }
+                rsx! {
+                    table { class: "adm-table",
+                        thead {
+                            tr {
+                                th { "UID" }
+                                th { "用户名" }
+                                th { "胜" }
+                                th { "输" }
+                                th { "金钱" }
+                                th { "经验" }
+                                th { "宠物" }
+                                th { "物品" }
+                            }
+                        }
+                        tbody {
+                            for i in 0..trs.len() {
+                                ..vec![trs[i].clone()]
+                            }
+                        }
+                    }
+                }
+            };
+            let more_btn = if has_more {
+                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
+                rsx! {
+                    div { class: "adm-load-more",
+                        button {
+                            class: "admin-btn",
+                            disabled: busy,
+                            "data-pm-adm-l-more": "us",
+                            "{label}"
+                        }
+                    }
+                }
+            } else {
+                VNode::empty()
+            };
+            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
+            rsx! {
+                for i in 0..parts.len() {
+                    ..vec![parts[i].clone()]
+                }
+            }
+        }
+    };
+
+    rsx! {
+        section { class: "admin-page admin-config-page",
+            div { class: "admin-page-header",
+                h2 { "用户数据" }
+                span { class: "adm-count", "{count_text}" }
+            }
+            div { class: "admin-card adm-filter-bar",
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "UID（精确）",
+                    value: f_id,
+                    "data-pm-adm-f-id": "us"
+                }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "用户名（包含）",
+                    value: f_name,
+                    "data-pm-adm-f-name": "us"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-num",
+                    r#type: "text",
+                    placeholder: "胜场 ≥",
+                    value: f_a,
+                    "data-pm-adm-f-a": "us"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-num",
+                    r#type: "text",
+                    placeholder: "金钱 ≥",
+                    value: f_b,
+                    "data-pm-adm-f-b": "us"
+                }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-l-apply": "us",
+                    "筛选"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reset": "us",
+                    "重置"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reload": "us",
                     "刷新"
                 }
             }
