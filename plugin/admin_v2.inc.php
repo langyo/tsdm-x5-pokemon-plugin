@@ -85,6 +85,20 @@ include template('common/header');
 .admin-config-hint { font-size:12px; color:#888; flex:1; min-width:160px; }
 .admin-config-textarea { width:100%; min-height:320px; font-family:Consolas,Monaco,monospace; font-size:12px; line-height:1.5; border:1px solid #d8d8d8; border-radius:6px; padding:12px; box-sizing:border-box; white-space:pre; overflow:auto; }
 .admin-config-textarea:focus { outline:none; border-color:#d33774; }
+
+/* 宝可梦数据页（切片 2） */
+.adm-count { font-size:12px; color:#888; font-weight:normal; margin-left:12px; }
+.adm-filter-bar { display:flex; gap:8px; align-items:center; margin-bottom:16px; flex-wrap:wrap; }
+.adm-filter-input { width:140px; border:1px solid #d8d8d8; border-radius:6px; padding:6px 10px; font-size:13px; }
+.adm-filter-kind { width:110px; }
+.adm-table { width:100%; border-collapse:collapse; font-size:13px; }
+.adm-table th { text-align:left; padding:8px 10px; background:#fafafa; border-bottom:1px solid #eee; color:#555; font-weight:600; }
+.adm-table td { padding:8px 10px; border-bottom:1px solid #f2f2f2; color:#333; }
+.adm-table tbody tr:hover { background:#fdf7f9; }
+.adm-pk-legendary { display:inline-block; margin-left:6px; font-size:10px; padding:1px 6px; border-radius:8px; background:#f39c12; color:#fff; }
+.adm-pk-stats { font-size:12px; color:#777; }
+.adm-load-more { text-align:center; padding:14px 0 4px; }
+.admin-empty-hint { color:#999; padding:24px; text-align:center; }
 </style>
 
 <div class="pm-ui-switch">

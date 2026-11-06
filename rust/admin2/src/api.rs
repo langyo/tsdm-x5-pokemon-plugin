@@ -30,8 +30,7 @@ fn parse_envelope(body: &str) -> Result<Value, String> {
         #[serde(default)]
         reason: Option<String>,
     }
-    let env: Envelope =
-        serde_json::from_str(body).map_err(|e| format!("响应解析失败: {e}"))?;
+    let env: Envelope = serde_json::from_str(body).map_err(|e| format!("响应解析失败: {e}"))?;
     if !env.success {
         return Err(env.reason.unwrap_or_else(|| "未知错误".to_string()));
     }
@@ -53,10 +52,7 @@ pub fn get_global_config(on_done: Box<dyn FnOnce(Result<Value, String>)>) {
 }
 
 /// `set::global_config`（data 为配置 JSON 字符串）→ 保存后的配置对象。
-pub fn set_global_config(
-    config_json: String,
-    on_done: Box<dyn FnOnce(Result<Value, String>)>,
-) {
+pub fn set_global_config(config_json: String, on_done: Box<dyn FnOnce(Result<Value, String>)>) {
     let body =
         serde_json::json!({ "action": "set::global_config", "data": config_json }).to_string();
     request(
@@ -78,4 +74,78 @@ fn extract_config(data: &Value, empty_err: &str) -> Result<Value, String> {
         obj.remove("_TYPE");
     }
     Ok(item)
+}
+
+/// data 数组 → 逐项剥 `_TYPE` 后原样返回（列表端点通用）。
+fn extract_items(data: &Value) -> Result<Vec<Value>, String> {
+    let items = data
+        .as_array()
+        .cloned()
+        .ok_or_else(|| "返回的数据包不是数组".to_string())?;
+    Ok(items
+        .into_iter()
+        .map(|mut item| {
+            if let Some(obj) = item.as_object_mut() {
+                obj.remove("_TYPE");
+            }
+            item
+        })
+        .collect())
+}
+
+/// `count::pokemon_type` → 总数（data[0].count）。
+pub fn count_pokemon_type(on_done: Box<dyn FnOnce(Result<u64, String>)>) {
+    let body = serde_json::json!({ "action": "count::pokemon_type" }).to_string();
+    request(
+        body,
+        Box::new(|result: Result<Value, String>| {
+            on_done(result.map(|data| {
+                data.as_array()
+                    .and_then(|items| items.first())
+                    .and_then(|item| item.get("count"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0)
+            }))
+        }),
+    );
+}
+
+/// `list::pokemon_type`（from/count 分页，每页 ≤100）。
+pub fn list_pokemon_type(
+    from: u64,
+    count: u64,
+    on_done: Box<dyn FnOnce(Result<Vec<Value>, String>)>,
+) {
+    let body = serde_json::json!({
+        "action": "list::pokemon_type",
+        "from": from.to_string(),
+        "count": count.to_string(),
+    })
+    .to_string();
+    request(
+        body,
+        Box::new(|result: Result<Value, String>| {
+            on_done(result.and_then(|data| extract_items(&data)))
+        }),
+    );
+}
+
+/// 筛选包（与 Dioxus 版 FilterPackage 同形：tag/operator/value）。
+pub fn filter_package(tag: &str, operator: &str, value: &str) -> Value {
+    serde_json::json!({ "tag": tag, "operator": operator, "value": value })
+}
+
+/// `filter::pokemon_type`（filters 为包数组的 JSON 字符串）。
+pub fn filter_pokemon_type(
+    filters_json: String,
+    on_done: Box<dyn FnOnce(Result<Vec<Value>, String>)>,
+) {
+    let body = serde_json::json!({ "action": "filter::pokemon_type", "filters": filters_json })
+        .to_string();
+    request(
+        body,
+        Box::new(|result: Result<Value, String>| {
+            on_done(result.and_then(|data| extract_items(&data)))
+        }),
+    );
 }

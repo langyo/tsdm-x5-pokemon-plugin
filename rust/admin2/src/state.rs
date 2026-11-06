@@ -44,7 +44,7 @@ impl AdminRoute {
 
     /// 该路由是否已移植到 tairitsu。
     pub fn ported(self) -> bool {
-        matches!(self, AdminRoute::GlobalConfig)
+        matches!(self, AdminRoute::GlobalConfig | AdminRoute::PokemonData)
     }
 }
 
@@ -101,12 +101,58 @@ pub fn show_toast_silent(state: &GlobalConfigState, kind: ToastKind, message: St
     state.toast_visible.inner().set(true);
 }
 
+/// 宝可梦数据页状态（切片 2：列表 + 筛选 + 加载更多）。
+#[derive(Clone)]
+pub struct PokemonDataState {
+    pub component_id: std::cell::Cell<u32>,
+    /// None = 首次加载中；Some(Err) = 加载失败。
+    pub loaded: ReactiveSignal<Option<Result<(), String>>>,
+    /// 行数据保留原始 JSON（显示字段在渲染时取，缺字段回退显示——后台
+    /// 编辑器随后续切片接入时再定型化）。
+    pub rows: ReactiveSignal<Vec<serde_json::Value>>,
+    pub total: ReactiveSignal<u64>,
+    pub loaded_count: ReactiveSignal<u64>,
+    pub busy: ReactiveSignal<bool>,
+    /// 筛选中（filter 结果不分页，隐藏加载更多）。
+    pub filtered: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+    // 筛选输入
+    pub f_id: ReactiveSignal<String>,
+    pub f_name: ReactiveSignal<String>,
+    pub f_kind: ReactiveSignal<String>,
+}
+
+impl PokemonDataState {
+    pub fn new() -> Self {
+        Self {
+            component_id: std::cell::Cell::new(0),
+            loaded: use_signal(|| None),
+            rows: use_signal(Vec::new),
+            total: use_signal(|| 0u64),
+            loaded_count: use_signal(|| 0u64),
+            busy: use_signal(|| false),
+            filtered: use_signal(|| false),
+            err: use_signal(|| None),
+            f_id: use_signal(String::new),
+            f_name: use_signal(String::new),
+            f_kind: use_signal(String::new),
+        }
+    }
+}
+
+impl std::fmt::Debug for PokemonDataState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PokemonDataState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
     pub component_id: std::cell::Cell<u32>,
     pub route: ReactiveSignal<AdminRoute>,
     pub config: GlobalConfigState,
+    pub pokemon: PokemonDataState,
 }
 
 impl AppState {
@@ -115,6 +161,7 @@ impl AppState {
             component_id: std::cell::Cell::new(0),
             route: use_signal(|| AdminRoute::GlobalConfig),
             config: GlobalConfigState::new(),
+            pokemon: PokemonDataState::new(),
         }
     }
 }

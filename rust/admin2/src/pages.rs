@@ -16,8 +16,185 @@ pub fn ensure_loaded(state: &AppState) {
                 reload_config(state);
             }
         }
+        AdminRoute::PokemonData => {
+            // busy 守卫与 maps 哨兵同因：loaded 要等 list 回调才落位，
+            // 重挂期间反复进来会无限重复发起（活锁）。
+            if state.pokemon.loaded.get().is_none() && !state.pokemon.busy.get() {
+                reload_pokemon(state);
+            }
+        }
         _ => {}
     }
+}
+
+// ===========================================================================
+// 宝可梦数据页（切片 2：列表 + 筛选 + 加载更多）
+// ===========================================================================
+
+const POKEMON_PAGE_SIZE: u64 = 100;
+
+/// 属性 ID → 中文名（服务端载荷的 kind 是英文 snake_case ID）。
+fn kind_name(id: &str) -> &'static str {
+    match id {
+        "normal" => "普通",
+        "fire" => "火",
+        "water" => "水",
+        "grass" => "草",
+        "electric" => "电",
+        "ice" => "冰",
+        "fighting" => "格斗",
+        "poison" => "毒",
+        "ground" => "地面",
+        "flying" => "飞行",
+        "psychic" => "超能",
+        "bug" => "虫",
+        "rock" => "岩石",
+        "ghost" => "幽灵",
+        "dragon" => "龙",
+        "dark" => "恶",
+        "steel" => "钢",
+        "fairy" => "妖精",
+        _ => "？",
+    }
+}
+
+/// 全量重载：count + 首页（对齐 Dioxus 版 reload_pokemons）。
+fn reload_pokemon(state: &AppState) {
+    let pk = state.pokemon.clone();
+    pk.busy.inner().set(true);
+    pk.filtered.inner().set(false);
+    pk.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::count_pokemon_type(Box::new(move |total| {
+        let pk = st.pokemon.clone();
+        match total {
+            Ok(total) => {
+                pk.total.inner().set(total);
+                let st2 = st.clone();
+                crate::api::list_pokemon_type(
+                    0,
+                    POKEMON_PAGE_SIZE,
+                    Box::new(move |result| {
+                        let pk = st2.pokemon.clone();
+                        match result {
+                            Ok(rows) => {
+                                let n = rows.len() as u64;
+                                pk.rows.inner().set(rows);
+                                pk.loaded_count.inner().set(n);
+                                pk.loaded.inner().set(Some(Ok(())));
+                            }
+                            Err(e) => {
+                                pk.loaded.inner().set(Some(Err(e)));
+                            }
+                        }
+                        pk.busy.inner().set(false);
+                        crate::request_remount();
+                    }),
+                );
+            }
+            Err(e) => {
+                pk.loaded.inner().set(Some(Err(e)));
+                pk.busy.inner().set(false);
+                crate::request_remount();
+            }
+        }
+    }));
+}
+
+/// 加载更多：filter 态不分页（对齐 Dioxus 版）。
+pub fn load_more_pokemon(state: &AppState) {
+    let pk = state.pokemon.clone();
+    if pk.busy.get() || pk.filtered.get() {
+        return;
+    }
+    let from = pk.loaded_count.get();
+    let total = pk.total.get();
+    if from >= total {
+        return;
+    }
+    pk.busy.inner().set(true);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::list_pokemon_type(
+        from,
+        POKEMON_PAGE_SIZE,
+        Box::new(move |result| {
+            let pk = st.pokemon.clone();
+            if let Ok(rows) = result {
+                let n = rows.len() as u64;
+                let mut all = pk.rows.get();
+                all.extend(rows);
+                pk.rows.inner().set(all);
+                pk.loaded_count.inner().set(from + n);
+            }
+            pk.busy.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+}
+
+/// 应用筛选：任一输入非空即发 filter；全空回到全量列表。
+pub fn apply_pokemon_filters(state: &AppState) {
+    let pk = state.pokemon.clone();
+    if pk.busy.get() {
+        return;
+    }
+    let id = pk.f_id.get().trim().to_string();
+    let name = pk.f_name.get().trim().to_string();
+    let kind = pk.f_kind.get().trim().to_string();
+    if id.is_empty() && name.is_empty() && kind.is_empty() {
+        pk.loaded.inner().set(None);
+        crate::request_remount();
+        reload_pokemon(state);
+        return;
+    }
+    let mut packages: Vec<serde_json::Value> = Vec::new();
+    if !id.is_empty() {
+        packages.push(crate::api::filter_package("ID", "equal", &id));
+    }
+    if !name.is_empty() {
+        packages.push(crate::api::filter_package("名称", "contains", &name));
+    }
+    if !kind.is_empty() {
+        packages.push(crate::api::filter_package("宠物类型", "contains", &kind));
+    }
+    pk.busy.inner().set(true);
+    pk.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::filter_pokemon_type(
+        serde_json::to_string(&packages).unwrap_or_default(),
+        Box::new(move |result| {
+            let pk = st.pokemon.clone();
+            match result {
+                Ok(rows) => {
+                    let n = rows.len() as u64;
+                    pk.rows.inner().set(rows);
+                    pk.loaded_count.inner().set(n);
+                    pk.total.inner().set(n);
+                    pk.filtered.inner().set(true);
+                    pk.loaded.inner().set(Some(Ok(())));
+                }
+                Err(e) => {
+                    pk.err.inner().set(Some(e));
+                }
+            }
+            pk.busy.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+}
+
+/// 重置筛选：清输入并回全量列表。
+pub fn reset_pokemon_filters(state: &AppState) {
+    let pk = state.pokemon.clone();
+    pk.f_id.inner().set(String::new());
+    pk.f_name.inner().set(String::new());
+    pk.f_kind.inner().set(String::new());
+    pk.loaded.inner().set(None);
+    crate::request_remount();
+    reload_pokemon(state);
 }
 
 fn reload_config(state: &AppState) {
@@ -67,7 +244,11 @@ pub fn save_config(state: &AppState) {
                     let cfg = st.config.clone();
                     cfg.saved_json.inner().set(pretty.clone());
                     cfg.draft.inner().set(pretty);
-                    crate::state::show_toast_silent(&cfg, ToastKind::Success, "配置已保存".to_string());
+                    crate::state::show_toast_silent(
+                        &cfg,
+                        ToastKind::Success,
+                        "配置已保存".to_string(),
+                    );
                 }
                 Err(e) => {
                     crate::state::show_toast_silent(
@@ -144,19 +325,23 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         } else {
             rsx! { span { class: "admin-nav-badge", "移植中" } }
         };
-        (*r, rsx! {
-            button {
-                class: cls,
-                "data-pm-adm-nav": key,
-                span { "{title}" }
-                ..vec![badge]
-            }
-        })
+        (
+            *r,
+            rsx! {
+                button {
+                    class: cls,
+                    "data-pm-adm-nav": key,
+                    span { "{title}" }
+                    ..vec![badge]
+                }
+            },
+        )
     })
     .collect();
 
     let content = match route {
         AdminRoute::GlobalConfig => global_config_page(&st),
+        AdminRoute::PokemonData => pokemon_data_page(&st),
         _ => {
             let title = route.title();
             rsx! {
@@ -297,6 +482,233 @@ fn global_config_page(st: &AppState) -> VNode {
         section { class: "admin-page admin-config-page",
             div { class: "admin-page-header",
                 h2 { "全局配置" }
+            }
+            ..vec![body]
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 宝可梦数据页
+// ---------------------------------------------------------------------------
+
+fn json_str(v: &serde_json::Value, key: &str) -> String {
+    v.get(key)
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string()
+}
+
+fn json_u64(v: &serde_json::Value, key: &str) -> u64 {
+    v.get(key).and_then(|x| x.as_u64()).unwrap_or(0)
+}
+
+fn json_bool(v: &serde_json::Value, key: &str) -> bool {
+    v.get(key).and_then(|x| x.as_bool()).unwrap_or(false)
+}
+
+fn pokemon_data_page(st: &AppState) -> VNode {
+    let pk = st.pokemon.clone();
+    let load_state = pk.loaded.get();
+    let busy = pk.busy.get();
+    let filtered = pk.filtered.get();
+    let err = pk.err.get();
+    let rows = pk.rows.get();
+    let total = pk.total.get();
+    let loaded_count = pk.loaded_count.get();
+    let has_more = !filtered && loaded_count < total;
+    let f_id = pk.f_id.get();
+    let f_name = pk.f_name.get();
+    let f_kind = pk.f_kind.get();
+    let count_text = if filtered {
+        format!("筛选结果 {loaded_count} 条")
+    } else {
+        format!("已加载 {loaded_count} / {total} 条")
+    };
+
+    let body = match &load_state {
+        None => rsx! { div { class: "admin-loading", "正在加载宠物数据..." } },
+        Some(Err(e)) => {
+            let msg = format!("加载失败：{e}");
+            rsx! {
+                div { class: "admin-card admin-error",
+                    p { "{msg}" }
+                    button {
+                        class: "admin-btn",
+                        disabled: busy,
+                        "data-pm-adm-pk-reload": "1",
+                        "重新加载"
+                    }
+                }
+            }
+        }
+        Some(Ok(())) => {
+            let err_bar = match &err {
+                Some(e) => {
+                    let msg = format!("筛选失败：{e}");
+                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
+                }
+                None => VNode::empty(),
+            };
+            let table = if rows.is_empty() {
+                rsx! { p { class: "admin-empty-hint", "暂无宠物数据。" } }
+            } else {
+                let mut trs: Vec<VNode> = Vec::new();
+                for item in rows.iter() {
+                    let id = json_u64(item, "id").to_string();
+                    let name = json_str(item, "name");
+                    // kind: ["fire", "water"] / ["normal", null]
+                    let kinds: Vec<&str> = item
+                        .get("kind")
+                        .and_then(|k| k.as_array())
+                        .map(|arr| arr.iter().filter_map(|k| k.as_str()).collect::<Vec<&str>>())
+                        .unwrap_or_default();
+                    let kind_text = if kinds.is_empty() {
+                        "—".to_string()
+                    } else {
+                        kinds
+                            .iter()
+                            .map(|k| kind_name(k))
+                            .collect::<Vec<_>>()
+                            .join("/")
+                    };
+                    let is_selling = json_bool(item, "is_selling");
+                    let cost = json_u64(item, "cost");
+                    let cost_text = if is_selling {
+                        cost.to_string()
+                    } else {
+                        "不可出售".to_string()
+                    };
+                    let is_legendary = json_bool(item, "is_legendary");
+                    let legendary_tag = if is_legendary {
+                        rsx! { span { class: "adm-pk-legendary", "神兽" } }
+                    } else {
+                        VNode::empty()
+                    };
+                    // 六维（initial_statistic 或展平字段，都尝试）。
+                    let stat = item.get("initial_statistic").cloned().unwrap_or_default();
+                    let sv = |key: &str, alias: &str| -> u64 {
+                        stat.get(key)
+                            .or_else(|| item.get(key))
+                            .and_then(|x| x.as_u64())
+                            .or_else(|| {
+                                stat.get(alias)
+                                    .or_else(|| item.get(alias))
+                                    .and_then(|x| x.as_u64())
+                            })
+                            .unwrap_or(0)
+                    };
+                    let stats_text = format!(
+                        "HP {} · 攻 {} · 防 {} · 特攻 {} · 特防 {} · 速 {}",
+                        sv("hit_points", "hp"),
+                        sv("attack", "atk"),
+                        sv("defense", "def"),
+                        sv("special_attack", "spatk"),
+                        sv("special_defense", "spdef"),
+                        sv("speed", "spd"),
+                    );
+                    trs.push(rsx! {
+                        tr {
+                            td { "{id}" }
+                            td {
+                                "{name}"
+                                ..vec![legendary_tag]
+                            }
+                            td { "{kind_text}" }
+                            td { "{cost_text}" }
+                            td { class: "adm-pk-stats", "{stats_text}" }
+                        }
+                    });
+                }
+                rsx! {
+                    table { class: "adm-table",
+                        thead {
+                            tr {
+                                th { "ID" }
+                                th { "名称" }
+                                th { "属性" }
+                                th { "售价" }
+                                th { "六维" }
+                            }
+                        }
+                        tbody {
+                            for i in 0..trs.len() {
+                                ..vec![trs[i].clone()]
+                            }
+                        }
+                    }
+                }
+            };
+            let more_btn = if has_more {
+                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
+                rsx! {
+                    div { class: "adm-load-more",
+                        button {
+                            class: "admin-btn",
+                            disabled: busy,
+                            "data-pm-adm-pk-more": "1",
+                            "{label}"
+                        }
+                    }
+                }
+            } else {
+                VNode::empty()
+            };
+            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
+            rsx! {
+                for i in 0..parts.len() {
+                    ..vec![parts[i].clone()]
+                }
+            }
+        }
+    };
+
+    rsx! {
+        section { class: "admin-page admin-config-page",
+            div { class: "admin-page-header",
+                h2 { "宠物数据" }
+                span { class: "adm-count", "{count_text}" }
+            }
+            div { class: "admin-card adm-filter-bar",
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "ID（精确）",
+                    value: f_id,
+                    "data-pm-adm-pk-f-id": "1"
+                }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "名称（包含）",
+                    value: f_name,
+                    "data-pm-adm-pk-f-name": "1"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-kind",
+                    r#type: "text",
+                    placeholder: "属性（如火）",
+                    value: f_kind,
+                    "data-pm-adm-pk-f-kind": "1"
+                }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-pk-apply": "1",
+                    "筛选"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-pk-reset": "1",
+                    "重置"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-pk-reload": "1",
+                    "刷新"
+                }
             }
             ..vec![body]
         }
