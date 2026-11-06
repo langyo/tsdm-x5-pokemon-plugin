@@ -70,6 +70,8 @@ pub fn install(app: &WitElement, state: &AppState) {
                     crate::pages::set_map_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-skf") {
                     crate::pages::set_skill_editor_field(&st, &key, &ev.value);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-evf") {
+                    crate::pages::set_evolution_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -226,6 +228,31 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((_, id)) = find_with_attr(target, "data-pm-adm-sk-edit") {
         if let Ok(id) = id.trim().parse::<u64>() {
             crate::pages::open_skill_edit(state, id);
+        }
+        return;
+    }
+    // 进化链编辑弹窗（ev 前缀）。
+    if find_with_attr(target, "data-pm-adm-ev-save").is_some() {
+        crate::pages::submit_evolution_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-ev-close").is_some() {
+        crate::pages::close_evolution_editor(state);
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-ev-overlay") {
+        if hit == target {
+            crate::pages::close_evolution_editor(state);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-ev-new").is_some() {
+        crate::pages::open_evolution_new(state);
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-ev-edit") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::open_evolution_edit(state, id);
         }
         return;
     }

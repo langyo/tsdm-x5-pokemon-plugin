@@ -92,7 +92,7 @@ function translate_evolution_info_label_to_db_cond($obj)
       default:
         $json_ret = [];
         $json_ret["success"] = false;
-        $json_ret["reason"] = "未知的进化规则 " . print_r($obj);
+        $json_ret["reason"] = "未知的进化规则 " . print_r($obj, true);
         exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
     }
     return ['comp_atk_def', $val];
@@ -105,7 +105,7 @@ function translate_evolution_info_label_to_db_cond($obj)
   } else {
     $json_ret = [];
     $json_ret["success"] = false;
-    $json_ret["reason"] = "未知的进化规则 " . print_r($obj);
+    $json_ret["reason"] = "未知的进化规则 " . print_r($obj, true);
     exit(json_encode($json_ret, JSON_UNESCAPED_UNICODE));
   }
 }

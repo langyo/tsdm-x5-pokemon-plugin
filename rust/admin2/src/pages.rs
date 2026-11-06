@@ -1473,6 +1473,7 @@ fn evolution_data_page(st: &AppState) -> VNode {
                 let mut trs: Vec<VNode> = Vec::new();
                 for item in rows.iter() {
                     let id = json_u64(item, "id").to_string();
+                    let id_for_edit = id.clone();
                     // 历史数据存在 from_id/to_id 为 0 的孤儿行，名字为空——显示占位符。
                     let source = {
                         let s = json_str(item, "source_name");
@@ -1506,6 +1507,14 @@ fn evolution_data_page(st: &AppState) -> VNode {
                             td { class: "adm-pk-stats", "{condition}" }
                             td { "{item_hint}" }
                             td { "{priority}" }
+                            td {
+                                button {
+                                    class: "admin-btn adm-row-edit",
+                                    disabled: busy,
+                                    "data-pm-adm-ev-edit": id_for_edit,
+                                    "编辑"
+                                }
+                            }
                         }
                     });
                 }
@@ -1519,6 +1528,7 @@ fn evolution_data_page(st: &AppState) -> VNode {
                                 th { "条件" }
                                 th { "道具" }
                                 th { "优先级" }
+                                th { "操作" }
                             }
                         }
                         tbody {
@@ -1599,8 +1609,14 @@ fn evolution_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-l-reload": "ev",
                     "刷新"
                 }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-ev-new": "1",
+                    "新增进化链"
+                }
             }
-            ..vec![body]
+            ..vec![body, evolution_editor_modal(st)]
         }
     }
 }
@@ -3728,6 +3744,356 @@ fn skill_editor_modal(st: &AppState) -> VNode {
                         class: "admin-btn admin-btn-primary",
                         disabled: saving,
                         "data-pm-adm-sk-save": "1",
+                        "{save_label}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 进化链编辑弹窗（切片 12）
+// ---------------------------------------------------------------------------
+
+/// 条件类型 → (码, 中文, 值输入提示, 值域种类)。
+/// 值域种类决定提交时的类型转换：
+/// - "num"：整数
+/// - "float"：小数（random）
+/// - "enum"：只能取固定取值（comp_atk_def / sex / chairs）
+const EVO_COND_KINDS: [(&str, &str, &str, &str); 7] = [
+    ("level", "等级达到", "等级（整数）", "num"),
+    ("item", "使用道具", "道具 ID（整数）", "num"),
+    ("good", "亲密度达到", "亲密度（整数）", "num"),
+    (
+        "comp_atk_def",
+        "攻防比较",
+        "greater / less / equal",
+        "enum",
+    ),
+    ("random", "随机概率", "概率（0-1 小数，如 0.25）", "float"),
+    ("sex", "性别", "male / female / unknown", "enum"),
+    ("chairs", "背包有空位", "true / false", "enum"),
+];
+
+/// 从载荷的 condition 单键对象还原 (cond_kind, cond_value)。
+fn evo_condition_parts(item: &serde_json::Value) -> (String, String) {
+    let Some(cond) = item.get("condition").and_then(|c| c.as_object()) else {
+        return ("level".to_string(), "0".to_string());
+    };
+    // 服务端 translator 的判定顺序：哪个键在就用哪个。
+    if let Some(v) = cond.get("min_level") {
+        return ("level".to_string(), v.to_string());
+    }
+    if let Some(v) = cond.get("use_item") {
+        return ("item".to_string(), v.to_string());
+    }
+    if let Some(v) = cond.get("min_intimacy") {
+        return ("good".to_string(), v.to_string());
+    }
+    if let Some(v) = cond.get("compare_attack_and_defense").and_then(|v| v.as_str()) {
+        return ("comp_atk_def".to_string(), v.to_string());
+    }
+    if let Some(v) = cond.get("random") {
+        return ("random".to_string(), v.to_string());
+    }
+    if let Some(v) = cond.get("sex").and_then(|v| v.as_str()) {
+        return ("sex".to_string(), v.to_string());
+    }
+    if let Some(v) = cond.get("is_bag_have_chairs").and_then(|v| v.as_bool()) {
+        return ("chairs".to_string(), if v { "true" } else { "false" }.to_string());
+    }
+    ("level".to_string(), "0".to_string())
+}
+
+pub fn open_evolution_new(state: &AppState) {
+    let ed = state.evolution_editor.clone();
+    ed.editing_id.inner().set(None);
+    ed.source_id.inner().set(String::new());
+    ed.target_id.inner().set(String::new());
+    ed.priority.inner().set("0".to_string());
+    ed.cond_kind.inner().set("level".to_string());
+    ed.cond_value.inner().set("0".to_string());
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn open_evolution_edit(state: &AppState, id: u64) {
+    let ed = state.evolution_editor.clone();
+    let row = state
+        .evolution
+        .rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == id);
+    let Some(row) = row else { return };
+    ed.editing_id.inner().set(Some(id));
+    ed.source_id
+        .inner()
+        .set(json_u64(&row, "source_id").to_string());
+    ed.target_id
+        .inner()
+        .set(json_u64(&row, "target_id").to_string());
+    ed.priority
+        .inner()
+        .set(json_u64(&row, "priority").to_string());
+    let (kind, value) = evo_condition_parts(&row);
+    ed.cond_kind.inner().set(kind);
+    ed.cond_value.inner().set(value);
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_evolution_editor(state: &AppState) {
+    state.evolution_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn set_evolution_editor_field(state: &AppState, key: &str, value: &str) {
+    let ed = state.evolution_editor.clone();
+    match key {
+        "source_id" => ed.source_id.inner().set(value.to_string()),
+        "target_id" => ed.target_id.inner().set(value.to_string()),
+        "priority" => ed.priority.inner().set(value.to_string()),
+        "cond_kind" => ed.cond_kind.inner().set(value.to_string()),
+        "cond_value" => ed.cond_value.inner().set(value.to_string()),
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+pub fn submit_evolution_editor(state: &AppState) {
+    let ed = state.evolution_editor.clone();
+    if ed.saving.get() {
+        return;
+    }
+    let parse = |s: &str| s.trim().parse::<u64>().unwrap_or(0);
+    let source_id = parse(&ed.source_id.get());
+    let target_id = parse(&ed.target_id.get());
+    // 孤儿行（from/to 为 0）是历史遗留，新建/编辑都必须给真实宠物 ID：
+    // 服务端不校验，写 0 只会造出又一条查不到名字的记录。
+    if source_id == 0 || target_id == 0 {
+        ed.err
+            .inner()
+            .set(Some("进化来源与目标必须是有效的宠物 ID".to_string()));
+        crate::request_remount();
+        return;
+    }
+    if source_id == target_id {
+        ed.err
+            .inner()
+            .set(Some("进化来源与目标不能是同一只宠物".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let kind = ed.cond_kind.get();
+    let value = ed.cond_value.get();
+    let value = value.trim();
+    let Some((_, _, _, value_kind)) = EVO_COND_KINDS.iter().find(|(c, _, _, _)| *c == kind) else {
+        ed.err.inner().set(Some("条件类型无效".to_string()));
+        crate::request_remount();
+        return;
+    };
+    let condition = match *value_kind {
+        "enum" => {
+            let allowed: &[&str] = match kind.as_str() {
+                "comp_atk_def" => &["greater", "less", "equal"],
+                "sex" => &["male", "female", "unknown"],
+                _ => &["true", "false"],
+            };
+            if !allowed.contains(&value) {
+                ed.err.inner().set(Some(format!(
+                    "该条件的取值必须是 {} 之一",
+                    allowed.join(" / ")
+                )));
+                crate::request_remount();
+                return;
+            }
+            // 服务端的键名与「条件类型」不是同名：compare_attack_and_defense
+            // 与 is_bag_have_chairs 才是它认的键。
+            match kind.as_str() {
+                "comp_atk_def" => serde_json::json!({ "compare_attack_and_defense": value }),
+                "sex" => serde_json::json!({ "sex": value }),
+                _ => serde_json::json!({ "is_bag_have_chairs": value == "true" }),
+            }
+        }
+        "float" => match value.parse::<f64>() {
+            Ok(n) => serde_json::json!({ "random": n }),
+            Err(_) => {
+                ed.err.inner().set(Some("概率必须是小数（如 0.25）".to_string()));
+                crate::request_remount();
+                return;
+            }
+        },
+        _ => {
+            // 数值条件的服务端键名同样不同：level→min_level、
+            // item→use_item、good→min_intimacy。
+            let key = match kind.as_str() {
+                "item" => "use_item",
+                "good" => "min_intimacy",
+                _ => "min_level",
+            };
+            match value.parse::<u64>() {
+                Ok(n) => serde_json::json!({ key: n }),
+                Err(_) => {
+                    ed.err.inner().set(Some("该条件的值必须是整数".to_string()));
+                    crate::request_remount();
+                    return;
+                }
+            }
+        }
+    };
+    let mut payload = serde_json::json!({
+        "source_id": source_id,
+        "target_id": target_id,
+        "priority": parse(&ed.priority.get()),
+        "condition": condition,
+    });
+    let editing = ed.editing_id.get();
+    if let Some(id) = editing {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("id".to_string(), serde_json::json!(id));
+        }
+    }
+    let body = payload.to_string();
+    ed.saving.inner().set(true);
+    ed.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    let on_done: Box<dyn FnOnce(Result<serde_json::Value, String>)> = Box::new(move |result| {
+        let ed = st.evolution_editor.clone();
+        match result {
+            Ok(_) => {
+                ed.open.inner().set(false);
+                ed.saving.inner().set(false);
+                st.evolution.loaded.inner().set(None);
+                st.evolution.rows.inner().set(Vec::new());
+                crate::request_remount();
+                reload_list(crate::state::EVOLUTION_SPEC, &st.evolution);
+            }
+            Err(e) => {
+                ed.saving.inner().set(false);
+                ed.err.inner().set(Some(format!("保存失败：{e}")));
+                crate::request_remount();
+            }
+        }
+    });
+    if editing.is_some() {
+        crate::api::set_entity("evolution_info", body, on_done);
+    } else {
+        crate::api::insert_entity("evolution_info", body, on_done);
+    }
+}
+
+fn evolution_editor_modal(st: &AppState) -> VNode {
+    let ed = st.evolution_editor.clone();
+    if !ed.open.get() {
+        return VNode::empty();
+    }
+    let editing = ed.editing_id.get();
+    let title = match editing {
+        Some(id) => format!("编辑进化链 #{id}"),
+        None => "新增进化链".to_string(),
+    };
+    let saving = ed.saving.get();
+    let err = ed.err.get();
+    let cond_kind = ed.cond_kind.get();
+    let save_label = if saving { "保存中..." } else { "保存" };
+
+    let mut kind_options: Vec<VNode> = Vec::new();
+    for (code, label, _, _) in EVO_COND_KINDS {
+        kind_options.push(rsx! {
+            option {
+                value: code,
+                selected: code == cond_kind,
+                "{label}"
+            }
+        });
+    }
+    let placeholder = EVO_COND_KINDS
+        .iter()
+        .find(|(c, _, _, _)| *c == cond_kind)
+        .map(|(_, _, hint, _)| *hint)
+        .unwrap_or("");
+
+    let err_block = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-ev-overlay": "1",
+            div { class: "adm-editor-modal",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-ev-close": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    div { class: "adm-editor-grid",
+                        label { class: "adm-editor-field",
+                            span { "进化来源（宠物 ID）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "1",
+                                value: ed.source_id.get(),
+                                "data-pm-adm-evf": "source_id"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "进化目标（宠物 ID）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "1",
+                                value: ed.target_id.get(),
+                                "data-pm-adm-evf": "target_id"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "优先级" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                value: ed.priority.get(),
+                                "data-pm-adm-evf": "priority"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "条件类型" }
+                            select {
+                                class: "adm-filter-input",
+                                "data-pm-adm-evf": "cond_kind",
+                                for i in 0..kind_options.len() {
+                                    ..vec![kind_options[i].clone()]
+                                }
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "{placeholder}" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.cond_value.get(),
+                                "data-pm-adm-evf": "cond_value"
+                            }
+                        }
+                    }
+                    ..vec![err_block]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: saving,
+                        "data-pm-adm-ev-close": "1",
+                        "取消"
+                    }
+                    button {
+                        class: "admin-btn admin-btn-primary",
+                        disabled: saving,
+                        "data-pm-adm-ev-save": "1",
                         "{save_label}"
                     }
                 }

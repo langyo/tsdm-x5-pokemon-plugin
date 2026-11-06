@@ -529,6 +529,50 @@ impl std::fmt::Debug for SkillEditorState {
     }
 }
 
+/// 进化链编辑弹窗状态（切片 12）。
+///
+/// 条件在载荷里是单键对象，服务端 translator 按哪个键在就取哪个（顺序是
+/// min_level → use_item → min_intimacy → compare_attack_and_defense →
+/// random → sex → is_bag_have_chairs），所以这里用「条件类型 + 值」两个
+/// 控件表达，提交时再还原成单键对象。
+#[derive(Clone)]
+pub struct EvolutionEditorState {
+    pub open: ReactiveSignal<bool>,
+    pub editing_id: ReactiveSignal<Option<u64>>,
+    pub source_id: ReactiveSignal<String>,
+    pub target_id: ReactiveSignal<String>,
+    pub priority: ReactiveSignal<String>,
+    /// level / item / good / comp_atk_def / random / sex / chairs
+    pub cond_kind: ReactiveSignal<String>,
+    /// 条件值。语义随 cond_kind：等级数 / 道具 ID / 亲密度 /
+    /// greater|less|equal / 概率小数 / male|female|unknown / true|false。
+    pub cond_value: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl EvolutionEditorState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            editing_id: use_signal(|| None),
+            source_id: use_signal(String::new),
+            target_id: use_signal(String::new),
+            priority: use_signal(|| "0".to_string()),
+            cond_kind: use_signal(|| "level".to_string()),
+            cond_value: use_signal(|| "0".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for EvolutionEditorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EvolutionEditorState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -546,6 +590,7 @@ pub struct AppState {
     pub item_editor: ItemEditorState,
     pub map_editor: MapEditorState,
     pub skill_editor: SkillEditorState,
+    pub evolution_editor: EvolutionEditorState,
 }
 
 impl AppState {
@@ -565,6 +610,7 @@ impl AppState {
             item_editor: ItemEditorState::new(),
             map_editor: MapEditorState::new(),
             skill_editor: SkillEditorState::new(),
+            evolution_editor: EvolutionEditorState::new(),
         }
     }
 }
