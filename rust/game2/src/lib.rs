@@ -1,17 +1,22 @@
 //! tairitsu + hikari 版游戏前端。
 //!
-//! 第一个真实页面：商店（1:1 移植自 Dioxus 版，见 src/shop.rs）。
+//! 已移植页面：欢迎页（welcome.rs）、首页（home.rs）、商店（shop.rs）。
 //! 启动流程与状态模式记录在 docs/refactor-tairitsu-hikari-research.md §9/§10。
 
 #[cfg(target_family = "wasm")]
 pub mod api;
+pub mod app_state;
 #[cfg(target_family = "wasm")]
 pub mod delegation;
+#[cfg(target_family = "wasm")]
+pub mod home;
 pub mod icon;
 #[cfg(target_family = "wasm")]
 pub mod shop;
 pub mod shop_logic;
 pub mod state;
+#[cfg(target_family = "wasm")]
+pub mod welcome;
 
 #[cfg(target_family = "wasm")]
 use anyhow::Result;
@@ -34,9 +39,9 @@ pub fn element_handle(id: &str) -> Option<u64> {
 
 #[cfg(target_family = "wasm")]
 thread_local! {
-    /// 最新 ShopState：remount 通道由此取状态构建整树。
+    /// 最新 AppState：remount 通道由此取状态构建整树。
     /// （pm-flush 监听器是 'static 闭包，不能捕获局部 state。）
-    static LATEST_STATE: std::cell::RefCell<Option<crate::state::ShopState>> =
+    static LATEST_STATE: std::cell::RefCell<Option<crate::app_state::AppState>> =
         const { std::cell::RefCell::new(None) };
 }
 
@@ -58,7 +63,7 @@ pub fn request_remount() {
     });
 }
 
-/// 整树重挂载：清空 #app 后按最新信号值重新渲染整棵 Shop 树。
+/// 整树重挂载：清空 #app 后按最新信号值与路由重建整棵树。
 ///
 /// 为什么不走 flush_render（diff/apply）：jco 下 apply 路径的嵌套
 /// UpdateChild 索引解析会挂起（带数据的 patch 在事件任务上实测卡死，
@@ -69,12 +74,70 @@ pub fn request_remount() {
 fn remount_latest() {
     let state = LATEST_STATE.with(|s| s.borrow().clone());
     let Some(state) = state else { return };
-    let vnode = shop::Shop(shop::ShopProps {
-        state: Some(Box::new(state)),
-        ..Default::default()
-    });
+    let vnode = render_route(&state);
     if let Ok(platform) = WitPlatform::new() {
         let _ = platform.mount_vnode_to_app(vnode);
+    }
+}
+
+/// 按路由渲染页面：欢迎页整屏；其余页面带顶部导航（对齐 Dioxus 版
+/// Header 的 首页/商店 入口，未移植页面暂不列出）。
+#[cfg(target_family = "wasm")]
+fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
+    use tairitsu_macros::rsx;
+    use app_state::Route;
+    // 首页装载（对齐 Dioxus 版 use_resource 首次求值时机）。
+    if state.route.get() == Route::Home {
+        home::ensure_loaded(state);
+    }
+    if state.route.get() == Route::Welcome {
+        return welcome::Welcome(welcome::WelcomeProps {
+            state: Some(Box::new(state.clone())),
+            ..Default::default()
+        });
+    }
+
+    let page = match state.route.get() {
+        Route::Home => home::Home(home::HomeProps {
+            state: Some(Box::new(state.clone())),
+            ..Default::default()
+        }),
+        // Welcome 已在上方整屏返回；此臂只为穷尽匹配。
+        Route::Welcome => unreachable!(),
+        Route::Shop => shop::Shop(shop::ShopProps {
+            state: Some(Box::new(state.shop.clone())),
+            ..Default::default()
+        }),
+    };
+
+    let home_active = state.route.get() == Route::Home;
+    let shop_active = state.route.get() == Route::Shop;
+    let home_cls = if home_active { "nav-link active" } else { "nav-link" };
+    let shop_cls = if shop_active { "nav-link active" } else { "nav-link" };
+    let img_logo = "source/plugin/pokemon/images/item/jlq.gif";
+
+    rsx! {
+        div { class: "app-layout",
+            header { class: "app-header",
+                div { class: "header-inner",
+                    div { class: "header-logo",
+                        button {
+                            class: "logo-link",
+                            "data-pm-nav": "home",
+                            img { class: "logo-mascot", src: img_logo }
+                            span { class: "logo-text", "Online Void Pokemon" }
+                        }
+                    }
+                    nav { class: "header-nav",
+                        button { class: home_cls, "data-pm-nav": "home", "首页" }
+                        button { class: shop_cls, "data-pm-nav": "shop", "商店" }
+                    }
+                }
+            }
+            div { class: "app-main",
+                div { class: "app-content", ..vec![page] }
+            }
+        }
     }
 }
 
@@ -101,24 +164,39 @@ pub fn run_app() -> Result<()> {
     // 状态归属：先注册组件拿 id，再在 with_component 上下文里创建信号，
     // 这样 ReactiveSignal::set 的 mark_dirty 会落到本组件。
     let component_id = tairitsu_vdom::use_component(|| tairitsu_vdom::VNode::empty());
-    let state = tairitsu_vdom::runtime::with_component(component_id, state::ShopState::new);
+    let state = tairitsu_vdom::runtime::with_component(component_id, app_state::AppState::new);
     state.component_id.set(component_id as u32);
+    state.shop.component_id.set(component_id as u32);
 
-    // 重渲染闭包共享同一份 state（信号绑定本组件，set → mark_dirty(Shop)）。
     let state_for_render = state.clone();
     let latest_for_remount = state.clone();
     let state_for_delegation = state.clone();
     tairitsu_vdom::runtime::update_render_function(component_id, move || {
-        shop::Shop(shop::ShopProps {
-            state: Some(Box::new(state_for_render.clone())),
-            ..Default::default()
-        })
+        render_route(&state_for_render)
     });
-    let vnode = shop::Shop(shop::ShopProps {
-        state: Some(Box::new(state)),
-        ..Default::default()
-    });
+    let vnode = render_route(&state);
     LATEST_STATE.with(|s| *s.borrow_mut() = Some(latest_for_remount));
+
+    // 启动路由判定（对齐 Dioxus 版 Layout 的 needs_welcome）：
+    // user/profile → is_new_player 或 total_pokemons==0 → Welcome，
+    // 否则 Home。promise 回调只写内部值 + request_remount。
+    {
+        let state = state.clone();
+        api::profile(Box::new(move |result| match result {
+            Ok(needs_welcome) => {
+                state.needs_welcome.inner().set(needs_welcome);
+                let route = if needs_welcome {
+                    app_state::Route::Welcome
+                } else {
+                    app_state::Route::Home
+                };
+                state.route.inner().set(route);
+                request_remount();
+            }
+            // 资料拉取失败：留在欢迎页（用户可手动初始化或刷新）。
+            Err(_) => {}
+        }));
+    }
 
     let platform = WitPlatform::new()?;
     platform.mount_vnode_to_app(vnode.clone())?;

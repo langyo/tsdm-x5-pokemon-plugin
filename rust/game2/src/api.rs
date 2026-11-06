@@ -140,12 +140,13 @@ struct Envelope<T> {
 }
 
 fn request<T: DeserializeOwned + 'static>(
+    endpoint: &str,
     action_and_query: &str,
     body: Option<String>,
     on_done: Box<dyn FnOnce(Result<T, String>)>,
 ) {
     let url = format!(
-        "/plugin.php?id=pokemon:pokemon&endpoint=shop&action={action_and_query}"
+        "/plugin.php?id=pokemon:pokemon&endpoint={endpoint}&action={action_and_query}"
     );
     let options = match &body {
         Some(payload) => serde_json::json!({ "method": "POST", "body": payload }).to_string(),
@@ -203,6 +204,7 @@ pub fn shop_items(
         format!("&keyword={}", encode_query_component(keyword))
     };
     request(
+        "shop",
         &format!("list&page={page}{type_param}{keyword_param}"),
         None,
         Box::new(move |result: Result<ShopListDto, String>| {
@@ -242,6 +244,7 @@ pub fn shop_pets(
         format!("&keyword={}", encode_query_component(keyword))
     };
     request(
+        "shop",
         &format!("pets&page={page}{keyword_param}"),
         None,
         Box::new(move |result: Result<ShopPetListDto, String>| {
@@ -274,6 +277,7 @@ pub fn buy_item(item_id: u64, on_done: Box<dyn FnOnce(Result<BuyOutcome, String>
     let body = serde_json::to_string(&BuyItemRequest { item_id, quantity: 1 })
         .unwrap_or_default();
     request(
+        "shop",
         "buy",
         Some(body),
         Box::new(|result: Result<BuyItemDto, String>| {
@@ -289,12 +293,174 @@ pub fn buy_pet(pokemon_type_id: u64, on_done: Box<dyn FnOnce(Result<BuyOutcome, 
     let body =
         serde_json::to_string(&BuyPetRequest { pokemon_type_id }).unwrap_or_default();
     request(
+        "shop",
         "buy_pet",
         Some(body),
         Box::new(|result: Result<BuyPetDto, String>| {
             on_done(result.map(|dto| BuyOutcome {
                 remaining_money: dto.remaining_money,
                 site: dto.site,
+            }))
+        }),
+    );
+}
+
+// ===========================================================================
+// 用户与话题端点（welcome/home 页）
+// ===========================================================================
+
+// ---- wire 类型 ----
+
+#[derive(Deserialize)]
+struct TopicDto {
+    id: u64,
+    title: String,
+    #[serde(default)]
+    is_pinned: bool,
+}
+
+#[derive(Deserialize)]
+struct TopicsDto {
+    #[serde(default)]
+    news_announcements: Vec<NewsDto>,
+    #[serde(default)]
+    topics: Vec<TopicDto>,
+}
+
+#[derive(Deserialize)]
+struct NewsDto {
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    url: String,
+}
+
+#[derive(Deserialize)]
+struct OnlinePlayerDto {
+    uid: u64,
+    username: String,
+}
+
+#[derive(Deserialize)]
+struct OnlineDto {
+    #[serde(default)]
+    total: usize,
+    #[serde(default)]
+    players: Vec<OnlinePlayerDto>,
+}
+
+#[derive(Deserialize)]
+struct InitializeDto {
+    #[serde(default)]
+    success: bool,
+    #[serde(default)]
+    message: String,
+}
+
+// ---- 公开载荷 ----
+
+use crate::app_state::{OnlinePlayer, TopicItem};
+
+pub struct TopicsList {
+    pub items: Vec<TopicItem>,
+}
+
+pub struct OnlineList {
+    pub total: usize,
+    pub players: Vec<OnlinePlayer>,
+}
+
+pub struct InitializeOutcome {
+    pub success: bool,
+    pub message: String,
+}
+
+// ---- 端点方法 ----
+
+/// 话题+新闻合并列表（对齐 Dioxus 版 Home 的 use_memo 合并规则：
+/// 新闻在前，话题补足到 6 条）。
+pub fn topics(on_done: Box<dyn FnOnce(Result<TopicsList, String>)>) {
+    request(
+        "topics",
+        "list&limit=6",
+        None,
+        Box::new(|result: Result<TopicsDto, String>| {
+            on_done(result.map(|dto| {
+                let mut items = Vec::new();
+                for news in &dto.news_announcements {
+                    if !news.title.is_empty() {
+                        items.push(TopicItem::News {
+                            title: news.title.clone(),
+                            url: news.url.clone(),
+                        });
+                    }
+                }
+                let remaining = 6usize.saturating_sub(items.len());
+                for topic in dto.topics.iter().take(remaining) {
+                    items.push(TopicItem::Topic {
+                        id: topic.id,
+                        title: topic.title.clone(),
+                        is_pinned: topic.is_pinned,
+                    });
+                }
+                TopicsList { items }
+            }))
+        }),
+    );
+}
+
+pub fn online_players(on_done: Box<dyn FnOnce(Result<OnlineList, String>)>) {
+    request(
+        "user",
+        "online_players",
+        None,
+        Box::new(|result: Result<OnlineDto, String>| {
+            on_done(result.map(|dto| OnlineList {
+                total: dto.total,
+                players: dto
+                    .players
+                    .into_iter()
+                    .map(|p| OnlinePlayer { uid: p.uid, username: p.username })
+                    .collect(),
+            }))
+        }),
+    );
+}
+
+pub fn initialize_player(on_done: Box<dyn FnOnce(Result<InitializeOutcome, String>)>) {
+    request(
+        "user",
+        "initialize",
+        Some(String::new()),
+        Box::new(|result: Result<InitializeDto, String>| {
+            on_done(result.map(|dto| InitializeOutcome {
+                success: dto.success,
+                message: dto.message,
+            }))
+        }),
+    );
+}
+
+// ---- 启动路由判定（user/profile） ----
+
+#[derive(Deserialize)]
+struct ProfileDto {
+    #[serde(default)]
+    is_new_player: bool,
+    #[serde(default)]
+    total_pokemons: Option<u64>,
+}
+
+/// 拉取用户资料并判定欢迎页条件（对齐 Dioxus 版 Layout：
+/// is_new_player 或 total_pokemons==0 → Welcome，否则 Home）。
+pub fn profile(on_done: Box<dyn FnOnce(Result<bool, String>)>) {
+    request(
+        "user",
+        "profile",
+        None,
+        Box::new(|result: Result<ProfileDto, String>| {
+            on_done(result.map(|dto| {
+                dto.is_new_player || dto.total_pokemons.unwrap_or(0) == 0
             }))
         }),
     );

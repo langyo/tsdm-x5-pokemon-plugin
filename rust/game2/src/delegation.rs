@@ -14,24 +14,14 @@ use tairitsu_web::wit_platform::WitElement;
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::get_attribute;
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::node::get_parent_element;
 
+use crate::app_state::AppState;
 use crate::shop_logic::shop_tooltip_position;
-use crate::state::ShopState;
 
 const ITEM_TOOLTIP_H: f64 = 130.0;
 const PET_TOOLTIP_H: f64 = 190.0;
 
 fn attr_of(handle: u64, name: &str) -> Option<String> {
     get_attribute(handle, name)
-}
-
-/// 诊断写入：#app[data-dbg]（tooltip 定位用，验证后移除）。
-#[cfg(target_family = "wasm")]
-fn dbg(tag: &str, msg: &str) {
-    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::set_attribute;
-    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::non_element_parent_node::get_element_by_id;
-    if let Some(app) = get_element_by_id(0, "app") {
-        let _ = set_attribute(app, "data-dbg", &format!("{tag}: {msg}"));
-    }
 }
 
 /// 从 target 沿 parent 链向上找第一个带指定属性的元素句柄。
@@ -49,31 +39,12 @@ fn find_with_attr(target: u64, name: &str) -> Option<(u64, String)> {
     None
 }
 
-/// 诊断：dump 从 target 向上的 12 层（tag + data-pm-* 属性）。
-#[cfg(target_family = "wasm")]
-fn dump_chain(target: u64) {
-    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::get_tag_name;
-    let mut cur = target;
-    let mut out = String::new();
-    for _ in 0..12 {
-        let tag = get_tag_name(cur);
-        let buy = attr_of(cur, "data-pm-buy");
-        let tile = attr_of(cur, "data-pm-tile");
-        out.push_str(&format!("{tag}[b={:?} t={:?}]<", buy.as_deref(), tile.as_deref()));
-        match get_parent_element(cur) {
-            Some(parent) => cur = parent,
-            None => break,
-        }
-    }
-    dbg("chain", &out);
-}
-
 /// 启动时在 #app 上注册全部委托监听器。
-pub fn install(app: &WitElement, state: &ShopState) {
+pub fn install(app: &WitElement, state: &AppState) {
     use tairitsu_vdom::platform::DomOps;
     let platform = WitPlatform::new().expect("platform");
 
-    // ---- click：分类 / 分页 / 购买 / 筛选 ----
+    // ---- click：页面导航 / 欢迎页初始化 / 分类 / 分页 / 购买 / 筛选 ----
     {
         let st = state.clone();
         platform.add_event_listener(
@@ -84,7 +55,7 @@ pub fn install(app: &WitElement, state: &ShopState) {
                     return;
                 };
                 let Some(target) = target.target else { return };
-                crate::delegation::dispatch_click(&st, target);
+                dispatch_click(&st, target);
             }),
         );
     }
@@ -101,7 +72,7 @@ pub fn install(app: &WitElement, state: &ShopState) {
                 };
                 let Some(target) = ev.target else { return };
                 if attr_of(target, "data-pm-filter-input").is_some() {
-                    crate::shop::reload_from_filter(&st, &ev.value);
+                    crate::shop::reload_from_filter(&st.shop, &ev.value);
                 }
             }),
         );
@@ -132,8 +103,8 @@ pub fn install(app: &WitElement, state: &ShopState) {
                 // mark_dirty → rAF → flush_render → apply，而 apply 路径
                 // 在 jco 下挂起（§10.1.3）；tooltip 是纯派生 UI，直接
                 // 重建整树最稳。
-                st.hover_pos.inner().set((x, y));
-                st.hover_key.inner().set(Some(idx));
+                st.shop.hover_pos.inner().set((x, y));
+                st.shop.hover_key.inner().set(Some(idx));
                 crate::request_remount();
             }),
         );
@@ -150,7 +121,7 @@ pub fn install(app: &WitElement, state: &ShopState) {
                 let Some(target) = ev.target else { return };
                 // 离开瓦片或其内部任一节点都收起 tooltip（瓦片内移动会再次触发 over）。
                 if find_with_attr(target, "data-pm-tile").is_some() {
-                    st.hover_key.inner().set(None);
+                    st.shop.hover_key.inner().set(None);
                     crate::request_remount();
                 }
             }),
@@ -158,51 +129,67 @@ pub fn install(app: &WitElement, state: &ShopState) {
     }
 }
 
-fn dispatch_click(state: &ShopState, target: u64) {
+fn dispatch_click(state: &AppState, target: u64) {
+    // 顶部导航：页面切换
+    if let Some((_, v)) = find_with_attr(target, "data-pm-nav") {
+        let route = match v.as_str() {
+            "shop" => crate::app_state::Route::Shop,
+            _ => crate::app_state::Route::Home,
+        };
+        state.route.set(route);
+        crate::request_remount();
+        return;
+    }
+    // 欢迎页：开始冒险（新玩家初始化）
+    if find_with_attr(target, "data-pm-welcome-init").is_some() {
+        crate::welcome::initialize(state);
+        return;
+    }
+    let shop = state.shop.clone();
     // 分类
     if let Some((_, v)) = find_with_attr(target, "data-pm-cat") {
         let cat = if v == "pet" { None } else { v.parse::<u32>().ok() };
-        crate::shop::select_category(state, cat);
+        crate::shop::select_category(&shop, cat);
         return;
     }
     // 分页
     if let Some((_, v)) = find_with_attr(target, "data-pm-page") {
         let page = match v.as_str() {
-            "prev" => state.page.get().saturating_sub(1).max(1),
-            "next" => state.page.get() + 1,
+            "prev" => shop.page.get().saturating_sub(1).max(1),
+            "next" => shop.page.get() + 1,
             n => n.parse::<u32>().unwrap_or(1),
         };
-        crate::shop::goto_page(state, page);
+        crate::shop::goto_page(&shop, page);
         return;
     }
     // 购买物品
     if let Some((_, v)) = find_with_attr(target, "data-pm-buy") {
         if let Ok(id) = v.parse::<u64>() {
-            crate::shop::buy_item_by_id(state, id);
+            crate::shop::buy_item_by_id(&shop, id);
         }
         return;
     }
     // 购买宠物
     if let Some((_, v)) = find_with_attr(target, "data-pm-buypet") {
         if let Ok(id) = v.parse::<u64>() {
-            crate::shop::buy_pet_by_id(state, id);
+            crate::shop::buy_pet_by_id(&shop, id);
         }
         return;
     }
     // 筛选
     if find_with_attr(target, "data-pm-filter-toggle").is_some() {
-        let next = !state.filter_open.get();
-        state.filter_open.set(next);
-        crate::shop::refresh(state);
+        let next = !shop.filter_open.get();
+        shop.filter_open.set(next);
+        crate::shop::refresh(&shop);
         return;
     }
     if find_with_attr(target, "data-pm-filter-close").is_some() {
-        state.filter_open.set(false);
-        crate::shop::refresh(state);
+        shop.filter_open.set(false);
+        crate::shop::refresh(&shop);
         return;
     }
     if find_with_attr(target, "data-pm-filter-clear").is_some() {
-        crate::shop::reload_from_filter(state, "");
+        crate::shop::reload_from_filter(&shop, "");
         return;
     }
 }
