@@ -169,11 +169,43 @@ fn dispatch_click(state: &AppState, target: u64) {
         crate::pokemon_center::heal_all(state);
         return;
     }
-    // 我的宝可梦：宠物选择 / 昵称编辑
+    // 我的宝可梦：标签页 / 宠物选择 / 昵称编辑 / 装备
+    if let Some((_, v)) = find_with_attr(target, "data-pm-my-pm-tab") {
+        let tab = match v.as_str() {
+            "equipment" => crate::state::MyPokemonTab::Equipment,
+            _ => crate::state::MyPokemonTab::Stats,
+        };
+        crate::my_pokemon::switch_tab(state, tab);
+        return;
+    }
     if let Some((_, v)) = find_with_attr(target, "data-pm-my-pm-select") {
         if let Ok(pid) = v.parse::<u64>() {
             crate::my_pokemon::select_pokemon(state, pid);
         }
+        return;
+    }
+    // 装备：注意槽位与物品卡的匹配顺序——物品卡在物品栏区块内，
+    // 区块自身的 data-pm-eq-inv-section 不能先命中。
+    if let Some((_, v)) = find_with_attr(target, "data-pm-eq-inv-item") {
+        if let Ok(mid) = v.parse::<u64>() {
+            crate::my_pokemon::select_inventory_item(state, mid);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-eq-slot") {
+        if let Ok(idx) = v.parse::<u32>() {
+            crate::my_pokemon::click_slot(state, idx);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-eq-inv-section").is_some() {
+        crate::my_pokemon::unequip_selected_from_section(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-eq-reload").is_some() {
+        state.my_pm.equipment.inner().set(None);
+        crate::request_remount();
+        crate::my_pokemon::ensure_equipment(state);
         return;
     }
     if find_with_attr(target, "data-pm-my-pm-nick-edit").is_some() {

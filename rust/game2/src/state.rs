@@ -305,10 +305,105 @@ pub fn center_show_toast_silent(state: &CenterState, kind: ToastKind, message: S
     state.toast_visible.inner().set(true);
 }
 
-/// 我的宝可梦页签名：当前只移植了「属性」标签页；装备与技能随后续阶段接入。
+/// 我的宝可梦页签名：技能标签页随技能写流程接入。
 #[derive(Clone, Copy, PartialEq)]
 pub enum MyPokemonTab {
     Stats,
+    Equipment,
+}
+
+/// 装备物品（equipment 载荷的显示子集，槽位与背包共用同一形态）。
+#[derive(Debug, Clone, Default)]
+pub struct EquipmentItem {
+    /// 背包行 ID（pm_myitem.id）——装备/卸下都以它为键。
+    pub myitem_id: u64,
+    pub name: String,
+    pub description: String,
+    /// 图标文件名（不带扩展名时补 .gif）。
+    pub image: String,
+    pub equipment_hp: i32,
+    pub equipment_atk: i32,
+    pub equipment_def: i32,
+    pub equipment_spatk: i32,
+    pub equipment_spdef: i32,
+    pub equipment_sd: i32,
+    /// 仅背包列表：该记录是否被本宠物装备。
+    pub is_equipped: bool,
+    /// 仅背包列表：被任意宠物装备的数量。
+    pub equipped_count: u32,
+    /// 仅背包列表：可用数量（被占用时为 0）。
+    pub available_count: u32,
+}
+
+impl EquipmentItem {
+    /// 六维加成 (HP, 攻击, 防御, 特攻, 特防, 速度)。
+    pub fn bonuses(&self) -> [i64; 6] {
+        [
+            self.equipment_hp as i64,
+            self.equipment_atk as i64,
+            self.equipment_def as i64,
+            self.equipment_spatk as i64,
+            self.equipment_spdef as i64,
+            self.equipment_sd as i64,
+        ]
+    }
+
+    /// 悬浮提示文案：非零加成拼接（「HP +10、攻击 +5」）。
+    pub fn bonus_summary(&self) -> String {
+        const NAMES: [&str; 6] = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
+        self.bonuses()
+            .iter()
+            .zip(NAMES.iter())
+            .filter(|(v, _)| **v != 0)
+            .map(|(v, n)| {
+                if *v > 0 {
+                    format!("{n} +{v}")
+                } else {
+                    format!("{n} {v}")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("、")
+    }
+}
+
+/// 单个装备槽。
+#[derive(Debug, Clone, Default)]
+pub struct EquipmentSlotData {
+    pub slot_index: u32,
+    pub item: Option<EquipmentItem>,
+}
+
+/// equipment 载荷（槽位 + 背包装备清单）。
+#[derive(Debug, Clone, Default)]
+pub struct EquipmentData {
+    /// 恒定补齐到 4 槽。
+    pub slots: Vec<EquipmentSlotData>,
+    pub owned: Vec<EquipmentItem>,
+}
+
+impl EquipmentData {
+    /// 已装备物品的六维加成合计（HP, 攻击, 防御, 特攻, 特防, 速度）。
+    pub fn total_bonuses(&self) -> [i64; 6] {
+        let mut total = [0i64; 6];
+        for slot in &self.slots {
+            if let Some(item) = &slot.item {
+                for (i, v) in item.bonuses().into_iter().enumerate() {
+                    total[i] += v;
+                }
+            }
+        }
+        total
+    }
+}
+
+/// 装备页当前选中项：来自背包或某个槽位。
+#[derive(Debug, Clone, PartialEq)]
+pub struct SelectedEquip {
+    /// true = 背包物品（点击槽位装载）；false = 已装备（点击槽位移动/卸下）。
+    pub from_inventory: bool,
+    pub myitem_id: u64,
+    pub slot_index: Option<u32>,
 }
 
 /// 宠物详情（我的宝可梦「属性」页所需字段）。
@@ -359,6 +454,16 @@ pub struct MyPokemonState {
     pub saving: ReactiveSignal<bool>,
     pub save_error: ReactiveSignal<Option<String>>,
     pub save_success: ReactiveSignal<bool>,
+
+    // ---- 装备标签页 ----
+    /// None = 首次加载中；Some(Err) = 失败。
+    pub equipment: ReactiveSignal<Option<Result<EquipmentData, String>>>,
+    /// 装备/卸下动作进行中（互斥守卫）。
+    pub equip_loading: ReactiveSignal<bool>,
+    pub equip_selected: ReactiveSignal<Option<SelectedEquip>>,
+    pub toast_visible: ReactiveSignal<bool>,
+    pub toast_message: ReactiveSignal<String>,
+    pub toast_kind: ReactiveSignal<ToastKind>,
 }
 
 impl MyPokemonState {
@@ -373,6 +478,12 @@ impl MyPokemonState {
             saving: use_signal(|| false),
             save_error: use_signal(|| None),
             save_success: use_signal(|| false),
+            equipment: use_signal(|| None),
+            equip_loading: use_signal(|| false),
+            equip_selected: use_signal(|| None),
+            toast_visible: use_signal(|| false),
+            toast_message: use_signal(String::new),
+            toast_kind: use_signal(|| ToastKind::Success),
         }
     }
 }
@@ -381,4 +492,11 @@ impl std::fmt::Debug for MyPokemonState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("MyPokemonState").finish()
     }
+}
+
+/// 我的宠物页反馈提示（promise 线程版：只写内部值）。
+pub fn mypm_show_toast_silent(state: &MyPokemonState, kind: ToastKind, message: String) {
+    state.toast_kind.inner().set(kind);
+    state.toast_message.inner().set(message);
+    state.toast_visible.inner().set(true);
 }

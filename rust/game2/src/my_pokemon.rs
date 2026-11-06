@@ -11,6 +11,8 @@
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
+use hikari_components::{Toast, ToastPosition, ToastProps, ToastVariant};
+
 use crate::app_state::AppState;
 use crate::quality::{quality_grade, quality_rank, UNKNOWN_RANK};
 
@@ -18,12 +20,15 @@ const IMG_PATH: &str = "source/plugin/pokemon/images";
 /// 昵称上限（对齐 Dioxus 版输入框）。
 const NICKNAME_MAX: usize = 14;
 
-/// 首次进入装载：拉宠物列表，并给当前选中宠物拉详情。
+/// 首次进入装载：拉宠物列表，并按当前标签页拉详情/装备。
 pub fn ensure_loaded(state: &AppState) {
     if state.center.pokemons.get().is_none() {
         load_list(state);
     } else {
         ensure_detail(state);
+    }
+    if state.my_pm.tab.get() == crate::state::MyPokemonTab::Equipment {
+        ensure_equipment(state);
     }
 }
 
@@ -41,7 +46,7 @@ fn ensure_detail(state: &AppState) {
     let Some(list) = state.center.pokemons.get().and_then(|r| r.ok()) else {
         return;
     };
-    let Some((id, name, is_shiny)) = pick_target(&list, state.my_pm.selected_id.get()) else {
+    let Some(pm) = pick_target(&list, state.my_pm.selected_id.get()) else {
         state.my_pm.detail.inner().set(Some(Ok(Default::default())));
         crate::request_remount();
         return;
@@ -50,15 +55,14 @@ fn ensure_detail(state: &AppState) {
     let already = detail
         .as_ref()
         .and_then(|r| r.as_ref().ok())
-        .map(|d| d.id == id && !d.name.is_empty())
+        .map(|d| d.id == pm.id && !d.name.is_empty())
         .unwrap_or(false);
     if already {
         return;
     }
-    let _ = (name, is_shiny);
     let my = state.my_pm.clone();
     crate::api::pokemon_detail(
-        id,
+        pm.id,
         Box::new(move |result| {
             my.detail.inner().set(Some(result));
             crate::request_remount();
@@ -71,11 +75,11 @@ fn ensure_detail(state: &AppState) {
 fn pick_target(
     list: &[crate::state::PokemonBasic],
     selected: Option<u64>,
-) -> Option<(u64, String, bool)> {
-    let pm = selected
+) -> Option<crate::state::PokemonBasic> {
+    selected
         .and_then(|id| list.iter().find(|p| p.id == id))
-        .or_else(|| list.first())?;
-    Some((pm.id, pm.display_name(), pm.is_shiny))
+        .or_else(|| list.first())
+        .cloned()
 }
 
 /// 切换选中的宠物。
@@ -86,12 +90,15 @@ pub fn select_pokemon(state: &AppState, id: u64) {
     let my = state.my_pm.clone();
     my.selected_id.inner().set(Some(id));
     my.detail.inner().set(None);
+    my.equipment.inner().set(None);
+    my.equip_selected.inner().set(None);
     // 切换宠物时退出编辑态，避免把上一只的输入带过去。
     my.editing.inner().set(false);
     my.save_error.inner().set(None);
     my.save_success.inner().set(false);
     crate::request_remount();
     ensure_detail(state);
+    ensure_equipment(state);
 }
 
 /// 开始编辑昵称。
@@ -176,6 +183,314 @@ pub fn submit_rename(state: &AppState) {
 }
 
 // ---------------------------------------------------------------------------
+// 装备标签页：动作入口（delegation.rs 调用）
+// ---------------------------------------------------------------------------
+
+/// 切换标签页（进入装备页时装载装备数据）。
+pub fn switch_tab(state: &AppState, tab: crate::state::MyPokemonTab) {
+    let my = state.my_pm.clone();
+    if my.tab.get() == tab {
+        return;
+    }
+    my.tab.inner().set(tab);
+    // 切标签页时清掉装备选择，避免残留高亮。
+    my.equip_selected.inner().set(None);
+    crate::request_remount();
+    if tab == crate::state::MyPokemonTab::Equipment {
+        ensure_equipment(state);
+    }
+}
+
+/// 装备数据缺失时拉取（当前选中宠物）。
+pub fn ensure_equipment(state: &AppState) {
+    let already = state
+        .my_pm
+        .equipment
+        .get()
+        .map(|r| r.is_ok())
+        .unwrap_or(false);
+    if already {
+        return;
+    }
+    let Some(list) = state.center.pokemons.get().and_then(|r| r.ok()) else {
+        return;
+    };
+    let Some(pm) = pick_target(&list, state.my_pm.selected_id.get()) else {
+        return;
+    };
+    let my = state.my_pm.clone();
+    crate::api::equipment(
+        pm.id,
+        Box::new(move |result| {
+            my.equipment.inner().set(Some(result));
+            crate::request_remount();
+        }),
+    );
+}
+
+fn reload_equipment(state: &AppState) {
+    let Some(list) = state.center.pokemons.get().and_then(|r| r.ok()) else {
+        return;
+    };
+    let Some(pm) = pick_target(&list, state.my_pm.selected_id.get()) else {
+        return;
+    };
+    let st = state.clone();
+    crate::api::equipment(
+        pm.id,
+        Box::new(move |result| {
+            st.my_pm.equipment.inner().set(Some(result));
+            crate::request_remount();
+        }),
+    );
+    // 装备会改 HP 上限，宠物列表（与属性页详情）一并失效重拉。
+    state.my_pm.detail.inner().set(None);
+    crate::api::pokemon_list({
+        let st2 = state.clone();
+        Box::new(move |result| {
+            st2.center.pokemons.inner().set(Some(result));
+            crate::request_remount();
+        })
+    });
+}
+
+/// 动作收尾：清 loading、清选择、刷数据（失败也刷——服务端可能完成了
+/// 部分步骤，对齐 Dioxus 版 finish_equipment_action）。
+fn finish_equip_action(state: &AppState, message: Option<(crate::state::ToastKind, String)>) {
+    let my = state.my_pm.clone();
+    if let Some((kind, msg)) = message {
+        crate::state::mypm_show_toast_silent(&my, kind, msg);
+    }
+    my.equip_loading.inner().set(false);
+    my.equip_selected.inner().set(None);
+    crate::request_remount();
+    reload_equipment(state);
+}
+
+/// 点背包装备卡：未装备的记录选中/再点取消；已占用的不可选。
+pub fn select_inventory_item(state: &AppState, myitem_id: u64) {
+    let my = state.my_pm.clone();
+    if my.equip_loading.get() {
+        return;
+    }
+    let Some(Ok(eq)) = my.equipment.get() else {
+        return;
+    };
+    let Some(item) = eq.owned.iter().find(|i| i.myitem_id == myitem_id) else {
+        return;
+    };
+    if item.is_equipped || item.equipped_count > 0 {
+        return;
+    }
+    let selected = my.equip_selected.get();
+    if let Some(sel) = selected {
+        if sel.from_inventory && sel.myitem_id == myitem_id {
+            my.equip_selected.inner().set(None);
+            crate::request_remount();
+            return;
+        }
+    }
+    my.equip_selected
+        .inner()
+        .set(Some(crate::state::SelectedEquip {
+            from_inventory: true,
+            myitem_id,
+            slot_index: None,
+        }));
+    crate::request_remount();
+}
+
+/// 点装备槽：按当前选择分派（装载 / 移动 / 选中已装备）。
+pub fn click_slot(state: &AppState, slot_index: u32) {
+    let my = state.my_pm.clone();
+    if my.equip_loading.get() {
+        return;
+    }
+    let Some(Ok(eq)) = my.equipment.get() else {
+        return;
+    };
+    let occupied = eq
+        .slots
+        .iter()
+        .find(|s| s.slot_index == slot_index)
+        .and_then(|s| s.item.as_ref())
+        .is_some();
+
+    match my.equip_selected.get() {
+        Some(sel) if sel.from_inventory => {
+            // 装载：目标槽被占时先卸下。
+            my.equip_loading.inner().set(true);
+            crate::request_remount();
+            if occupied {
+                unequip_then(
+                    state,
+                    slot_index,
+                    Box::new(move |st| {
+                        equip_to(&st, sel.myitem_id, slot_index, "装备成功");
+                    }),
+                );
+            } else {
+                equip_to(state, sel.myitem_id, slot_index, "装备成功");
+            }
+        }
+        Some(sel) => {
+            let Some(from_slot) = sel.slot_index else {
+                return;
+            };
+            if from_slot == slot_index {
+                // 点原槽：取消选择。
+                my.equip_selected.inner().set(None);
+                crate::request_remount();
+                return;
+            }
+            // 移动：目标槽被占时先卸下，再卸原槽，最后装到目标槽。
+            my.equip_loading.inner().set(true);
+            crate::request_remount();
+            if occupied {
+                unequip_then(
+                    state,
+                    slot_index,
+                    Box::new(move |st| {
+                        unequip_then(
+                            &st,
+                            from_slot,
+                            Box::new(move |st2| {
+                                equip_to(&st2, sel.myitem_id, slot_index, "装备移动成功");
+                            }),
+                        );
+                    }),
+                );
+            } else {
+                unequip_then(
+                    state,
+                    from_slot,
+                    Box::new(move |st| {
+                        equip_to(&st, sel.myitem_id, slot_index, "装备移动成功");
+                    }),
+                );
+            }
+        }
+        None if occupied => {
+            // 选中槽内已装备的物品（等待卸下/移动指令）。
+            let slot_item = eq
+                .slots
+                .iter()
+                .find(|s| s.slot_index == slot_index)
+                .and_then(|s| s.item.clone());
+            if let Some(item) = slot_item {
+                my.equip_selected
+                    .inner()
+                    .set(Some(crate::state::SelectedEquip {
+                        from_inventory: false,
+                        myitem_id: item.myitem_id,
+                        slot_index: Some(slot_index),
+                    }));
+                crate::request_remount();
+            }
+        }
+        None => {}
+    }
+}
+
+/// 点物品栏空白处：当前选中的是已装备物品时执行卸下。
+pub fn unequip_selected_from_section(state: &AppState) {
+    let my = state.my_pm.clone();
+    if my.equip_loading.get() {
+        return;
+    }
+    let Some(sel) = my.equip_selected.get() else {
+        return;
+    };
+    if sel.from_inventory {
+        // 背包物品选中时点空白：取消选择。
+        my.equip_selected.inner().set(None);
+        crate::request_remount();
+        return;
+    }
+    let Some(slot_index) = sel.slot_index else {
+        return;
+    };
+    my.equip_loading.inner().set(true);
+    crate::request_remount();
+    unequip_slot(state, slot_index);
+}
+
+fn current_pokemon_id(state: &AppState) -> Option<u64> {
+    let list = state.center.pokemons.get().and_then(|r| r.ok())?;
+    pick_target(&list, state.my_pm.selected_id.get()).map(|pm| pm.id)
+}
+
+fn unequip_slot(state: &AppState, slot_index: u32) {
+    let Some(pid) = current_pokemon_id(state) else {
+        finish_equip_action(state, None);
+        return;
+    };
+    let st = state.clone();
+    crate::api::unequip_item(
+        pid,
+        slot_index,
+        Box::new(move |result| match result {
+            Ok(()) => {
+                finish_equip_action(
+                    &st,
+                    Some((crate::state::ToastKind::Success, "卸下装备成功".to_string())),
+                );
+            }
+            Err(e) => {
+                finish_equip_action(
+                    &st,
+                    Some((crate::state::ToastKind::Error, format!("卸下装备失败: {e}"))),
+                );
+            }
+        }),
+    );
+}
+
+fn unequip_then(state: &AppState, slot_index: u32, next: Box<dyn FnOnce(AppState)>) {
+    let Some(pid) = current_pokemon_id(state) else {
+        finish_equip_action(state, None);
+        return;
+    };
+    let st = state.clone();
+    crate::api::unequip_item(
+        pid,
+        slot_index,
+        Box::new(move |result| match result {
+            Ok(()) => next(st),
+            Err(e) => finish_equip_action(
+                &st,
+                Some((crate::state::ToastKind::Error, format!("卸下装备失败: {e}"))),
+            ),
+        }),
+    );
+}
+
+fn equip_to(state: &AppState, myitem_id: u64, slot_index: u32, success_msg: &str) {
+    let Some(pid) = current_pokemon_id(state) else {
+        finish_equip_action(state, None);
+        return;
+    };
+    let st = state.clone();
+    let msg = success_msg.to_string();
+    crate::api::equip_item(
+        pid,
+        myitem_id,
+        slot_index,
+        Box::new(move |result| match result {
+            Ok(()) => {
+                finish_equip_action(&st, Some((crate::state::ToastKind::Success, msg)));
+            }
+            Err(e) => {
+                finish_equip_action(
+                    &st,
+                    Some((crate::state::ToastKind::Error, format!("装备失败: {e}"))),
+                );
+            }
+        }),
+    );
+}
+
+// ---------------------------------------------------------------------------
 // 组件
 // ---------------------------------------------------------------------------
 
@@ -189,6 +504,7 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
     let saving = st.my_pm.saving.get();
     let save_error = st.my_pm.save_error.get();
     let save_success = st.my_pm.save_success.get();
+    let tab = st.my_pm.tab.get();
 
     let loading = list_state.is_none();
     let list = list_state
@@ -211,40 +527,108 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
     } else if let Some(err) = list_err {
         let msg = format!("加载失败：{err}");
         rsx! { div { class: "error-message", "{msg}" } }
-    } else if let Some((pm_id, pm_name, _shiny)) = current.clone() {
-        let selector = pet_selector(&list, pm_id, &st);
-        let panel = match &detail {
-            Some(d) if !d.name.is_empty() => stats_panel(
-                &st,
-                d,
-                editing,
-                &edit_value,
-                saving,
-                &save_error,
-                save_success,
-            ),
-            _ => match detail_err {
-                Some(err) => {
-                    let msg = format!("详情加载失败：{err}");
-                    rsx! { div { class: "error-message", "{msg}" } }
-                }
-                None => {
-                    let hint = format!("正在加载 {pm_name} 的属性...");
-                    rsx! { div { class: "loading", "{hint}" } }
-                }
-            },
+    } else if let Some(pm) = current.clone() {
+        let selector = pet_selector(&list, pm.id, &st);
+
+        // 标签页菜单（技能页随技能写流程接入）。
+        let stats_cls = if tab == crate::state::MyPokemonTab::Stats {
+            "mypm-tab active"
+        } else {
+            "mypm-tab"
         };
+        let equip_cls = if tab == crate::state::MyPokemonTab::Equipment {
+            "mypm-tab active"
+        } else {
+            "mypm-tab"
+        };
+        let tab_menu = rsx! {
+            div { class: "mypm-tab-menu",
+                button { class: stats_cls, "data-pm-my-pm-tab": "stats", "属性" }
+                button { class: equip_cls, "data-pm-my-pm-tab": "equipment", "装备" }
+            }
+        };
+
+        // 精灵图区（装备页时两侧展示六维加成合计）。
+        let bonus_tags = if tab == crate::state::MyPokemonTab::Equipment {
+            st.my_pm
+                .equipment
+                .get()
+                .and_then(|r| r.ok())
+                .map(|eq| bonus_tags_vnode(&eq.total_bonuses()))
+                .unwrap_or_else(VNode::empty)
+        } else {
+            VNode::empty()
+        };
+        let sprite = format!("{IMG_PATH}/spm/{}.gif", pm.type_id);
+        let sprite_alt = pm.display_name();
+        let sprite_area = rsx! {
+            div { class: "mypm-main-content",
+                div { class: "pokemon-sprite-area",
+                    div { class: "pokemon-display-with-tags",
+                        ..vec![bonus_tags]
+                        img { class: "pokemon-sprite-img", src: sprite, alt: sprite_alt }
+                    }
+                }
+                div { class: "mypm-tab-content",
+                    ..vec![match tab {
+                        crate::state::MyPokemonTab::Stats => match &detail {
+                            Some(d) if !d.name.is_empty() => stats_panel(
+                                &st,
+                                d,
+                                editing,
+                                &edit_value,
+                                saving,
+                                &save_error,
+                                save_success,
+                            ),
+                            _ => match detail_err {
+                                Some(err) => {
+                                    let msg = format!("详情加载失败：{err}");
+                                    rsx! { div { class: "error-message", "{msg}" } }
+                                }
+                                None => {
+                                    let name = pm.display_name();
+                                    let hint = format!("正在加载 {name} 的属性...");
+                                    rsx! { div { class: "loading", "{hint}" } }
+                                }
+                            },
+                        },
+                        crate::state::MyPokemonTab::Equipment => equipment_panel(&st, pm.id),
+                    }]
+                }
+            }
+        };
+
         rsx! {
             div { class: "mypm-content-area",
-                ..vec![selector]
+                ..vec![selector, tab_menu]
                 div { class: "mypm-divider" }
-                div { class: "mypm-main-content",
-                    ..vec![panel]
-                }
+                ..vec![sprite_area]
             }
         }
     } else {
         rsx! { div { class: "empty-hint", "你还没有宠物，快去冒险捕捉吧！" } }
+    };
+
+    let toast = if st.my_pm.toast_visible.get() {
+        let toast_state = st.my_pm.clone();
+        let variant = match st.my_pm.toast_kind.get() {
+            crate::state::ToastKind::Success => ToastVariant::Success,
+            crate::state::ToastKind::Error => ToastVariant::Error,
+        };
+        let message = st.my_pm.toast_message.get();
+        rsx! {
+            Toast {
+                variant: variant,
+                message: message,
+                position: ToastPosition::BottomRight,
+                on_close: Some(tairitsu_vdom::Callback::new(move |_| {
+                    toast_state.toast_visible.set(false)
+                })),
+            }
+        }
+    } else {
+        VNode::empty()
     };
 
     let icon = format!("{IMG_PATH}/item/jlq.gif");
@@ -256,6 +640,228 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
                     span { "我的宠物" }
                 }
                 div { class: "mypm-card-body", ..vec![body] }
+            }
+            ..vec![toast]
+        }
+    }
+}
+
+/// 装备加成合计标签（左 HP/攻击/防御，右 特攻/特防/速度；对齐 Dioxus
+/// BonusTagsLeft/Right，非零才显示）。
+fn bonus_tags_vnode(total: &[i64; 6]) -> VNode {
+    let names = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
+    let classes = [
+        "bonus-tag-small hp",
+        "bonus-tag-small atk",
+        "bonus-tag-small def",
+        "bonus-tag-small spat",
+        "bonus-tag-small spdef",
+        "bonus-tag-small spd",
+    ];
+    let chips: Vec<VNode> = names
+        .iter()
+        .zip(classes.iter())
+        .enumerate()
+        .filter(|(i, _)| total[*i] != 0)
+        .map(|(i, (name, cls))| {
+            let text = if total[i] > 0 {
+                format!("+{} {}", total[i], name)
+            } else {
+                format!("{} {}", total[i], name)
+            };
+            let c = cls.to_string();
+            rsx! { span { class: c, "{text}" } }
+        })
+        .collect();
+    rsx! {
+        div { class: "side-tags",
+            for i in 0..chips.len() {
+                ..vec![chips[i].clone()]
+            }
+        }
+    }
+}
+
+/// 装备标签页面板：4 槽 + 物品栏。
+fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
+    let _ = pokemon_id;
+    let equip_state = st.my_pm.equipment.get();
+    let loading = st.my_pm.equip_loading.get();
+    let selected = st.my_pm.equip_selected.get();
+
+    match &equip_state {
+        None => rsx! { div { class: "loading", "正在加载装备..." } },
+        Some(Err(error)) => {
+            let msg = format!("装备加载失败：{error}");
+            rsx! {
+                div { class: "equipment-tab",
+                    div { role: "alert", class: "error-message", "{msg}" }
+                    button {
+                        class: "btn btn-primary",
+                        "data-pm-eq-reload": "1",
+                        "重新加载装备"
+                    }
+                }
+            }
+        }
+        Some(Ok(eq)) => {
+            let has_equip_selected = selected
+                .as_ref()
+                .map(|s| !s.from_inventory)
+                .unwrap_or(false);
+            let has_inv_selected = selected.as_ref().map(|s| s.from_inventory).unwrap_or(false);
+            let section_cls = if has_equip_selected {
+                "equipment-inventory-section can-unequip"
+            } else {
+                "equipment-inventory-section"
+            };
+            let hint = if has_inv_selected {
+                "点击装备槽以装载"
+            } else if has_equip_selected {
+                "点击空白处卸下 / 点击槽位移动"
+            } else {
+                ""
+            };
+
+            let slot_nodes: Vec<VNode> = eq
+                .slots
+                .iter()
+                .map(|slot| {
+                    let idx = slot.slot_index.to_string();
+                    let filled = slot.item.is_some();
+                    let inner_cls = if filled {
+                        "equip-slot-inner filled"
+                    } else {
+                        "equip-slot-inner empty"
+                    };
+                    let is_selected_slot = selected
+                        .as_ref()
+                        .map(|s| !s.from_inventory && s.slot_index == Some(slot.slot_index))
+                        .unwrap_or(false);
+                    let overlay_cls = if is_selected_slot {
+                        "equip-slot-overlay selected"
+                    } else if has_inv_selected {
+                        "equip-slot-overlay can-equip"
+                    } else {
+                        "equip-slot-overlay"
+                    };
+                    let inner = match &slot.item {
+                        Some(item) => {
+                            let img_src = if item.image.contains('.') {
+                                item.image.clone()
+                            } else {
+                                format!("{}.gif", item.image)
+                            };
+                            let src = format!("{IMG_PATH}/item/{img_src}");
+                            let alt = item.name.clone();
+                            let title = item.name.clone();
+                            rsx! {
+                                img { class: "equip-icon", src: src, alt: alt, title: title }
+                            }
+                        }
+                        None => rsx! { span { class: "equip-plus", "＋" } },
+                    };
+                    rsx! {
+                        div { class: "equip-slot",
+                            "data-pm-eq-slot": idx,
+                            div { class: overlay_cls }
+                            div { class: inner_cls, ..vec![inner] }
+                        }
+                    }
+                })
+                .collect();
+
+            let inv_nodes: Vec<VNode> = eq
+                .owned
+                .iter()
+                .filter(|item| item.available_count > 0 || item.equipped_count > 0)
+                .map(|item| {
+                    let mid = item.myitem_id.to_string();
+                    let is_equipped = item.is_equipped || item.equipped_count > 0;
+                    let is_selected_item = selected
+                        .as_ref()
+                        .map(|s| s.from_inventory && s.myitem_id == item.myitem_id)
+                        .unwrap_or(false);
+                    let wrapper_cls = if is_equipped {
+                        "inventory-item-wrapper equipped"
+                    } else if is_selected_item {
+                        "inventory-item-wrapper selected"
+                    } else {
+                        "inventory-item-wrapper"
+                    };
+                    let img_src = if item.image.contains('.') {
+                        item.image.clone()
+                    } else {
+                        format!("{}.gif", item.image)
+                    };
+                    let src = format!("{IMG_PATH}/item/{img_src}");
+                    let alt = item.name.clone();
+                    let badge = if item.is_equipped {
+                        rsx! { div { class: "equipped-badge", "已装备" } }
+                    } else if item.equipped_count > 0 {
+                        rsx! { div { class: "equipped-badge", "其他宠物使用中" } }
+                    } else {
+                        VNode::empty()
+                    };
+                    let count = if item.available_count > 1 {
+                        let c = item.available_count.to_string();
+                        rsx! { div { class: "item-count-badge", "{c}" } }
+                    } else {
+                        VNode::empty()
+                    };
+                    let title = item.bonus_summary();
+                    rsx! {
+                        div { class: wrapper_cls,
+                            div {
+                                class: "inventory-item",
+                                title: title,
+                                "data-pm-eq-inv-item": mid,
+                                div { class: "inventory-item-icon",
+                                    img { src: src, alt: alt }
+                                }
+                                ..vec![badge, count]
+                            }
+                        }
+                    }
+                })
+                .collect();
+
+            let inv_body = if inv_nodes.is_empty() {
+                rsx! { div { class: "inventory-empty", "暂无可用装备物品" } }
+            } else {
+                rsx! {
+                    for i in 0..inv_nodes.len() {
+                        ..vec![inv_nodes[i].clone()]
+                    }
+                }
+            };
+
+            let loading_overlay = if loading {
+                rsx! { div { class: "equipment-loading-overlay", "处理中..." } }
+            } else {
+                VNode::empty()
+            };
+
+            rsx! {
+                div { class: "equipment-tab",
+                    ..vec![loading_overlay]
+                    div { class: "equipment-slots-row",
+                        for i in 0..slot_nodes.len() {
+                            ..vec![slot_nodes[i].clone()]
+                        }
+                    }
+                    div {
+                        class: section_cls,
+                        "data-pm-eq-inv-section": "1",
+                        div { class: "inventory-header",
+                            span { class: "inventory-title", "物品栏" }
+                            span { class: "equip-hint", "{hint}" }
+                        }
+                        div { class: "equipment-inventory-grid",
+                            ..vec![inv_body]
+                        }
+                    }
+                }
             }
         }
     }
@@ -392,8 +998,6 @@ fn stats_panel(
     let stats = d.stats.unwrap_or([0; 5]);
     let radar = radar_chart(stats[0], stats[1], stats[2], stats[3], stats[4]);
 
-    let sprite = format!("{IMG_PATH}/spm/{}.gif", d.type_id);
-
     // 昵称区：编辑态 / 展示态
     let name_area = if editing {
         let err_block = save_error
@@ -437,12 +1041,12 @@ fn stats_panel(
         }
     } else {
         let name_node = if has_distinct_nickname {
-            let original = d.name.clone();
+            let original_text = format!(" ({})", d.name);
             let nick = display_name.clone();
             rsx! {
                 span { class: "pokemon-name-with-original",
                     span { class: "pokemon-name", "{nick}" }
-                    span { class: "original-name", " ({original})" }
+                    span { class: "original-name", "{original_text}" }
                 }
             }
         } else {
@@ -595,9 +1199,6 @@ fn stats_panel(
                     ..vec![iv_rows]
                 }
                 ..vec![radar]
-            }
-            div { class: "pokemon-sprite-area",
-                img { class: "pokemon-sprite-img", src: sprite, alt: display_name }
             }
         }
     }

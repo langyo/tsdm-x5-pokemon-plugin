@@ -115,13 +115,16 @@ pub fn use_item(state: &AppState, item_id: u64, item_type: u64, use_target: Opti
     match target {
         "pokemon" => {
             if item_type == ITEM_TYPE_EQUIP {
-                // 装备管理在个人中心页（未移植），先提示。
-                crate::state::inv_show_toast(
-                    &state.inv,
-                    ToastKind::Error,
-                    "装备道具请等待个人中心页完成移植后使用".to_string(),
-                );
+                // 装备道具跳转我的宠物装备页（对齐 Dioxus 版：切
+                // MY_POKEMON_TAB=Equipment + CURRENT_PAGE=MyPokemon）。
+                state
+                    .my_pm
+                    .tab
+                    .inner()
+                    .set(crate::state::MyPokemonTab::Equipment);
+                state.route.inner().set(crate::app_state::Route::MyPokemon);
                 crate::request_remount();
+                crate::my_pokemon::ensure_loaded(state);
                 return;
             }
             inv.selected_item.inner().set(Some(item_id));

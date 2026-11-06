@@ -914,3 +914,144 @@ pub fn rename_pokemon(pokemon_id: u64, name: &str, on_done: Box<dyn FnOnce(Resul
         Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
     );
 }
+
+// ===========================================================================
+// 装备（我的宝可梦「装备」标签页）
+// ===========================================================================
+
+#[derive(Deserialize)]
+struct EquipmentItemDto {
+    #[serde(default)]
+    myitem_id: u64,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    description: String,
+    #[serde(default)]
+    image: String,
+    #[serde(default)]
+    equipment_hp: i32,
+    #[serde(default)]
+    equipment_atk: i32,
+    #[serde(default)]
+    equipment_def: i32,
+    #[serde(default)]
+    equipment_spatk: i32,
+    #[serde(default)]
+    equipment_spdef: i32,
+    #[serde(default)]
+    equipment_sd: i32,
+    #[serde(default)]
+    is_equipped: bool,
+    #[serde(default)]
+    equipped_count: u32,
+    #[serde(default)]
+    available_count: u32,
+}
+
+#[derive(Deserialize)]
+struct EquipmentSlotDto {
+    #[serde(default)]
+    slot_index: u32,
+    #[serde(default)]
+    item: Option<EquipmentItemDto>,
+}
+
+#[derive(Deserialize)]
+struct EquipmentResponseDto {
+    #[serde(default)]
+    equipment_slots: Vec<EquipmentSlotDto>,
+    #[serde(default)]
+    owned_items: Vec<EquipmentItemDto>,
+}
+
+fn map_equipment_item(d: EquipmentItemDto) -> crate::state::EquipmentItem {
+    crate::state::EquipmentItem {
+        myitem_id: d.myitem_id,
+        name: d.name,
+        description: d.description,
+        image: d.image,
+        equipment_hp: d.equipment_hp,
+        equipment_atk: d.equipment_atk,
+        equipment_def: d.equipment_def,
+        equipment_spatk: d.equipment_spatk,
+        equipment_spdef: d.equipment_spdef,
+        equipment_sd: d.equipment_sd,
+        is_equipped: d.is_equipped,
+        equipped_count: d.equipped_count,
+        available_count: d.available_count,
+    }
+}
+
+pub fn equipment(
+    pokemon_id: u64,
+    on_done: Box<dyn FnOnce(Result<crate::state::EquipmentData, String>)>,
+) {
+    request(
+        "pokemon",
+        &format!("equipment&pokemon_id={pokemon_id}"),
+        None,
+        Box::new(|result: Result<EquipmentResponseDto, String>| {
+            on_done(result.map(|dto| {
+                let mut slots: Vec<crate::state::EquipmentSlotData> = dto
+                    .equipment_slots
+                    .into_iter()
+                    .map(|s| crate::state::EquipmentSlotData {
+                        slot_index: s.slot_index,
+                        item: s.item.map(map_equipment_item),
+                    })
+                    .collect();
+                // 恒定补齐到 4 槽（对齐 Dioxus 版）。
+                for i in slots.len()..4 {
+                    slots.push(crate::state::EquipmentSlotData {
+                        slot_index: i as u32,
+                        item: None,
+                    });
+                }
+                crate::state::EquipmentData {
+                    slots,
+                    owned: dto
+                        .owned_items
+                        .into_iter()
+                        .map(map_equipment_item)
+                        .collect(),
+                }
+            }))
+        }),
+    );
+}
+
+pub fn equip_item(
+    pokemon_id: u64,
+    myitem_id: u64,
+    slot_index: u32,
+    on_done: Box<dyn FnOnce(Result<(), String>)>,
+) {
+    let body = serde_json::json!({
+        "pokemon_id": pokemon_id,
+        "myitem_id": myitem_id,
+        "slot_index": slot_index,
+    })
+    .to_string();
+    request(
+        "pokemon",
+        "equip_item",
+        Some(body),
+        Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
+    );
+}
+
+pub fn unequip_item(
+    pokemon_id: u64,
+    slot_index: u32,
+    on_done: Box<dyn FnOnce(Result<(), String>)>,
+) {
+    let body =
+        serde_json::json!({ "pokemon_id": pokemon_id, "slot_index": slot_index }).to_string();
+    request(
+        "pokemon",
+        "unequip_item",
+        Some(body),
+        Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
+    );
+}

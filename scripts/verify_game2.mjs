@@ -344,8 +344,8 @@ async function stepInventory() {
     skip('搜索', '列表为空');
   }
 
-  // 装备道具：纯客户端提示（无网络写）。先回「全部物品」——装备道具
-  // 不在回复药分类里，必须让它的使用按钮出现在当前 DOM。
+  // 装备道具：跳转我的宠物装备页（对齐 Dioxus 版行为）。先回「全部物品」
+  // ——装备道具不在回复药分类里，必须让它的使用按钮出现在当前 DOM。
   await evaljs(() => document.querySelector('[data-pm-inv-cat="all"]').click());
   await waitFor(async () => (await evaljs(() => document.querySelectorAll('.shop-item-card').length)) === before.length, 8000, '回到全部分类');
   const equip = before.find((c) => c.badges.includes('装备道具') && c.useId);
@@ -353,15 +353,18 @@ async function stepInventory() {
     await evaljs((id) => {
       document.querySelector(`[data-pm-inv-use="${id}"]`)?.click();
     }, equip.useId);
-    await sleep(900);
-    const t = await evaljs(() => ({
-      toast: document.querySelector("[class*='toast']")?.textContent?.trim() ?? null,
-      modal: !!document.querySelector('.modal-overlay'),
+    await waitFor(async () => (await evaljs(() => !!document.querySelector('.equipment-tab'))), 10000, '装备页跳转');
+    const jump = await evaljs(() => ({
+      activeNav: document.querySelector('.nav-link.active')?.textContent?.trim() ?? null,
+      tabActive: document.querySelector('[data-pm-my-pm-tab="equipment"]')?.className ?? '',
     }));
-    ok('装备道具提示出现', (t.toast ?? '').includes('个人中心'), t.toast ?? 'no toast');
-    ok('装备道具不打开弹窗', !t.modal);
+    ok('装备道具跳转我的宠物', jump.activeNav === '我的宠物', jump.activeNav);
+    ok('落在装备标签页', (jump.tabActive ?? '').includes('active'), jump.tabActive);
+    // 回背包继续后续断言
+    await evaljs(() => document.querySelector('button[data-pm-nav="inventory"]')?.click());
+    await waitFor(async () => (await evaljs(() => document.querySelectorAll('.shop-item-card').length)) === before.length, 10000, '回到背包');
   } else {
-    skip('装备道具提示', '数据中没有装备道具');
+    skip('装备道具跳转', '数据中没有装备道具');
   }
 
   // 宝可梦目标弹窗：只读（get_usable_pokemon）→ 关闭
@@ -449,10 +452,12 @@ async function stepMyPokemon() {
   ok('我的宠物导航激活', boot.active === '我的宠物', boot.active ?? '');
   ok('渲染我的宠物卡片', boot.hasPage);
 
+  // 先切回属性页——背包步骤的装备跳转可能把标签页留在「装备」。
+  await evaljs(() => document.querySelector('[data-pm-my-pm-tab="stats"]')?.click());
   await waitFor(
-    async () => (await evaljs(() => !document.querySelector('.loading'))),
+    async () => (await evaljs(() => !!document.querySelector('.stats-tab-layout'))),
     15000,
-    '属性数据',
+    '属性面板',
   );
   const view = await evaljs(() => {
     const radar = document.querySelector('.radar-svg');
@@ -502,6 +507,31 @@ async function stepMyPokemon() {
   await sleep(700);
   ok('取消后退出编辑态',
     await evaljs(() => !document.querySelector('[data-pm-my-pm-nick-input]')));
+
+  // 装备标签页（只读断言：渲染与提示格式；真实装载/卸下属写操作，另行验收）
+  await evaljs(() => document.querySelector('[data-pm-my-pm-tab="equipment"]')?.click());
+  await waitFor(
+    async () => (await evaljs(() => !!document.querySelector('.equipment-tab'))),
+    15000,
+    '装备页',
+  );
+  const eqView = await evaljs(() => ({
+    slots: document.querySelectorAll('.equip-slot').length,
+    invItems: document.querySelectorAll('[data-pm-eq-inv-item]').length,
+    invTitle: document.querySelector('[data-pm-eq-inv-item]')?.getAttribute('title') ?? null,
+    panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
+  }));
+  ok('装备页无 panic', eqView.panic === null, eqView.panic ?? '');
+  ok('装备槽恒定 4 个', eqView.slots === 4, `got ${eqView.slots}`);
+  if (eqView.invItems > 0) {
+    ok('装备卡悬浮提示为加成格式', /(HP|攻击|防御|特攻|特防|速度)\s*[+-]\d+/.test(eqView.invTitle ?? ''),
+      eqView.invTitle ?? '');
+  } else {
+    skip('装备卡细节', '没有可装备物品');
+  }
+  // 回属性页（保持后续步骤的页面状态干净）
+  await evaljs(() => document.querySelector('[data-pm-my-pm-tab="stats"]')?.click());
+  await sleep(600);
 }
 
 async function stepShopAndHome() {
