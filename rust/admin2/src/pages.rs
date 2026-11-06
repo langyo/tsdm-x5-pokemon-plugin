@@ -43,6 +43,16 @@ pub fn ensure_loaded(state: &AppState) {
                 reload_list(crate::state::EVOLUTION_SPEC, &state.evolution);
             }
         }
+        AdminRoute::SkillType => {
+            if state.skill.loaded.get().is_none() && !state.skill.busy.get() {
+                reload_list(crate::state::SKILL_SPEC, &state.skill);
+            }
+        }
+        AdminRoute::EffectData => {
+            if state.effect.loaded.get().is_none() && !state.effect.busy.get() {
+                reload_list(crate::state::EFFECT_SPEC, &state.effect);
+            }
+        }
         _ => {}
     }
 }
@@ -395,6 +405,8 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         AdminRoute::MapData => map_data_page(&st),
         AdminRoute::UserData => user_data_page(&st),
         AdminRoute::EvolutionData => evolution_data_page(&st),
+        AdminRoute::SkillType => skill_data_page(&st),
+        AdminRoute::EffectData => effect_data_page(&st),
         _ => {
             let title = route.title();
             rsx! {
@@ -1537,6 +1549,311 @@ fn evolution_data_page(st: &AppState) -> VNode {
                     class: "admin-btn",
                     disabled: busy,
                     "data-pm-adm-l-reload": "ev",
+                    "刷新"
+                }
+            }
+            ..vec![body]
+        }
+    }
+}
+
+/// 技能数据页（切片 7a）：列表页模板 + 泛型动作/属性（sk 页键）。
+fn skill_data_page(st: &AppState) -> VNode {
+    let ls = st.skill.clone();
+    let load_state = ls.loaded.get();
+    let busy = ls.busy.get();
+    let filtered = ls.filtered.get();
+    let err = ls.err.get();
+    let rows = ls.rows.get();
+    let total = ls.total.get();
+    let loaded_count = ls.loaded_count.get();
+    let has_more = !filtered && loaded_count < total;
+    let f_id = ls.f_id.get();
+    let f_name = ls.f_name.get();
+    let f_a = ls.f_a.get();
+    let count_text = if filtered {
+        format!("筛选结果 {loaded_count} 条")
+    } else {
+        format!("已加载 {loaded_count} / {total} 条")
+    };
+
+    let body = match &load_state {
+        None => rsx! { div { class: "admin-loading", "正在加载技能数据..." } },
+        Some(Err(e)) => {
+            let msg = format!("加载失败：{e}");
+            rsx! {
+                div { class: "admin-card admin-error",
+                    p { "{msg}" }
+                    button {
+                        class: "admin-btn",
+                        disabled: busy,
+                        "data-pm-adm-l-reload": "sk",
+                        "重新加载"
+                    }
+                }
+            }
+        }
+        Some(Ok(())) => {
+            let err_bar = match &err {
+                Some(e) => {
+                    let msg = format!("筛选失败：{e}");
+                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
+                }
+                None => VNode::empty(),
+            };
+            let table = if rows.is_empty() {
+                rsx! { p { class: "admin-empty-hint", "暂无技能数据。" } }
+            } else {
+                let mut trs: Vec<VNode> = Vec::new();
+                for item in rows.iter() {
+                    let id = json_u64(item, "id").to_string();
+                    let name = json_str(item, "name");
+                    let desc = json_str(item, "description");
+                    let desc_short = if desc.chars().count() > 18 {
+                        let cut: String = desc.chars().take(18).collect();
+                        format!("{cut}…")
+                    } else {
+                        desc
+                    };
+                    let level = json_u64(item, "min_level_limit").to_string();
+                    let uses = json_u64(item, "use_times_limit").to_string();
+                    // available_pokemons 是种族 ID 数组，只显示数量。
+                    let species_count = item
+                        .get("available_pokemons")
+                        .and_then(|l| l.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0)
+                        .to_string();
+                    trs.push(rsx! {
+                        tr {
+                            td { "{id}" }
+                            td { "{name}" }
+                            td { class: "adm-pk-stats", "{desc_short}" }
+                            td { "{level}" }
+                            td { "{uses}" }
+                            td { "{species_count}" }
+                        }
+                    });
+                }
+                rsx! {
+                    table { class: "adm-table",
+                        thead {
+                            tr {
+                                th { "ID" }
+                                th { "名称" }
+                                th { "描述" }
+                                th { "等级限制" }
+                                th { "次数" }
+                                th { "可学种族数" }
+                            }
+                        }
+                        tbody {
+                            for i in 0..trs.len() {
+                                ..vec![trs[i].clone()]
+                            }
+                        }
+                    }
+                }
+            };
+            let more_btn = if has_more {
+                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
+                rsx! {
+                    div { class: "adm-load-more",
+                        button {
+                            class: "admin-btn",
+                            disabled: busy,
+                            "data-pm-adm-l-more": "sk",
+                            "{label}"
+                        }
+                    }
+                }
+            } else {
+                VNode::empty()
+            };
+            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
+            rsx! {
+                for i in 0..parts.len() {
+                    ..vec![parts[i].clone()]
+                }
+            }
+        }
+    };
+
+    rsx! {
+        section { class: "admin-page admin-config-page",
+            div { class: "admin-page-header",
+                h2 { "技能数据" }
+                span { class: "adm-count", "{count_text}" }
+            }
+            div { class: "admin-card adm-filter-bar",
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "ID（精确）",
+                    value: f_id,
+                    "data-pm-adm-f-id": "sk"
+                }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "名称（包含）",
+                    value: f_name,
+                    "data-pm-adm-f-name": "sk"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-kind",
+                    r#type: "text",
+                    placeholder: "种族 ID（如 25 皮卡丘）",
+                    value: f_a,
+                    "data-pm-adm-f-a": "sk"
+                }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-l-apply": "sk",
+                    "筛选"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reset": "sk",
+                    "重置"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reload": "sk",
+                    "刷新"
+                }
+            }
+            ..vec![body]
+        }
+    }
+}
+
+/// 效果数据页（切片 7b）：服务端无 filter 端点，只 list/count + 分页。
+fn effect_data_page(st: &AppState) -> VNode {
+    let ls = st.effect.clone();
+    let load_state = ls.loaded.get();
+    let busy = ls.busy.get();
+    let rows = ls.rows.get();
+    let total = ls.total.get();
+    let loaded_count = ls.loaded_count.get();
+    let has_more = loaded_count < total;
+    let count_text = format!("已加载 {loaded_count} / {total} 条");
+
+    let body = match &load_state {
+        None => rsx! { div { class: "admin-loading", "正在加载效果数据..." } },
+        Some(Err(e)) => {
+            let msg = format!("加载失败：{e}");
+            rsx! {
+                div { class: "admin-card admin-error",
+                    p { "{msg}" }
+                    button {
+                        class: "admin-btn",
+                        disabled: busy,
+                        "data-pm-adm-l-reload": "ef",
+                        "重新加载"
+                    }
+                }
+            }
+        }
+        Some(Ok(())) => {
+            let table = if rows.is_empty() {
+                rsx! { p { class: "admin-empty-hint", "暂无效果数据。" } }
+            } else {
+                let mut trs: Vec<VNode> = Vec::new();
+                for item in rows.iter() {
+                    let id = json_u64(item, "id").to_string();
+                    let code = json_str(item, "code");
+                    let kind = json_str(item, "kind");
+                    let version = json_u64(item, "version").to_string();
+                    let hooks = item
+                        .get("hooks")
+                        .and_then(|h| h.as_array())
+                        .map(|a| {
+                            a.iter()
+                                .filter_map(|x| x.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        })
+                        .unwrap_or_default();
+                    let desc = json_str(item, "description");
+                    let desc_short = if desc.chars().count() > 20 {
+                        let cut: String = desc.chars().take(20).collect();
+                        format!("{cut}…")
+                    } else {
+                        desc
+                    };
+                    trs.push(rsx! {
+                        tr {
+                            td { "{id}" }
+                            td { "{code}" }
+                            td { "{kind}" }
+                            td { class: "adm-pk-stats", "{hooks}" }
+                            td { "{version}" }
+                            td { class: "adm-pk-stats", "{desc_short}" }
+                        }
+                    });
+                }
+                rsx! {
+                    table { class: "adm-table",
+                        thead {
+                            tr {
+                                th { "ID" }
+                                th { "效果码" }
+                                th { "类型" }
+                                th { "钩子" }
+                                th { "版本" }
+                                th { "描述" }
+                            }
+                        }
+                        tbody {
+                            for i in 0..trs.len() {
+                                ..vec![trs[i].clone()]
+                            }
+                        }
+                    }
+                }
+            };
+            let more_btn = if has_more {
+                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
+                rsx! {
+                    div { class: "adm-load-more",
+                        button {
+                            class: "admin-btn",
+                            disabled: busy,
+                            "data-pm-adm-l-more": "ef",
+                            "{label}"
+                        }
+                    }
+                }
+            } else {
+                VNode::empty()
+            };
+            let parts: Vec<VNode> = vec![table, more_btn];
+            rsx! {
+                for i in 0..parts.len() {
+                    ..vec![parts[i].clone()]
+                }
+            }
+        }
+    };
+
+    rsx! {
+        section { class: "admin-page admin-config-page",
+            div { class: "admin-page-header",
+                h2 { "效果数据" }
+                span { class: "adm-count", "{count_text}" }
+            }
+            div { class: "admin-card adm-filter-bar",
+                span { class: "admin-config-hint",
+                    "战斗引擎 2.0 效果模板。服务端未提供筛选端点，此页仅支持刷新与分页。"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reload": "ef",
                     "刷新"
                 }
             }

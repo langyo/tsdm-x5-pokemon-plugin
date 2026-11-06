@@ -85,6 +85,8 @@ fn list_of(st: &AppState, page: &str) -> (crate::state::ListState, crate::state:
         "mp" => (st.map.clone(), crate::state::MAP_SPEC),
         "us" => (st.user.clone(), crate::state::USER_SPEC),
         "ev" => (st.evolution.clone(), crate::state::EVOLUTION_SPEC),
+        "sk" => (st.skill.clone(), crate::state::SKILL_SPEC),
+        "ef" => (st.effect.clone(), crate::state::EFFECT_SPEC),
         _ => (st.pokemon.clone(), crate::state::POKEMON_SPEC),
     }
 }

@@ -278,6 +278,36 @@ pub const EVOLUTION_SPEC: EntitySpec = EntitySpec {
     name_placeholder: "进化来源（宠物名）",
 };
 
+/// 技能数据（切片 7a 实例化）。「可用此的种族」是数字 ID（服务端按
+/// available_pokemons 里的 ",id," 模式匹配）。
+pub const SKILL_SPEC: EntitySpec = EntitySpec {
+    entity: "skill_type",
+    title: "技能数据",
+    a: Some(FilterSpec {
+        tag: "可用此的种族",
+        operator: "contains",
+        placeholder: "种族 ID（如 25 皮卡丘）",
+    }),
+    b: None,
+    id_tag: "ID",
+    name_tag: "名称",
+    name_operator: "contains",
+    name_placeholder: "名称（包含）",
+};
+
+/// 效果数据（切片 7b 实例化）。服务端没有 filter_effect_data，
+/// 前端也不提供筛选（与 Dioxus 版一致，只 list/count + 分页）。
+pub const EFFECT_SPEC: EntitySpec = EntitySpec {
+    entity: "effect_data",
+    title: "效果数据",
+    a: None,
+    b: None,
+    id_tag: "ID",
+    name_tag: "名称",
+    name_operator: "contains",
+    name_placeholder: "名称（包含）",
+};
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -289,6 +319,8 @@ pub struct AppState {
     pub map: ListState,
     pub user: ListState,
     pub evolution: ListState,
+    pub skill: ListState,
+    pub effect: ListState,
 }
 
 impl AppState {
@@ -302,6 +334,8 @@ impl AppState {
             map: ListState::new(),
             user: ListState::new(),
             evolution: ListState::new(),
+            skill: ListState::new(),
+            effect: ListState::new(),
         }
     }
 }
