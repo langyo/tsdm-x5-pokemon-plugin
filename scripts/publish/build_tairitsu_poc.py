@@ -61,7 +61,7 @@ INTERFACE_MAP = {
     "document": ("dom", ["createElement", "createTextNode", "getBody"]),
     "dom-token-list": ("css", ["add", "contains", "remove"]),
     "element": ("dom", [
-        "getBoundingClientRect", "getClassList", "getClientHeight",
+        "getAttribute", "getBoundingClientRect", "getClassList", "getClientHeight",
         "getScrollHeight", "getScrollTop", "removeAttribute", "setAttribute",
         "setInnerHtml", "setScrollTop",
     ]),
@@ -79,8 +79,8 @@ INTERFACE_MAP = {
     ]),
     # node 缺 getChildNodes（0.5.26 world 新增），由 shim 生成段补写。
     "node": ("dom", [
-        "appendChild", "getFirstChild", "insertBefore", "removeChild",
-        "setTextContent",
+        "appendChild", "getFirstChild", "getParentElement", "insertBefore",
+        "removeChild", "setTextContent",
     ]),
     # node-list 整个接口 tarball 缺失，shim 生成段全手写。
     "node-list": (None, ["getLength", "item"]),

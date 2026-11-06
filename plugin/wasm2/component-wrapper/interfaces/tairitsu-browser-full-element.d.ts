@@ -5,6 +5,7 @@ export function setScrollTop(self: ElementHandle, value: number): void;
 export function getScrollHeight(self: ElementHandle): number;
 export function getClientHeight(self: ElementHandle): number;
 export function getClassList(self: ElementHandle): bigint;
+export function getAttribute(self: ElementHandle, qualifiedName: string): string | undefined;
 export function setAttribute(self: ElementHandle, qualifiedName: string, value: string): void;
 export function removeAttribute(self: ElementHandle, qualifiedName: string): void;
 export function setInnerHtml(self: ElementHandle, value: string): void;

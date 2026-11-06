@@ -1,4 +1,5 @@
 /** @module Interface tairitsu-browser:full/node@0.2.0 **/
+export function getParentElement(self: NodeHandle): bigint | undefined;
 export function getChildNodes(self: NodeHandle): bigint;
 export function getFirstChild(self: NodeHandle): bigint | undefined;
 export function setTextContent(self: NodeHandle, value: string | undefined): void;

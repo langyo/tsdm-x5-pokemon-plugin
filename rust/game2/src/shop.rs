@@ -124,16 +124,90 @@ fn diag(_attr: &str, _msg: &str) {}
 
 #[cfg(target_family = "wasm")]
 fn promise_commit(state: &ShopState) {
+    use std::cell::Cell;
+    thread_local! {
+        // 递增计数：MutationObserver 靠值变化判定，恒写同一个值会让
+        // 第二次及之后的数据刷新永远不派发（分页/切类全哑）。
+        static TICK: Cell<u64> = const { Cell::new(0) };
+    }
     let cid = state.component_id.get() as usize;
     tairitsu_vdom::runtime::mark_dirty_deferred(cid);
     use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::set_attribute;
-    if let Some(app) = crate::element_handle("app") {
-        let _ = set_attribute(app, "data-flush-pending", "1");
-    }
+    TICK.with(|t| {
+        let n = t.get() + 1;
+        t.set(n);
+        if let Some(app) = crate::element_handle("app") {
+            let _ = set_attribute(app, "data-flush-pending", &n.to_string());
+        }
+    });
 }
 
 #[cfg(not(target_family = "wasm"))]
 fn promise_commit(_state: &ShopState) {}
+
+
+// ---------------------------------------------------------------------------
+// 委托动作入口（delegation.rs 调用；全部走事件线程，可安全 mark_dirty）
+// ---------------------------------------------------------------------------
+
+pub fn select_category(state: &ShopState, cat: Option<u32>) {
+    if state.buying.get() { return; }
+    state.category.set(cat);
+    state.page.set(1);
+    reload(state);
+}
+
+pub fn goto_page(state: &ShopState, page: u32) {
+    let last = state.total_pages.get().max(1) as u32;
+    let page = page.clamp(1, last);
+    if page == state.page.get() { return; }
+    state.page.set(page);
+    reload(state);
+}
+
+fn current_list(state: &ShopState) -> Option<(bool, Vec<crate::state::ShopItem>, Vec<crate::state::ShopPet>)> {
+    let is_pet = state.category.get() == PET_CATEGORY;
+    if is_pet {
+        match state.pets.get() {
+            Some(Ok(pets)) => Some((true, Vec::new(), pets)),
+            _ => None,
+        }
+    } else {
+        match state.items.get() {
+            Some(Ok(items)) => Some((false, items, Vec::new())),
+            _ => None,
+        }
+    }
+}
+
+pub fn buy_item_by_id(state: &ShopState, id: u64) {
+    let Some((false, items, _)) = current_list(state) else { return };
+    let Some(item) = items.iter().find(|i| i.id == id) else { return };
+    buy_item(state, item);
+}
+
+pub fn buy_pet_by_id(state: &ShopState, id: u64) {
+    let Some((true, _, pets)) = current_list(state) else { return };
+    let Some(pet) = pets.iter().find(|p| p.id == id) else { return };
+    buy_pet(state, pet);
+}
+
+/// 筛选提交（回车）/清除：更新关键字并重载。
+pub fn reload_from_filter(state: &ShopState, value: &str) {
+    state.keyword.set(value.trim().to_string());
+    state.page.set(1);
+    reload(state);
+}
+
+/// 纯重挂载触发（无状态变化的 UI 切换，如筛选弹层开合）。
+pub fn refresh(state: &ShopState) {
+    let _ = state;
+    crate::request_remount();
+}
+
+pub fn viewport_width_or_default() -> f64 {
+    crate::shop_logic::viewport_width().unwrap_or(1280.0)
+}
 
 fn clamp_page(state: &ShopState, total_pages: usize) {
     let last = total_pages.max(1);
@@ -330,16 +404,12 @@ fn CategoryBar(state: Box<ShopState>) -> VNode {
                         let class = if active == cat_id { "category-btn active" } else { "category-btn" };
                         let img_class = if is_pet { "cat-icon-img pet-cat-icon" } else { "cat-icon-img" };
                         let img_src = format!("{IMG_PATH}/{cat_icon}");
+                        let cat_attr = match cat_id { Some(n) => n.to_string(), None => "pet".to_string() };
                         rsx! {
                             button {
                                 class: class,
                                 disabled: buying,
-                                onclick: move |_| {
-                                    if state.buying.get() { return; }
-                                    state.category.set(cat_id);
-                                    state.page.set(1);
-                                    reload(&state);
-                                },
+                                "data-pm-cat": cat_attr,
                                 span { class: "cat-icon",
                                     img { class: img_class, src: img_src }
                                 }
@@ -357,17 +427,13 @@ fn CategoryBar(state: Box<ShopState>) -> VNode {
 #[component]
 fn FilterToggle(state: Box<ShopState>, filter_class: String) -> VNode {
     let has_value = !state.keyword.get().trim().is_empty();
-    let toggle_state = state.clone();
     rsx! {
         div { class: "shop-filter",
             button {
                 class: filter_class,
                 r#type: "button",
                 title: "按名称筛选商品",
-                onclick: move |_| {
-                    let next = !toggle_state.filter_open.get();
-                    toggle_state.filter_open.set(next);
-                },
+                "data-pm-filter-toggle": "1",
                 if has_value {
                     span { class: "filter-icon filter-icon-filled",
                         svg {
@@ -409,13 +475,10 @@ const FUNNEL_PATH: &str = r#"<path d="M3 4.5h18l-6.8 7.6v7.4l-4.4-2.4v-5L3 4.5z"
 fn FilterPopover(state: Box<ShopState>) -> VNode {
     let keyword = state.keyword.get();
     let has_value = !keyword.trim().is_empty();
-    let input_state = state.clone();
-    let key_state = state.clone();
-    let clear_state = state.clone();
     rsx! {
         div {
             class: "shop-filter-backdrop",
-            onclick: move |_| key_state.filter_open.set(false),
+            "data-pm-filter-close": "1",
         }
         div { class: "shop-filter-popover",
             label { class: "shop-filter-label", "按名称筛选" }
@@ -426,27 +489,14 @@ fn FilterPopover(state: Box<ShopState>) -> VNode {
                     placeholder: "输入名称后回车",
                     value: keyword,
                     autocomplete: "off",
-                    onchange: move |evt: tairitsu_vdom::ChangeEvent| {
-                        input_state.keyword.set(evt.value);
-                        input_state.page.set(1);
-                        reload(&input_state);
-                    },
-                    onkeydown: move |evt: tairitsu_vdom::KeyboardEvent| {
-                        if evt.key == "Escape" {
-                            state.filter_open.set(false);
-                        }
-                    },
+                    "data-pm-filter-input": "1",
                 }
                 if has_value {
                     button {
                         class: "shop-filter-clear",
                         r#type: "button",
                         title: "清除筛选",
-                        onclick: move |_| {
-                            clear_state.keyword.set(String::new());
-                            clear_state.page.set(1);
-                            reload(&clear_state);
-                        },
+                        "data-pm-filter-clear": "1",
                         Icon { name: Some(IconName::X), size: Some(12), class: Some(String::new()) }
                     }
                 }
@@ -532,20 +582,14 @@ fn ItemTile(state: Box<ShopState>, idx: usize, item: ShopItem) -> VNode {
     let title_text = item.name.clone();
     let type_name = item.type_name.clone();
 
-    let enter_state = state.clone();
-    let leave_state = state.clone();
-    let buy_state = state.clone();
-    let item_to_buy = item.clone();
-
+    let item_id_attr = item.id.to_string();
+    let tile_idx_attr = idx.to_string();
     rsx! {
         div {
             class: "shop-tile",
-            onmouseenter: move |evt: MouseEvent| {
-                let (x, y) = tooltip_anchor(&evt, ITEM_TOOLTIP_H);
-                enter_state.hover_pos.set((x, y));
-                enter_state.hover_key.set(Some(idx));
-            },
-            onmouseleave: move |_| leave_state.hover_key.set(None),
+            "data-pm-tile": tile_idx_attr,
+            "data-pm-tile-kind": "item",
+            "data-pm-buy": item_id_attr,
             div { class: "shop-tile-icon",
                 img { class: "tile-icon-img", src: img_src }
             }
@@ -561,7 +605,6 @@ fn ItemTile(state: Box<ShopState>, idx: usize, item: ShopItem) -> VNode {
                 button {
                     class: buy_class,
                     disabled: !item.can_buy || buying,
-                    onclick: move |_| buy_item(&buy_state, &item_to_buy),
                     "购买"
                 }
             }
@@ -621,10 +664,8 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
     let type_1 = pet.type_1.clone();
     let type_2 = pet.type_2.clone().unwrap_or_default();
 
-    let enter_state = state.clone();
-    let leave_state = state.clone();
-    let buy_state = state.clone();
-    let pet_to_buy = pet.clone();
+    let pet_id_attr = pet.id.to_string();
+    let tile_idx_attr = idx.to_string();
 
     let hp = format!("HP {}", pet.hp);
     let atk = format!("攻击 {}", pet.atk);
@@ -636,12 +677,9 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
     rsx! {
         div {
             class: "shop-tile pet-tile",
-            onmouseenter: move |evt: MouseEvent| {
-                let (x, y) = tooltip_anchor(&evt, PET_TOOLTIP_H);
-                enter_state.hover_pos.set((x, y));
-                enter_state.hover_key.set(Some(idx));
-            },
-            onmouseleave: move |_| leave_state.hover_key.set(None),
+            "data-pm-tile": tile_idx_attr,
+            "data-pm-tile-kind": "pet",
+            "data-pm-buypet": pet_id_attr,
             div { class: "shop-tile-icon",
                 img { class: "tile-icon-img pet-sprite-img", src: img_src }
             }
@@ -660,7 +698,6 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
                 button {
                     class: buy_class,
                     disabled: !pet.can_buy || buying,
-                    onclick: move |_| buy_pet(&buy_state, &pet_to_buy),
                     "购买"
                 }
             }
@@ -737,39 +774,29 @@ fn Paginator(state: Box<ShopState>) -> VNode {
     let current = (state.page.get() as usize).clamp(1, total);
     let entries = windowed_entries(current, total);
 
-    let prev_state = state.clone();
-    let next_state = state.clone();
-
     rsx! {
         div { class: "shop-pagination",
             button {
                 class: "pager-btn pager-nav",
                 r#type: "button",
                 disabled: current <= 1,
-                onclick: move |_| {
-                    let p = prev_state.page.get().saturating_sub(1).max(1);
-                    prev_state.page.set(p);
-                    reload(&prev_state);
-                },
+                "data-pm-page": "prev",
                 Icon { name: Some(IconName::ChevronLeft), size: Some(14), class: Some(String::new()) }
             }
             for i in 0..entries.len() {
                 {
-                    let state = state.clone();
                     match entries[i] {
                         PagerEntry::Page(p) => {
                             let active = p == current;
                             let class = if active { "pager-btn pager-num active" } else { "pager-btn pager-num" };
                             let label = p.to_string();
+                            let page_attr = label.clone();
                             rsx! {
                                 button {
                                     class: class,
                                     r#type: "button",
                                     disabled: total == 1,
-                                    onclick: move |_| {
-                                        state.page.set(p as u32);
-                                        reload(&state);
-                                    },
+                                    "data-pm-page": page_attr,
                                     "{label}"
                                 }
                             }
@@ -782,11 +809,7 @@ fn Paginator(state: Box<ShopState>) -> VNode {
                 class: "pager-btn pager-nav",
                 r#type: "button",
                 disabled: current >= total,
-                onclick: move |_| {
-                    let p = (next_state.page.get() + 1).min(total as u32);
-                    next_state.page.set(p);
-                    reload(&next_state);
-                },
+                "data-pm-page": "next",
                 Icon { name: Some(IconName::ChevronRight), size: Some(14), class: Some(String::new()) }
             }
         }
