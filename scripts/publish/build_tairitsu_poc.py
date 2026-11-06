@@ -62,8 +62,8 @@ INTERFACE_MAP = {
     "dom-token-list": ("css", ["add", "contains", "remove"]),
     "element": ("dom", [
         "getAttribute", "getBoundingClientRect", "getClassList", "getClientHeight",
-        "getScrollHeight", "getScrollTop", "removeAttribute", "setAttribute",
-        "setInnerHtml", "setScrollTop",
+        "getScrollHeight", "getScrollTop", "getTagName", "removeAttribute",
+        "setAttribute", "setInnerHtml", "setScrollTop",
     ]),
     "element-css-inline-style": ("css", ["getStyle"]),
     "event": ("events", ["getCurrentTarget", "getTarget"]),
@@ -233,6 +233,33 @@ def vendor_copy() -> None:
         sys.exit(f"vendor wasi missing: {src_browser}")
     shutil.copytree(src_browser, wasi_dir, ignore=shutil.ignore_patterns("*.d.ts"))
     print("[poc] vendored glue domains + wasi browser shims")
+
+
+def patch_glue() -> None:
+    """对 vendored glue 打补丁（每次构建幂等执行，作用于 plugin/wasm2/glue）。
+
+    已知缺陷：
+    - dom 域 getParentElement 用「元素对象」作 key 查 __elementHandles——
+      那是 handle→元素 的表，键是 bigint 句柄，元素当 key 永远查不到，
+      parent 链在第一跳就断（事件委托的 closest 语义全灭）。改用
+      glue-core 维护的 __nodeIdentity（WeakMap 元素→句柄）。
+    """
+    dom = OUT / "glue" / "dom" / "index.js"
+    if not dom.exists():
+        sys.exit("patch_glue: glue/dom/index.js missing")
+    js = dom.read_text(encoding="utf-8")
+    broken = "globalThis.__elementHandles.get(t)"
+    if broken in js:
+        js = js.replace(
+            broken,
+            "(globalThis.__nodeIdentity&&globalThis.__nodeIdentity.get(t))",
+        )
+        dom.write_text(js, encoding="utf-8")
+        print("[poc] patched glue dom: getParentElement via __nodeIdentity")
+    elif "__nodeIdentity.get(t)" in js:
+        print("[poc] glue dom already patched")
+    else:
+        print("[poc] WARN: getParentElement pattern not found; check glue version")
 
 
 def shims_from_glue(build_id: str) -> None:
@@ -654,6 +681,7 @@ def main() -> None:
         vendor_copy()
     elif not (OUT / "glue").is_dir() or not (OUT / "wasi").is_dir():
         sys.exit("--skip-vendor requires existing plugin/wasm2/glue and plugin/wasm2/wasi")
+    patch_glue()
     shims_from_glue(build_id)
     glue_core()
     write_boot_assets()

@@ -124,22 +124,13 @@ fn diag(_attr: &str, _msg: &str) {}
 
 #[cfg(target_family = "wasm")]
 fn promise_commit(state: &ShopState) {
-    use std::cell::Cell;
-    thread_local! {
-        // 递增计数：MutationObserver 靠值变化判定，恒写同一个值会让
-        // 第二次及之后的数据刷新永远不派发（分页/切类全哑）。
-        static TICK: Cell<u64> = const { Cell::new(0) };
-    }
     let cid = state.component_id.get() as usize;
     tairitsu_vdom::runtime::mark_dirty_deferred(cid);
-    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::set_attribute;
-    TICK.with(|t| {
-        let n = t.get() + 1;
-        t.set(n);
-        if let Some(app) = crate::element_handle("app") {
-            let _ = set_attribute(app, "data-flush-pending", &n.to_string());
-        }
-    });
+    // 统一走 request_remount 的计数器写 data-flush-pending：
+    // 这里若另持一个计数器，两边都从 1 起跳，观察器按「值变化」判定
+    // 时同值不派发（tooltip 首次悬停实测踩中：promise 先写 1，
+    // hover 再写 1，被当成无变化吞掉）。
+    crate::request_remount();
 }
 
 #[cfg(not(target_family = "wasm"))]

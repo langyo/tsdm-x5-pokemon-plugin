@@ -24,6 +24,16 @@ fn attr_of(handle: u64, name: &str) -> Option<String> {
     get_attribute(handle, name)
 }
 
+/// 诊断写入：#app[data-dbg]（tooltip 定位用，验证后移除）。
+#[cfg(target_family = "wasm")]
+fn dbg(tag: &str, msg: &str) {
+    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::set_attribute;
+    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::non_element_parent_node::get_element_by_id;
+    if let Some(app) = get_element_by_id(0, "app") {
+        let _ = set_attribute(app, "data-dbg", &format!("{tag}: {msg}"));
+    }
+}
+
 /// 从 target 沿 parent 链向上找第一个带指定属性的元素句柄。
 fn find_with_attr(target: u64, name: &str) -> Option<(u64, String)> {
     let mut cur = target;
@@ -37,6 +47,25 @@ fn find_with_attr(target: u64, name: &str) -> Option<(u64, String)> {
         }
     }
     None
+}
+
+/// 诊断：dump 从 target 向上的 12 层（tag + data-pm-* 属性）。
+#[cfg(target_family = "wasm")]
+fn dump_chain(target: u64) {
+    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::get_tag_name;
+    let mut cur = target;
+    let mut out = String::new();
+    for _ in 0..12 {
+        let tag = get_tag_name(cur);
+        let buy = attr_of(cur, "data-pm-buy");
+        let tile = attr_of(cur, "data-pm-tile");
+        out.push_str(&format!("{tag}[b={:?} t={:?}]<", buy.as_deref(), tile.as_deref()));
+        match get_parent_element(cur) {
+            Some(parent) => cur = parent,
+            None => break,
+        }
+    }
+    dbg("chain", &out);
 }
 
 /// 启动时在 #app 上注册全部委托监听器。
