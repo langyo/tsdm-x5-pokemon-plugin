@@ -653,6 +653,145 @@ pub fn forget_skill(state: &AppState, skill_type_id: u64) {
 }
 
 // ---------------------------------------------------------------------------
+// 属性页弹窗：努力值计算器 / 进化路径 / 进化
+// ---------------------------------------------------------------------------
+
+pub fn open_ev_modal(state: &AppState) {
+    state.my_pm.show_ev_modal.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_ev_modal(state: &AppState) {
+    state.my_pm.show_ev_modal.inner().set(false);
+    crate::request_remount();
+}
+
+/// 努力值输入变更：idx 0-5，`added` 区分当前值/追加值，夹在 0-255。
+pub fn set_ev_value(state: &AppState, idx: usize, added: bool, raw: &str) {
+    if idx >= 6 {
+        return;
+    }
+    let value: u32 = raw.trim().parse::<u32>().map(|v| v.min(255)).unwrap_or(0);
+    let my = state.my_pm.clone();
+    if added {
+        let mut arr = my.ev_added.get();
+        arr[idx] = value;
+        my.ev_added.inner().set(arr);
+    } else {
+        let mut arr = my.ev_current.get();
+        arr[idx] = value;
+        my.ev_current.inner().set(arr);
+    }
+    crate::request_remount();
+}
+
+pub fn open_evo_path_modal(state: &AppState) {
+    let my = state.my_pm.clone();
+    let Some(list) = state.center.pokemons.get().and_then(|r| r.ok()) else {
+        return;
+    };
+    let Some(pm) = pick_target(&list, state.my_pm.selected_id.get()) else {
+        return;
+    };
+    my.show_evo_path_modal.inner().set(true);
+    my.evo_path_forward.inner().set(true);
+    my.evo_path.inner().set(None);
+    crate::request_remount();
+    crate::api::evolution_path(
+        pm.type_id,
+        Box::new(move |result| {
+            my.evo_path.inner().set(Some(result));
+            crate::request_remount();
+        }),
+    );
+}
+
+pub fn close_evo_path_modal(state: &AppState) {
+    state.my_pm.show_evo_path_modal.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn switch_evo_path_tab(state: &AppState, forward: bool) {
+    state.my_pm.evo_path_forward.inner().set(forward);
+    crate::request_remount();
+}
+
+pub fn open_evolution_modal(state: &AppState) {
+    let my = state.my_pm.clone();
+    let Some(pid) = current_pokemon_id(state) else {
+        return;
+    };
+    my.show_evolution_modal.inner().set(true);
+    my.evo_check.inner().set(None);
+    crate::request_remount();
+    crate::api::evolution_check(
+        pid,
+        Box::new(move |result| {
+            my.evo_check.inner().set(Some(result));
+            crate::request_remount();
+        }),
+    );
+}
+
+pub fn close_evolution_modal(state: &AppState) {
+    let my = state.my_pm.clone();
+    if my.evolving.get() {
+        return;
+    }
+    my.show_evolution_modal.inner().set(false);
+    crate::request_remount();
+}
+
+/// 执行进化：成功后关闭弹窗、刷列表与详情（形态会变）。
+pub fn evolve_to(state: &AppState, to_id: u64, to_name: &str) {
+    let my = state.my_pm.clone();
+    if my.evolving.get() {
+        return;
+    }
+    let Some(pid) = current_pokemon_id(state) else {
+        return;
+    };
+    my.evolving.inner().set(true);
+    crate::request_remount();
+    let st = state.clone();
+    let name = to_name.to_string();
+    crate::api::evolve(
+        pid,
+        to_id,
+        Box::new(move |result| {
+            let my = st.my_pm.clone();
+            match result {
+                Ok(new_name) => {
+                    let shown = if new_name.is_empty() { name } else { new_name };
+                    crate::state::mypm_show_toast_silent(
+                        &my,
+                        crate::state::ToastKind::Success,
+                        format!("🎉 进化成功！进化为了 {shown}"),
+                    );
+                    my.show_evolution_modal.inner().set(false);
+                    // 形态/名字/属性全变：列表与详情都失效重拉。
+                    my.detail.inner().set(None);
+                    let st2 = st.clone();
+                    crate::api::pokemon_list(Box::new(move |result| {
+                        st2.center.pokemons.inner().set(Some(result));
+                        crate::request_remount();
+                    }));
+                }
+                Err(e) => {
+                    crate::state::mypm_show_toast_silent(
+                        &my,
+                        crate::state::ToastKind::Error,
+                        format!("进化失败：{e}"),
+                    );
+                }
+            }
+            my.evolving.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+}
+
+// ---------------------------------------------------------------------------
 // 组件
 // ---------------------------------------------------------------------------
 
@@ -785,6 +924,23 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
     } else {
         VNode::empty()
     };
+    // 属性页三弹窗。
+    let ev_modal = if st.my_pm.show_ev_modal.get() {
+        ev_calculator_modal(&st)
+    } else {
+        VNode::empty()
+    };
+    let evo_path_modal = if st.my_pm.show_evo_path_modal.get() {
+        evo_path_modal(&st)
+    } else {
+        VNode::empty()
+    };
+    let evolution_modal = if st.my_pm.show_evolution_modal.get() {
+        evolution_modal(&st)
+    } else {
+        VNode::empty()
+    };
+    let modals: Vec<VNode> = vec![ev_modal, evo_path_modal, evolution_modal];
 
     let toast = if st.my_pm.toast_visible.get() {
         let toast_state = st.my_pm.clone();
@@ -817,7 +973,12 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
                 }
                 div { class: "mypm-card-body", ..vec![body] }
             }
-            ..vec![learn_modal, toast]
+            ..{
+                let mut all = vec![learn_modal];
+                all.extend(modals.iter().cloned());
+                all.push(toast);
+                all
+            }
         }
     }
 }
@@ -1373,6 +1534,11 @@ fn stats_panel(
                         span { class: "affection-value", "{affection}" }
                     }
                     ..vec![iv_rows]
+                    div { class: "tool-buttons-col",
+                        button { class: "ev-calculator-btn", "data-pm-my-pm-ev-open": "1", "努力值计算器" }
+                        button { class: "ev-calculator-btn", "data-pm-my-pm-evo-path-open": "1", "进化路径" }
+                        button { class: "ev-calculator-btn", "data-pm-my-pm-evo-open": "1", "进化" }
+                    }
                 }
                 ..vec![radar]
             }
@@ -1738,6 +1904,296 @@ fn learn_item(skill: &crate::state::LearnableSkill, loading: bool) -> VNode {
             }
             if !skill.description.is_empty() {
                 div { class: "skill-description", "{sdesc}" }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 属性页弹窗：努力值计算器 / 进化路径 / 进化
+// ---------------------------------------------------------------------------
+
+const EV_STAT_NAMES: [&str; 6] = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
+
+/// 努力值计算器（纯客户端）：当前值 + 计划追加，单项 ≤255、总计 ≤510。
+fn ev_calculator_modal(st: &AppState) -> VNode {
+    let current = st.my_pm.ev_current.get();
+    let added = st.my_pm.ev_added.get();
+    let totals: Vec<u32> = current
+        .iter()
+        .zip(added.iter())
+        .map(|(c, a)| c + a)
+        .collect();
+    let grand: u32 = totals.iter().sum();
+    let valid = totals.iter().all(|t| *t <= 255) && grand <= 510;
+    let (status_cls, status_text) = if valid {
+        ("ev-status-valid", "配置有效")
+    } else {
+        ("ev-status-invalid", "配置无效（超过限制）")
+    };
+
+    let header_cells: Vec<VNode> = EV_STAT_NAMES
+        .iter()
+        .map(|n| {
+            let label = *n;
+            rsx! { div { class: "ev-cell ev-header", "{label}" } }
+        })
+        .collect();
+
+    let cur_cells: Vec<VNode> = (0..6)
+        .map(|i| {
+            let attr = format!("cur-{i}");
+            let value = current[i].to_string();
+            rsx! {
+                div { class: "ev-cell",
+                    input {
+                        class: "ev-input",
+                        r#type: "number",
+                        min: "0",
+                        max: "255",
+                        value: value,
+                        "data-pm-ev-input": attr
+                    }
+                }
+            }
+        })
+        .collect();
+    let add_cells: Vec<VNode> = (0..6)
+        .map(|i| {
+            let attr = format!("add-{i}");
+            let value = added[i].to_string();
+            rsx! {
+                div { class: "ev-cell",
+                    input {
+                        class: "ev-input",
+                        r#type: "number",
+                        min: "0",
+                        max: "255",
+                        value: value,
+                        "data-pm-ev-input": attr
+                    }
+                }
+            }
+        })
+        .collect();
+    let total_cells: Vec<VNode> = (0..6)
+        .map(|i| {
+            let t = totals[i].to_string();
+            rsx! { div { class: "ev-cell", "{t}" } }
+        })
+        .collect();
+    let grand_text = grand.to_string();
+    let added_sum: u32 = added.iter().sum();
+    let added_sum_text = added_sum.to_string();
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-ev-close": "1",
+            div { class: "modal-content",
+                div { class: "modal-header",
+                    h3 { "努力值计算器" }
+                    button { class: "modal-close", "data-pm-ev-close": "1", "×" }
+                }
+                div { class: "modal-body",
+                    div { class: "ev-calculator",
+                        div { class: "ev-row",
+                            div { class: "ev-cell ev-row-label", "属性" }
+                            for i in 0..header_cells.len() {
+                                ..vec![header_cells[i].clone()]
+                            }
+                        }
+                        div { class: "ev-row",
+                            div { class: "ev-cell ev-row-label", "当前" }
+                            for i in 0..cur_cells.len() {
+                                ..vec![cur_cells[i].clone()]
+                            }
+                        }
+                        div { class: "ev-row",
+                            div { class: "ev-cell ev-row-label", "追加" }
+                            for i in 0..add_cells.len() {
+                                ..vec![add_cells[i].clone()]
+                            }
+                            div { class: "ev-cell ev-total", "{added_sum_text}" }
+                        }
+                        div { class: "ev-row",
+                            div { class: "ev-cell ev-row-label", "合计" }
+                            for i in 0..total_cells.len() {
+                                ..vec![total_cells[i].clone()]
+                            }
+                            div { class: "ev-cell ev-total", "{grand_text}" }
+                        }
+                        div { class: "ev-status",
+                            span { class: status_cls, "{status_text}" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 进化路径弹窗：进化 / 退化两个 tab。
+fn evo_path_modal(st: &AppState) -> VNode {
+    let forward = st.my_pm.evo_path_forward.get();
+    let fwd_cls = if forward {
+        "evo-path-tab active"
+    } else {
+        "evo-path-tab"
+    };
+    let bwd_cls = if forward {
+        "evo-path-tab"
+    } else {
+        "evo-path-tab active"
+    };
+
+    let body = match st.my_pm.evo_path.get() {
+        None => rsx! { div { class: "evo-path-loading", "正在加载进化路径..." } },
+        Some(Err(error)) => {
+            let msg = format!("加载失败：{error}");
+            rsx! { div { class: "evo-path-error", "{msg}" } }
+        }
+        Some(Ok(data)) => {
+            let nodes = if forward {
+                &data.forward
+            } else {
+                &data.backward
+            };
+            if nodes.is_empty() {
+                let hint = if forward {
+                    "没有进化路线"
+                } else {
+                    "没有退化路线"
+                };
+                rsx! { div { class: "evo-path-empty", "{hint}" } }
+            } else {
+                let rows: Vec<VNode> = nodes
+                    .iter()
+                    .map(|n| {
+                        let sprite = format!("{IMG_PATH}/spm/{}.gif", n.id);
+                        let name = n.name.clone();
+                        let alt_name = name.clone();
+                        let cond = if n.condition_display.is_empty() {
+                            "—".to_string()
+                        } else {
+                            n.condition_display.clone()
+                        };
+                        rsx! {
+                            div { class: "evo-path-node",
+                                img { class: "evo-path-sprite", src: sprite, alt: alt_name }
+                                div { class: "evo-path-node-info",
+                                    span { class: "evo-path-name", "{name}" }
+                                    div { class: "evo-path-condition", "{cond}" }
+                                }
+                            }
+                        }
+                    })
+                    .collect();
+                rsx! {
+                    div { class: "evo-path-content",
+                        for i in 0..rows.len() {
+                            ..vec![rows[i].clone()]
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-evo-path-close": "1",
+            div { class: "modal-content",
+                div { class: "modal-header",
+                    h3 { "进化路径" }
+                    button { class: "modal-close", "data-pm-evo-path-close": "1", "×" }
+                }
+                div { class: "modal-body",
+                    div { class: "evo-path-tabs",
+                        button { class: fwd_cls, "data-pm-evo-path-tab": "forward", "进化路线" }
+                        button { class: bwd_cls, "data-pm-evo-path-tab": "backward", "退化路线" }
+                    }
+                    ..vec![body]
+                }
+            }
+        }
+    }
+}
+
+/// 进化弹窗：可进化路线（条件 + 状态 + 执行按钮）。
+fn evolution_modal(st: &AppState) -> VNode {
+    let evolving = st.my_pm.evolving.get();
+
+    let body = match st.my_pm.evo_check.get() {
+        None => rsx! { div { class: "evo-path-loading", "正在查询进化条件..." } },
+        Some(Err(error)) => {
+            let msg = format!("查询失败: {error}");
+            rsx! { div { class: "evo-path-error", "{msg}" } }
+        }
+        Some(Ok(list)) if list.is_empty() => {
+            rsx! { div { class: "evo-path-empty", "该宝可梦没有可用的进化路线" } }
+        }
+        Some(Ok(list)) => {
+            let rows: Vec<VNode> = list
+                .iter()
+                .map(|evo| {
+                    let sprite = format!("{IMG_PATH}/spm/{}.gif", evo.to_id);
+                    let name = evo.to_name.clone();
+                    let alt_name = name.clone();
+                    let condition = evo
+                        .condition_display
+                        .clone()
+                        .unwrap_or_else(|| "—".to_string());
+                    let status = if evo.can_evolve {
+                        "满足进化条件".to_string()
+                    } else if evo.reason.is_empty() {
+                        "条件未满足".to_string()
+                    } else {
+                        evo.reason.clone()
+                    };
+                    let btn = if evo.can_evolve {
+                        let to_id = evo.to_id.to_string();
+                        let to_name = evo.to_name.clone();
+                        rsx! {
+                            button {
+                                class: "ev-calculator-btn",
+                                disabled: evolving,
+                                "data-pm-evo-do": to_id,
+                                "data-pm-evo-do-name": to_name,
+                                "进化"
+                            }
+                        }
+                    } else {
+                        VNode::empty()
+                    };
+                    rsx! {
+                        div { class: "evo-path-node",
+                            img { class: "evo-path-sprite", src: sprite, alt: alt_name }
+                            div { class: "evo-path-node-info",
+                                span { class: "evo-path-name", "{name}" }
+                                div { class: "evo-path-condition", "{condition}" }
+                                div { class: "evo-path-condition", "{status}" }
+                            }
+                            ..vec![btn]
+                        }
+                    }
+                })
+                .collect();
+            rsx! {
+                div { class: "evo-path-content",
+                    for i in 0..rows.len() {
+                        ..vec![rows[i].clone()]
+                    }
+                }
+            }
+        }
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-evo-modal-close": "1",
+            div { class: "modal-content",
+                div { class: "modal-header",
+                    h3 { "进化" }
+                    button { class: "modal-close", "data-pm-evo-modal-close": "1", "×" }
+                }
+                div { class: "modal-body", ..vec![body] }
             }
         }
     }

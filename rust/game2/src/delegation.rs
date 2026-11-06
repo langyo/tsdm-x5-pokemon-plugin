@@ -78,6 +78,16 @@ pub fn install(app: &WitElement, state: &AppState) {
                     crate::inventory::apply_search(&st, &ev.value);
                 } else if attr_of(target, "data-pm-my-pm-nick-input").is_some() {
                     st.my_pm.edit_value.inner().set(ev.value.clone());
+                } else if let Some((_, key)) =
+                    find_with_attr(target, "data-pm-ev-input").map(|(h, v)| (h, v))
+                {
+                    // 努力值计算器输入："cur-N" / "add-N"
+                    if let Some((added, idx)) = key.split_once('-') {
+                        let is_add = added == "add";
+                        if let Ok(i) = idx.parse::<usize>() {
+                            crate::my_pokemon::set_ev_value(&st, i, is_add, &ev.value);
+                        }
+                    }
                 }
             }),
         );
@@ -240,6 +250,44 @@ fn dispatch_click(state: &AppState, target: u64) {
     }
     if find_with_attr(target, "data-pm-learn-close").is_some() {
         crate::my_pokemon::close_learn_modal(state);
+        return;
+    }
+    // 属性页弹窗：努力值计算器 / 进化路径 / 进化
+    if find_with_attr(target, "data-pm-my-pm-ev-open").is_some() {
+        crate::my_pokemon::open_ev_modal(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-ev-close").is_some() {
+        crate::my_pokemon::close_ev_modal(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-my-pm-evo-path-open").is_some() {
+        crate::my_pokemon::open_evo_path_modal(state);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-evo-path-tab") {
+        crate::my_pokemon::switch_evo_path_tab(state, v == "forward");
+        return;
+    }
+    if find_with_attr(target, "data-pm-evo-path-close").is_some() {
+        crate::my_pokemon::close_evo_path_modal(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-my-pm-evo-open").is_some() {
+        crate::my_pokemon::open_evolution_modal(state);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-evo-do") {
+        let name = find_with_attr(target, "data-pm-evo-do-name")
+            .map(|(_, n)| n)
+            .unwrap_or_default();
+        if let Ok(to_id) = v.parse::<u64>() {
+            crate::my_pokemon::evolve_to(state, to_id, &name);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-evo-modal-close").is_some() {
+        crate::my_pokemon::close_evolution_modal(state);
         return;
     }
     if find_with_attr(target, "data-pm-my-pm-nick-edit").is_some() {

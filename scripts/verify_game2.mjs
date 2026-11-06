@@ -459,6 +459,73 @@ async function stepMyPokemon() {
     15000,
     '属性面板',
   );
+
+  // 属性页三弹窗（只读）：努力值计算器 / 进化路径 / 进化
+  const hasTools = await evaljs(() => !!document.querySelector('[data-pm-my-pm-ev-open]')
+    && !!document.querySelector('[data-pm-my-pm-evo-path-open]')
+    && !!document.querySelector('[data-pm-my-pm-evo-open]'));
+  ok('属性页三个工具按钮存在', hasTools);
+  if (hasTools) {
+    // 努力值计算器：输入联动合计
+    await evaljs(() => document.querySelector('[data-pm-my-pm-ev-open]')?.click());
+    await waitFor(async () => (await evaljs(() => !!document.querySelector('.ev-calculator'))), 8000, '计算器弹窗');
+    const evOk = await evaljs(() => {
+      const set = (key, val) => {
+        const el = document.querySelector(`[data-pm-ev-input="${key}"]`);
+        el.value = String(val);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      set('cur-1', 100);
+      set('add-3', 60);
+      return true;
+    });
+    await sleep(900);
+    const evState = await evaljs(() => ({
+      status: document.querySelector('[class*="ev-status-"]')?.textContent?.trim() ?? null,
+      lastRow: [...document.querySelectorAll('.ev-row')].pop()?.textContent?.replace(/\s+/g, '') ?? '',
+      inputs: document.querySelectorAll('[data-pm-ev-input]').length,
+    }));
+    ok('计算器 12 输入 + 合计联动', evOk && evState.inputs === 12
+      && evState.lastRow.includes('160'), JSON.stringify(evState));
+    await evaljs(() => document.querySelector('[data-pm-ev-close]')?.click());
+    await sleep(600);
+
+    // 进化路径：加载后两个 tab 都能切换（退化 tab 数据存在或空态文案）
+    await evaljs(() => document.querySelector('[data-pm-my-pm-evo-path-open]')?.click());
+    await waitFor(async () => (await evaljs(() => !document.querySelector('.evo-path-loading'))), 15000, '路径加载');
+    const fwd = await evaljs(() => ({
+      nodes: document.querySelectorAll('.evo-path-node').length,
+      empty: !!document.querySelector('.evo-path-empty'),
+    }));
+    ok('路径前向 tab 有内容或空态', fwd.nodes > 0 || fwd.empty);
+    await evaljs(() => document.querySelector('[data-pm-evo-path-tab="backward"]')?.click());
+    await sleep(900);
+    const bwd = await evaljs(() => ({
+      modalStillOpen: !!document.querySelector('[data-pm-evo-path-tab="backward"]'),
+      nodes: document.querySelectorAll('.evo-path-node').length,
+      empty: !!document.querySelector('.evo-path-empty'),
+    }));
+    ok('切退化 tab 不关闭弹窗', bwd.modalStillOpen, 'tab 点击被遮罩关闭属性劫持');
+    ok('路径后向 tab 有内容或空态', bwd.nodes > 0 || bwd.empty);
+    await evaljs(() => document.querySelector('[data-pm-evo-path-close]')?.click());
+    await sleep(600);
+
+    // 进化弹窗：条件查询返回内容或空态
+    await evaljs(() => document.querySelector('[data-pm-my-pm-evo-open]')?.click());
+    await waitFor(async () => (await evaljs(() => !document.querySelector('.evo-path-loading'))), 15000, '进化条件');
+    const evoState = await evaljs(() => ({
+      nodes: document.querySelectorAll('.evo-path-node').length,
+      empty: document.querySelector('.evo-path-empty')?.textContent?.trim() ?? null,
+      err: document.querySelector('.evo-path-error')?.textContent?.trim() ?? null,
+    }));
+    ok('进化弹窗给出路线或空态', evoState.nodes > 0 || !!evoState.empty || !!evoState.err,
+      JSON.stringify(evoState));
+    await evaljs(() => document.querySelector('[data-pm-evo-modal-close]')?.click());
+    await sleep(600);
+  } else {
+    skip('属性页弹窗', '工具按钮缺失');
+  }
+
   const view = await evaljs(() => {
     const radar = document.querySelector('.radar-svg');
     return {

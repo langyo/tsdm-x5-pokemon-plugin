@@ -515,6 +515,51 @@ pub struct MyPokemonState {
         ReactiveSignal<Option<Result<(Vec<LearnableSkill>, Vec<LearnableSkill>), String>>>,
     /// 学习/遗忘进行中（互斥守卫）。
     pub skill_loading: ReactiveSignal<bool>,
+
+    // ---- 属性页弹窗：努力值计算器 / 进化路径 / 进化 ----
+    pub show_ev_modal: ReactiveSignal<bool>,
+    /// 努力值计算器：当前值与计划追加（各六维，上限 255/项、总计 510）。
+    pub ev_current: ReactiveSignal<[u32; 6]>,
+    pub ev_added: ReactiveSignal<[u32; 6]>,
+    pub show_evo_path_modal: ReactiveSignal<bool>,
+    /// 进化路径 tab：true = 进化路线，false = 退化路线。
+    pub evo_path_forward: ReactiveSignal<bool>,
+    pub evo_path: ReactiveSignal<Option<Result<EvolutionPathData, String>>>,
+    pub show_evolution_modal: ReactiveSignal<bool>,
+    /// 进化条件检查（可进化路线列表）。
+    pub evo_check: ReactiveSignal<Option<Result<Vec<AvailableEvolution>, String>>>,
+    /// 进化请求进行中（互斥守卫）。
+    pub evolving: ReactiveSignal<bool>,
+}
+
+/// 进化路径节点（evolution_path 载荷）。
+#[derive(Debug, Clone, Default)]
+pub struct EvolutionPathNode {
+    pub id: u64,
+    pub name: String,
+    pub type_1: String,
+    pub type_2: Option<String>,
+    pub condition_display: String,
+}
+
+/// evolution_path 载荷（前向/后向两段）。
+#[derive(Debug, Clone, Default)]
+pub struct EvolutionPathData {
+    pub pokemon_name: String,
+    pub forward: Vec<EvolutionPathNode>,
+    pub backward: Vec<EvolutionPathNode>,
+}
+
+/// 可进化路线（evolution/check 载荷的显示子集）。
+#[derive(Debug, Clone, Default)]
+pub struct AvailableEvolution {
+    pub to_id: u64,
+    pub to_name: String,
+    pub can_evolve: bool,
+    /// 未满足时的原因（服务端中文文案）。
+    pub reason: String,
+    /// 后端拼好的条件文案（例「等级达到 Lv.16」）。
+    pub condition_display: Option<String>,
 }
 
 impl MyPokemonState {
@@ -539,6 +584,15 @@ impl MyPokemonState {
             learn_modal_open: use_signal(|| false),
             learnable: use_signal(|| None),
             skill_loading: use_signal(|| false),
+            show_ev_modal: use_signal(|| false),
+            ev_current: use_signal(|| [0u32; 6]),
+            ev_added: use_signal(|| [0u32; 6]),
+            show_evo_path_modal: use_signal(|| false),
+            evo_path_forward: use_signal(|| true),
+            evo_path: use_signal(|| None),
+            show_evolution_modal: use_signal(|| false),
+            evo_check: use_signal(|| None),
+            evolving: use_signal(|| false),
         }
     }
 }

@@ -1177,3 +1177,175 @@ pub fn forget_skill(pokemon_id: u64, skill_id: u64, on_done: Box<dyn FnOnce(Resu
         Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
     );
 }
+
+// ===========================================================================
+// 进化（我的宝可梦「属性」页弹窗）
+// ===========================================================================
+
+#[derive(Deserialize, Default)]
+struct EvoConditionDetailsDto {
+    #[serde(default, rename = "level_requirement")]
+    level_requirement: Option<u64>,
+    #[serde(default, rename = "intimacy_requirement")]
+    intimacy_requirement: Option<u64>,
+}
+
+#[derive(Deserialize)]
+struct EvoConditionsDto {
+    #[serde(default)]
+    reason: String,
+    #[serde(default)]
+    details: EvoConditionDetailsDto,
+}
+
+#[derive(Deserialize)]
+struct AvailableEvolutionDto {
+    #[serde(default)]
+    to_id: u64,
+    #[serde(default)]
+    to_name: String,
+    #[serde(default)]
+    evolution_type: String,
+    #[serde(default)]
+    can_evolve: bool,
+    #[serde(default)]
+    conditions: Option<EvoConditionsDto>,
+    #[serde(default)]
+    condition_display: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct EvolutionCheckDto {
+    #[serde(default)]
+    available_evolutions: Vec<AvailableEvolutionDto>,
+}
+
+/// 进化条件检查（可进化路线列表，条件文案服务端拼好或按类型回退）。
+pub fn evolution_check(
+    pet_id: u64,
+    on_done: Box<dyn FnOnce(Result<Vec<crate::state::AvailableEvolution>, String>)>,
+) {
+    request(
+        "evolution",
+        &format!("check&pet_id={pet_id}"),
+        None,
+        Box::new(|result: Result<EvolutionCheckDto, String>| {
+            on_done(result.map(|dto| {
+                dto.available_evolutions
+                    .into_iter()
+                    .map(|e| {
+                        let (reason, condition_display) = match e.conditions {
+                            Some(c) => {
+                                let fallback =
+                                    e.condition_display.clone().unwrap_or_else(|| {
+                                        match e.evolution_type.as_str() {
+                                            "level" => format!(
+                                                "等级达到 Lv.{}",
+                                                c.details.level_requirement.unwrap_or(0)
+                                            ),
+                                            "item" => "需要使用进化道具".to_string(),
+                                            "good" => format!(
+                                                "亲密度达到 {}",
+                                                c.details.intimacy_requirement.unwrap_or(0)
+                                            ),
+                                            _ => c.reason.clone(),
+                                        }
+                                    });
+                                (c.reason, Some(fallback))
+                            }
+                            None => (String::new(), e.condition_display.clone()),
+                        };
+                        crate::state::AvailableEvolution {
+                            to_id: e.to_id,
+                            to_name: e.to_name,
+                            can_evolve: e.can_evolve,
+                            reason,
+                            condition_display,
+                        }
+                    })
+                    .collect()
+            }))
+        }),
+    );
+}
+
+#[derive(Deserialize)]
+struct EvoPathNodeDto {
+    #[serde(default)]
+    id: u64,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    type_1: String,
+    #[serde(default)]
+    type_2: Option<String>,
+    #[serde(default)]
+    condition_display: String,
+}
+
+#[derive(Deserialize)]
+struct EvoPathResponseDto {
+    #[serde(default)]
+    pokemon_name: String,
+    #[serde(default)]
+    forward: Vec<EvoPathNodeDto>,
+    #[serde(default)]
+    backward: Vec<EvoPathNodeDto>,
+}
+
+/// 进化路径（pmid = 物种 ID，非宠物实例 ID）。
+pub fn evolution_path(
+    pmid: u64,
+    on_done: Box<dyn FnOnce(Result<crate::state::EvolutionPathData, String>)>,
+) {
+    request(
+        "evolution",
+        &format!("evolution_path&pmid={pmid}"),
+        None,
+        Box::new(|result: Result<EvoPathResponseDto, String>| {
+            on_done(result.map(|dto| {
+                crate::state::EvolutionPathData {
+                    pokemon_name: dto.pokemon_name,
+                    forward: dto
+                        .forward
+                        .into_iter()
+                        .map(|n| crate::state::EvolutionPathNode {
+                            id: n.id,
+                            name: n.name,
+                            type_1: n.type_1,
+                            type_2: n.type_2,
+                            condition_display: n.condition_display,
+                        })
+                        .collect(),
+                    backward: dto
+                        .backward
+                        .into_iter()
+                        .map(|n| crate::state::EvolutionPathNode {
+                            id: n.id,
+                            name: n.name,
+                            type_1: n.type_1,
+                            type_2: n.type_2,
+                            condition_display: n.condition_display,
+                        })
+                        .collect(),
+                }
+            }))
+        }),
+    );
+}
+
+/// 执行进化（to_id 指定目标形态；返回新形态名）。
+pub fn evolve(pet_id: u64, to_id: u64, on_done: Box<dyn FnOnce(Result<String, String>)>) {
+    let body = serde_json::json!({ "pet_id": pet_id, "to_id": to_id }).to_string();
+    #[derive(Deserialize)]
+    struct EvolveDto {
+        #[serde(default)]
+        new_name: String,
+    }
+    request(
+        "evolution",
+        "evolve",
+        Some(body),
+        Box::new(|result: Result<EvolveDto, String>| on_done(result.map(|d| d.new_name))),
+    );
+}
