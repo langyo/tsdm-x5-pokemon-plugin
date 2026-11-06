@@ -120,6 +120,8 @@ include template('common/header');
 .adm-editor-error { color:#c0392b; font-size:12px; margin:12px 0 0; }
 .adm-editor-footer { display:flex; justify-content:flex-end; gap:10px; padding:12px 18px; border-top:1px solid #eee; }
 .adm-row-edit { padding:3px 12px; font-size:12px; }
+.adm-editor-hint { font-size:12px; color:#999; align-self:center; margin:0; }
+.adm-editor-sprite { display:block; width:48px; height:48px; object-fit:contain; margin-top:12px; image-rendering:pixelated; }
 </style>
 
 <div class="pm-ui-switch">

@@ -359,6 +359,65 @@ impl std::fmt::Debug for PokemonEditorState {
     }
 }
 
+/// 物品编辑弹窗状态（切片 9）。
+///
+/// 服务端 `item_type` 的载荷分四块：基本信息、tag（带附加值的枚举）、
+/// limits、effects。effects 是 11 个数值，用定长数组承载，键序见
+/// `ITEM_EFFECT_KEYS`。
+///
+/// 注意：Dioxus 版的「恢复技能 PP / 恢复 PP 数量」两个输入框在服务端
+/// 没有对应列（`new_item_effects` 不读、`set_item_type` 不写），属于
+/// 从不落库的死字段，这里不移植。
+#[derive(Clone)]
+pub struct ItemEditorState {
+    pub open: ReactiveSignal<bool>,
+    pub editing_id: ReactiveSignal<Option<u64>>,
+    pub name: ReactiveSignal<String>,
+    pub img_name: ReactiveSignal<String>,
+    pub description: ReactiveSignal<String>,
+    pub price: ReactiveSignal<String>,
+    pub is_selling: ReactiveSignal<bool>,
+    /// 类型：drug/ball/evolution/armor/special（服务端只认这五种；
+    /// Dioxus 选项里的 enhance 没有 translator 分支，提交必报错）。
+    pub tag_kind: ReactiveSignal<String>,
+    /// 类型附加值：球/素材 ID、装备部位（head/necklace/weapon/armor）、
+    /// 特殊物品标识文本；药品忽略。
+    pub tag_value: ReactiveSignal<String>,
+    pub min_level: ReactiveSignal<String>,
+    /// 种族限制（中文名，空串 = 无）。
+    pub kind_require: ReactiveSignal<String>,
+    pub effects: ReactiveSignal<[String; 11]>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl ItemEditorState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            editing_id: use_signal(|| None),
+            name: use_signal(String::new),
+            img_name: use_signal(String::new),
+            description: use_signal(String::new),
+            price: use_signal(String::new),
+            is_selling: use_signal(|| false),
+            tag_kind: use_signal(|| "drug".to_string()),
+            tag_value: use_signal(String::new),
+            min_level: use_signal(String::new),
+            kind_require: use_signal(String::new),
+            effects: use_signal(|| std::array::from_fn(|_| "0".to_string())),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for ItemEditorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ItemEditorState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -373,6 +432,7 @@ pub struct AppState {
     pub skill: ListState,
     pub effect: ListState,
     pub pokemon_editor: PokemonEditorState,
+    pub item_editor: ItemEditorState,
 }
 
 impl AppState {
@@ -389,6 +449,7 @@ impl AppState {
             skill: ListState::new(),
             effect: ListState::new(),
             pokemon_editor: PokemonEditorState::new(),
+            item_editor: ItemEditorState::new(),
         }
     }
 }

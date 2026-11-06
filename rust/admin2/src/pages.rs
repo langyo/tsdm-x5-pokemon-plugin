@@ -848,6 +848,7 @@ fn item_data_page(st: &AppState) -> VNode {
                 let mut trs: Vec<VNode> = Vec::new();
                 for item in rows.iter() {
                     let id = json_u64(item, "id").to_string();
+                    let id_for_edit = id.clone();
                     let name = json_str(item, "name");
                     // tag: {"drug":null} / {"ball":5} / {"evolution":3} / {"armor":…} / {"special":"…"}
                     let tag_label = item
@@ -885,6 +886,14 @@ fn item_data_page(st: &AppState) -> VNode {
                             td { "{price}" }
                             td { "{selling}" }
                             td { class: "adm-pk-stats", "{desc_short}" }
+                            td {
+                                button {
+                                    class: "admin-btn adm-row-edit",
+                                    disabled: busy,
+                                    "data-pm-adm-it-edit": id_for_edit,
+                                    "编辑"
+                                }
+                            }
                         }
                     });
                 }
@@ -898,6 +907,7 @@ fn item_data_page(st: &AppState) -> VNode {
                                 th { "价格" }
                                 th { "出售" }
                                 th { "描述" }
+                                th { "操作" }
                             }
                         }
                         tbody {
@@ -986,8 +996,14 @@ fn item_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-l-reload": "it",
                     "刷新"
                 }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-it-new": "1",
+                    "新增物品"
+                }
             }
-            ..vec![body]
+            ..vec![body, item_editor_modal(st)]
         }
     }
 }
@@ -2080,30 +2096,10 @@ pub fn submit_pokemon_editor(state: &AppState) {
         return;
     }
     let kind_code = |cn: &str| -> serde_json::Value {
-        const MAP: [(&str, &str); 18] = [
-            ("普通", "normal"),
-            ("火", "fire"),
-            ("水", "water"),
-            ("草", "grass"),
-            ("电", "electric"),
-            ("冰", "ice"),
-            ("格斗", "fighting"),
-            ("毒", "poison"),
-            ("地面", "ground"),
-            ("飞行", "flying"),
-            ("超能", "psychic"),
-            ("虫", "bug"),
-            ("岩石", "rock"),
-            ("幽灵", "ghost"),
-            ("龙", "dragon"),
-            ("恶", "dark"),
-            ("钢", "steel"),
-            ("妖精", "fairy"),
-        ];
-        MAP.iter()
-            .find(|(n, _)| *n == cn)
-            .map(|(_, c)| serde_json::json!(c))
-            .unwrap_or(serde_json::Value::Null)
+        match reverse_kind_name(cn.trim()) {
+            Some(code) => serde_json::json!(code),
+            None => serde_json::Value::Null,
+        }
     };
     let kind2 = kind_code(&ed.kind2.get());
     // 属性 1 必填：服务端会把 null 写进 xs 列（translate_kind_id_to_chinese_kind
@@ -2384,6 +2380,509 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                         class: "admin-btn admin-btn-primary",
                         disabled: saving,
                         "data-pm-adm-pk-save": "1",
+                        "{save_label}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 物品编辑弹窗（切片 9）
+// ---------------------------------------------------------------------------
+
+/// effects 的 11 个字段，顺序与表单渲染/提交一致。
+const ITEM_EFFECT_KEYS: [&str; 11] = [
+    "add_hit_points",
+    "add_experience",
+    "add_level",
+    "add_intimacy",
+    "attribute_add_hit_points",
+    "attribute_add_attack",
+    "attribute_add_defense",
+    "attribute_add_special_attack",
+    "attribute_add_special_defense",
+    "attribute_add_speed",
+    "capture",
+];
+
+const ITEM_EFFECT_LABELS: [&str; 11] = [
+    "恢复 HP",
+    "增加经验",
+    "增加等级",
+    "增加好感",
+    "HP+",
+    "攻击+",
+    "防御+",
+    "特攻+",
+    "特防+",
+    "速度+",
+    "捕获率修正",
+];
+
+/// 类型 → (中文名, 附加值输入框提示)。药品无附加值，其余四种都要。
+fn item_tag_kinds() -> [(&'static str, &'static str, Option<&'static str>); 5] {
+    [
+        ("drug", "药品", None),
+        ("ball", "宠物球", Some("宠物球 ID")),
+        ("evolution", "升级素材", Some("进化素材 ID")),
+        ("armor", "装备", Some("部位：head/necklace/weapon/armor")),
+        ("special", "特殊物品", Some("特殊物品标识文本")),
+    ]
+}
+
+/// 从当前行载荷还原 (tag_kind, tag_value)。
+fn item_tag_parts(item: &serde_json::Value) -> (String, String) {
+    let Some(obj) = item.get("tag").and_then(|t| t.as_object()) else {
+        return ("drug".to_string(), String::new());
+    };
+    let Some((key, value)) = obj.iter().next() else {
+        return ("drug".to_string(), String::new());
+    };
+    let text = match value {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        _ => String::new(),
+    };
+    (key.clone(), text)
+}
+
+/// 把表单里的 (tag_kind, tag_value) 还原成服务端要的 tag 对象。
+/// 药品发 `{"drug":null}`（translator 认这个形态，也认裸 "drug"）。
+fn item_tag_payload(kind: &str, value: &str) -> serde_json::Value {
+    match kind {
+        "ball" => serde_json::json!({ "ball": value.trim().parse::<u64>().unwrap_or(0) }),
+        "evolution" => serde_json::json!({ "evolution": value.trim().parse::<u64>().unwrap_or(0) }),
+        "special" => serde_json::json!({ "special": value }),
+        "armor" => {
+            let site = match value.trim() {
+                "head" | "necklace" | "weapon" | "armor" => value.trim().to_string(),
+                _ => "head".to_string(),
+            };
+            serde_json::json!({ "armor": site })
+        }
+        _ => serde_json::json!({ "drug": serde_json::Value::Null }),
+    }
+}
+
+pub fn open_item_new(state: &AppState) {
+    let ed = state.item_editor.clone();
+    ed.editing_id.inner().set(None);
+    ed.name.inner().set(String::new());
+    ed.img_name.inner().set(String::new());
+    ed.description.inner().set(String::new());
+    ed.price.inner().set("0".to_string());
+    ed.is_selling.inner().set(false);
+    ed.tag_kind.inner().set("drug".to_string());
+    ed.tag_value.inner().set(String::new());
+    ed.min_level.inner().set("0".to_string());
+    ed.kind_require.inner().set(String::new());
+    ed.effects
+        .inner()
+        .set(std::array::from_fn(|_| "0".to_string()));
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn open_item_edit(state: &AppState, id: u64) {
+    let ed = state.item_editor.clone();
+    let row = state
+        .item
+        .rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == id);
+    let Some(row) = row else { return };
+    ed.editing_id.inner().set(Some(id));
+    ed.name.inner().set(json_str(&row, "name"));
+    ed.img_name.inner().set(json_str(&row, "img_name"));
+    ed.description.inner().set(json_str(&row, "description"));
+    ed.price.inner().set(json_u64(&row, "price").to_string());
+    ed.is_selling.inner().set(json_bool(&row, "is_selling"));
+    let (kind, value) = item_tag_parts(&row);
+    ed.tag_kind.inner().set(kind);
+    ed.tag_value.inner().set(value);
+    let limits = row.get("limits").cloned().unwrap_or_default();
+    ed.min_level
+        .inner()
+        .set(limits.get("min_level").and_then(|v| v.as_u64()).unwrap_or(0).to_string());
+    // kind_require 是英文 id（服务端 translate_chinese_kind_to_kind_id 的产物）
+    let kind_req = limits
+        .get("kind_require")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let cn = kind_name(kind_req);
+    ed.kind_require
+        .inner()
+        .set(if cn == "？" { String::new() } else { cn.to_string() });
+    let effects = row.get("effects").cloned().unwrap_or_default();
+    ed.effects.inner().set(std::array::from_fn(|i| {
+        effects
+            .get(ITEM_EFFECT_KEYS[i])
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0)
+            .to_string()
+    }));
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_item_editor(state: &AppState) {
+    state.item_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn set_item_editor_field(state: &AppState, key: &str, value: &str) {
+    let ed = state.item_editor.clone();
+    match key {
+        "name" => ed.name.inner().set(value.to_string()),
+        "img_name" => ed.img_name.inner().set(value.to_string()),
+        "description" => ed.description.inner().set(value.to_string()),
+        "price" => ed.price.inner().set(value.to_string()),
+        "tag_kind" => ed.tag_kind.inner().set(value.to_string()),
+        "tag_value" => ed.tag_value.inner().set(value.to_string()),
+        "min_level" => ed.min_level.inner().set(value.to_string()),
+        "kind_require" => ed.kind_require.inner().set(value.to_string()),
+        _ => {
+            if let Some(idx) = key.strip_prefix("effect:") {
+                if let Ok(i) = idx.parse::<usize>() {
+                    if i < 11 {
+                        let mut arr = ed.effects.get();
+                        arr[i] = value.to_string();
+                        ed.effects.inner().set(arr);
+                    }
+                }
+            }
+        }
+    }
+    crate::request_remount();
+}
+
+pub fn toggle_item_editor_selling(state: &AppState) {
+    let ed = state.item_editor.clone();
+    ed.is_selling.inner().set(!ed.is_selling.get());
+    crate::request_remount();
+}
+
+pub fn submit_item_editor(state: &AppState) {
+    let ed = state.item_editor.clone();
+    if ed.saving.get() {
+        return;
+    }
+    let name = ed.name.get().trim().to_string();
+    if name.is_empty() {
+        ed.err.inner().set(Some("名称不能为空".to_string()));
+        crate::request_remount();
+        return;
+    }
+    // 非药品类型必须有可解析的附加值：服务端 translator 对缺键直接报错退出，
+    // 提前拦住能给出更清楚的原因。
+    let tag_kind = ed.tag_kind.get();
+    let tag_value = ed.tag_value.get();
+    if tag_kind == "ball" || tag_kind == "evolution" {
+        if tag_value.trim().parse::<u64>().is_err() {
+            ed.err
+                .inner()
+                .set(Some("该类型需要一个非负整数 ID".to_string()));
+            crate::request_remount();
+            return;
+        }
+    }
+    if tag_kind == "armor"
+        && !matches!(tag_value.trim(), "head" | "necklace" | "weapon" | "armor")
+    {
+        ed.err
+            .inner()
+            .set(Some("装备部位必须是 head/necklace/weapon/armor".to_string()));
+        crate::request_remount();
+        return;
+    }
+    // 种族限制：服务端拿英文 id 写库，非法中文名会被翻成 null 再写成空串。
+    let kind_req = ed.kind_require.get();
+    let kind_req_trim = kind_req.trim();
+    let kind_payload = if kind_req_trim.is_empty() {
+        serde_json::Value::Null
+    } else {
+        let code = reverse_kind_name(kind_req_trim);
+        if code.is_none() {
+            ed.err
+                .inner()
+                .set(Some(format!("种族限制「{kind_req_trim}」不是合法属性名")));
+            crate::request_remount();
+            return;
+        }
+        serde_json::json!(code.unwrap())
+    };
+    let effects = ed.effects.get();
+    let parse_i64 = |s: &str| s.trim().parse::<i64>().unwrap_or(0);
+    let mut effects_payload = serde_json::Map::new();
+    for i in 0..11 {
+        effects_payload.insert(
+            ITEM_EFFECT_KEYS[i].to_string(),
+            serde_json::json!(parse_i64(&effects[i])),
+        );
+    }
+    let mut payload = serde_json::json!({
+        "name": name,
+        "img_name": ed.img_name.get(),
+        "description": ed.description.get(),
+        "price": ed.price.get().trim().parse::<u64>().unwrap_or(0),
+        "is_selling": ed.is_selling.get(),
+        "tag": item_tag_payload(&tag_kind, &tag_value),
+        "limits": {
+            "min_level": ed.min_level.get().trim().parse::<u64>().unwrap_or(0),
+            "kind_require": kind_payload,
+        },
+        "effects": serde_json::Value::Object(effects_payload),
+    });
+    let editing = ed.editing_id.get();
+    if let Some(id) = editing {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("id".to_string(), serde_json::json!(id));
+        }
+    }
+    let body = payload.to_string();
+    ed.saving.inner().set(true);
+    ed.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    let on_done: Box<dyn FnOnce(Result<serde_json::Value, String>)> = Box::new(move |result| {
+        let ed = st.item_editor.clone();
+        match result {
+            Ok(_) => {
+                ed.open.inner().set(false);
+                ed.saving.inner().set(false);
+                st.item.loaded.inner().set(None);
+                st.item.rows.inner().set(Vec::new());
+                crate::request_remount();
+                reload_list(crate::state::ITEM_SPEC, &st.item);
+            }
+            Err(e) => {
+                ed.saving.inner().set(false);
+                ed.err.inner().set(Some(format!("保存失败：{e}")));
+                crate::request_remount();
+            }
+        }
+    });
+    if editing.is_some() {
+        crate::api::set_entity("item_type", body, on_done);
+    } else {
+        crate::api::insert_entity("item_type", body, on_done);
+    }
+}
+
+/// 中文属性名 → 英文 id（kind_name 的反向；供筛选/表单复用）。
+fn reverse_kind_name(cn: &str) -> Option<&'static str> {
+    const CODES: [&str; 18] = [
+        "normal", "fire", "water", "grass", "electric", "ice", "fighting", "poison", "ground",
+        "flying", "psychic", "bug", "rock", "ghost", "dragon", "dark", "steel", "fairy",
+    ];
+    CODES.into_iter().find(|c| kind_name(c) == cn)
+}
+
+fn item_editor_modal(st: &AppState) -> VNode {
+    let ed = st.item_editor.clone();
+    if !ed.open.get() {
+        return VNode::empty();
+    }
+    let editing = ed.editing_id.get();
+    let title = match editing {
+        Some(id) => format!("编辑物品 #{id}"),
+        None => "新增物品".to_string(),
+    };
+    let saving = ed.saving.get();
+    let err = ed.err.get();
+    let effects = ed.effects.get();
+    let tag_kind = ed.tag_kind.get();
+    let tag_value = ed.tag_value.get();
+    let selling_label = if ed.is_selling.get() {
+        "可购买：是"
+    } else {
+        "可购买：否"
+    };
+    let selling_cls = if ed.is_selling.get() {
+        "admin-btn admin-btn-primary adm-editor-toggle"
+    } else {
+        "admin-btn adm-editor-toggle"
+    };
+    let save_label = if saving { "保存中..." } else { "保存" };
+
+    // 类型选择：下拉在 jco 下 change 会带 value，可直接用。
+    let mut kind_options: Vec<VNode> = Vec::new();
+    for (code, label, _) in item_tag_kinds() {
+        kind_options.push(rsx! {
+            option {
+                value: code,
+                selected: code == tag_kind,
+                "{label}"
+            }
+        });
+    }
+    // 附加值输入框（药品没有）。
+    let extra_placeholder = item_tag_kinds()
+        .into_iter()
+        .find(|(code, _, _)| *code == tag_kind)
+        .and_then(|(_, _, hint)| hint)
+        .unwrap_or("");
+    let tag_extra = if tag_kind == "drug" {
+        rsx! { p { class: "adm-editor-hint", "药品无附加配置" } }
+    } else {
+        rsx! {
+            label { class: "adm-editor-field",
+                span { "{extra_placeholder}" }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    value: tag_value,
+                    "data-pm-adm-itf": "tag_value"
+                }
+            }
+        }
+    };
+
+    let mut effect_inputs: Vec<VNode> = Vec::new();
+    for i in 0..11 {
+        let label = ITEM_EFFECT_LABELS[i];
+        let attr = format!("effect:{i}");
+        effect_inputs.push(rsx! {
+            label { class: "adm-editor-field",
+                span { "{label}" }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "number",
+                    value: effects[i].clone(),
+                    "data-pm-adm-itf": attr
+                }
+            }
+        });
+    }
+
+    let err_block = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+    let img_name = ed.img_name.get();
+    let img_src = format!("source/plugin/pokemon/pokemon_system/images/item/{img_name}.gif");
+    let preview = if img_name.trim().is_empty() {
+        VNode::empty()
+    } else {
+        let alt = img_name.clone();
+        rsx! {
+            img {
+                class: "adm-editor-sprite",
+                src: img_src,
+                alt: alt
+            }
+        }
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-it-overlay": "1",
+            div { class: "adm-editor-modal",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-it-close": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    div { class: "adm-editor-grid",
+                        label { class: "adm-editor-field",
+                            span { "名称" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.name.get(),
+                                "data-pm-adm-itf": "name"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "图片文件名（不含扩展名）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: img_name,
+                                "data-pm-adm-itf": "img_name"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "价格" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "0",
+                                value: ed.price.get(),
+                                "data-pm-adm-itf": "price"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "最低等级" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "0",
+                                value: ed.min_level.get(),
+                                "data-pm-adm-itf": "min_level"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "种族限制（中文名，可空）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.kind_require.get(),
+                                "data-pm-adm-itf": "kind_require"
+                            }
+                        }
+                        button {
+                            class: selling_cls,
+                            disabled: saving,
+                            "data-pm-adm-it-toggle": "selling",
+                            "{selling_label}"
+                        }
+                    }
+                    div { class: "adm-editor-grid",
+                        label { class: "adm-editor-field",
+                            span { "类型" }
+                            select {
+                                class: "adm-filter-input",
+                                "data-pm-adm-itf": "tag_kind",
+                                for i in 0..kind_options.len() {
+                                    ..vec![kind_options[i].clone()]
+                                }
+                            }
+                        }
+                        ..vec![tag_extra]
+                    }
+                    label { class: "adm-editor-field adm-editor-wide",
+                        span { "描述" }
+                        textarea {
+                            class: "adm-editor-textarea",
+                            rows: 2,
+                            "data-pm-adm-itf": "description",
+                            "{ed.description.get()}"
+                        }
+                    }
+                    div { class: "adm-editor-section-title", "效果" }
+                    div { class: "adm-editor-grid",
+                        for i in 0..effect_inputs.len() {
+                            ..vec![effect_inputs[i].clone()]
+                        }
+                    }
+                    ..vec![preview, err_block]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: saving,
+                        "data-pm-adm-it-close": "1",
+                        "取消"
+                    }
+                    button {
+                        class: "admin-btn admin-btn-primary",
+                        disabled: saving,
+                        "data-pm-adm-it-save": "1",
                         "{save_label}"
                     }
                 }

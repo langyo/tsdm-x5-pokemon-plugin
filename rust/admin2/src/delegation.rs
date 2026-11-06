@@ -64,6 +64,8 @@ pub fn install(app: &WitElement, state: &AppState) {
                     // —— 这是既有架构的取舍（与全局配置页一致），change 事件
                     // 在失焦/回车时才发，编辑中途不打断输入。
                     crate::pages::set_pokemon_editor_field(&st, &key, &ev.value, false);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-itf") {
+                    crate::pages::set_item_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -132,6 +134,38 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((_, id)) = find_with_attr(target, "data-pm-adm-pk-edit") {
         if let Ok(id) = id.trim().parse::<u64>() {
             crate::pages::open_pokemon_edit(state, id);
+        }
+        return;
+    }
+    // 物品编辑弹窗（it 前缀）。与宝可梦弹窗同样的顺序要求：内部按钮先于
+    // 遮罩判定。
+    if let Some((_, key)) = find_with_attr(target, "data-pm-adm-it-toggle") {
+        if key == "selling" {
+            crate::pages::toggle_item_editor_selling(state);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-it-save").is_some() {
+        crate::pages::submit_item_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-it-close").is_some() {
+        crate::pages::close_item_editor(state);
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-it-overlay") {
+        if hit == target {
+            crate::pages::close_item_editor(state);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-it-new").is_some() {
+        crate::pages::open_item_new(state);
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-it-edit") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::open_item_edit(state, id);
         }
         return;
     }

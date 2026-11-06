@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/wheel-event
-import { INTERFACES } from '../glue/events/index.js?v=1793999025';
+import { INTERFACES } from '../glue/events/index.js?v=1793999497';
 const obj = INTERFACES['@tairitsu-glue/wheel-event'];
 export const getDeltaMode = obj.getDeltaMode;
 export const getDeltaX = obj.getDeltaX;
