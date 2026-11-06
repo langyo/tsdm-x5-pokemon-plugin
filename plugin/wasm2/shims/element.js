@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/element
-import { INTERFACES } from '../glue/dom/index.js?v=1793940080';
+import { INTERFACES } from '../glue/dom/index.js?v=1793942735';
 const obj = INTERFACES['@tairitsu-glue/element'];
 export const getAttribute = obj.getAttribute;
 export const getBoundingClientRect = obj.getBoundingClientRect;
