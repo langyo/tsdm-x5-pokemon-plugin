@@ -1,0 +1,25 @@
+{
+  "build_id": "1793978554",
+  "base": "/source/plugin/pokemon/wasm2",
+  "entry": "/source/plugin/pokemon/wasm2/boot.js?v=1793978554",
+  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_game2.js?b=1793978554",
+  "interfaces": [
+    "css-style-declaration",
+    "document",
+    "dom-token-list",
+    "element",
+    "element-css-inline-style",
+    "event",
+    "event-target",
+    "html-input-element",
+    "mouse-event",
+    "node",
+    "node-list",
+    "non-element-parent-node",
+    "parent-node",
+    "platform-helpers",
+    "pointer-event",
+    "wheel-event",
+    "window"
+  ]
+}

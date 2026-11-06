@@ -6,6 +6,15 @@ if (isset($_GET['index']) && $_GET['index'] === 'admin') {
     return;
 }
 
+// 迁移期双前端：Discuz 的插件路由直接把 index=game 映射到本文件，
+// 不经过 pokemon.inc.php，所以入口判断必须放在这里。
+//   plugin.php?id=pokemon:game        → 本文件（Dioxus 版，存量）
+//   plugin.php?id=pokemon:game&ui=v2  → game_v2.inc.php（tairitsu 版）
+if (isset($_GET['ui']) && $_GET['ui'] === 'v2') {
+    include_once __DIR__ . '/game_v2.inc.php';
+    return;
+}
+
 loadcache('plugin');
 require_once __DIR__ . '/game_access.php';
 $settings = $_G['cache']['plugin']['pokemon'] ?? [];
@@ -32,8 +41,18 @@ include template('common/header');
 .lds-dual-ring { display:inline-block; width:32px; height:32px; }
 .lds-dual-ring:after { content:" "; display:block; width:32px; height:32px; border-radius:50%; border:4px solid #d33774; border-color:#d33774 transparent #d33774 transparent; animation:lds-dual-ring 1.2s linear infinite; }
 @keyframes lds-dual-ring { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+/* 迁移期对照条：标明当前是 Dioxus 版，并提供切到 tairitsu 版的入口。 */
+.pm-ui-switch { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin:0 0 8px; font-size:12px; color:#666; }
+.pm-ui-switch a { color:#5cb8e6; text-decoration:none; }
+.pm-ui-switch a:hover { text-decoration:underline; }
+.pm-ui-switch .current { font-weight:600; color:#333; }
 </style>
 <link rel="stylesheet" href="/source/plugin/pokemon/wasm/game.css?v=<?php echo $wasmVer; ?>">
+<div class="pm-ui-switch">
+  <span>界面版本：</span>
+  <span class="current">Dioxus（存量）</span>
+  <a href="plugin.php?id=pokemon:game&ui=v2">tairitsu（迁移中）</a>
+</div>
 <div id="main">
 <div id="loading">
 <p style="font-size:18px;color:#333;margin-bottom:16px">正在加载宠物中心</p>

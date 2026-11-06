@@ -1,0 +1,16 @@
+/** @module Interface tairitsu-browser:full/mouse-event@0.2.0 **/
+export function getScreenX(self: MouseEventHandle): number;
+export function getScreenY(self: MouseEventHandle): number;
+export function getPageX(self: MouseEventHandle): number;
+export function getPageY(self: MouseEventHandle): number;
+export function getClientX(self: MouseEventHandle): number;
+export function getClientY(self: MouseEventHandle): number;
+export function getOffsetX(self: MouseEventHandle): number;
+export function getOffsetY(self: MouseEventHandle): number;
+export function getCtrlKey(self: MouseEventHandle): boolean;
+export function getShiftKey(self: MouseEventHandle): boolean;
+export function getAltKey(self: MouseEventHandle): boolean;
+export function getMetaKey(self: MouseEventHandle): boolean;
+export function getButton(self: MouseEventHandle): number;
+export function getButtons(self: MouseEventHandle): number;
+export type MouseEventHandle = bigint;

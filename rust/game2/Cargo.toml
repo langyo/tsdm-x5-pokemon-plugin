@@ -1,0 +1,38 @@
+[package]
+name = "_game2"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "tairitsu + hikari rebuild of the game frontend (docs/refactor-tairitsu-hikari-research.md)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# 依赖策略（迁移期）：
+# - tairitsu 与 hikari 都锁 git rev。CI 上没有 ../../celestia 这两个本地
+#   checkout，path 依赖会让构建直接失败；rev 锁定让任何机器都可复现。
+# - 本地迭代：在 rust/game2/.cargo/config.toml（不提交）里用 [patch] 把
+#   这些 crate 指向工作副本，见 docs/refactor-tairitsu-hikari-research.md §10。
+# - hikari 声明 tairitsu ^0.5.18；下面的 [patch.crates-io] 把它统一到同一
+#   rev，避免双版本类型冲突（§5.5）。
+[dependencies]
+tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "8f7a36ce", default-features = false }
+tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "8f7a36ce", default-features = false }
+tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "8f7a36ce", default-features = false }
+tairitsu-web = { git = "https://github.com/celestia-island/tairitsu", rev = "8f7a36ce", default-features = false, features = [
+    "browser",
+    "vdom",
+    "wit-bindings",
+] }
+hikari-components = { git = "https://github.com/celestia-island/hikari", rev = "ed699a6b" }
+hikari-icons = { git = "https://github.com/celestia-island/hikari", rev = "ed699a6b", features = ["tairitsu"] }
+hikari-palette = { git = "https://github.com/celestia-island/hikari", rev = "ed699a6b" }
+anyhow = "1"
+serde = { version = "^1", features = ["derive"] }
+serde_json = "^1"
+
+[patch.crates-io]
+tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "8f7a36ce" }
+tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "8f7a36ce" }
+tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "8f7a36ce" }
+tairitsu-style = { git = "https://github.com/celestia-island/tairitsu", rev = "8f7a36ce" }

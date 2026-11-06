@@ -1,0 +1,8 @@
+{
+  "ok": true,
+  "message": "POC fetch 往返成功：JS fetch → promiseCallbacks → Rust 信号",
+  "items": [
+    "回复药",
+    "精灵球"
+  ]
+}
