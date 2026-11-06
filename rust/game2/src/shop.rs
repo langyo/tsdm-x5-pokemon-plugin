@@ -20,7 +20,7 @@ use hikari_components::{
 
 use crate::api;
 use crate::icon::{Icon, IconName, IconProps};
-use crate::shop_logic::{shop_tooltip_position, viewport_width, windowed_entries, PagerEntry};
+use crate::shop_logic::{windowed_entries, PagerEntry};
 use crate::state::{show_toast_silent, ShopItem, ShopPet, ShopState, ToastKind};
 
 /// 图片资源基础路径（对应 Dioxus 版 IMG_PATH）。

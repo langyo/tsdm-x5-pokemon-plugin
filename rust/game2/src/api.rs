@@ -759,3 +759,158 @@ pub fn heal_pokemon(
         }),
     );
 }
+
+// ===========================================================================
+// 宠物详情 / 改名（我的宝可梦页）
+// ===========================================================================
+
+#[derive(Deserialize)]
+struct PokemonIvsDto {
+    #[serde(default, alias = "hit_points")]
+    hp: u64,
+    #[serde(default)]
+    attack: u64,
+    #[serde(default)]
+    defense: u64,
+    #[serde(default, rename = "sp_attack", alias = "special_attack")]
+    sp_attack: u64,
+    #[serde(default, rename = "sp_defense", alias = "special_defense")]
+    sp_defense: u64,
+    #[serde(default)]
+    speed: u64,
+}
+
+#[derive(Deserialize)]
+struct PokemonStatsDto {
+    #[serde(default)]
+    attack: i64,
+    #[serde(default)]
+    defense: i64,
+    #[serde(default, rename = "sp_attack", alias = "special_attack")]
+    sp_attack: i64,
+    #[serde(default, rename = "sp_defense", alias = "special_defense")]
+    sp_defense: i64,
+    #[serde(default)]
+    speed: i64,
+}
+
+#[derive(Deserialize)]
+struct PokemonDetailBaseDto {
+    #[serde(default)]
+    type_1: String,
+    #[serde(default)]
+    type_2: Option<String>,
+    #[serde(default)]
+    is_legendary: bool,
+}
+
+#[derive(Deserialize)]
+struct PokemonDetailDto {
+    id: u64,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    nickname: Option<String>,
+    #[serde(default)]
+    type_id: u64,
+    #[serde(default)]
+    level: u64,
+    #[serde(default)]
+    exp: u64,
+    #[serde(default)]
+    exp_for_current_level: u64,
+    #[serde(default)]
+    exp_for_next_level: u64,
+    #[serde(default)]
+    hp: i64,
+    #[serde(default)]
+    max_hp: i64,
+    #[serde(default)]
+    gender: u8,
+    #[serde(default)]
+    is_shiny: bool,
+    #[serde(default)]
+    state: u8,
+    #[serde(default)]
+    state_text: String,
+    #[serde(default)]
+    state_class: String,
+    #[serde(default)]
+    affection: u32,
+    #[serde(default)]
+    ivs: Option<PokemonIvsDto>,
+    #[serde(default)]
+    quality_rank: Option<u8>,
+    #[serde(default)]
+    quality_grade: Option<String>,
+    #[serde(default)]
+    stats: Option<PokemonStatsDto>,
+    #[serde(default)]
+    base_info: Option<PokemonDetailBaseDto>,
+}
+
+pub fn pokemon_detail(
+    pokemon_id: u64,
+    on_done: Box<dyn FnOnce(Result<crate::state::PokemonDetail, String>)>,
+) {
+    request(
+        "pokemon",
+        &format!("detail&pokemon_id={pokemon_id}"),
+        None,
+        Box::new(|result: Result<PokemonDetailDto, String>| {
+            on_done(result.map(|d| {
+                crate::state::PokemonDetail {
+                    id: d.id,
+                    name: d.name,
+                    nickname: d.nickname,
+                    type_id: d.type_id,
+                    level: d.level,
+                    exp: d.exp,
+                    exp_for_current_level: d.exp_for_current_level,
+                    exp_for_next_level: d.exp_for_next_level,
+                    hp: d.hp,
+                    max_hp: d.max_hp,
+                    gender: d.gender,
+                    is_shiny: d.is_shiny,
+                    state: d.state,
+                    state_text: d.state_text,
+                    state_class: d.state_class,
+                    affection: d.affection,
+                    ivs: d.ivs.map(|i| {
+                        [
+                            i.hp,
+                            i.attack,
+                            i.defense,
+                            i.sp_attack,
+                            i.sp_defense,
+                            i.speed,
+                        ]
+                    }),
+                    quality_rank: d.quality_rank,
+                    quality_grade: d.quality_grade,
+                    stats: d
+                        .stats
+                        .map(|s| [s.attack, s.defense, s.sp_attack, s.sp_defense, s.speed]),
+                    type_1: d
+                        .base_info
+                        .as_ref()
+                        .map(|b| b.type_1.clone())
+                        .unwrap_or_default(),
+                    type_2: d.base_info.as_ref().and_then(|b| b.type_2.clone()),
+                    is_legendary: d.base_info.map(|b| b.is_legendary).unwrap_or(false),
+                }
+            }))
+        }),
+    );
+}
+
+/// 改名：POST `{id, name}`（服务端限 20 字节，前端限 14 字）。
+pub fn rename_pokemon(pokemon_id: u64, name: &str, on_done: Box<dyn FnOnce(Result<(), String>)>) {
+    let body = serde_json::json!({ "id": pokemon_id, "name": name }).to_string();
+    request(
+        "pokemon",
+        "rename",
+        Some(body),
+        Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
+    );
+}

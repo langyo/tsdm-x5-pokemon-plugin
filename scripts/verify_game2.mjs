@@ -437,8 +437,75 @@ async function stepPokemonCenter() {
   }
 }
 
+async function stepMyPokemon() {
+  console.log('[4] 我的宠物（属性页）');
+  await navTo('my-pokemon');
+  const boot = await evaljs(() => ({
+    panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
+    active: document.querySelector('.nav-link.active')?.textContent?.trim() ?? null,
+    hasPage: !!document.querySelector('.page-my-pokemon'),
+  }));
+  ok('无 panic', boot.panic === null, boot.panic ?? '');
+  ok('我的宠物导航激活', boot.active === '我的宠物', boot.active ?? '');
+  ok('渲染我的宠物卡片', boot.hasPage);
+
+  await waitFor(
+    async () => (await evaljs(() => !document.querySelector('.loading'))),
+    15000,
+    '属性数据',
+  );
+  const view = await evaljs(() => {
+    const radar = document.querySelector('.radar-svg');
+    return {
+      empty: !!document.querySelector('.empty-hint'),
+      hasStats: !!document.querySelector('.stats-tab-layout'),
+      name: document.querySelector('.pokemon-name')?.textContent?.trim() ?? null,
+      level: document.querySelector('.heal-pm-level')?.textContent?.trim() ?? null,
+      hpBar: !!document.querySelector('.hp-bar .bar-text'),
+      expBar: !!document.querySelector('.exp-bar .bar-text'),
+      ivChips: document.querySelectorAll('.iv-chip').length,
+      qualityBadge: document.querySelector('.quality-badge')?.textContent?.trim() ?? null,
+      radarPaths: radar ? radar.querySelectorAll('path').length : 0,
+      editBtn: !!document.querySelector('[data-pm-my-pm-nick-edit]'),
+      selectorChips: document.querySelectorAll('[data-pm-my-pm-select]').length,
+      err: document.querySelector('.error-message')?.textContent?.trim() ?? null,
+    };
+  });
+  if (view.empty) {
+    skip('属性面板细节', '账号下没有宠物');
+    return;
+  }
+  ok('属性面板渲染', view.hasStats, view.err ?? '');
+  ok('显示宠物名与等级', !!view.name && !!view.level,
+    JSON.stringify({ name: view.name, level: view.level }));
+  ok('HP 与 EXP 条存在', view.hpBar && view.expBar);
+  ok('六项个体值齐全', view.ivChips === 6, `got ${view.ivChips}`);
+  ok('品质徽章出现', !!view.qualityBadge, view.qualityBadge ?? '');
+  ok('雷达图有网格+数据描边', view.radarPaths >= 4, `paths=${view.radarPaths}`);
+  ok('昵称编辑入口存在', view.editBtn);
+
+  // 昵称编辑：进入编辑态 → 取消（不写库）
+  await evaljs(() => document.querySelector('[data-pm-my-pm-nick-edit]')?.click());
+  await waitFor(
+    async () => (await evaljs(() => !!document.querySelector('[data-pm-my-pm-nick-input]'))),
+    8000,
+    '昵称编辑框',
+  );
+  const editing = await evaljs(() => ({
+    inputValue: document.querySelector('[data-pm-my-pm-nick-input]')?.value ?? null,
+    hasSave: !!document.querySelector('[data-pm-my-pm-nick-save]'),
+    hasCancel: !!document.querySelector('[data-pm-my-pm-nick-cancel]'),
+  }));
+  ok('编辑框带当前昵称', !!editing.inputValue, editing.inputValue ?? '');
+  ok('编辑框有保存/取消', editing.hasSave && editing.hasCancel);
+  await evaljs(() => document.querySelector('[data-pm-my-pm-nick-cancel]')?.click());
+  await sleep(700);
+  ok('取消后退出编辑态',
+    await evaljs(() => !document.querySelector('[data-pm-my-pm-nick-input]')));
+}
+
 async function stepShopAndHome() {
-  console.log('[4] 商店页');
+  console.log('[5] 商店页');
   await navTo('shop');
   const shop = await evaljs(() => ({
     panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
@@ -452,7 +519,7 @@ async function stepShopAndHome() {
       || !!document.querySelector('.shop-empty'))), 15000, '商店数据');
   ok('商店内容渲染', await evaljs(() => !!document.querySelector('.shop-card, .shop-items-grid, .shop-empty')));
 
-  console.log('[5] 首页');
+  console.log('[6] 首页');
   await navTo('home');
   const home = await evaljs(() => ({
     panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
@@ -500,13 +567,15 @@ try {
   if (authed) {
     await stepInventory();
     await stepPokemonCenter();
+    await stepMyPokemon();
     await stepShopAndHome();
   } else {
     console.log('[2] 背包页（跳过：未登录）');
     console.log('[3] 宠物中心（跳过：未登录）');
-    console.log('[4] 商店页（跳过：未登录）');
-    console.log('[5] 首页（跳过：未登录）');
-    skipped += 4;
+    console.log('[4] 我的宠物（跳过：未登录）');
+    console.log('[5] 商店页（跳过：未登录）');
+    console.log('[6] 首页（跳过：未登录）');
+    skipped += 5;
   }
 } catch (err) {
   failed += 1;

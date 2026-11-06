@@ -304,3 +304,81 @@ pub fn center_show_toast_silent(state: &CenterState, kind: ToastKind, message: S
     state.toast_message.inner().set(message);
     state.toast_visible.inner().set(true);
 }
+
+/// 我的宝可梦页签名：当前只移植了「属性」标签页；装备与技能随后续阶段接入。
+#[derive(Clone, Copy, PartialEq)]
+pub enum MyPokemonTab {
+    Stats,
+}
+
+/// 宠物详情（我的宝可梦「属性」页所需字段）。
+///
+/// 定义在 state 而非 api：`api` 模块只在 wasm 下编译，而持久状态要能在
+/// 测试目标（host）下编译。`crate::api::pokemon_detail` 负责填充它。
+#[derive(Debug, Clone, Default)]
+pub struct PokemonDetail {
+    pub id: u64,
+    pub name: String,
+    pub nickname: Option<String>,
+    pub type_id: u64,
+    pub level: u64,
+    pub exp: u64,
+    pub exp_for_current_level: u64,
+    pub exp_for_next_level: u64,
+    pub hp: i64,
+    pub max_hp: i64,
+    pub gender: u8,
+    pub is_shiny: bool,
+    pub state: u8,
+    pub state_text: String,
+    pub state_class: String,
+    pub affection: u32,
+    /// 六项个体值（旧端点可能无此字段）。
+    pub ivs: Option<[u64; 6]>,
+    pub quality_rank: Option<u8>,
+    pub quality_grade: Option<String>,
+    /// (攻击, 防御, 特攻, 特防, 速度)。
+    pub stats: Option<[i64; 5]>,
+    pub type_1: String,
+    pub type_2: Option<String>,
+    pub is_legendary: bool,
+}
+
+/// 我的宝可梦「属性」页持久状态。
+#[derive(Clone)]
+pub struct MyPokemonState {
+    pub component_id: std::cell::Cell<u32>,
+    pub tab: ReactiveSignal<MyPokemonTab>,
+    /// 当前选中的宠物 ID；None = 列表第一只。
+    pub selected_id: ReactiveSignal<Option<u64>>,
+    /// 详情（属性面板数据）。
+    pub detail: ReactiveSignal<Option<Result<PokemonDetail, String>>>,
+    pub editing: ReactiveSignal<bool>,
+    pub edit_value: ReactiveSignal<String>,
+    /// 保存中（互斥守卫）。
+    pub saving: ReactiveSignal<bool>,
+    pub save_error: ReactiveSignal<Option<String>>,
+    pub save_success: ReactiveSignal<bool>,
+}
+
+impl MyPokemonState {
+    pub fn new() -> Self {
+        Self {
+            component_id: std::cell::Cell::new(0),
+            tab: use_signal(|| MyPokemonTab::Stats),
+            selected_id: use_signal(|| None),
+            detail: use_signal(|| None),
+            editing: use_signal(|| false),
+            edit_value: use_signal(String::new),
+            saving: use_signal(|| false),
+            save_error: use_signal(|| None),
+            save_success: use_signal(|| false),
+        }
+    }
+}
+
+impl std::fmt::Debug for MyPokemonState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MyPokemonState").finish()
+    }
+}

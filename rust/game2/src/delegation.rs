@@ -76,6 +76,8 @@ pub fn install(app: &WitElement, state: &AppState) {
                 } else if attr_of(target, "data-pm-inv-search").is_some() {
                     st.inv.search_input.set(ev.value.clone());
                     crate::inventory::apply_search(&st, &ev.value);
+                } else if attr_of(target, "data-pm-my-pm-nick-input").is_some() {
+                    st.my_pm.edit_value.inner().set(ev.value.clone());
                 }
             }),
         );
@@ -146,6 +148,7 @@ fn dispatch_click(state: &AppState, target: u64) {
             "shop" => crate::app_state::Route::Shop,
             "inventory" => crate::app_state::Route::Inventory,
             "center" => crate::app_state::Route::PokemonCenter,
+            "my-pokemon" => crate::app_state::Route::MyPokemon,
             _ => crate::app_state::Route::Home,
         };
         state.route.set(route);
@@ -164,6 +167,37 @@ fn dispatch_click(state: &AppState, target: u64) {
     }
     if find_with_attr(target, "data-pm-center-heal-all").is_some() {
         crate::pokemon_center::heal_all(state);
+        return;
+    }
+    // 我的宝可梦：宠物选择 / 昵称编辑
+    if let Some((_, v)) = find_with_attr(target, "data-pm-my-pm-select") {
+        if let Ok(pid) = v.parse::<u64>() {
+            crate::my_pokemon::select_pokemon(state, pid);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-my-pm-nick-edit").is_some() {
+        let current = state
+            .my_pm
+            .detail
+            .get()
+            .and_then(|r| r.ok())
+            .map(|d| {
+                d.nickname
+                    .clone()
+                    .filter(|n| !n.is_empty())
+                    .unwrap_or_else(|| d.name.clone())
+            })
+            .unwrap_or_default();
+        crate::my_pokemon::begin_edit(state, &current);
+        return;
+    }
+    if find_with_attr(target, "data-pm-my-pm-nick-save").is_some() {
+        crate::my_pokemon::submit_rename(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-my-pm-nick-cancel").is_some() {
+        crate::my_pokemon::cancel_edit(state);
         return;
     }
     // 背包：分类 / 分页 / 使用 / 弹窗
