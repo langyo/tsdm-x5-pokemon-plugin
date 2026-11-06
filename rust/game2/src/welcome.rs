@@ -15,7 +15,8 @@ const IMG_PATH: &str = "source/plugin/pokemon/images";
 const ICON_EGG: &str = r#"<path d="M12 22a8 8 0 0 0 8-7c0-5.5-4.5-10.5-8-11-3.5.5-8 5.5-8 11a8 8 0 0 0 8 7z"/><path d="M12 10c3.5 1 5 4 5 7"/><path d="M8.5 8.5c1 1.5 2 3 2 5"/>"#;
 const ICON_GAMEPAD: &str = r#"<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>"#;
 const ICON_SPARKLES: &str = r#"<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M19 17v4"/><path d="M3 5h4"/><path d="M17 19h4"/>"#;
-const ICON_CIRCLE_X: &str = r#"<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>"#;
+const ICON_CIRCLE_X: &str =
+    r#"<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>"#;
 
 /// promise 线程统一收尾：内部值写入 + 请求重挂载（见 lib.rs 说明）。
 fn commit(state: &AppState) {
@@ -49,7 +50,10 @@ fn api_initialize(state: &AppState) {
             }
         }
         Err(e) => {
-            state.welcome_error.inner().set(Some(format!("初始化失败: {e}")));
+            state
+                .welcome_error
+                .inner()
+                .set(Some(format!("初始化失败: {e}")));
             state.welcome_initializing.inner().set(false);
             commit(&state);
         }
@@ -85,12 +89,22 @@ pub fn Welcome(state: Box<AppState>) -> VNode {
     let error_text = error.unwrap_or_default();
     let has_error = !error_text.is_empty();
     // rsx 文本插值只支持整串 "{ident}"，按钮文案先取出。
-    let button_text = if initializing { "初始化中..." } else { "开始冒险" }.to_string();
+    let button_text = if initializing {
+        "初始化中..."
+    } else {
+        "开始冒险"
+    }
+    .to_string();
     let icon_egg = svg_lucide(ICON_EGG);
     let icon_gamepad = svg_lucide(ICON_GAMEPAD);
     let icon_sparkles = svg_lucide(ICON_SPARKLES);
     let icon_err = svg_lucide(ICON_CIRCLE_X);
-    let button_class = if initializing { "welcome-button disabled" } else { "welcome-button" }.to_string();
+    let button_class = if initializing {
+        "welcome-button disabled"
+    } else {
+        "welcome-button"
+    }
+    .to_string();
 
     rsx! {
         div { class: "welcome-page",

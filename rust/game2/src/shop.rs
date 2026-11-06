@@ -22,7 +22,7 @@ use tairitsu_hooks::ReactiveSignal;
 
 use crate::api;
 use crate::icon::{Icon, IconName, IconProps};
-use crate::shop_logic::{shop_tooltip_position, viewport_width, PagerEntry, windowed_entries};
+use crate::shop_logic::{shop_tooltip_position, viewport_width, windowed_entries, PagerEntry};
 use crate::state::{show_toast_silent, ShopItem, ShopPet, ShopState, ToastKind};
 
 /// 图片资源基础路径（对应 Dioxus 版 IMG_PATH）。
@@ -75,7 +75,6 @@ pub fn reload(state: &ShopState) {
             Box::new(move |result| {
                 match result {
                     Ok(resp) => {
-                        let n = resp.pets.len();
                         state.pets.inner().set(Some(Ok(resp.pets)));
                         clamp_page_silent(&state, resp.total_pages);
                     }
@@ -95,7 +94,6 @@ pub fn reload(state: &ShopState) {
             Box::new(move |result| {
                 match result {
                     Ok(resp) => {
-                        let n = resp.items.len();
                         state.items.inner().set(Some(Ok(resp.items)));
                         clamp_page_silent(&state, resp.total_pages);
                     }
@@ -136,13 +134,14 @@ fn promise_commit(state: &ShopState) {
 #[cfg(not(target_family = "wasm"))]
 fn promise_commit(_state: &ShopState) {}
 
-
 // ---------------------------------------------------------------------------
 // 委托动作入口（delegation.rs 调用；全部走事件线程，可安全 mark_dirty）
 // ---------------------------------------------------------------------------
 
 pub fn select_category(state: &ShopState, cat: Option<u32>) {
-    if state.buying.get() { return; }
+    if state.buying.get() {
+        return;
+    }
     state.category.set(cat);
     state.page.set(1);
     reload(state);
@@ -151,12 +150,20 @@ pub fn select_category(state: &ShopState, cat: Option<u32>) {
 pub fn goto_page(state: &ShopState, page: u32) {
     let last = state.total_pages.get().max(1) as u32;
     let page = page.clamp(1, last);
-    if page == state.page.get() { return; }
+    if page == state.page.get() {
+        return;
+    }
     state.page.set(page);
     reload(state);
 }
 
-fn current_list(state: &ShopState) -> Option<(bool, Vec<crate::state::ShopItem>, Vec<crate::state::ShopPet>)> {
+fn current_list(
+    state: &ShopState,
+) -> Option<(
+    bool,
+    Vec<crate::state::ShopItem>,
+    Vec<crate::state::ShopPet>,
+)> {
     let is_pet = state.category.get() == PET_CATEGORY;
     if is_pet {
         match state.pets.get() {
@@ -172,14 +179,22 @@ fn current_list(state: &ShopState) -> Option<(bool, Vec<crate::state::ShopItem>,
 }
 
 pub fn buy_item_by_id(state: &ShopState, id: u64) {
-    let Some((false, items, _)) = current_list(state) else { return };
-    let Some(item) = items.iter().find(|i| i.id == id) else { return };
+    let Some((false, items, _)) = current_list(state) else {
+        return;
+    };
+    let Some(item) = items.iter().find(|i| i.id == id) else {
+        return;
+    };
     buy_item(state, item);
 }
 
 pub fn buy_pet_by_id(state: &ShopState, id: u64) {
-    let Some((true, _, pets)) = current_list(state) else { return };
-    let Some(pet) = pets.iter().find(|p| p.id == id) else { return };
+    let Some((true, _, pets)) = current_list(state) else {
+        return;
+    };
+    let Some(pet) = pets.iter().find(|p| p.id == id) else {
+        return;
+    };
     buy_pet(state, pet);
 }
 
@@ -269,7 +284,10 @@ fn buy_pet(state: &ShopState, pet: &ShopPet) {
                     show_toast_silent(
                         &state,
                         ToastKind::Success,
-                        format!("成功购买 {name}！已放入{location}，余额: {}", resp.remaining_money),
+                        format!(
+                            "成功购买 {name}！已放入{location}，余额: {}",
+                            resp.remaining_money
+                        ),
                     );
                 }
                 Err(e) => show_toast_silent(&state, ToastKind::Error, format!("购买失败: {e}")),
@@ -506,7 +524,11 @@ fn ItemsTab(state: Box<ShopState>) -> VNode {
         None => rsx! { div { class: "shop-loading", "正在加载商品..." } },
         Some(Err(e)) => rsx! { div { class: "error-message", "{e}" } },
         Some(Ok(items)) if items.is_empty() => {
-            let msg = if keyword_empty { "暂无商品" } else { "没有找到匹配的商品，试试其他名称或分类" };
+            let msg = if keyword_empty {
+                "暂无商品"
+            } else {
+                "没有找到匹配的商品，试试其他名称或分类"
+            };
             let src = format!("{IMG_PATH}/item/box.gif");
             rsx! {
                 div { class: "shop-empty",
@@ -537,7 +559,11 @@ fn PetsTab(state: Box<ShopState>) -> VNode {
         None => rsx! { div { class: "shop-loading", "正在加载宠物..." } },
         Some(Err(e)) => rsx! { div { class: "error-message", "{e}" } },
         Some(Ok(pets)) if pets.is_empty() => {
-            let msg = if keyword_empty { "暂无可购买的宠物" } else { "没有找到匹配的宠物，试试其他名称" };
+            let msg = if keyword_empty {
+                "暂无可购买的宠物"
+            } else {
+                "没有找到匹配的宠物，试试其他名称"
+            };
             let src = format!("{IMG_PATH}/item/box.gif");
             rsx! {
                 div { class: "shop-empty",
@@ -563,7 +589,11 @@ fn PetsTab(state: Box<ShopState>) -> VNode {
 #[component]
 fn ItemTile(state: Box<ShopState>, idx: usize, item: ShopItem) -> VNode {
     let img_src = format!("{IMG_PATH}/item/{}.gif", item.image);
-    let buy_class = if item.can_buy { "buy-btn" } else { "buy-btn disabled" };
+    let buy_class = if item.can_buy {
+        "buy-btn"
+    } else {
+        "buy-btn disabled"
+    };
     let buying = state.buying.get();
     let show_tooltip = state.hover_key.get() == Some(idx);
     let (tip_x, tip_y) = state.hover_pos.get();
@@ -644,11 +674,19 @@ fn ItemTooltip(item: ShopItem, x: f64, y: f64) -> VNode {
 #[component]
 fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
     let img_src = format!("{IMG_PATH}/spm/{}.gif", pet.id);
-    let buy_class = if pet.can_buy { "buy-btn" } else { "buy-btn disabled" };
+    let buy_class = if pet.can_buy {
+        "buy-btn"
+    } else {
+        "buy-btn disabled"
+    };
     let buying = state.buying.get();
     let show_tooltip = state.hover_key.get() == Some(idx);
     let (tip_x, tip_y) = state.hover_pos.get();
-    let has_type2 = pet.type_2.as_deref().map(|t| !t.is_empty()).unwrap_or(false);
+    let has_type2 = pet
+        .type_2
+        .as_deref()
+        .map(|t| !t.is_empty())
+        .unwrap_or(false);
     let price = pet.price.to_string();
     let name = pet.name.clone();
     let title_text = pet.name.clone();
@@ -723,7 +761,11 @@ fn PetTooltip(
     speed: String,
 ) -> VNode {
     let style = format!("left: {x}px; top: {y}px;");
-    let has_type2 = pet.type_2.as_deref().map(|t| !t.is_empty()).unwrap_or(false);
+    let has_type2 = pet
+        .type_2
+        .as_deref()
+        .map(|t| !t.is_empty())
+        .unwrap_or(false);
     let price = pet.price.to_string();
     let name = pet.name.clone();
     let title_text = pet.name.clone();

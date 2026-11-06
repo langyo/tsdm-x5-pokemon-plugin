@@ -14,13 +14,21 @@ pub enum Route {
     Welcome,
     Home,
     Shop,
+    Inventory,
 }
 
 /// 首页话题项（新闻公告与论坛话题的统一显示格式）。
 #[derive(Clone, Debug)]
 pub enum TopicItem {
-    News { title: String, url: String },
-    Topic { id: u64, title: String, is_pinned: bool },
+    News {
+        title: String,
+        url: String,
+    },
+    Topic {
+        id: u64,
+        title: String,
+        is_pinned: bool,
+    },
 }
 
 /// 在线玩家。
@@ -51,6 +59,9 @@ pub struct AppState {
 
     // ---- 商店页 ----
     pub shop: ShopState,
+
+    // ---- 背包页 ----
+    pub inv: crate::state::InventoryState,
 }
 
 impl AppState {
@@ -65,6 +76,7 @@ impl AppState {
             topics: use_signal(|| None),
             online: use_signal(|| None),
             shop: ShopState::new(),
+            inv: crate::state::InventoryState::new(),
         }
     }
 }

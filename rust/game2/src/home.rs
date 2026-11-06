@@ -31,7 +31,10 @@ fn load_topics(state: &AppState) {
 fn load_online(state: &AppState) {
     let state = state.clone();
     crate::api::online_players(Box::new(move |result| {
-        state.online.inner().set(Some(result.map(|r| (r.total, r.players))));
+        state
+            .online
+            .inner()
+            .set(Some(result.map(|r| (r.total, r.players))));
         crate::request_remount();
     }));
 }
@@ -160,6 +163,10 @@ fn plain_class(class: &str, text: &str) -> VNode {
 
 fn count_p(text: &str, is_error: bool) -> VNode {
     let t = text.to_string();
-    let cls = if is_error { "player-count error" } else { "player-count" };
+    let cls = if is_error {
+        "player-count error"
+    } else {
+        "player-count"
+    };
     rsx! { p { class: cls, "{t}" } }
 }

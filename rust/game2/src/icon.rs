@@ -13,9 +13,7 @@ pub fn markup(name: IconName) -> &'static str {
         IconName::Coins => {
             r#"<circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" />"#
         }
-        IconName::Search => {
-            r#"<circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />"#
-        }
+        IconName::Search => r#"<circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />"#,
         IconName::Shoppingcart => {
             r#"<circle cx="8" cy="21" r="1" /><circle cx="19" cy="21" r="1" /><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />"#
         }

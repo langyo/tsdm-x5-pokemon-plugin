@@ -9,10 +9,10 @@
 //! jco 下事件目标只有原始句柄，closest 没有对应绑定——这里从
 //! event.target 沿 parent 链向上最多走 12 层读属性判定。
 
-use tairitsu_web::WitPlatform;
-use tairitsu_web::wit_platform::WitElement;
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::get_attribute;
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::node::get_parent_element;
+use tairitsu_web::wit_platform::WitElement;
+use tairitsu_web::WitPlatform;
 
 use crate::app_state::AppState;
 use crate::shop_logic::shop_tooltip_position;
@@ -60,7 +60,7 @@ pub fn install(app: &WitElement, state: &AppState) {
         );
     }
 
-    // ---- change：搜索输入（回车提交） ----
+    // ---- change：搜索输入（回车提交；背包搜索同样走 change） ----
     {
         let st = state.clone();
         platform.add_event_listener(
@@ -73,6 +73,9 @@ pub fn install(app: &WitElement, state: &AppState) {
                 let Some(target) = ev.target else { return };
                 if attr_of(target, "data-pm-filter-input").is_some() {
                     crate::shop::reload_from_filter(&st.shop, &ev.value);
+                } else if attr_of(target, "data-pm-inv-search").is_some() {
+                    st.inv.search_input.set(ev.value.clone());
+                    crate::inventory::apply_search(&st, &ev.value);
                 }
             }),
         );
@@ -92,13 +95,20 @@ pub fn install(app: &WitElement, state: &AppState) {
                 let Some((_, idx_str)) = find_with_attr(target, "data-pm-tile") else {
                     return;
                 };
-                let Ok(idx) = idx_str.parse::<usize>() else { return };
+                let Ok(idx) = idx_str.parse::<usize>() else {
+                    return;
+                };
                 let kind = find_with_attr(target, "data-pm-tile-kind")
                     .map(|(_, k)| k)
                     .unwrap_or_default();
-                let h = if kind == "pet" { PET_TOOLTIP_H } else { ITEM_TOOLTIP_H };
+                let h = if kind == "pet" {
+                    PET_TOOLTIP_H
+                } else {
+                    ITEM_TOOLTIP_H
+                };
                 let win_w = crate::shop::viewport_width_or_default();
-                let (x, y) = shop_tooltip_position(ev.client_x as f64, ev.client_y as f64, h, win_w);
+                let (x, y) =
+                    shop_tooltip_position(ev.client_x as f64, ev.client_y as f64, h, win_w);
                 // 内部值写入 + 请求重挂载：ReactiveSignal::set 会走
                 // mark_dirty → rAF → flush_render → apply，而 apply 路径
                 // 在 jco 下挂起（§10.1.3）；tooltip 是纯派生 UI，直接
@@ -134,10 +144,69 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((_, v)) = find_with_attr(target, "data-pm-nav") {
         let route = match v.as_str() {
             "shop" => crate::app_state::Route::Shop,
+            "inventory" => crate::app_state::Route::Inventory,
             _ => crate::app_state::Route::Home,
         };
         state.route.set(route);
         crate::request_remount();
+        return;
+    }
+    // 背包：分类 / 分页 / 使用 / 弹窗
+    if let Some((_, v)) = find_with_attr(target, "data-pm-inv-cat") {
+        let cat = if v == "all" {
+            None
+        } else {
+            v.parse::<u32>().ok()
+        };
+        crate::inventory::select_category(state, cat);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-inv-page") {
+        let page = match v.as_str() {
+            "prev" => state.inv.page.get().saturating_sub(1).max(1),
+            "next" => state.inv.page.get() + 1,
+            n => n.parse::<u32>().unwrap_or(1),
+        };
+        crate::inventory::goto_page(state, page);
+        return;
+    }
+    if find_with_attr(target, "data-pm-inv-search-submit").is_some() {
+        crate::inventory::apply_search(state, &state.inv.search_input.get());
+        return;
+    }
+    if find_with_attr(target, "data-pm-inv-search-clear").is_some() {
+        state.inv.search_input.set(String::new());
+        crate::inventory::apply_search(state, "");
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-inv-use") {
+        // data 属性带的是物品类型 ID（type_id）——use_item/get_usable_pokemon
+        // 都以它为键（对齐 Dioxus 版），背包行 id 不外发。
+        let item_id = v.parse::<u64>().unwrap_or(0);
+        let meta = state
+            .inv
+            .items
+            .get()
+            .and_then(|r| r.ok())
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|i| i.type_id == item_id)
+                    .map(|i| (i.item_type, i.use_target.clone()))
+            });
+        if let Some((item_type, use_target)) = meta {
+            crate::inventory::use_item(state, item_id, item_type, use_target);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-inv-pick") {
+        if let Ok(pid) = v.parse::<u64>() {
+            crate::inventory::confirm_use_on_pokemon(state, pid);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-inv-modal-close").is_some() {
+        crate::inventory::close_target_modal(state);
         return;
     }
     // 欢迎页：开始冒险（新玩家初始化）
@@ -148,7 +217,11 @@ fn dispatch_click(state: &AppState, target: u64) {
     let shop = state.shop.clone();
     // 分类
     if let Some((_, v)) = find_with_attr(target, "data-pm-cat") {
-        let cat = if v == "pet" { None } else { v.parse::<u32>().ok() };
+        let cat = if v == "pet" {
+            None
+        } else {
+            v.parse::<u32>().ok()
+        };
         crate::shop::select_category(&shop, cat);
         return;
     }

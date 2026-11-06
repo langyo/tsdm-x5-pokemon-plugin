@@ -51,6 +51,101 @@ pub enum ToastKind {
     Error,
 }
 
+/// 背包物品（与 rust/utils/src/types/api_user.rs InventoryItem 字段一致）。
+#[derive(Debug, Clone, Default)]
+pub struct InventoryItem {
+    /// 背包行 ID（pm_myitem.id，仅标识用）。
+    pub id: u64,
+    /// 物品类型 ID（pm_itemdata.id）——使用/查询可用目标都传它，
+    /// Dioxus 版同样以 type_id 作为使用键。
+    pub type_id: u64,
+    /// 物品大类（1=回复药 … 5=装备道具）。
+    pub item_type: u64,
+    /// 服务端给的使用目标：pokemon / battle / global。
+    pub use_target: Option<String>,
+    pub name: String,
+    pub description: String,
+    pub image: String,
+    pub quantity: i64,
+    pub type_name: String,
+}
+
+/// 弹窗里可选的目标宠物（get_usable_pokemon）。
+#[derive(Debug, Clone, Default)]
+pub struct UsablePokemon {
+    pub id: u64,
+    pub nickname: String,
+    pub level: u64,
+    pub hp: i64,
+    pub max_hp: i64,
+}
+
+/// 背包页持久状态。
+#[derive(Clone)]
+pub struct InventoryState {
+    pub component_id: std::cell::Cell<u32>,
+    pub category: ReactiveSignal<Option<u32>>,
+    pub page: ReactiveSignal<u32>,
+    pub total_pages: ReactiveSignal<usize>,
+    pub total: ReactiveSignal<usize>,
+    pub search_input: ReactiveSignal<String>,
+    pub search_query: ReactiveSignal<String>,
+
+    pub items: ReactiveSignal<Option<Result<Vec<InventoryItem>, String>>>,
+    /// 正在使用中的物品类型 ID（互斥守卫）。
+    pub using: ReactiveSignal<Option<u64>>,
+    /// 选中的物品（弹窗打开时的使用目标判定）。
+    pub selected_item: ReactiveSignal<Option<u64>>,
+    pub show_target_modal: ReactiveSignal<bool>,
+    pub usable_pokemon: ReactiveSignal<Option<Result<Vec<UsablePokemon>, String>>>,
+
+    pub toast_visible: ReactiveSignal<bool>,
+    pub toast_message: ReactiveSignal<String>,
+    pub toast_kind: ReactiveSignal<ToastKind>,
+}
+
+impl InventoryState {
+    pub fn new() -> Self {
+        Self {
+            component_id: std::cell::Cell::new(0),
+            category: use_signal(|| None),
+            page: use_signal(|| 1u32),
+            total_pages: use_signal(|| 1usize),
+            total: use_signal(|| 0usize),
+            search_input: use_signal(String::new),
+            search_query: use_signal(String::new),
+            items: use_signal(|| None),
+            using: use_signal(|| None),
+            selected_item: use_signal(|| None),
+            show_target_modal: use_signal(|| false),
+            usable_pokemon: use_signal(|| None),
+            toast_visible: use_signal(|| false),
+            toast_message: use_signal(String::new),
+            toast_kind: use_signal(|| ToastKind::Success),
+        }
+    }
+}
+
+impl std::fmt::Debug for InventoryState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InventoryState").finish()
+    }
+}
+
+/// 背包页提示（与商店的 show_toast* 分开命名，避免重载——Rust 无函数重载）。
+pub fn inv_show_toast(state: &InventoryState, kind: ToastKind, message: String) {
+    state.toast_kind.set(kind);
+    state.toast_message.set(message);
+    state.toast_visible.set(true);
+}
+
+/// promise 线程版（与 ShopState 的同名函数同约定）。
+pub fn inv_show_toast_silent(state: &InventoryState, kind: ToastKind, message: String) {
+    state.toast_kind.inner().set(kind);
+    state.toast_message.inner().set(message);
+    state.toast_visible.inner().set(true);
+}
+
 /// 商店页持久状态。`PocState` 的继任者：POC 骨架已退役，
 /// 这里承载第一个真实游戏页面。
 #[derive(Clone)]

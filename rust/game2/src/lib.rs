@@ -12,6 +12,8 @@ pub mod delegation;
 pub mod home;
 pub mod icon;
 #[cfg(target_family = "wasm")]
+pub mod inventory;
+#[cfg(target_family = "wasm")]
 pub mod shop;
 pub mod shop_logic;
 pub mod state;
@@ -84,11 +86,14 @@ fn remount_latest() {
 /// Header 的 首页/商店 入口，未移植页面暂不列出）。
 #[cfg(target_family = "wasm")]
 fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
-    use tairitsu_macros::rsx;
     use app_state::Route;
+    use tairitsu_macros::rsx;
     // 首页装载（对齐 Dioxus 版 use_resource 首次求值时机）。
     if state.route.get() == Route::Home {
         home::ensure_loaded(state);
+    }
+    if state.route.get() == Route::Inventory {
+        inventory::ensure_loaded(state);
     }
     if state.route.get() == Route::Welcome {
         return welcome::Welcome(welcome::WelcomeProps {
@@ -108,12 +113,30 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
             state: Some(Box::new(state.shop.clone())),
             ..Default::default()
         }),
+        Route::Inventory => inventory::Inventory(inventory::InventoryProps {
+            state: Some(Box::new(state.clone())),
+            ..Default::default()
+        }),
     };
 
     let home_active = state.route.get() == Route::Home;
     let shop_active = state.route.get() == Route::Shop;
-    let home_cls = if home_active { "nav-link active" } else { "nav-link" };
-    let shop_cls = if shop_active { "nav-link active" } else { "nav-link" };
+    let inv_active = state.route.get() == Route::Inventory;
+    let home_cls = if home_active {
+        "nav-link active"
+    } else {
+        "nav-link"
+    };
+    let shop_cls = if shop_active {
+        "nav-link active"
+    } else {
+        "nav-link"
+    };
+    let inv_cls = if inv_active {
+        "nav-link active"
+    } else {
+        "nav-link"
+    };
     let img_logo = "source/plugin/pokemon/images/item/jlq.gif";
 
     rsx! {
@@ -131,6 +154,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                     nav { class: "header-nav",
                         button { class: home_cls, "data-pm-nav": "home", "首页" }
                         button { class: shop_cls, "data-pm-nav": "shop", "商店" }
+                        button { class: inv_cls, "data-pm-nav": "inventory", "背包" }
                     }
                 }
             }
@@ -167,6 +191,7 @@ pub fn run_app() -> Result<()> {
     let state = tairitsu_vdom::runtime::with_component(component_id, app_state::AppState::new);
     state.component_id.set(component_id as u32);
     state.shop.component_id.set(component_id as u32);
+    state.inv.component_id.set(component_id as u32);
 
     let state_for_render = state.clone();
     let latest_for_remount = state.clone();
@@ -221,9 +246,8 @@ pub fn run_app() -> Result<()> {
     {
         use tairitsu_vdom::platform::DomOps;
         let platform = WitPlatform::new()?;
-        let app = WitElement::from_raw(
-            get_element_by_id(0, "app").expect("#app mount point not found"),
-        );
+        let app =
+            WitElement::from_raw(get_element_by_id(0, "app").expect("#app mount point not found"));
         platform.add_event_listener(
             &app,
             "pm-flush",

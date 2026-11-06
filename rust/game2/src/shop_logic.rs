@@ -50,7 +50,12 @@ pub fn windowed_entries(current: usize, total: usize) -> Vec<PagerEntry> {
 ///
 /// 与 Dioxus 版的差异：视口宽度来自 tairitsu 平台接口；高度接口未导入，
 /// 纵向不做下限钳制（tooltip 本身 fixed 定位，超出视口可滚动查看）。
-pub fn shop_tooltip_position(client_x: f64, client_y: f64, tooltip_h: f64, win_w: f64) -> (f64, f64) {
+pub fn shop_tooltip_position(
+    client_x: f64,
+    client_y: f64,
+    tooltip_h: f64,
+    win_w: f64,
+) -> (f64, f64) {
     const TOOLTIP_W: f64 = 230.0; // CSS max-width
     const GAP: f64 = 12.0;
     const MARGIN: f64 = 8.0;
@@ -69,7 +74,9 @@ pub fn shop_tooltip_position(client_x: f64, client_y: f64, tooltip_h: f64, win_w
 #[cfg(target_family = "wasm")]
 pub fn viewport_width() -> Option<f64> {
     use tairitsu_vdom::platform::LayoutOps;
-    tairitsu_web::WitPlatform::new().ok().map(|p| p.inner_width() as f64)
+    tairitsu_web::WitPlatform::new()
+        .ok()
+        .map(|p| p.inner_width() as f64)
 }
 
 #[cfg(not(target_family = "wasm"))]
@@ -91,13 +98,19 @@ mod tests {
     #[test]
     fn few_pages_are_all_listed() {
         assert_eq!(compact(&windowed_pages(1, 1)), ["1"]);
-        assert_eq!(compact(&windowed_pages(3, 7)), ["1", "2", "3", "4", "5", "6", "7"]);
+        assert_eq!(
+            compact(&windowed_pages(3, 7)),
+            ["1", "2", "3", "4", "5", "6", "7"]
+        );
     }
 
     #[test]
     fn long_lists_keep_edges_with_ellipsis() {
         assert_eq!(compact(&windowed_pages(1, 12)), ["1", "2", "…", "12"]);
-        assert_eq!(compact(&windowed_pages(5, 12)), ["1", "…", "4", "5", "6", "…", "12"]);
+        assert_eq!(
+            compact(&windowed_pages(5, 12)),
+            ["1", "…", "4", "5", "6", "…", "12"]
+        );
         assert_eq!(compact(&windowed_pages(12, 12)), ["1", "…", "11", "12"]);
     }
 
