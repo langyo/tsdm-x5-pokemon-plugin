@@ -475,6 +475,60 @@ impl std::fmt::Debug for MapEditorState {
     }
 }
 
+/// 技能编辑弹窗状态（切片 11）。
+///
+/// 服务端 `pm_skill` 只保存 category（物攻/特攻/其他）、element（中文属性）、
+/// power 三元组，外加名称/描述/等级/次数/可学种族/effect_id。效果对象形态是
+/// `{"physical_damage":[属性, 威力]}`，translator 只认这三种 category——
+/// 治疗/状态等加值效果在库层面没有列，提交会直接被拒。
+#[derive(Clone)]
+pub struct SkillEditorState {
+    pub open: ReactiveSignal<bool>,
+    pub editing_id: ReactiveSignal<Option<u64>>,
+    pub name: ReactiveSignal<String>,
+    pub description: ReactiveSignal<String>,
+    pub min_level_limit: ReactiveSignal<String>,
+    pub use_times_limit: ReactiveSignal<String>,
+    /// physical_damage / special_damage / others
+    pub category: ReactiveSignal<String>,
+    /// 中文属性名（空串 = 无，对应服务端 kind 翻译的 null 分支）。
+    pub element: ReactiveSignal<String>,
+    pub power: ReactiveSignal<String>,
+    /// 可学种族 ID 列表（逗号分隔文本：服务端载荷是数字数组，
+    /// 技能动辄关联上百个种族，纯文本串比逐个 chip 更实用）。
+    pub available: ReactiveSignal<String>,
+    /// 战斗引擎 2.0 效果模板 ID（0 = 不绑定）。
+    pub effect_id: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl SkillEditorState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            editing_id: use_signal(|| None),
+            name: use_signal(String::new),
+            description: use_signal(String::new),
+            min_level_limit: use_signal(|| "0".to_string()),
+            use_times_limit: use_signal(|| "0".to_string()),
+            category: use_signal(|| "physical_damage".to_string()),
+            element: use_signal(String::new),
+            power: use_signal(|| "0".to_string()),
+            available: use_signal(String::new),
+            effect_id: use_signal(|| "0".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for SkillEditorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SkillEditorState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -491,6 +545,7 @@ pub struct AppState {
     pub pokemon_editor: PokemonEditorState,
     pub item_editor: ItemEditorState,
     pub map_editor: MapEditorState,
+    pub skill_editor: SkillEditorState,
 }
 
 impl AppState {
@@ -509,6 +564,7 @@ impl AppState {
             pokemon_editor: PokemonEditorState::new(),
             item_editor: ItemEditorState::new(),
             map_editor: MapEditorState::new(),
+            skill_editor: SkillEditorState::new(),
         }
     }
 }

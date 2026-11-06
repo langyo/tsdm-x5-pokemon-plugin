@@ -68,6 +68,8 @@ pub fn install(app: &WitElement, state: &AppState) {
                     crate::pages::set_item_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-mpf") {
                     crate::pages::set_map_editor_field(&st, &key, &ev.value);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-skf") {
+                    crate::pages::set_skill_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -199,6 +201,31 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((_, id)) = find_with_attr(target, "data-pm-adm-mp-edit") {
         if let Ok(id) = id.trim().parse::<u64>() {
             crate::pages::open_map_edit(state, id);
+        }
+        return;
+    }
+    // 技能编辑弹窗（sk 前缀）。
+    if find_with_attr(target, "data-pm-adm-sk-save").is_some() {
+        crate::pages::submit_skill_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-sk-close").is_some() {
+        crate::pages::close_skill_editor(state);
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-sk-overlay") {
+        if hit == target {
+            crate::pages::close_skill_editor(state);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-sk-new").is_some() {
+        crate::pages::open_skill_new(state);
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-sk-edit") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::open_skill_edit(state, id);
         }
         return;
     }

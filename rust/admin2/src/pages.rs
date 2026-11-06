@@ -1655,6 +1655,7 @@ fn skill_data_page(st: &AppState) -> VNode {
                 let mut trs: Vec<VNode> = Vec::new();
                 for item in rows.iter() {
                     let id = json_u64(item, "id").to_string();
+                    let id_for_edit = id.clone();
                     let name = json_str(item, "name");
                     let desc = json_str(item, "description");
                     let desc_short = if desc.chars().count() > 18 {
@@ -1680,6 +1681,14 @@ fn skill_data_page(st: &AppState) -> VNode {
                             td { "{level}" }
                             td { "{uses}" }
                             td { "{species_count}" }
+                            td {
+                                button {
+                                    class: "admin-btn adm-row-edit",
+                                    disabled: busy,
+                                    "data-pm-adm-sk-edit": id_for_edit,
+                                    "编辑"
+                                }
+                            }
                         }
                     });
                 }
@@ -1693,6 +1702,7 @@ fn skill_data_page(st: &AppState) -> VNode {
                                 th { "等级限制" }
                                 th { "次数" }
                                 th { "可学种族数" }
+                                th { "操作" }
                             }
                         }
                         tbody {
@@ -1773,8 +1783,14 @@ fn skill_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-l-reload": "sk",
                     "刷新"
                 }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-sk-new": "1",
+                    "新增技能"
+                }
             }
-            ..vec![body]
+            ..vec![body, skill_editor_modal(st)]
         }
     }
 }
@@ -3363,6 +3379,355 @@ fn map_editor_modal(st: &AppState) -> VNode {
                         class: "admin-btn admin-btn-primary",
                         disabled: saving,
                         "data-pm-adm-mp-save": "1",
+                        "{save_label}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 技能编辑弹窗（切片 11）
+// ---------------------------------------------------------------------------
+
+/// 服务端唯一接受的三种技能类别（translate_skill_type_obj_to_raw）。
+const SKILL_CATEGORIES: [(&str, &str); 3] = [
+    ("physical_damage", "物攻"),
+    ("special_damage", "特攻"),
+    ("others", "其他"),
+];
+
+/// 从载荷里读出 (category, element 中文, power)。
+/// effect 形态是 {"physical_damage": ["fire", 40]}。
+fn skill_effect_parts(item: &serde_json::Value) -> (String, String, u64) {
+    let Some(obj) = item.get("effect").and_then(|e| e.as_object()) else {
+        return ("others".to_string(), String::new(), 0);
+    };
+    let Some((cat, value)) = obj.iter().next() else {
+        return ("others".to_string(), String::new(), 0);
+    };
+    let Some(arr) = value.as_array() else {
+        return (cat.clone(), String::new(), 0);
+    };
+    let elem_code = arr.first().and_then(|v| v.as_str()).unwrap_or("");
+    let cn = kind_name(elem_code);
+    let element = if cn == "？" { String::new() } else { cn.to_string() };
+    let power = arr.get(1).and_then(|v| v.as_u64()).unwrap_or(0);
+    (cat.clone(), element, power)
+}
+
+pub fn open_skill_new(state: &AppState) {
+    let ed = state.skill_editor.clone();
+    ed.editing_id.inner().set(None);
+    ed.name.inner().set(String::new());
+    ed.description.inner().set(String::new());
+    ed.min_level_limit.inner().set("0".to_string());
+    ed.use_times_limit.inner().set("0".to_string());
+    ed.category.inner().set("physical_damage".to_string());
+    ed.element.inner().set("普通".to_string());
+    ed.power.inner().set("0".to_string());
+    ed.available.inner().set(String::new());
+    ed.effect_id.inner().set("0".to_string());
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn open_skill_edit(state: &AppState, id: u64) {
+    let ed = state.skill_editor.clone();
+    let row = state
+        .skill
+        .rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == id);
+    let Some(row) = row else { return };
+    ed.editing_id.inner().set(Some(id));
+    ed.name.inner().set(json_str(&row, "name"));
+    ed.description.inner().set(json_str(&row, "description"));
+    ed.min_level_limit
+        .inner()
+        .set(json_u64(&row, "min_level_limit").to_string());
+    ed.use_times_limit
+        .inner()
+        .set(json_u64(&row, "use_times_limit").to_string());
+    let (cat, element, power) = skill_effect_parts(&row);
+    ed.category.inner().set(cat);
+    ed.element.inner().set(element);
+    ed.power.inner().set(power.to_string());
+    let ids: Vec<String> = row
+        .get("available_pokemons")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_u64())
+                .map(|n| n.to_string())
+                .collect()
+        })
+        .unwrap_or_default();
+    ed.available.inner().set(ids.join(","));
+    ed.effect_id
+        .inner()
+        .set(json_u64(&row, "effect_id").to_string());
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_skill_editor(state: &AppState) {
+    state.skill_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn set_skill_editor_field(state: &AppState, key: &str, value: &str) {
+    let ed = state.skill_editor.clone();
+    match key {
+        "name" => ed.name.inner().set(value.to_string()),
+        "description" => ed.description.inner().set(value.to_string()),
+        "min_level_limit" => ed.min_level_limit.inner().set(value.to_string()),
+        "use_times_limit" => ed.use_times_limit.inner().set(value.to_string()),
+        "category" => ed.category.inner().set(value.to_string()),
+        "element" => ed.element.inner().set(value.to_string()),
+        "power" => ed.power.inner().set(value.to_string()),
+        "available" => ed.available.inner().set(value.to_string()),
+        "effect_id" => ed.effect_id.inner().set(value.to_string()),
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+pub fn submit_skill_editor(state: &AppState) {
+    let ed = state.skill_editor.clone();
+    if ed.saving.get() {
+        return;
+    }
+    let name = ed.name.get().trim().to_string();
+    if name.is_empty() {
+        ed.err.inner().set(Some("名称不能为空".to_string()));
+        crate::request_remount();
+        return;
+    }
+    // 元素走中文 → 英文 → 服务端再翻回中文；非法值会导致服务端整条拒绝，
+    // 所以先自己拦下来。
+    let element_cn = ed.element.get();
+    let element_cn = element_cn.trim();
+    let Some(element_code) = reverse_kind_name(element_cn) else {
+        ed.err
+            .inner()
+            .set(Some(format!("属性「{element_cn}」不是合法属性名")));
+        crate::request_remount();
+        return;
+    };
+    let category = ed.category.get();
+    if !SKILL_CATEGORIES.iter().any(|(c, _)| *c == category) {
+        ed.err.inner().set(Some("技能类别无效".to_string()));
+        crate::request_remount();
+        return;
+    }
+    // 可学种族：逗号分隔 ID，服务端会排序去重后写 "k,1,2,k"。
+    let mut ids: Vec<u64> = Vec::new();
+    for part in ed.available.get().split([',', '，', ' ', '\n']) {
+        let t = part.trim();
+        if t.is_empty() {
+            continue;
+        }
+        match t.parse::<u64>() {
+            Ok(n) => ids.push(n),
+            Err(_) => {
+                ed.err.inner().set(Some(format!("种族 ID「{t}」不是数字")));
+                crate::request_remount();
+                return;
+            }
+        }
+    }
+    let parse = |s: &str| s.trim().parse::<u64>().unwrap_or(0);
+    let effect = serde_json::json!({ category: [element_code, parse(&ed.power.get())] });
+    let mut payload = serde_json::json!({
+        "name": name,
+        "description": ed.description.get(),
+        "min_level_limit": parse(&ed.min_level_limit.get()),
+        "use_times_limit": parse(&ed.use_times_limit.get()),
+        "available_pokemons": ids,
+        "effect": effect,
+        "effect_id": parse(&ed.effect_id.get()),
+    });
+    let editing = ed.editing_id.get();
+    if let Some(id) = editing {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("id".to_string(), serde_json::json!(id));
+        }
+    }
+    let body = payload.to_string();
+    ed.saving.inner().set(true);
+    ed.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    let on_done: Box<dyn FnOnce(Result<serde_json::Value, String>)> = Box::new(move |result| {
+        let ed = st.skill_editor.clone();
+        match result {
+            Ok(_) => {
+                ed.open.inner().set(false);
+                ed.saving.inner().set(false);
+                st.skill.loaded.inner().set(None);
+                st.skill.rows.inner().set(Vec::new());
+                crate::request_remount();
+                reload_list(crate::state::SKILL_SPEC, &st.skill);
+            }
+            Err(e) => {
+                ed.saving.inner().set(false);
+                ed.err.inner().set(Some(format!("保存失败：{e}")));
+                crate::request_remount();
+            }
+        }
+    });
+    if editing.is_some() {
+        crate::api::set_entity("skill_type", body, on_done);
+    } else {
+        crate::api::insert_entity("skill_type", body, on_done);
+    }
+}
+
+fn skill_editor_modal(st: &AppState) -> VNode {
+    let ed = st.skill_editor.clone();
+    if !ed.open.get() {
+        return VNode::empty();
+    }
+    let editing = ed.editing_id.get();
+    let title = match editing {
+        Some(id) => format!("编辑技能 #{id}"),
+        None => "新增技能".to_string(),
+    };
+    let saving = ed.saving.get();
+    let err = ed.err.get();
+    let category = ed.category.get();
+    let save_label = if saving { "保存中..." } else { "保存" };
+
+    let mut cat_options: Vec<VNode> = Vec::new();
+    for (code, label) in SKILL_CATEGORIES {
+        cat_options.push(rsx! {
+            option {
+                value: code,
+                selected: code == category,
+                "{label}"
+            }
+        });
+    }
+
+    let err_block = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-sk-overlay": "1",
+            div { class: "adm-editor-modal",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-sk-close": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    div { class: "adm-editor-grid",
+                        label { class: "adm-editor-field",
+                            span { "名称" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.name.get(),
+                                "data-pm-adm-skf": "name"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "类别" }
+                            select {
+                                class: "adm-filter-input",
+                                "data-pm-adm-skf": "category",
+                                for i in 0..cat_options.len() {
+                                    ..vec![cat_options[i].clone()]
+                                }
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "属性（中文，如 火）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.element.get(),
+                                "data-pm-adm-skf": "element"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "威力" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "0",
+                                value: ed.power.get(),
+                                "data-pm-adm-skf": "power"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "等级限制" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "0",
+                                value: ed.min_level_limit.get(),
+                                "data-pm-adm-skf": "min_level_limit"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "可用次数" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "0",
+                                value: ed.use_times_limit.get(),
+                                "data-pm-adm-skf": "use_times_limit"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "效果模板 ID（0 = 不绑定）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "0",
+                                value: ed.effect_id.get(),
+                                "data-pm-adm-skf": "effect_id"
+                            }
+                        }
+                    }
+                    label { class: "adm-editor-field adm-editor-wide",
+                        span { "描述" }
+                        textarea {
+                            class: "adm-editor-textarea",
+                            rows: 2,
+                            "data-pm-adm-skf": "description",
+                            "{ed.description.get()}"
+                        }
+                    }
+                    label { class: "adm-editor-field adm-editor-wide",
+                        span { "可学种族 ID（逗号分隔，如 25,26,27）" }
+                        textarea {
+                            class: "adm-editor-textarea",
+                            rows: 3,
+                            "data-pm-adm-skf": "available",
+                            "{ed.available.get()}"
+                        }
+                    }
+                    ..vec![err_block]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: saving,
+                        "data-pm-adm-sk-close": "1",
+                        "取消"
+                    }
+                    button {
+                        class: "admin-btn admin-btn-primary",
+                        disabled: saving,
+                        "data-pm-adm-sk-save": "1",
                         "{save_label}"
                     }
                 }
