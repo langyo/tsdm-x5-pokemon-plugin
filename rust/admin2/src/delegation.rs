@@ -66,6 +66,8 @@ pub fn install(app: &WitElement, state: &AppState) {
                     crate::pages::set_pokemon_editor_field(&st, &key, &ev.value, false);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-itf") {
                     crate::pages::set_item_editor_field(&st, &key, &ev.value);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-mpf") {
+                    crate::pages::set_map_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -166,6 +168,37 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((_, id)) = find_with_attr(target, "data-pm-adm-it-edit") {
         if let Ok(id) = id.trim().parse::<u64>() {
             crate::pages::open_item_edit(state, id);
+        }
+        return;
+    }
+    // 地图编辑弹窗（mp 前缀）。
+    if let Some((_, key)) = find_with_attr(target, "data-pm-adm-mp-toggle") {
+        if key == "enabled" {
+            crate::pages::toggle_map_editor_enabled(state);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-mp-save").is_some() {
+        crate::pages::submit_map_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-mp-close").is_some() {
+        crate::pages::close_map_editor(state);
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-mp-overlay") {
+        if hit == target {
+            crate::pages::close_map_editor(state);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-mp-new").is_some() {
+        crate::pages::open_map_new(state);
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-mp-edit") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::open_map_edit(state, id);
         }
         return;
     }

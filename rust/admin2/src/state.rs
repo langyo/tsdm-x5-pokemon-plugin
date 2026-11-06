@@ -418,6 +418,63 @@ impl std::fmt::Debug for ItemEditorState {
     }
 }
 
+/// 地图编辑弹窗状态（切片 10）。
+///
+/// 服务端载荷是扁平的：`{name, area_type, is_enabled, min_level, max_level,
+/// min_quality, mode, experience, experience_increase_times, bosses}`，
+/// `translate_map_mode_to_db_fields` 按 mode 决定写 experience=-1（boss）
+/// 还是写倍率（wild），bosses 只在 boss/hybrid 下被读。
+///
+/// Boss 配置在 Dioxus 版是独立二级弹窗（宠物搜索 + 个体值 + 倍率），这里
+/// 先用 JSON 文本框承载 `bosses` 数组：字段完整可编辑，但不提供选择器 UI。
+#[derive(Clone)]
+pub struct MapEditorState {
+    pub open: ReactiveSignal<bool>,
+    pub editing_id: ReactiveSignal<Option<u64>>,
+    pub name: ReactiveSignal<String>,
+    /// 地形单字符（l/g/p/…，服务端 translate_map_alpha_to_full_name 认的码）。
+    pub area_type: ReactiveSignal<String>,
+    pub is_enabled: ReactiveSignal<bool>,
+    pub min_level: ReactiveSignal<String>,
+    pub max_level: ReactiveSignal<String>,
+    pub min_quality: ReactiveSignal<String>,
+    /// wild / boss / hybrid
+    pub mode: ReactiveSignal<String>,
+    pub experience: ReactiveSignal<String>,
+    pub experience_increase_times: ReactiveSignal<String>,
+    /// bosses 数组的 JSON 原文（boss/hybrid 模式下参与提交）。
+    pub bosses_json: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl MapEditorState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            editing_id: use_signal(|| None),
+            name: use_signal(String::new),
+            area_type: use_signal(|| "l".to_string()),
+            is_enabled: use_signal(|| true),
+            min_level: use_signal(|| "1".to_string()),
+            max_level: use_signal(|| "10".to_string()),
+            min_quality: use_signal(|| "0".to_string()),
+            mode: use_signal(|| "wild".to_string()),
+            experience: use_signal(|| "0".to_string()),
+            experience_increase_times: use_signal(|| "0".to_string()),
+            bosses_json: use_signal(|| "[]".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for MapEditorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MapEditorState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -433,6 +490,7 @@ pub struct AppState {
     pub effect: ListState,
     pub pokemon_editor: PokemonEditorState,
     pub item_editor: ItemEditorState,
+    pub map_editor: MapEditorState,
 }
 
 impl AppState {
@@ -450,6 +508,7 @@ impl AppState {
             effect: ListState::new(),
             pokemon_editor: PokemonEditorState::new(),
             item_editor: ItemEditorState::new(),
+            map_editor: MapEditorState::new(),
         }
     }
 }

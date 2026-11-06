@@ -1081,6 +1081,7 @@ fn map_data_page(st: &AppState) -> VNode {
                 let mut trs: Vec<VNode> = Vec::new();
                 for item in rows.iter() {
                     let id = json_u64(item, "id").to_string();
+                    let id_for_edit = id.clone();
                     let name = json_str(item, "name");
                     let area = area_name(&json_str(item, "area_type")).to_string();
                     let enabled_text = if json_bool(item, "is_enabled") {
@@ -1113,6 +1114,14 @@ fn map_data_page(st: &AppState) -> VNode {
                             td { "{range_text}" }
                             td { "{mode_label}" }
                             td { "{quality_text}" }
+                            td {
+                                button {
+                                    class: "admin-btn adm-row-edit",
+                                    disabled: busy,
+                                    "data-pm-adm-mp-edit": id_for_edit,
+                                    "编辑"
+                                }
+                            }
                         }
                     });
                 }
@@ -1127,6 +1136,7 @@ fn map_data_page(st: &AppState) -> VNode {
                                 th { "等级范围" }
                                 th { "模式" }
                                 th { "品质门槛" }
+                                th { "操作" }
                             }
                         }
                         tbody {
@@ -1214,8 +1224,14 @@ fn map_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-l-reload": "mp",
                     "刷新"
                 }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-mp-new": "1",
+                    "新增地图"
+                }
             }
-            ..vec![body]
+            ..vec![body, map_editor_modal(st)]
         }
     }
 }
@@ -2883,6 +2899,470 @@ fn item_editor_modal(st: &AppState) -> VNode {
                         class: "admin-btn admin-btn-primary",
                         disabled: saving,
                         "data-pm-adm-it-save": "1",
+                        "{save_label}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 地图编辑弹窗（切片 10）
+// ---------------------------------------------------------------------------
+
+/// 地形码 → (英文全名, 中文名)。英文全名是服务端 translate_map_alpha_to_full_name
+/// 的输出，反过来也是筛选接受的输入。
+const AREA_TYPES: [(&str, &str, &str); 15] = [
+    ("l", "plain", "平原"),
+    ("g", "grass", "草丛"),
+    ("p", "water", "水池"),
+    ("s", "sea", "海洋"),
+    ("b", "sea_bottom", "海底"),
+    ("m", "mountain", "山谷"),
+    ("c", "cave", "山洞"),
+    ("d", "sand", "沙漠"),
+    ("f", "factory", "工厂"),
+    ("t", "base", "基地"),
+    ("v", "town", "市镇"),
+    ("n", "gym", "道馆"),
+    ("h", "sky", "天空"),
+    ("o", "deep_sea", "深海"),
+    ("k", "lava", "熔岩"),
+];
+
+pub fn open_map_new(state: &AppState) {
+    let ed = state.map_editor.clone();
+    ed.editing_id.inner().set(None);
+    ed.name.inner().set(String::new());
+    ed.area_type.inner().set("l".to_string());
+    ed.is_enabled.inner().set(true);
+    ed.min_level.inner().set("1".to_string());
+    ed.max_level.inner().set("10".to_string());
+    ed.min_quality.inner().set("0".to_string());
+    ed.mode.inner().set("wild".to_string());
+    ed.experience.inner().set("0".to_string());
+    ed.experience_increase_times
+        .inner()
+        .set("0".to_string());
+    ed.bosses_json.inner().set("[]".to_string());
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn open_map_edit(state: &AppState, id: u64) {
+    let ed = state.map_editor.clone();
+    let row = state
+        .map
+        .rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == id);
+    let Some(row) = row else { return };
+    ed.editing_id.inner().set(Some(id));
+    ed.name.inner().set(json_str(&row, "name"));
+    ed.area_type.inner().set(json_str(&row, "area_type"));
+    ed.is_enabled.inner().set(json_bool(&row, "is_enabled"));
+    ed.min_level
+        .inner()
+        .set(json_u64(&row, "min_level").to_string());
+    ed.max_level
+        .inner()
+        .set(json_u64(&row, "max_level").to_string());
+    ed.min_quality
+        .inner()
+        .set(json_u64(&row, "min_quality").to_string());
+    let mode = json_str(&row, "mode");
+    ed.mode
+        .inner()
+        .set(if mode.is_empty() { "wild".to_string() } else { mode });
+    // boss 模式的 experience 在库里是 -1，载荷里已经归零，这里直接用载荷值。
+    ed.experience
+        .inner()
+        .set(json_u64(&row, "experience").to_string());
+    ed.experience_increase_times
+        .inner()
+        .set(json_u64(&row, "experience_increase_times").to_string());
+    let bosses = row.get("bosses").cloned().unwrap_or(serde_json::json!([]));
+    ed.bosses_json
+        .inner()
+        .set(serde_json::to_string_pretty(&bosses).unwrap_or_else(|_| "[]".to_string()));
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_map_editor(state: &AppState) {
+    state.map_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn set_map_editor_field(state: &AppState, key: &str, value: &str) {
+    let ed = state.map_editor.clone();
+    match key {
+        "name" => ed.name.inner().set(value.to_string()),
+        "area_type" => ed.area_type.inner().set(value.to_string()),
+        "min_level" => ed.min_level.inner().set(value.to_string()),
+        "max_level" => ed.max_level.inner().set(value.to_string()),
+        "min_quality" => ed.min_quality.inner().set(value.to_string()),
+        "mode" => ed.mode.inner().set(value.to_string()),
+        "experience" => ed.experience.inner().set(value.to_string()),
+        "increase_times" => ed.experience_increase_times.inner().set(value.to_string()),
+        "bosses" => ed.bosses_json.inner().set(value.to_string()),
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+pub fn toggle_map_editor_enabled(state: &AppState) {
+    let ed = state.map_editor.clone();
+    ed.is_enabled.inner().set(!ed.is_enabled.get());
+    crate::request_remount();
+}
+
+pub fn submit_map_editor(state: &AppState) {
+    let ed = state.map_editor.clone();
+    if ed.saving.get() {
+        return;
+    }
+    let name = ed.name.get().trim().to_string();
+    if name.is_empty() {
+        ed.err.inner().set(Some("名称不能为空".to_string()));
+        crate::request_remount();
+        return;
+    }
+    // 服务端硬校验：地形码必须已知、1 ≤ min ≤ max ≤ 255、品质门槛 0-8。
+    let code = ed.area_type.get();
+    if !AREA_TYPES.iter().any(|(c, _, _)| *c == code) {
+        ed.err.inner().set(Some("地形类型无效".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let parse = |s: &str| s.trim().parse::<u64>().unwrap_or(0);
+    let min_level = parse(&ed.min_level.get());
+    let max_level = parse(&ed.max_level.get());
+    if min_level < 1 {
+        ed.err
+            .inner()
+            .set(Some("最低等级必须高于或等于 1 级".to_string()));
+        crate::request_remount();
+        return;
+    }
+    if max_level > 255 {
+        ed.err
+            .inner()
+            .set(Some("最高等级必须低于或等于 255 级".to_string()));
+        crate::request_remount();
+        return;
+    }
+    if min_level > max_level {
+        ed.err
+            .inner()
+            .set(Some("最低等级不得高于最高等级".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let min_quality = parse(&ed.min_quality.get());
+    if min_quality > 8 {
+        ed.err
+            .inner()
+            .set(Some("品质门槛必须在 0-8 之间".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let mode = ed.mode.get();
+    // bosses 只在 boss/hybrid 下参与提交：野生模式不读它，也就不能因为
+    // 用户先前在 Boss 模式里留下的半截 JSON 拦住一次合法的野生保存。
+    let needs_bosses = mode == "boss" || mode == "hybrid";
+    let bosses: serde_json::Value = if needs_bosses {
+        match serde_json::from_str(&ed.bosses_json.get()) {
+            Ok(v) => v,
+            Err(e) => {
+                ed.err.inner().set(Some(format!("Boss 配置 JSON 无效：{e}")));
+                crate::request_remount();
+                return;
+            }
+        }
+    } else {
+        serde_json::json!([])
+    };
+    if needs_bosses && !bosses.is_array() {
+        ed.err
+            .inner()
+            .set(Some("Boss 配置必须是一个数组".to_string()));
+        crate::request_remount();
+        return;
+    }
+    if needs_bosses && bosses.as_array().is_some_and(|a| a.is_empty()) {
+        ed.err.inner().set(Some(format!(
+            "{mode} 模式至少需要一个 Boss（否则服务端会把它当成野生模式）"
+        )));
+        crate::request_remount();
+        return;
+    }
+    let mut payload = serde_json::json!({
+        "name": name,
+        "area_type": code,
+        "is_enabled": ed.is_enabled.get(),
+        "min_level": min_level,
+        "max_level": max_level,
+        "min_quality": min_quality,
+        "mode": mode,
+    });
+    if let Some(obj) = payload.as_object_mut() {
+        // 服务端按 mode 决定读哪些键：wild 读 experience/倍率，boss/hybrid
+        // 读 bosses（hybrid 还读 experience）。全给上最省事，服务端只取
+        // 它要的那几个。
+        obj.insert(
+            "experience".to_string(),
+            serde_json::json!(parse(&ed.experience.get())),
+        );
+        obj.insert(
+            "experience_increase_times".to_string(),
+            serde_json::json!(parse(&ed.experience_increase_times.get())),
+        );
+        obj.insert("bosses".to_string(), bosses);
+    }
+    let editing = ed.editing_id.get();
+    if let Some(id) = editing {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("id".to_string(), serde_json::json!(id));
+        }
+    }
+    let body = payload.to_string();
+    ed.saving.inner().set(true);
+    ed.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    let on_done: Box<dyn FnOnce(Result<serde_json::Value, String>)> = Box::new(move |result| {
+        let ed = st.map_editor.clone();
+        match result {
+            Ok(_) => {
+                ed.open.inner().set(false);
+                ed.saving.inner().set(false);
+                st.map.loaded.inner().set(None);
+                st.map.rows.inner().set(Vec::new());
+                crate::request_remount();
+                reload_list(crate::state::MAP_SPEC, &st.map);
+            }
+            Err(e) => {
+                ed.saving.inner().set(false);
+                ed.err.inner().set(Some(format!("保存失败：{e}")));
+                crate::request_remount();
+            }
+        }
+    });
+    if editing.is_some() {
+        crate::api::set_entity("map_info", body, on_done);
+    } else {
+        crate::api::insert_entity("map_info", body, on_done);
+    }
+}
+
+fn map_editor_modal(st: &AppState) -> VNode {
+    let ed = st.map_editor.clone();
+    if !ed.open.get() {
+        return VNode::empty();
+    }
+    let editing = ed.editing_id.get();
+    let title = match editing {
+        Some(id) => format!("编辑地图 #{id}"),
+        None => "新增地图".to_string(),
+    };
+    let saving = ed.saving.get();
+    let err = ed.err.get();
+    let mode = ed.mode.get();
+    let area_type = ed.area_type.get();
+    let enabled_label = if ed.is_enabled.get() {
+        "启用：是"
+    } else {
+        "启用：否"
+    };
+    let enabled_cls = if ed.is_enabled.get() {
+        "admin-btn admin-btn-primary adm-editor-toggle"
+    } else {
+        "admin-btn adm-editor-toggle"
+    };
+    let save_label = if saving { "保存中..." } else { "保存" };
+
+    let mut area_options: Vec<VNode> = Vec::new();
+    for (code, full, cn) in AREA_TYPES {
+        let label = format!("{cn}（{full}）");
+        area_options.push(rsx! {
+            option {
+                value: code,
+                selected: code == area_type,
+                "{label}"
+            }
+        });
+    }
+    let mut mode_options: Vec<VNode> = Vec::new();
+    for (code, label) in [("wild", "野生"), ("boss", "Boss"), ("hybrid", "混合")] {
+        mode_options.push(rsx! {
+            option {
+                value: code,
+                selected: code == mode,
+                "{label}"
+            }
+        });
+    }
+
+    // 野生模式只显示经验倍率；boss/hybrid 显示 Boss JSON。
+    let mode_extras: Vec<VNode> = if mode == "wild" {
+        vec![rsx! {
+            label { class: "adm-editor-field",
+                span { "经验值" }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "number",
+                    min: "0",
+                    value: ed.experience.get(),
+                    "data-pm-adm-mpf": "experience"
+                }
+            }
+            label { class: "adm-editor-field",
+                span { "经验倍率" }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "number",
+                    min: "0",
+                    value: ed.experience_increase_times.get(),
+                    "data-pm-adm-mpf": "increase_times"
+                }
+            }
+        }]
+    } else {
+        let mut v = Vec::new();
+        if mode == "hybrid" {
+            v.push(rsx! {
+                label { class: "adm-editor-field",
+                    span { "经验值" }
+                    input {
+                        class: "adm-filter-input",
+                        r#type: "number",
+                        min: "0",
+                        value: ed.experience.get(),
+                        "data-pm-adm-mpf": "experience"
+                    }
+                }
+            });
+        }
+        v.push(rsx! {
+            label { class: "adm-editor-field adm-editor-wide",
+                span { "Boss 配置 JSON（数组，元素含 pokemon_type_id / pokemon_name / level / attributes / boss_multiplier）" }
+                textarea {
+                    class: "adm-editor-textarea",
+                    rows: 8,
+                    "data-pm-adm-mpf": "bosses",
+                    "{ed.bosses_json.get()}"
+                }
+            }
+        });
+        v
+    };
+
+    let err_block = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-mp-overlay": "1",
+            div { class: "adm-editor-modal",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-mp-close": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    div { class: "adm-editor-grid",
+                        label { class: "adm-editor-field",
+                            span { "名称" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.name.get(),
+                                "data-pm-adm-mpf": "name"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "地形类型" }
+                            select {
+                                class: "adm-filter-input",
+                                "data-pm-adm-mpf": "area_type",
+                                for i in 0..area_options.len() {
+                                    ..vec![area_options[i].clone()]
+                                }
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "模式" }
+                            select {
+                                class: "adm-filter-input",
+                                "data-pm-adm-mpf": "mode",
+                                for i in 0..mode_options.len() {
+                                    ..vec![mode_options[i].clone()]
+                                }
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "最低等级" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "1",
+                                max: "255",
+                                value: ed.min_level.get(),
+                                "data-pm-adm-mpf": "min_level"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "最高等级" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "1",
+                                max: "255",
+                                value: ed.max_level.get(),
+                                "data-pm-adm-mpf": "max_level"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "品质门槛（0-8，0=不限制）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "0",
+                                max: "8",
+                                value: ed.min_quality.get(),
+                                "data-pm-adm-mpf": "min_quality"
+                            }
+                        }
+                        button {
+                            class: enabled_cls,
+                            disabled: saving,
+                            "data-pm-adm-mp-toggle": "enabled",
+                            "{enabled_label}"
+                        }
+                    }
+                    div { class: "adm-editor-grid",
+                        for i in 0..mode_extras.len() {
+                            ..vec![mode_extras[i].clone()]
+                        }
+                    }
+                    ..vec![err_block]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: saving,
+                        "data-pm-adm-mp-close": "1",
+                        "取消"
+                    }
+                    button {
+                        class: "admin-btn admin-btn-primary",
+                        disabled: saving,
+                        "data-pm-adm-mp-save": "1",
                         "{save_label}"
                     }
                 }
