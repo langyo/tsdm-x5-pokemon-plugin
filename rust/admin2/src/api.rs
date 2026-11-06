@@ -93,9 +93,9 @@ fn extract_items(data: &Value) -> Result<Vec<Value>, String> {
         .collect())
 }
 
-/// `count::pokemon_type` → 总数（data[0].count）。
-pub fn count_pokemon_type(on_done: Box<dyn FnOnce(Result<u64, String>)>) {
-    let body = serde_json::json!({ "action": "count::pokemon_type" }).to_string();
+/// `count::<entity>` → 总数（data[0].count）。
+pub fn count_entity(entity: &str, on_done: Box<dyn FnOnce(Result<u64, String>)>) {
+    let body = serde_json::json!({ "action": format!("count::{entity}") }).to_string();
     request(
         body,
         Box::new(|result: Result<Value, String>| {
@@ -110,14 +110,15 @@ pub fn count_pokemon_type(on_done: Box<dyn FnOnce(Result<u64, String>)>) {
     );
 }
 
-/// `list::pokemon_type`（from/count 分页，每页 ≤100）。
-pub fn list_pokemon_type(
+/// `list::<entity>`（from/count 分页，每页 ≤100）。
+pub fn list_entity(
+    entity: &str,
     from: u64,
     count: u64,
     on_done: Box<dyn FnOnce(Result<Vec<Value>, String>)>,
 ) {
     let body = serde_json::json!({
-        "action": "list::pokemon_type",
+        "action": format!("list::{entity}"),
         "from": from.to_string(),
         "count": count.to_string(),
     })
@@ -135,13 +136,15 @@ pub fn filter_package(tag: &str, operator: &str, value: &str) -> Value {
     serde_json::json!({ "tag": tag, "operator": operator, "value": value })
 }
 
-/// `filter::pokemon_type`（filters 为包数组的 JSON 字符串）。
-pub fn filter_pokemon_type(
+/// `filter::<entity>`（filters 为包数组的 JSON 字符串）。
+pub fn filter_entity(
+    entity: &str,
     filters_json: String,
     on_done: Box<dyn FnOnce(Result<Vec<Value>, String>)>,
 ) {
-    let body = serde_json::json!({ "action": "filter::pokemon_type", "filters": filters_json })
-        .to_string();
+    let body =
+        serde_json::json!({ "action": format!("filter::{entity}"), "filters": filters_json })
+            .to_string();
     request(
         body,
         Box::new(|result: Result<Value, String>| {

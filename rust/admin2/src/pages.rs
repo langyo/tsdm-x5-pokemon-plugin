@@ -20,7 +20,12 @@ pub fn ensure_loaded(state: &AppState) {
             // busy 守卫与 maps 哨兵同因：loaded 要等 list 回调才落位，
             // 重挂期间反复进来会无限重复发起（活锁）。
             if state.pokemon.loaded.get().is_none() && !state.pokemon.busy.get() {
-                reload_pokemon(state);
+                reload_list(crate::state::POKEMON_SPEC, &state.pokemon);
+            }
+        }
+        AdminRoute::ItemData => {
+            if state.item.loaded.get().is_none() && !state.item.busy.get() {
+                reload_list(crate::state::ITEM_SPEC, &state.item);
             }
         }
         _ => {}
@@ -31,7 +36,7 @@ pub fn ensure_loaded(state: &AppState) {
 // 宝可梦数据页（切片 2：列表 + 筛选 + 加载更多）
 // ===========================================================================
 
-const POKEMON_PAGE_SIZE: u64 = 100;
+const LIST_PAGE_SIZE: u64 = 100;
 
 /// 属性 ID → 中文名（服务端载荷的 kind 是英文 snake_case ID）。
 fn kind_name(id: &str) -> &'static str {
@@ -58,95 +63,112 @@ fn kind_name(id: &str) -> &'static str {
     }
 }
 
-/// 全量重载：count + 首页（对齐 Dioxus 版 reload_pokemons）。
-fn reload_pokemon(state: &AppState) {
-    let pk = state.pokemon.clone();
-    pk.busy.inner().set(true);
-    pk.filtered.inner().set(false);
-    pk.err.inner().set(None);
-    crate::request_remount();
-    let st = state.clone();
-    crate::api::count_pokemon_type(Box::new(move |total| {
-        let pk = st.pokemon.clone();
-        match total {
+pub fn apply_list_filters_pub(
+    spec: crate::state::EntitySpec,
+    state: &AppState,
+    ls: &crate::state::ListState,
+) {
+    apply_list_filters(spec, state, ls);
+}
+
+pub fn reset_list_filters_pub(spec: crate::state::EntitySpec, ls: &crate::state::ListState) {
+    reset_list_filters(spec, ls);
+}
+
+pub fn load_more_list_pub(spec: crate::state::EntitySpec, ls: &crate::state::ListState) {
+    load_more_list(spec, ls);
+}
+
+/// 全量重载：count + 首页（对齐 Dioxus 版 reload_*；切片 3 起泛型化）。
+fn reload_list(spec: crate::state::EntitySpec, ls: &crate::state::ListState) {
+    let ls = ls.clone();
+    ls.busy.inner().set(true);
+    ls.filtered.inner().set(false);
+    ls.err.inner().set(None);
+    let entity = spec.entity;
+    crate::api::count_entity(
+        entity,
+        Box::new(move |total| match total {
             Ok(total) => {
-                pk.total.inner().set(total);
-                let st2 = st.clone();
-                crate::api::list_pokemon_type(
+                ls.total.inner().set(total);
+                let ls2 = ls.clone();
+                crate::api::list_entity(
+                    entity,
                     0,
-                    POKEMON_PAGE_SIZE,
+                    LIST_PAGE_SIZE,
                     Box::new(move |result| {
-                        let pk = st2.pokemon.clone();
                         match result {
                             Ok(rows) => {
                                 let n = rows.len() as u64;
-                                pk.rows.inner().set(rows);
-                                pk.loaded_count.inner().set(n);
-                                pk.loaded.inner().set(Some(Ok(())));
+                                ls2.rows.inner().set(rows);
+                                ls2.loaded_count.inner().set(n);
+                                ls2.loaded.inner().set(Some(Ok(())));
                             }
                             Err(e) => {
-                                pk.loaded.inner().set(Some(Err(e)));
+                                ls2.loaded.inner().set(Some(Err(e)));
                             }
                         }
-                        pk.busy.inner().set(false);
+                        ls2.busy.inner().set(false);
                         crate::request_remount();
                     }),
                 );
             }
             Err(e) => {
-                pk.loaded.inner().set(Some(Err(e)));
-                pk.busy.inner().set(false);
+                ls.loaded.inner().set(Some(Err(e)));
+                ls.busy.inner().set(false);
                 crate::request_remount();
             }
-        }
-    }));
+        }),
+    );
 }
 
 /// 加载更多：filter 态不分页（对齐 Dioxus 版）。
-pub fn load_more_pokemon(state: &AppState) {
-    let pk = state.pokemon.clone();
-    if pk.busy.get() || pk.filtered.get() {
+fn load_more_list(spec: crate::state::EntitySpec, ls: &crate::state::ListState) {
+    if ls.busy.get() || ls.filtered.get() {
         return;
     }
-    let from = pk.loaded_count.get();
-    let total = pk.total.get();
-    if from >= total {
+    let from = ls.loaded_count.get();
+    if from >= ls.total.get() {
         return;
     }
-    pk.busy.inner().set(true);
+    let ls2 = ls.clone();
+    ls2.busy.inner().set(true);
     crate::request_remount();
-    let st = state.clone();
-    crate::api::list_pokemon_type(
+    crate::api::list_entity(
+        spec.entity,
         from,
-        POKEMON_PAGE_SIZE,
+        LIST_PAGE_SIZE,
         Box::new(move |result| {
-            let pk = st.pokemon.clone();
             if let Ok(rows) = result {
                 let n = rows.len() as u64;
-                let mut all = pk.rows.get();
+                let mut all = ls2.rows.get();
                 all.extend(rows);
-                pk.rows.inner().set(all);
-                pk.loaded_count.inner().set(from + n);
+                ls2.rows.inner().set(all);
+                ls2.loaded_count.inner().set(from + n);
             }
-            pk.busy.inner().set(false);
+            ls2.busy.inner().set(false);
             crate::request_remount();
         }),
     );
 }
 
 /// 应用筛选：任一输入非空即发 filter；全空回到全量列表。
-pub fn apply_pokemon_filters(state: &AppState) {
-    let pk = state.pokemon.clone();
-    if pk.busy.get() {
+fn apply_list_filters(
+    spec: crate::state::EntitySpec,
+    state: &AppState,
+    ls: &crate::state::ListState,
+) {
+    if ls.busy.get() {
         return;
     }
-    let id = pk.f_id.get().trim().to_string();
-    let name = pk.f_name.get().trim().to_string();
-    let kind = pk.f_kind.get().trim().to_string();
-    if id.is_empty() && name.is_empty() && kind.is_empty() {
-        pk.loaded.inner().set(None);
+    let id = ls.f_id.get().trim().to_string();
+    let name = ls.f_name.get().trim().to_string();
+    let a = ls.f_a.get().trim().to_string();
+    let b = ls.f_b.get().trim().to_string();
+    if id.is_empty() && name.is_empty() && a.is_empty() && b.is_empty() {
+        ls.loaded.inner().set(None);
         crate::request_remount();
-        reload_pokemon(state);
+        reload_list(spec, ls);
         return;
     }
     let mut packages: Vec<serde_json::Value> = Vec::new();
@@ -156,45 +178,53 @@ pub fn apply_pokemon_filters(state: &AppState) {
     if !name.is_empty() {
         packages.push(crate::api::filter_package("名称", "contains", &name));
     }
-    if !kind.is_empty() {
-        packages.push(crate::api::filter_package("宠物类型", "contains", &kind));
+    if !a.is_empty() {
+        if let Some(sa) = spec.a {
+            packages.push(crate::api::filter_package(sa.tag, sa.operator, &a));
+        }
     }
-    pk.busy.inner().set(true);
-    pk.err.inner().set(None);
+    if !b.is_empty() {
+        if let Some(sb) = spec.b {
+            packages.push(crate::api::filter_package(sb.tag, sb.operator, &b));
+        }
+    }
+    let ls2 = ls.clone();
+    ls2.busy.inner().set(true);
+    ls2.err.inner().set(None);
+    let entity = spec.entity;
     crate::request_remount();
-    let st = state.clone();
-    crate::api::filter_pokemon_type(
+    crate::api::filter_entity(
+        entity,
         serde_json::to_string(&packages).unwrap_or_default(),
         Box::new(move |result| {
-            let pk = st.pokemon.clone();
             match result {
                 Ok(rows) => {
                     let n = rows.len() as u64;
-                    pk.rows.inner().set(rows);
-                    pk.loaded_count.inner().set(n);
-                    pk.total.inner().set(n);
-                    pk.filtered.inner().set(true);
-                    pk.loaded.inner().set(Some(Ok(())));
+                    ls2.rows.inner().set(rows);
+                    ls2.loaded_count.inner().set(n);
+                    ls2.total.inner().set(n);
+                    ls2.filtered.inner().set(true);
+                    ls2.loaded.inner().set(Some(Ok(())));
                 }
                 Err(e) => {
-                    pk.err.inner().set(Some(e));
+                    ls2.err.inner().set(Some(e));
                 }
             }
-            pk.busy.inner().set(false);
+            ls2.busy.inner().set(false);
             crate::request_remount();
         }),
     );
 }
 
 /// 重置筛选：清输入并回全量列表。
-pub fn reset_pokemon_filters(state: &AppState) {
-    let pk = state.pokemon.clone();
-    pk.f_id.inner().set(String::new());
-    pk.f_name.inner().set(String::new());
-    pk.f_kind.inner().set(String::new());
-    pk.loaded.inner().set(None);
+fn reset_list_filters(spec: crate::state::EntitySpec, ls: &crate::state::ListState) {
+    ls.f_id.inner().set(String::new());
+    ls.f_name.inner().set(String::new());
+    ls.f_a.inner().set(String::new());
+    ls.f_b.inner().set(String::new());
+    ls.loaded.inner().set(None);
     crate::request_remount();
-    reload_pokemon(state);
+    reload_list(spec, ls);
 }
 
 fn reload_config(state: &AppState) {
@@ -342,6 +372,7 @@ pub fn Admin(state: Box<AppState>) -> VNode {
     let content = match route {
         AdminRoute::GlobalConfig => global_config_page(&st),
         AdminRoute::PokemonData => pokemon_data_page(&st),
+        AdminRoute::ItemData => item_data_page(&st),
         _ => {
             let title = route.title();
             rsx! {
@@ -519,7 +550,7 @@ fn pokemon_data_page(st: &AppState) -> VNode {
     let has_more = !filtered && loaded_count < total;
     let f_id = pk.f_id.get();
     let f_name = pk.f_name.get();
-    let f_kind = pk.f_kind.get();
+    let f_kind = pk.f_a.get();
     let count_text = if filtered {
         format!("筛选结果 {loaded_count} 条")
     } else {
@@ -536,7 +567,7 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                     button {
                         class: "admin-btn",
                         disabled: busy,
-                        "data-pm-adm-pk-reload": "1",
+                        "data-pm-adm-l-reload": "pk",
                         "重新加载"
                     }
                 }
@@ -646,7 +677,7 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                         button {
                             class: "admin-btn",
                             disabled: busy,
-                            "data-pm-adm-pk-more": "1",
+                            "data-pm-adm-l-more": "pk",
                             "{label}"
                         }
                     }
@@ -675,38 +706,234 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                     r#type: "text",
                     placeholder: "ID（精确）",
                     value: f_id,
-                    "data-pm-adm-pk-f-id": "1"
+                    "data-pm-adm-f-id": "pk"
                 }
                 input {
                     class: "adm-filter-input",
                     r#type: "text",
                     placeholder: "名称（包含）",
                     value: f_name,
-                    "data-pm-adm-pk-f-name": "1"
+                    "data-pm-adm-f-name": "pk"
                 }
                 input {
                     class: "adm-filter-input adm-filter-kind",
                     r#type: "text",
                     placeholder: "属性（如火）",
                     value: f_kind,
-                    "data-pm-adm-pk-f-kind": "1"
+                    "data-pm-adm-f-a": "pk"
                 }
                 button {
                     class: "admin-btn admin-btn-primary",
                     disabled: busy,
-                    "data-pm-adm-pk-apply": "1",
+                    "data-pm-adm-l-apply": "pk",
                     "筛选"
                 }
                 button {
                     class: "admin-btn",
                     disabled: busy,
-                    "data-pm-adm-pk-reset": "1",
+                    "data-pm-adm-l-reset": "pk",
                     "重置"
                 }
                 button {
                     class: "admin-btn",
                     disabled: busy,
-                    "data-pm-adm-pk-reload": "1",
+                    "data-pm-adm-l-reload": "pk",
+                    "刷新"
+                }
+            }
+            ..vec![body]
+        }
+    }
+}
+
+/// 物品数据页（切片 3）：复用列表页模板 + 泛型动作/属性（it 页键）。
+fn item_data_page(st: &AppState) -> VNode {
+    let ls = st.item.clone();
+    let spec = crate::state::ITEM_SPEC;
+    let load_state = ls.loaded.get();
+    let busy = ls.busy.get();
+    let filtered = ls.filtered.get();
+    let err = ls.err.get();
+    let rows = ls.rows.get();
+    let total = ls.total.get();
+    let loaded_count = ls.loaded_count.get();
+    let has_more = !filtered && loaded_count < total;
+    let f_id = ls.f_id.get();
+    let f_name = ls.f_name.get();
+    let f_a = ls.f_a.get();
+    let f_b = ls.f_b.get();
+    let count_text = if filtered {
+        format!("筛选结果 {loaded_count} 条")
+    } else {
+        format!("已加载 {loaded_count} / {total} 条")
+    };
+
+    let body = match &load_state {
+        None => rsx! { div { class: "admin-loading", "正在加载物品数据..." } },
+        Some(Err(e)) => {
+            let msg = format!("加载失败：{e}");
+            rsx! {
+                div { class: "admin-card admin-error",
+                    p { "{msg}" }
+                    button {
+                        class: "admin-btn",
+                        disabled: busy,
+                        "data-pm-adm-l-reload": "it",
+                        "重新加载"
+                    }
+                }
+            }
+        }
+        Some(Ok(())) => {
+            let err_bar = match &err {
+                Some(e) => {
+                    let msg = format!("筛选失败：{e}");
+                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
+                }
+                None => VNode::empty(),
+            };
+            let table = if rows.is_empty() {
+                rsx! { p { class: "admin-empty-hint", "暂无物品数据。" } }
+            } else {
+                let mut trs: Vec<VNode> = Vec::new();
+                for item in rows.iter() {
+                    let id = json_u64(item, "id").to_string();
+                    let name = json_str(item, "name");
+                    // tag: {"drug":null} / {"ball":5} / {"evolution":3} / {"armor":…} / {"special":"…"}
+                    let tag_label = item
+                        .get("tag")
+                        .and_then(|t| t.as_object())
+                        .and_then(|obj| obj.keys().next())
+                        .map(|k| match k.as_str() {
+                            "drug" => "药品".to_string(),
+                            "ball" => "宠物球".to_string(),
+                            "evolution" => "升级素材".to_string(),
+                            "enhance" => "强化道具".to_string(),
+                            "armor" => "装备".to_string(),
+                            "special" => "特殊物品".to_string(),
+                            other => other.to_string(),
+                        })
+                        .unwrap_or_else(|| "—".to_string());
+                    let price = json_u64(item, "price").to_string();
+                    let selling = if json_bool(item, "is_selling") {
+                        "是"
+                    } else {
+                        "否"
+                    };
+                    let desc = json_str(item, "description");
+                    let desc_short = if desc.chars().count() > 16 {
+                        let cut: String = desc.chars().take(16).collect();
+                        format!("{cut}…")
+                    } else {
+                        desc
+                    };
+                    trs.push(rsx! {
+                        tr {
+                            td { "{id}" }
+                            td { "{name}" }
+                            td { "{tag_label}" }
+                            td { "{price}" }
+                            td { "{selling}" }
+                            td { class: "adm-pk-stats", "{desc_short}" }
+                        }
+                    });
+                }
+                rsx! {
+                    table { class: "adm-table",
+                        thead {
+                            tr {
+                                th { "ID" }
+                                th { "名称" }
+                                th { "类型" }
+                                th { "价格" }
+                                th { "出售" }
+                                th { "描述" }
+                            }
+                        }
+                        tbody {
+                            for i in 0..trs.len() {
+                                ..vec![trs[i].clone()]
+                            }
+                        }
+                    }
+                }
+            };
+            let more_btn = if has_more {
+                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
+                rsx! {
+                    div { class: "adm-load-more",
+                        button {
+                            class: "admin-btn",
+                            disabled: busy,
+                            "data-pm-adm-l-more": "it",
+                            "{label}"
+                        }
+                    }
+                }
+            } else {
+                VNode::empty()
+            };
+            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
+            rsx! {
+                for i in 0..parts.len() {
+                    ..vec![parts[i].clone()]
+                }
+            }
+        }
+    };
+
+    let _ = spec;
+    rsx! {
+        section { class: "admin-page admin-config-page",
+            div { class: "admin-page-header",
+                h2 { "物品数据" }
+                span { class: "adm-count", "{count_text}" }
+            }
+            div { class: "admin-card adm-filter-bar",
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "ID（精确）",
+                    value: f_id,
+                    "data-pm-adm-f-id": "it"
+                }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "名称（包含）",
+                    value: f_name,
+                    "data-pm-adm-f-name": "it"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-kind",
+                    r#type: "text",
+                    placeholder: "类型（1药品/2球/3素材/4强化/5装备）",
+                    value: f_a,
+                    "data-pm-adm-f-a": "it"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-num",
+                    r#type: "text",
+                    placeholder: "价格 ≥",
+                    value: f_b,
+                    "data-pm-adm-f-b": "it"
+                }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-l-apply": "it",
+                    "筛选"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reset": "it",
+                    "重置"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reload": "it",
                     "刷新"
                 }
             }

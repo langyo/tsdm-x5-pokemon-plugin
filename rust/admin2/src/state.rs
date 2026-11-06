@@ -101,14 +101,15 @@ pub fn show_toast_silent(state: &GlobalConfigState, kind: ToastKind, message: St
     state.toast_visible.inner().set(true);
 }
 
-/// 宝可梦数据页状态（切片 2：列表 + 筛选 + 加载更多）。
+/// 通用数据列表页状态（切片 2 定型、切片 3 起复用）。
+///
+/// 与 Dioxus 版 ListPageState 对应：rows 保留原始 JSON（显示字段渲染时
+/// 取，缺字段回退），装载守卫是 busy + loaded 组合（防重挂活锁）。
 #[derive(Clone)]
-pub struct PokemonDataState {
+pub struct ListState {
     pub component_id: std::cell::Cell<u32>,
     /// None = 首次加载中；Some(Err) = 加载失败。
     pub loaded: ReactiveSignal<Option<Result<(), String>>>,
-    /// 行数据保留原始 JSON（显示字段在渲染时取，缺字段回退显示——后台
-    /// 编辑器随后续切片接入时再定型化）。
     pub rows: ReactiveSignal<Vec<serde_json::Value>>,
     pub total: ReactiveSignal<u64>,
     pub loaded_count: ReactiveSignal<u64>,
@@ -116,13 +117,14 @@ pub struct PokemonDataState {
     /// 筛选中（filter 结果不分页，隐藏加载更多）。
     pub filtered: ReactiveSignal<bool>,
     pub err: ReactiveSignal<Option<String>>,
-    // 筛选输入
+    // 筛选输入：ID（equal）+ 名称（contains）+ 两个实体特定筛选。
     pub f_id: ReactiveSignal<String>,
     pub f_name: ReactiveSignal<String>,
-    pub f_kind: ReactiveSignal<String>,
+    pub f_a: ReactiveSignal<String>,
+    pub f_b: ReactiveSignal<String>,
 }
 
-impl PokemonDataState {
+impl ListState {
     pub fn new() -> Self {
         Self {
             component_id: std::cell::Cell::new(0),
@@ -135,16 +137,65 @@ impl PokemonDataState {
             err: use_signal(|| None),
             f_id: use_signal(String::new),
             f_name: use_signal(String::new),
-            f_kind: use_signal(String::new),
+            f_a: use_signal(String::new),
+            f_b: use_signal(String::new),
         }
     }
 }
 
-impl std::fmt::Debug for PokemonDataState {
+impl std::fmt::Debug for ListState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PokemonDataState").finish()
+        f.debug_struct("ListState").finish()
     }
 }
+
+/// 实体列表配置：动作名 + 实体特定筛选（f_a/f_b）的服务端 tag 与
+/// operator + 输入框占位文案。切片 3 起每个数据页一份。
+#[derive(Clone, Copy)]
+pub struct EntitySpec {
+    /// 如 "pokemon_type"（拼进 list::/count::/filter::）。
+    pub entity: &'static str,
+    pub title: &'static str,
+    /// f_a 筛选；None 则该输入框不渲染。
+    pub a: Option<FilterSpec>,
+    pub b: Option<FilterSpec>,
+}
+
+#[derive(Clone, Copy)]
+pub struct FilterSpec {
+    /// 服务端 filter 的 tag（如「宠物类型」「类型」）。
+    pub tag: &'static str,
+    pub operator: &'static str,
+    pub placeholder: &'static str,
+}
+
+/// 宝可梦数据（切片 2 实例化）。
+pub const POKEMON_SPEC: EntitySpec = EntitySpec {
+    entity: "pokemon_type",
+    title: "宠物数据",
+    a: Some(FilterSpec {
+        tag: "宠物类型",
+        operator: "contains",
+        placeholder: "属性（如火）",
+    }),
+    b: None,
+};
+
+/// 物品数据（切片 3 实例化）。类型筛选对数字列（1药品/2球/3素材/4强化/5装备）。
+pub const ITEM_SPEC: EntitySpec = EntitySpec {
+    entity: "item_type",
+    title: "物品数据",
+    a: Some(FilterSpec {
+        tag: "类型",
+        operator: "contains",
+        placeholder: "类型（1药品/2球/3素材/4强化/5装备）",
+    }),
+    b: Some(FilterSpec {
+        tag: "价格",
+        operator: "greater_or_equal",
+        placeholder: "价格 ≥",
+    }),
+};
 
 /// 应用级状态。
 #[derive(Clone)]
@@ -152,7 +203,8 @@ pub struct AppState {
     pub component_id: std::cell::Cell<u32>,
     pub route: ReactiveSignal<AdminRoute>,
     pub config: GlobalConfigState,
-    pub pokemon: PokemonDataState,
+    pub pokemon: ListState,
+    pub item: ListState,
 }
 
 impl AppState {
@@ -161,7 +213,8 @@ impl AppState {
             component_id: std::cell::Cell::new(0),
             route: use_signal(|| AdminRoute::GlobalConfig),
             config: GlobalConfigState::new(),
-            pokemon: PokemonDataState::new(),
+            pokemon: ListState::new(),
+            item: ListState::new(),
         }
     }
 }

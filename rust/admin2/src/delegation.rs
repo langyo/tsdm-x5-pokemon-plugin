@@ -59,15 +59,30 @@ pub fn install(app: &WitElement, state: &AppState) {
                 if attr_of(target, "data-pm-adm-config-input").is_some() {
                     st.config.draft.inner().set(ev.value.clone());
                     crate::request_remount();
-                } else if attr_of(target, "data-pm-adm-pk-f-id").is_some() {
-                    st.pokemon.f_id.inner().set(ev.value.clone());
-                } else if attr_of(target, "data-pm-adm-pk-f-name").is_some() {
-                    st.pokemon.f_name.inner().set(ev.value.clone());
-                } else if attr_of(target, "data-pm-adm-pk-f-kind").is_some() {
-                    st.pokemon.f_kind.inner().set(ev.value.clone());
+                } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
+                    let (ls, _) = list_of(&st, &page);
+                    ls.f_id.inner().set(ev.value.clone());
+                } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-name") {
+                    let (ls, _) = list_of(&st, &page);
+                    ls.f_name.inner().set(ev.value.clone());
+                } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-a") {
+                    let (ls, _) = list_of(&st, &page);
+                    ls.f_a.inner().set(ev.value.clone());
+                } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-b") {
+                    let (ls, _) = list_of(&st, &page);
+                    ls.f_b.inner().set(ev.value.clone());
                 }
             }),
         );
+    }
+}
+
+/// 页面键（pk=宝可梦 / it=物品）→ 列表状态与实体配置。
+fn list_of(st: &AppState, page: &str) -> (crate::state::ListState, crate::state::EntitySpec) {
+    match page {
+        "pk" => (st.pokemon.clone(), crate::state::POKEMON_SPEC),
+        "it" => (st.item.clone(), crate::state::ITEM_SPEC),
+        _ => (st.pokemon.clone(), crate::state::POKEMON_SPEC),
     }
 }
 
@@ -90,22 +105,26 @@ fn dispatch_click(state: &AppState, target: u64) {
         crate::pages::save_config(state);
         return;
     }
-    // 宝可梦数据页：筛选 / 重置 / 刷新 / 加载更多
-    if find_with_attr(target, "data-pm-adm-pk-apply").is_some() {
-        crate::pages::apply_pokemon_filters(state);
+    // 数据列表页（pk/it 前缀路由到对应实体）：筛选 / 重置 / 刷新 / 加载更多
+    if let Some((_, page)) = find_with_attr(target, "data-pm-adm-l-apply") {
+        let (ls, spec) = list_of(state, &page);
+        crate::pages::apply_list_filters_pub(spec, state, &ls);
         return;
     }
-    if find_with_attr(target, "data-pm-adm-pk-reset").is_some() {
-        crate::pages::reset_pokemon_filters(state);
+    if let Some((_, page)) = find_with_attr(target, "data-pm-adm-l-reset") {
+        let (ls, spec) = list_of(state, &page);
+        crate::pages::reset_list_filters_pub(spec, &ls);
         return;
     }
-    if find_with_attr(target, "data-pm-adm-pk-more").is_some() {
-        crate::pages::load_more_pokemon(state);
+    if let Some((_, page)) = find_with_attr(target, "data-pm-adm-l-more") {
+        let (ls, spec) = list_of(state, &page);
+        crate::pages::load_more_list_pub(spec, &ls);
         return;
     }
-    if find_with_attr(target, "data-pm-adm-pk-reload").is_some() {
-        state.pokemon.loaded.inner().set(None);
-        state.pokemon.rows.inner().set(Vec::new());
+    if let Some((_, page)) = find_with_attr(target, "data-pm-adm-l-reload") {
+        let (ls, _) = list_of(state, &page);
+        ls.loaded.inner().set(None);
+        ls.rows.inner().set(Vec::new());
         crate::request_remount();
         crate::pages::ensure_loaded(state);
         return;
