@@ -78,6 +78,18 @@ pub fn install(app: &WitElement, state: &AppState) {
                     crate::inventory::apply_search(&st, &ev.value);
                 } else if attr_of(target, "data-pm-my-pm-nick-input").is_some() {
                     st.my_pm.edit_value.inner().set(ev.value.clone());
+                } else if attr_of(target, "data-pm-st-search").is_some() {
+                    crate::pokemon_storage::set_filter(&st, "search", &ev.value);
+                } else if attr_of(target, "data-pm-st-type").is_some() {
+                    crate::pokemon_storage::set_filter(&st, "type", &ev.value);
+                } else if attr_of(target, "data-pm-st-shiny").is_some() {
+                    crate::pokemon_storage::set_filter(&st, "shiny", &ev.value);
+                } else if attr_of(target, "data-pm-st-sort").is_some() {
+                    crate::pokemon_storage::set_filter(&st, "sort", &ev.value);
+                } else if attr_of(target, "data-pm-st-min").is_some() {
+                    crate::pokemon_storage::set_filter(&st, "min", &ev.value);
+                } else if attr_of(target, "data-pm-st-max").is_some() {
+                    crate::pokemon_storage::set_filter(&st, "max", &ev.value);
                 } else if let Some((_, key)) =
                     find_with_attr(target, "data-pm-ev-input").map(|(h, v)| (h, v))
                 {
@@ -159,6 +171,7 @@ fn dispatch_click(state: &AppState, target: u64) {
             "inventory" => crate::app_state::Route::Inventory,
             "center" => crate::app_state::Route::PokemonCenter,
             "my-pokemon" => crate::app_state::Route::MyPokemon,
+            "storage" => crate::app_state::Route::PokemonStorage,
             _ => crate::app_state::Route::Home,
         };
         state.route.set(route);
@@ -370,6 +383,62 @@ fn dispatch_click(state: &AppState, target: u64) {
     }
     if find_with_attr(target, "data-pm-inv-modal-close").is_some() {
         crate::inventory::close_target_modal(state);
+        return;
+    }
+    // 仓库页：单只操作按钮在卡片内部，必须先于 data-pm-st-card 命中
+    // （否则点击操作只会收起菜单）。
+    if let Some((_, v)) = find_with_attr(target, "data-pm-st-first") {
+        if let Ok(id) = v.parse::<u64>() {
+            crate::pokemon_storage::set_first(state, id);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-st-to-storage") {
+        if let Ok(id) = v.parse::<u64>() {
+            crate::pokemon_storage::move_to_site(state, id, 3, "放入仓库");
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-st-to-bag") {
+        if let Ok(id) = v.parse::<u64>() {
+            crate::pokemon_storage::move_to_site(state, id, 2, "放入背包");
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-st-release") {
+        if let Ok(id) = v.parse::<u64>() {
+            crate::pokemon_storage::release_one(state, id);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-st-card") {
+        if let Ok(id) = v.parse::<u64>() {
+            crate::pokemon_storage::click_card(state, id);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-st-select-mode").is_some() {
+        crate::pokemon_storage::enter_select_mode(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-st-select-exit").is_some() {
+        crate::pokemon_storage::exit_select_mode(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-st-select-all").is_some() {
+        crate::pokemon_storage::select_all(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-st-batch-release").is_some() {
+        crate::pokemon_storage::batch_release(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-st-clear").is_some() {
+        crate::pokemon_storage::clear_filters(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-st-more").is_some() {
+        crate::pokemon_storage::load_more(state);
         return;
     }
     // 欢迎页：开始冒险（新玩家初始化）

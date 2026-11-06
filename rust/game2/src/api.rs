@@ -657,6 +657,10 @@ struct PokemonSkillDto {
 #[derive(Deserialize)]
 struct PokemonBaseInfoDto {
     #[serde(default)]
+    type_1: String,
+    #[serde(default)]
+    type_2: Option<String>,
+    #[serde(default)]
     is_legendary: bool,
 }
 
@@ -752,6 +756,12 @@ pub fn pokemon_list(on_done: Box<dyn FnOnce(Result<Vec<crate::state::PokemonBasi
                             state_text: p.state_text,
                             state_class: p.state_class,
                             skills,
+                            type_1: p
+                                .base_info
+                                .as_ref()
+                                .map(|b| b.type_1.clone())
+                                .unwrap_or_default(),
+                            type_2: p.base_info.as_ref().and_then(|b| b.type_2.clone()),
                             is_legendary: p.base_info.map(|b| b.is_legendary).unwrap_or(false),
                         }
                     })
@@ -1347,5 +1357,44 @@ pub fn evolve(pet_id: u64, to_id: u64, on_done: Box<dyn FnOnce(Result<String, St
         "evolve",
         Some(body),
         Box::new(|result: Result<EvolveDto, String>| on_done(result.map(|d| d.new_name))),
+    );
+}
+
+// ===========================================================================
+// 仓库（放生 / 设为首位 / 移动）
+// ===========================================================================
+
+/// 放生：POST `{id}`。
+pub fn release_pokemon(pokemon_id: u64, on_done: Box<dyn FnOnce(Result<(), String>)>) {
+    let body = serde_json::json!({ "id": pokemon_id }).to_string();
+    request(
+        "pokemon",
+        "release",
+        Some(body),
+        Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
+    );
+}
+
+/// 设为首位。
+pub fn set_first_pokemon(pokemon_id: u64, on_done: Box<dyn FnOnce(Result<(), String>)>) {
+    request(
+        "pokemon",
+        &format!("set_first&pokemon_id={pokemon_id}"),
+        None,
+        Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
+    );
+}
+
+/// 移动宠物：site 2 = 背包队伍，3 = 仓库。
+pub fn move_pokemon_to_site(
+    pokemon_id: u64,
+    site: u8,
+    on_done: Box<dyn FnOnce(Result<(), String>)>,
+) {
+    request(
+        "pokemon",
+        &format!("move_pokemon&pokemon_id={pokemon_id}&site={site}"),
+        None,
+        Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
     );
 }

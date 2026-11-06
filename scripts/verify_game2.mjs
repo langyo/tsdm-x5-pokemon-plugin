@@ -644,8 +644,87 @@ async function stepMyPokemon() {
   await sleep(600);
 }
 
+async function stepStorage() {
+  console.log('[5] 仓库页');
+  await navTo('storage');
+  const boot = await evaljs(() => ({
+    panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
+    active: document.querySelector('.nav-link.active')?.textContent?.trim() ?? null,
+    hasPage: !!document.querySelector('.page-pokemon-storage'),
+  }));
+  ok('无 panic', boot.panic === null, boot.panic ?? '');
+  ok('仓库导航激活', boot.active === '仓库', boot.active ?? '');
+  ok('渲染仓库页', boot.hasPage);
+
+  await waitFor(
+    async () => (await evaljs(() => !document.querySelector('.panel-loading'))),
+    15000,
+    '仓库数据',
+  );
+  const view = await evaljs(() => ({
+    bagSlots: document.querySelectorAll('.bag-panel .pokemon-slot').length,
+    bagEmpty: document.querySelectorAll('.bag-panel .empty-slot').length,
+    count: document.querySelector('.panel-count')?.textContent?.trim() ?? null,
+    cards: document.querySelectorAll('.storage-grid [data-pm-st-card]').length,
+    hasFilters: !!document.querySelector('[data-pm-st-type]') && !!document.querySelector('[data-pm-st-sort]'),
+    selectModeBtn: !!document.querySelector('[data-pm-st-select-mode]'),
+  }));
+  ok('背包恒定 6 槽', view.bagSlots === 6, `got ${view.bagSlots}`);
+  ok('背包宠物 + 空槽互补', view.bagSlots - view.bagEmpty >= 1, JSON.stringify(view));
+  ok('筛选条齐全（属性/排序等）', view.hasFilters);
+  ok('计数文案格式', /^\d+ \/ \d+ 只$/.test(view.count ?? ''), view.count ?? '');
+
+  if (view.cards > 0) {
+    // 筛选交互：等级区间收窄到只剩高等级（等级取首卡的两倍作下限）
+    const firstLevel = await evaljs(() => {
+      const card = document.querySelector('.storage-grid [data-pm-st-card]');
+      return Number(card?.querySelector('.pokemon-level')?.textContent?.replace(/\D+/g, '') ?? 0);
+    });
+    const levelsBefore = await evaljs(() => [...document.querySelectorAll('.storage-grid .pokemon-level')]
+      .map((n) => Number(n.textContent?.replace(/\D+/g, '') ?? 0)));
+    if (firstLevel > 0 && levelsBefore.length >= 2) {
+      await evaljs((min) => {
+        const el = document.querySelector('[data-pm-st-min]');
+        el.value = String(min);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, firstLevel);
+      await waitFor(
+        async () => (await evaljs(() => document.querySelectorAll('.storage-grid [data-pm-st-card]').length)) < levelsBefore.length,
+        8000,
+        '等级筛选',
+      );
+      const afterMin = await evaljs(() => ({
+        levels: [...document.querySelectorAll('.storage-grid .pokemon-level')]
+          .map((n) => Number(n.textContent?.replace(/\D+/g, '') ?? 0)),
+      }));
+      ok('等级下限过滤生效', afterMin.levels.every((l) => l >= firstLevel),
+        JSON.stringify({ before: levelsBefore, min: firstLevel, after: afterMin.levels }));
+      await evaljs(() => document.querySelector('[data-pm-st-clear]')?.click());
+      await sleep(900);
+    } else {
+      skip('等级过滤', '仓库只有一只宠物，无法验证收窄');
+    }
+    // 卡片菜单（只读展开）
+    await evaljs(() => document.querySelector('.storage-grid [data-pm-st-card]')?.click());
+    await waitFor(
+      async () => (await evaljs(() => !!document.querySelector('.slot-actions'))),
+      8000,
+      '卡片菜单',
+    );
+    const menu = await evaljs(() => ({
+      toBag: !!document.querySelector('[data-pm-st-to-bag]'),
+      release: !!document.querySelector('[data-pm-st-release]'),
+    }));
+    ok('仓库卡菜单含放入背包/放生', menu.toBag && menu.release, JSON.stringify(menu));
+    await evaljs(() => document.querySelector('.storage-grid [data-pm-st-card]')?.click());
+    await sleep(500);
+  } else {
+    skip('仓库筛选与菜单', '仓库没有宠物');
+  }
+}
+
 async function stepShopAndHome() {
-  console.log('[5] 商店页');
+  console.log('[6] 商店页');
   await navTo('shop');
   const shop = await evaljs(() => ({
     panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
@@ -659,7 +738,7 @@ async function stepShopAndHome() {
       || !!document.querySelector('.shop-empty'))), 15000, '商店数据');
   ok('商店内容渲染', await evaljs(() => !!document.querySelector('.shop-card, .shop-items-grid, .shop-empty')));
 
-  console.log('[6] 首页');
+  console.log('[7] 首页');
   await navTo('home');
   const home = await evaljs(() => ({
     panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
@@ -699,23 +778,33 @@ try {
   }
   await goto(`${BASE}/plugin.php?id=pokemon:game&ui=v2`);
 
-  // 等 wasm 应用挂载
-  await waitFor(async () => (await evaljs(() => !!document.querySelector('#app')?.firstElementChild
-      || !!document.getElementById('app')?.getAttribute('data-panic'))), 30000, 'wasm 挂载');
+  // 等 wasm 应用挂载。启动 profile 偶发失败会停在欢迎页（无导航）——
+  // 重载一次再等；仍停在欢迎页则视为环境异常并明确报错。
+  const mounted = () => evaljs(() => !!document.querySelector('#app')?.firstElementChild
+      || !!document.getElementById('app')?.getAttribute('data-panic'));
+  const hasNav = () => evaljs(() => !!document.querySelector('[data-pm-nav]'));
+  await waitFor(mounted, 30000, 'wasm 挂载');
+  if (!(await hasNav())) {
+    await goto(`${BASE}/plugin.php?id=pokemon:game&ui=v2&t=${Date.now()}`);
+    await waitFor(mounted, 30000, 'wasm 挂载（重载后）');
+  }
+  ok('启动进入主导航', await hasNav(), '停在欢迎页（profile 拉取失败）');
 
   await stepShell();
   if (authed) {
     await stepInventory();
     await stepPokemonCenter();
     await stepMyPokemon();
+    await stepStorage();
     await stepShopAndHome();
   } else {
     console.log('[2] 背包页（跳过：未登录）');
     console.log('[3] 宠物中心（跳过：未登录）');
     console.log('[4] 我的宠物（跳过：未登录）');
-    console.log('[5] 商店页（跳过：未登录）');
-    console.log('[6] 首页（跳过：未登录）');
-    skipped += 5;
+    console.log('[5] 仓库页（跳过：未登录）');
+    console.log('[6] 商店页（跳过：未登录）');
+    console.log('[7] 首页（跳过：未登录）');
+    skipped += 6;
   }
 } catch (err) {
   failed += 1;

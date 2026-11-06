@@ -236,6 +236,10 @@ pub struct PokemonBasic {
     pub state_class: String,
     /// 技能槽（list 载荷恒定 4 槽，空槽 type_id=0）。
     pub skills: Vec<PokemonSkill>,
+    /// 属性 1（list 载荷 base_info；仓库页属性筛选用）。
+    pub type_1: String,
+    /// 属性 2。
+    pub type_2: Option<String>,
     pub is_legendary: bool,
 }
 
@@ -605,6 +609,80 @@ impl std::fmt::Debug for MyPokemonState {
 
 /// 我的宠物页反馈提示（promise 线程版：只写内部值）。
 pub fn mypm_show_toast_silent(state: &MyPokemonState, kind: ToastKind, message: String) {
+    state.toast_kind.inner().set(kind);
+    state.toast_message.inner().set(message);
+    state.toast_visible.inner().set(true);
+}
+
+/// 仓库页持久状态（筛选值即时生效，渲染时套用——与 Dioxus 版一致）。
+#[derive(Clone)]
+pub struct StorageState {
+    pub component_id: std::cell::Cell<u32>,
+    pub select_mode: ReactiveSignal<bool>,
+    pub selected_ids: ReactiveSignal<Vec<u64>>,
+    pub search_input: ReactiveSignal<String>,
+    pub type_filter: ReactiveSignal<String>,
+    pub min_level: ReactiveSignal<String>,
+    pub max_level: ReactiveSignal<String>,
+    /// "" / "shiny" / "normal"。
+    pub shiny_filter: ReactiveSignal<String>,
+    /// "oldest" / "newest" / "level_asc" / "level_desc"。
+    pub sort_value: ReactiveSignal<String>,
+    /// 已渲染数量（每次 +60，筛选变化时重置）。
+    pub visible_count: ReactiveSignal<usize>,
+    /// 当前展开操作菜单的卡片。
+    pub open_menu: ReactiveSignal<Option<u64>>,
+    /// 写操作进行中（互斥守卫）。
+    pub action_loading: ReactiveSignal<bool>,
+    pub toast_visible: ReactiveSignal<bool>,
+    pub toast_message: ReactiveSignal<String>,
+    pub toast_kind: ReactiveSignal<ToastKind>,
+}
+
+/// 仓库页每页条数（对齐 Dioxus 版 STORAGE_PAGE_SIZE）。
+pub const STORAGE_PAGE_SIZE: usize = 60;
+
+impl StorageState {
+    pub fn new() -> Self {
+        Self {
+            component_id: std::cell::Cell::new(0),
+            select_mode: use_signal(|| false),
+            selected_ids: use_signal(Vec::new),
+            search_input: use_signal(String::new),
+            type_filter: use_signal(String::new),
+            min_level: use_signal(String::new),
+            max_level: use_signal(String::new),
+            shiny_filter: use_signal(String::new),
+            sort_value: use_signal(|| "oldest".to_string()),
+            visible_count: use_signal(|| STORAGE_PAGE_SIZE),
+            open_menu: use_signal(|| None),
+            action_loading: use_signal(|| false),
+            toast_visible: use_signal(|| false),
+            toast_message: use_signal(String::new),
+            toast_kind: use_signal(|| ToastKind::Success),
+        }
+    }
+
+    /// 筛选值变化：清选择、重置分页（对齐 Dioxus 版各 oninput 分支）。
+    pub fn reset_view(&self) {
+        self.selected_ids.inner().set(Vec::new());
+        self.visible_count.inner().set(STORAGE_PAGE_SIZE);
+    }
+}
+
+impl std::fmt::Debug for StorageState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("StorageState").finish()
+    }
+}
+
+pub fn storage_show_toast(state: &StorageState, kind: ToastKind, message: String) {
+    state.toast_kind.set(kind);
+    state.toast_message.set(message);
+    state.toast_visible.set(true);
+}
+
+pub fn storage_show_toast_silent(state: &StorageState, kind: ToastKind, message: String) {
     state.toast_kind.inner().set(kind);
     state.toast_message.inner().set(message);
     state.toast_visible.inner().set(true);

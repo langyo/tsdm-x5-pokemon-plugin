@@ -17,6 +17,7 @@ pub enum Route {
     Inventory,
     PokemonCenter,
     MyPokemon,
+    PokemonStorage,
 }
 
 /// 首页话题项（新闻公告与论坛话题的统一显示格式）。
@@ -70,6 +71,9 @@ pub struct AppState {
 
     // ---- 我的宝可梦页 ----
     pub my_pm: crate::state::MyPokemonState,
+
+    // ---- 仓库页 ----
+    pub storage: crate::state::StorageState,
 }
 
 impl AppState {
@@ -87,6 +91,7 @@ impl AppState {
             inv: crate::state::InventoryState::new(),
             center: crate::state::CenterState::new(),
             my_pm: crate::state::MyPokemonState::new(),
+            storage: crate::state::StorageState::new(),
         }
     }
 }

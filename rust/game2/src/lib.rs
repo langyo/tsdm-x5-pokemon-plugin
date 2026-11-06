@@ -17,11 +17,14 @@ pub mod inventory;
 pub mod my_pokemon;
 #[cfg(target_family = "wasm")]
 pub mod pokemon_center;
+#[cfg(target_family = "wasm")]
+pub mod pokemon_storage;
 pub mod quality;
 #[cfg(target_family = "wasm")]
 pub mod shop;
 pub mod shop_logic;
 pub mod state;
+pub mod storage_logic;
 #[cfg(target_family = "wasm")]
 pub mod welcome;
 
@@ -106,6 +109,9 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     if state.route.get() == Route::MyPokemon {
         my_pokemon::ensure_loaded(state);
     }
+    if state.route.get() == Route::PokemonStorage {
+        pokemon_storage::ensure_loaded(state);
+    }
     if state.route.get() == Route::Welcome {
         return welcome::Welcome(welcome::WelcomeProps {
             state: Some(Box::new(state.clone())),
@@ -136,6 +142,12 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
             state: Some(Box::new(state.clone())),
             ..Default::default()
         }),
+        Route::PokemonStorage => {
+            pokemon_storage::PokemonStorage(pokemon_storage::PokemonStorageProps {
+                state: Some(Box::new(state.clone())),
+                ..Default::default()
+            })
+        }
     };
 
     let home_active = state.route.get() == Route::Home;
@@ -143,6 +155,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     let inv_active = state.route.get() == Route::Inventory;
     let center_active = state.route.get() == Route::PokemonCenter;
     let mypm_active = state.route.get() == Route::MyPokemon;
+    let storage_active = state.route.get() == Route::PokemonStorage;
     let home_cls = if home_active {
         "nav-link active"
     } else {
@@ -168,6 +181,11 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     } else {
         "nav-link"
     };
+    let storage_cls = if storage_active {
+        "nav-link active"
+    } else {
+        "nav-link"
+    };
     let img_logo = "source/plugin/pokemon/images/item/jlq.gif";
 
     rsx! {
@@ -188,6 +206,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                         button { class: inv_cls, "data-pm-nav": "inventory", "背包" }
                         button { class: center_cls, "data-pm-nav": "center", "宠物中心" }
                         button { class: mypm_cls, "data-pm-nav": "my-pokemon", "我的宠物" }
+                        button { class: storage_cls, "data-pm-nav": "storage", "仓库" }
                     }
                 }
             }
@@ -227,6 +246,7 @@ pub fn run_app() -> Result<()> {
     state.inv.component_id.set(component_id as u32);
     state.center.component_id.set(component_id as u32);
     state.my_pm.component_id.set(component_id as u32);
+    state.storage.component_id.set(component_id as u32);
 
     let state_for_render = state.clone();
     let latest_for_remount = state.clone();
