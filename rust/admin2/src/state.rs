@@ -171,6 +171,8 @@ pub struct EntitySpec {
     pub name_tag: &'static str,
     /// 名称筛选的 operator（默认 contains；用户页昵称也用 contains）。
     pub name_operator: &'static str,
+    /// 名称输入框占位（如「名称（包含）」；进化页是「进化来源」）。
+    pub name_placeholder: &'static str,
 }
 
 #[derive(Clone, Copy)]
@@ -194,6 +196,7 @@ pub const POKEMON_SPEC: EntitySpec = EntitySpec {
     id_tag: "ID",
     name_tag: "名称",
     name_operator: "contains",
+    name_placeholder: "名称（包含）",
 };
 
 /// 物品数据（切片 3 实例化）。类型筛选对数字列（1药品/2球/3素材/4强化/5装备）。
@@ -213,6 +216,7 @@ pub const ITEM_SPEC: EntitySpec = EntitySpec {
     id_tag: "ID",
     name_tag: "名称",
     name_operator: "contains",
+    name_placeholder: "名称（包含）",
 };
 
 /// 地图数据（切片 4 实例化）。地形筛选传英文 snake_case 名
@@ -233,6 +237,7 @@ pub const MAP_SPEC: EntitySpec = EntitySpec {
     id_tag: "ID",
     name_tag: "名称",
     name_operator: "contains",
+    name_placeholder: "名称（包含）",
 };
 
 /// 用户数据（切片 5 实例化）。ID 筛选的 tag 是「UID」，名称是「昵称」
@@ -253,6 +258,24 @@ pub const USER_SPEC: EntitySpec = EntitySpec {
     id_tag: "UID",
     name_tag: "昵称",
     name_operator: "contains",
+    name_placeholder: "用户名（包含）",
+};
+
+/// 进化链数据（切片 6 实例化）。无「名称」概念：name 槽位承载「进化来源」，
+/// a 槽位承载「进化目标」（两者服务端都按 pm_data.name 反查 id）。
+pub const EVOLUTION_SPEC: EntitySpec = EntitySpec {
+    entity: "evolution_info",
+    title: "进化链数据",
+    a: Some(FilterSpec {
+        tag: "进化目标",
+        operator: "contains",
+        placeholder: "进化目标（宠物名）",
+    }),
+    b: None,
+    id_tag: "ID",
+    name_tag: "进化来源",
+    name_operator: "contains",
+    name_placeholder: "进化来源（宠物名）",
 };
 
 /// 应用级状态。
@@ -265,6 +288,7 @@ pub struct AppState {
     pub item: ListState,
     pub map: ListState,
     pub user: ListState,
+    pub evolution: ListState,
 }
 
 impl AppState {
@@ -277,6 +301,7 @@ impl AppState {
             item: ListState::new(),
             map: ListState::new(),
             user: ListState::new(),
+            evolution: ListState::new(),
         }
     }
 }

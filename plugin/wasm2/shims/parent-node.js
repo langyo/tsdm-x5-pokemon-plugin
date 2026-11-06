@@ -1,4 +1,4 @@
 // shim for tairitsu-browser:full/parent-node
-import { INTERFACES } from '../glue/dom/index.js?v=1793993531';
+import { INTERFACES } from '../glue/dom/index.js?v=1793995302';
 const obj = INTERFACES['@tairitsu-glue/parent-node'];
 export const querySelector = obj.querySelector;

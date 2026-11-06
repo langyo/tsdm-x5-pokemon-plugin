@@ -38,6 +38,11 @@ pub fn ensure_loaded(state: &AppState) {
                 reload_list(crate::state::USER_SPEC, &state.user);
             }
         }
+        AdminRoute::EvolutionData => {
+            if state.evolution.loaded.get().is_none() && !state.evolution.busy.get() {
+                reload_list(crate::state::EVOLUTION_SPEC, &state.evolution);
+            }
+        }
         _ => {}
     }
 }
@@ -186,7 +191,11 @@ fn apply_list_filters(
         packages.push(crate::api::filter_package(spec.id_tag, "equal", &id));
     }
     if !name.is_empty() {
-        packages.push(crate::api::filter_package(spec.name_tag, spec.name_operator, &name));
+        packages.push(crate::api::filter_package(
+            spec.name_tag,
+            spec.name_operator,
+            &name,
+        ));
     }
     if !a.is_empty() {
         if let Some(sa) = spec.a {
@@ -385,6 +394,7 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         AdminRoute::ItemData => item_data_page(&st),
         AdminRoute::MapData => map_data_page(&st),
         AdminRoute::UserData => user_data_page(&st),
+        AdminRoute::EvolutionData => evolution_data_page(&st),
         _ => {
             let title = route.title();
             rsx! {
@@ -1345,6 +1355,188 @@ fn user_data_page(st: &AppState) -> VNode {
                     class: "admin-btn",
                     disabled: busy,
                     "data-pm-adm-l-reload": "us",
+                    "刷新"
+                }
+            }
+            ..vec![body]
+        }
+    }
+}
+
+/// 进化链数据页（切片 6）：列表页模板；name 槽位=进化来源、a 槽位=进化目标。
+fn evolution_data_page(st: &AppState) -> VNode {
+    let ls = st.evolution.clone();
+    let load_state = ls.loaded.get();
+    let busy = ls.busy.get();
+    let filtered = ls.filtered.get();
+    let err = ls.err.get();
+    let rows = ls.rows.get();
+    let total = ls.total.get();
+    let loaded_count = ls.loaded_count.get();
+    let has_more = !filtered && loaded_count < total;
+    let f_id = ls.f_id.get();
+    let f_name = ls.f_name.get();
+    let f_a = ls.f_a.get();
+    let count_text = if filtered {
+        format!("筛选结果 {loaded_count} 条")
+    } else {
+        format!("已加载 {loaded_count} / {total} 条")
+    };
+
+    let body = match &load_state {
+        None => rsx! { div { class: "admin-loading", "正在加载进化链数据..." } },
+        Some(Err(e)) => {
+            let msg = format!("加载失败：{e}");
+            rsx! {
+                div { class: "admin-card admin-error",
+                    p { "{msg}" }
+                    button {
+                        class: "admin-btn",
+                        disabled: busy,
+                        "data-pm-adm-l-reload": "ev",
+                        "重新加载"
+                    }
+                }
+            }
+        }
+        Some(Ok(())) => {
+            let err_bar = match &err {
+                Some(e) => {
+                    let msg = format!("筛选失败：{e}");
+                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
+                }
+                None => VNode::empty(),
+            };
+            let table = if rows.is_empty() {
+                rsx! { p { class: "admin-empty-hint", "暂无进化链数据。" } }
+            } else {
+                let mut trs: Vec<VNode> = Vec::new();
+                for item in rows.iter() {
+                    let id = json_u64(item, "id").to_string();
+                    // 历史数据存在 from_id/to_id 为 0 的孤儿行，名字为空——显示占位符。
+                    let source = {
+                        let s = json_str(item, "source_name");
+                        if s.is_empty() {
+                            format!("（未知 #{}）", json_u64(item, "source_id"))
+                        } else {
+                            s
+                        }
+                    };
+                    let target = {
+                        let s = json_str(item, "target_name");
+                        if s.is_empty() {
+                            format!("（未知 #{}）", json_u64(item, "target_id"))
+                        } else {
+                            s
+                        }
+                    };
+                    let condition = json_str(item, "condition");
+                    let priority = json_u64(item, "priority").to_string();
+                    let item_name = json_str(item, "item_name");
+                    let item_hint = if item_name.is_empty() {
+                        "—".to_string()
+                    } else {
+                        item_name
+                    };
+                    trs.push(rsx! {
+                        tr {
+                            td { "{id}" }
+                            td { "{source}" }
+                            td { "{target}" }
+                            td { class: "adm-pk-stats", "{condition}" }
+                            td { "{item_hint}" }
+                            td { "{priority}" }
+                        }
+                    });
+                }
+                rsx! {
+                    table { class: "adm-table",
+                        thead {
+                            tr {
+                                th { "ID" }
+                                th { "进化来源" }
+                                th { "进化目标" }
+                                th { "条件" }
+                                th { "道具" }
+                                th { "优先级" }
+                            }
+                        }
+                        tbody {
+                            for i in 0..trs.len() {
+                                ..vec![trs[i].clone()]
+                            }
+                        }
+                    }
+                }
+            };
+            let more_btn = if has_more {
+                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
+                rsx! {
+                    div { class: "adm-load-more",
+                        button {
+                            class: "admin-btn",
+                            disabled: busy,
+                            "data-pm-adm-l-more": "ev",
+                            "{label}"
+                        }
+                    }
+                }
+            } else {
+                VNode::empty()
+            };
+            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
+            rsx! {
+                for i in 0..parts.len() {
+                    ..vec![parts[i].clone()]
+                }
+            }
+        }
+    };
+
+    rsx! {
+        section { class: "admin-page admin-config-page",
+            div { class: "admin-page-header",
+                h2 { "进化链数据" }
+                span { class: "adm-count", "{count_text}" }
+            }
+            div { class: "admin-card adm-filter-bar",
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "ID（精确）",
+                    value: f_id,
+                    "data-pm-adm-f-id": "ev"
+                }
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "进化来源（宠物名）",
+                    value: f_name,
+                    "data-pm-adm-f-name": "ev"
+                }
+                input {
+                    class: "adm-filter-input adm-filter-kind",
+                    r#type: "text",
+                    placeholder: "进化目标（宠物名）",
+                    value: f_a,
+                    "data-pm-adm-f-a": "ev"
+                }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-l-apply": "ev",
+                    "筛选"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reset": "ev",
+                    "重置"
+                }
+                button {
+                    class: "admin-btn",
+                    disabled: busy,
+                    "data-pm-adm-l-reload": "ev",
                     "刷新"
                 }
             }
