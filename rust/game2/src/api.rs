@@ -627,3 +627,135 @@ pub fn use_item(
         }),
     );
 }
+
+// ===========================================================================
+// 宠物列表 / 治疗（宠物中心页）
+// ===========================================================================
+
+#[derive(Deserialize)]
+struct PokemonSkillDto {
+    #[serde(default)]
+    pp: i64,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    max_pp: i64,
+}
+
+#[derive(Deserialize)]
+struct PokemonBaseInfoDto {
+    #[serde(default)]
+    is_legendary: bool,
+}
+
+#[derive(Deserialize)]
+struct PokemonBasicDto {
+    id: u64,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    nickname: Option<String>,
+    #[serde(default)]
+    type_id: u64,
+    #[serde(default)]
+    level: u64,
+    #[serde(default)]
+    hp: i64,
+    #[serde(default)]
+    max_hp: i64,
+    #[serde(default)]
+    is_shiny: bool,
+    #[serde(default)]
+    site: u8,
+    #[serde(default)]
+    state: u8,
+    #[serde(default)]
+    state_text: String,
+    #[serde(default)]
+    state_class: String,
+    #[serde(default)]
+    skills: Vec<PokemonSkillDto>,
+    #[serde(default)]
+    base_info: Option<PokemonBaseInfoDto>,
+}
+
+#[derive(Deserialize)]
+struct PokemonListDto {
+    #[serde(default)]
+    pokemons: Vec<PokemonBasicDto>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    total: usize,
+}
+
+#[derive(Deserialize)]
+struct HealDto {
+    #[serde(default)]
+    cost: i64,
+    #[serde(default)]
+    message: String,
+}
+
+pub struct HealOutcome {
+    pub cost: i64,
+    pub message: String,
+}
+
+pub fn pokemon_list(on_done: Box<dyn FnOnce(Result<Vec<crate::state::PokemonBasic>, String>)>) {
+    request(
+        "pokemon",
+        "list",
+        None,
+        Box::new(|result: Result<PokemonListDto, String>| {
+            on_done(result.map(|dto| {
+                dto.pokemons
+                    .into_iter()
+                    .map(|p| {
+                        let depleted_pp = p
+                            .skills
+                            .iter()
+                            .filter(|s| s.max_pp > 0 && s.pp < s.max_pp && !s.name.is_empty())
+                            .map(|s| format!("{}/{}", s.pp, s.max_pp))
+                            .collect();
+                        crate::state::PokemonBasic {
+                            id: p.id,
+                            name: p.name,
+                            nickname: p.nickname,
+                            type_id: p.type_id,
+                            level: p.level,
+                            hp: p.hp,
+                            max_hp: p.max_hp,
+                            is_shiny: p.is_shiny,
+                            site: p.site,
+                            state: p.state,
+                            state_text: p.state_text,
+                            state_class: p.state_class,
+                            depleted_pp,
+                            is_legendary: p.base_info.map(|b| b.is_legendary).unwrap_or(false),
+                        }
+                    })
+                    .collect()
+            }))
+        }),
+    );
+}
+
+/// 治疗一只宠物（服务端当前免费，cost 仍透传）。`flee=true` 走脱战治疗。
+pub fn heal_pokemon(
+    pokemon_id: u64,
+    flee: bool,
+    on_done: Box<dyn FnOnce(Result<HealOutcome, String>)>,
+) {
+    let action = if flee { "heal_and_flee" } else { "heal" };
+    request(
+        "user",
+        &format!("{action}&pokemon_id={pokemon_id}"),
+        None,
+        Box::new(|result: Result<HealDto, String>| {
+            on_done(result.map(|dto| HealOutcome {
+                cost: dto.cost,
+                message: dto.message,
+            }))
+        }),
+    );
+}

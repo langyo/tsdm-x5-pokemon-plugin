@@ -390,8 +390,55 @@ async function stepInventory() {
   }
 }
 
+async function stepPokemonCenter() {
+  console.log('[3] 宠物中心');
+  await navTo('center');
+  const boot = await evaljs(() => ({
+    panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
+    active: document.querySelector('.nav-link.active')?.textContent?.trim() ?? null,
+    hasPage: !!document.querySelector('.page-pokemon-center'),
+    hasBanner: !!document.querySelector('.center-welcome-banner'),
+  }));
+  ok('无 panic', boot.panic === null, boot.panic ?? '');
+  ok('宠物中心导航激活', boot.active === '宠物中心', boot.active ?? '');
+  ok('渲染宠物中心卡片与横幅', boot.hasPage && boot.hasBanner);
+
+  // 四种互斥态：加载 / 受伤列表 / 健康 / 空
+  await waitFor(async () => (await evaljs(() => !document.querySelector('.center-loading'))), 15000, '宠物数据');
+  const view = await evaljs(() => ({
+    cards: document.querySelectorAll('.heal-pokemon-card').length,
+    healthy: !!document.querySelector('.center-healthy'),
+    empty: !!document.querySelector('.center-empty'),
+    healAll: !!document.querySelector('[data-pm-center-heal-all]'),
+    first: (() => {
+      const c = document.querySelector('.heal-pokemon-card');
+      if (!c) return null;
+      return {
+        name: c.querySelector('.heal-pm-name')?.textContent?.trim() ?? null,
+        hp: c.querySelector('.hp-text')?.textContent?.trim() ?? null,
+        state: c.querySelector('.state-label')?.textContent?.trim() ?? null,
+        healId: c.querySelector('[data-pm-center-heal]')?.getAttribute('data-pm-center-heal') ?? null,
+        flee: c.querySelector('[data-pm-center-flee]')?.getAttribute('data-pm-center-flee') ?? null,
+      };
+    })(),
+  }));
+  ok(
+    '四种态之一成立（受伤列表/健康/空）',
+    view.cards > 0 || view.healthy || view.empty,
+    JSON.stringify({ cards: view.cards, healthy: view.healthy, empty: view.empty }),
+  );
+  if (view.cards > 0) {
+    ok('受伤卡片带 HP 与状态', !!view.first?.hp && !!view.first?.state,
+      JSON.stringify(view.first));
+    ok('受伤卡片带治疗按钮', !!view.first?.healId);
+    ok('全部治疗按钮出现', view.healAll);
+  } else {
+    skip('受伤卡片细节', '当前无受伤宠物');
+  }
+}
+
 async function stepShopAndHome() {
-  console.log('[3] 商店页');
+  console.log('[4] 商店页');
   await navTo('shop');
   const shop = await evaljs(() => ({
     panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
@@ -405,7 +452,7 @@ async function stepShopAndHome() {
       || !!document.querySelector('.shop-empty'))), 15000, '商店数据');
   ok('商店内容渲染', await evaljs(() => !!document.querySelector('.shop-card, .shop-items-grid, .shop-empty')));
 
-  console.log('[4] 首页');
+  console.log('[5] 首页');
   await navTo('home');
   const home = await evaljs(() => ({
     panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
@@ -452,12 +499,14 @@ try {
   await stepShell();
   if (authed) {
     await stepInventory();
+    await stepPokemonCenter();
     await stepShopAndHome();
   } else {
     console.log('[2] 背包页（跳过：未登录）');
-    console.log('[3] 商店页（跳过：未登录）');
-    console.log('[4] 首页（跳过：未登录）');
-    skipped += 3;
+    console.log('[3] 宠物中心（跳过：未登录）');
+    console.log('[4] 商店页（跳过：未登录）');
+    console.log('[5] 首页（跳过：未登录）');
+    skipped += 4;
   }
 } catch (err) {
   failed += 1;

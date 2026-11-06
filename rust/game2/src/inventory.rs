@@ -15,7 +15,6 @@ use crate::app_state::AppState;
 use crate::state::ToastKind;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
-const IMG_PATH_REMOTE: &str = "https://img.tsdm39.com/Pokemon";
 
 /// 物品类型 ID（对齐 Dioxus 版常量）。
 const ITEM_TYPE_EQUIP: u64 = 5;

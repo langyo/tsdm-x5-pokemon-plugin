@@ -216,3 +216,91 @@ impl std::fmt::Debug for ShopState {
         f.debug_struct("ShopState").finish()
     }
 }
+
+/// 宠物（对齐 rust/utils/src/types/api_pokemon.rs PokemonBasic 的显示子集）。
+#[derive(Debug, Clone, Default)]
+pub struct PokemonBasic {
+    pub id: u64,
+    /// 物种名（原始名）。
+    pub name: String,
+    pub nickname: Option<String>,
+    pub type_id: u64,
+    pub level: u64,
+    pub hp: i64,
+    pub max_hp: i64,
+    pub is_shiny: bool,
+    /// 位置：1=首位/战斗中，2=队伍，其余=箱子。
+    pub site: u8,
+    pub state: u8,
+    pub state_text: String,
+    pub state_class: String,
+    /// 未满 PP 的技能列表（"pp/max"），用于治疗页提示。
+    pub depleted_pp: Vec<String>,
+    pub is_legendary: bool,
+}
+
+impl PokemonBasic {
+    /// 显示名：优先昵称。
+    pub fn display_name(&self) -> String {
+        match self.nickname.as_deref() {
+            Some(n) if !n.is_empty() => n.to_string(),
+            _ => self.name.clone(),
+        }
+    }
+
+    /// 该宠物身上的负面状态是否需要用治疗（对齐服务端负面码表）。
+    pub fn needs_healing(&self) -> bool {
+        self.hp <= 0
+            || matches!(
+                self.state,
+                0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15 | 20 | 21 | 22
+            )
+    }
+}
+
+/// 治疗中心持久状态。
+#[derive(Clone)]
+pub struct CenterState {
+    pub component_id: std::cell::Cell<u32>,
+    /// None = 首次加载中；Some(Err) = 失败。
+    pub pokemons: ReactiveSignal<Option<Result<Vec<PokemonBasic>, String>>>,
+    /// 是否处于战斗（npcid > 0）：战斗中首位宠物只能「脱战并治疗」。
+    pub in_battle: ReactiveSignal<bool>,
+    /// 治疗请求进行中（互斥守卫）。
+    pub healing: ReactiveSignal<bool>,
+    pub toast_visible: ReactiveSignal<bool>,
+    pub toast_message: ReactiveSignal<String>,
+    pub toast_kind: ReactiveSignal<ToastKind>,
+}
+
+impl CenterState {
+    pub fn new() -> Self {
+        Self {
+            component_id: std::cell::Cell::new(0),
+            pokemons: use_signal(|| None),
+            in_battle: use_signal(|| false),
+            healing: use_signal(|| false),
+            toast_visible: use_signal(|| false),
+            toast_message: use_signal(String::new),
+            toast_kind: use_signal(|| ToastKind::Success),
+        }
+    }
+}
+
+impl std::fmt::Debug for CenterState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CenterState").finish()
+    }
+}
+
+pub fn center_show_toast(state: &CenterState, kind: ToastKind, message: String) {
+    state.toast_kind.set(kind);
+    state.toast_message.set(message);
+    state.toast_visible.set(true);
+}
+
+pub fn center_show_toast_silent(state: &CenterState, kind: ToastKind, message: String) {
+    state.toast_kind.inner().set(kind);
+    state.toast_message.inner().set(message);
+    state.toast_visible.inner().set(true);
+}

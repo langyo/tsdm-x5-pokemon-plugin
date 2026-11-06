@@ -12,13 +12,11 @@
 //! 本模块只在 wasm 下编译（依赖 fetch 回调桥）。
 
 use tairitsu_macros::{component, rsx};
-use tairitsu_vdom::MouseEvent;
 use tairitsu_vdom::VNode;
 
 use hikari_components::{
     theme::ThemeProviderProps, ThemeProvider, Toast, ToastPosition, ToastProps, ToastVariant,
 };
-use tairitsu_hooks::ReactiveSignal;
 
 use crate::api;
 use crate::icon::{Icon, IconName, IconProps};
@@ -29,10 +27,6 @@ use crate::state::{show_toast_silent, ShopItem, ShopPet, ShopState, ToastKind};
 const IMG_PATH: &str = "source/plugin/pokemon/images";
 /// 宠物分类哨兵：category = None 表示宠物页（与 Dioxus 版一致）。
 const PET_CATEGORY: Option<u32> = None;
-
-/// tooltip 估算高度（px），需与 .shop-tile-tooltip 的 CSS 尺寸一致。
-const ITEM_TOOLTIP_H: f64 = 130.0;
-const PET_TOOLTIP_H: f64 = 190.0;
 
 /// 名称筛选防抖间隔（毫秒），与 Dioxus 版 SEARCH_DEBOUNCE_MS 一致。
 const SEARCH_DEBOUNCE_MS: i32 = 250;
@@ -46,11 +40,6 @@ fn categories() -> [(Option<u32>, &'static str, &'static str); 6] {
         (Some(5), "装备道具", "item/zb01.gif"),
         (PET_CATEGORY, "宠物", "spm/25.gif"),
     ]
-}
-
-fn tooltip_anchor(evt: &MouseEvent, tooltip_h: f64) -> (f64, f64) {
-    let win_w = viewport_width().unwrap_or(1280.0);
-    shop_tooltip_position(evt.client_x as f64, evt.client_y as f64, tooltip_h, win_w)
 }
 
 // ---------------------------------------------------------------------------
@@ -106,19 +95,6 @@ pub fn reload(state: &ShopState) {
         );
     }
 }
-
-/// 诊断写入：#app[data-<attr>]（wasm 任何隐式线程都可靠；stderr 跨线程会抛）。
-#[cfg(target_family = "wasm")]
-fn diag(attr: &str, msg: &str) {
-    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::set_attribute;
-    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::non_element_parent_node::get_element_by_id;
-    if let Some(app) = get_element_by_id(0, "app") {
-        let _ = set_attribute(app, attr, msg);
-    }
-}
-
-#[cfg(not(target_family = "wasm"))]
-fn diag(_attr: &str, _msg: &str) {}
 
 #[cfg(target_family = "wasm")]
 fn promise_commit(state: &ShopState) {
@@ -213,15 +189,6 @@ pub fn refresh(state: &ShopState) {
 
 pub fn viewport_width_or_default() -> f64 {
     crate::shop_logic::viewport_width().unwrap_or(1280.0)
-}
-
-fn clamp_page(state: &ShopState, total_pages: usize) {
-    let last = total_pages.max(1);
-    state.total_pages.set(last);
-    if (state.page.get() as usize) > last {
-        state.page.set(last as u32);
-        reload(state);
-    }
 }
 
 /// promise 线程版：全部走内部值写入，不触发任何调度。

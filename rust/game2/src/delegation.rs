@@ -145,10 +145,25 @@ fn dispatch_click(state: &AppState, target: u64) {
         let route = match v.as_str() {
             "shop" => crate::app_state::Route::Shop,
             "inventory" => crate::app_state::Route::Inventory,
+            "center" => crate::app_state::Route::PokemonCenter,
             _ => crate::app_state::Route::Home,
         };
         state.route.set(route);
         crate::request_remount();
+        return;
+    }
+    // 宠物中心：治疗单只 / 全部治疗
+    if let Some((_, v)) = find_with_attr(target, "data-pm-center-heal") {
+        if let Ok(pid) = v.parse::<u64>() {
+            let flee = find_with_attr(target, "data-pm-center-flee")
+                .map(|(_, f)| f == "1")
+                .unwrap_or(false);
+            crate::pokemon_center::heal_one(state, pid, flee);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-center-heal-all").is_some() {
+        crate::pokemon_center::heal_all(state);
         return;
     }
     // 背包：分类 / 分页 / 使用 / 弹窗

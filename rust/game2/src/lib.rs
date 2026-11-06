@@ -14,6 +14,8 @@ pub mod icon;
 #[cfg(target_family = "wasm")]
 pub mod inventory;
 #[cfg(target_family = "wasm")]
+pub mod pokemon_center;
+#[cfg(target_family = "wasm")]
 pub mod shop;
 pub mod shop_logic;
 pub mod state;
@@ -95,6 +97,9 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     if state.route.get() == Route::Inventory {
         inventory::ensure_loaded(state);
     }
+    if state.route.get() == Route::PokemonCenter {
+        pokemon_center::ensure_loaded(state);
+    }
     if state.route.get() == Route::Welcome {
         return welcome::Welcome(welcome::WelcomeProps {
             state: Some(Box::new(state.clone())),
@@ -117,11 +122,16 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
             state: Some(Box::new(state.clone())),
             ..Default::default()
         }),
+        Route::PokemonCenter => pokemon_center::PokemonCenter(pokemon_center::PokemonCenterProps {
+            state: Some(Box::new(state.clone())),
+            ..Default::default()
+        }),
     };
 
     let home_active = state.route.get() == Route::Home;
     let shop_active = state.route.get() == Route::Shop;
     let inv_active = state.route.get() == Route::Inventory;
+    let center_active = state.route.get() == Route::PokemonCenter;
     let home_cls = if home_active {
         "nav-link active"
     } else {
@@ -133,6 +143,11 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
         "nav-link"
     };
     let inv_cls = if inv_active {
+        "nav-link active"
+    } else {
+        "nav-link"
+    };
+    let center_cls = if center_active {
         "nav-link active"
     } else {
         "nav-link"
@@ -155,6 +170,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                         button { class: home_cls, "data-pm-nav": "home", "首页" }
                         button { class: shop_cls, "data-pm-nav": "shop", "商店" }
                         button { class: inv_cls, "data-pm-nav": "inventory", "背包" }
+                        button { class: center_cls, "data-pm-nav": "center", "宠物中心" }
                     }
                 }
             }
@@ -192,6 +208,7 @@ pub fn run_app() -> Result<()> {
     state.component_id.set(component_id as u32);
     state.shop.component_id.set(component_id as u32);
     state.inv.component_id.set(component_id as u32);
+    state.center.component_id.set(component_id as u32);
 
     let state_for_render = state.clone();
     let latest_for_remount = state.clone();
