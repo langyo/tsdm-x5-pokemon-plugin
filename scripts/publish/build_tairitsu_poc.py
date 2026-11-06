@@ -88,7 +88,8 @@ INTERFACE_MAP = {
     "parent-node": ("dom", ["querySelector"]),
     "platform-helpers": ("platform", [
         "cancelAnimationFrame", "clearInterval", "clearTimeout",
-        "fetchPromise", "requestAnimationFrame", "setInterval", "setTimeout",
+        "copyToClipboard", "fetchPromise", "readClipboard",
+        "requestAnimationFrame", "setInterval", "setTimeout",
     ]),
     "pointer-event": ("events", [
         "getHeight", "getIsPrimary", "getPointerId", "getPointerType",

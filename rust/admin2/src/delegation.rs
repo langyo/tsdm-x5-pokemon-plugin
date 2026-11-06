@@ -59,6 +59,10 @@ pub fn install(app: &WitElement, state: &AppState) {
                 if attr_of(target, "data-pm-adm-config-input").is_some() {
                     st.config.draft.inner().set(ev.value.clone());
                     crate::request_remount();
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-cfg") {
+                    crate::pages::set_config_field(&st, &key, &ev.value, false);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-annf") {
+                    crate::pages::set_announcement_field(&st, &key, &ev.value);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-pkf") {
                     // 编辑弹窗字段：整树重挂会把输入框重建，光标位置随之丢失
                     // —— 这是既有架构的取舍（与全局配置页一致），change 事件
@@ -328,6 +332,45 @@ fn dispatch_click(state: &AppState, target: u64) {
     }
     if find_with_attr(target, "data-pm-adm-config-save").is_some() {
         crate::pages::save_config(state);
+        return;
+    }
+    // 全局配置表单（切片 14）：公告弹窗内部按钮必须先于遮罩判定。
+    if find_with_attr(target, "data-pm-adm-ann-save").is_some() {
+        crate::pages::save_announcement(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-ann-close").is_some() {
+        crate::pages::close_announcement(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-ann-new").is_some() {
+        crate::pages::open_announcement(state, None);
+        return;
+    }
+    if let Some((_, idx)) = find_with_attr(target, "data-pm-adm-ann-edit") {
+        if let Ok(idx) = idx.trim().parse::<usize>() {
+            crate::pages::open_announcement(state, Some(idx));
+        }
+        return;
+    }
+    if let Some((_, idx)) = find_with_attr(target, "data-pm-adm-ann-del") {
+        if let Ok(idx) = idx.trim().parse::<usize>() {
+            crate::pages::remove_announcement(state, idx);
+        }
+        return;
+    }
+    if let Some((_, key)) = find_with_attr(target, "data-pm-adm-cfg-toggle") {
+        crate::pages::toggle_config_bool(state, &key);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-config-rawmode").is_some() {
+        crate::pages::toggle_config_raw_mode(state);
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-ann-overlay") {
+        if hit == target {
+            crate::pages::close_announcement(state);
+        }
         return;
     }
     // 数据列表页（pk/it 前缀路由到对应实体）：筛选 / 重置 / 刷新 / 加载更多

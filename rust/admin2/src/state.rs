@@ -103,6 +103,51 @@ pub fn show_toast_silent(state: &GlobalConfigState, kind: ToastKind, message: St
     state.toast_visible.inner().set(true);
 }
 
+/// 新闻公告条目（config.news_announcements 的元素）。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct NewsAnnouncement {
+    pub title: String,
+    pub url: String,
+}
+
+/// 全局配置的分节表单状态（切片 14）。
+///
+/// Dioxus 版的配置页是分节表单 + 一个新闻公告列表编辑器；admin2 先前只有
+/// 裸 JSON 文本框。这里补上表单化：字段用字符串信号承载（输入框直绑），
+/// 提交时按原始配置对象的键写回，未在表单里建模的键原样保留。
+///
+/// 关于 JSON 树：Dioxus 的 `JsonPanel` / `JsonEditorField` 从初始 commit
+/// 起就没有任何渲染调用点（只在文件里定义），属于死代码，因此不移植。
+#[derive(Clone)]
+pub struct ConfigFormState {
+    /// 公告列表编辑弹窗是否打开。
+    pub ann_open: ReactiveSignal<bool>,
+    /// 正在编辑的条目下标；None = 新增。
+    pub ann_editing: ReactiveSignal<Option<usize>>,
+    pub ann_title: ReactiveSignal<String>,
+    pub ann_url: ReactiveSignal<String>,
+    /// 表单模式 / 原始 JSON 模式。
+    pub raw_mode: ReactiveSignal<bool>,
+}
+
+impl ConfigFormState {
+    pub fn new() -> Self {
+        Self {
+            ann_open: use_signal(|| false),
+            ann_editing: use_signal(|| None),
+            ann_title: use_signal(String::new),
+            ann_url: use_signal(String::new),
+            raw_mode: use_signal(|| false),
+        }
+    }
+}
+
+impl std::fmt::Debug for ConfigFormState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ConfigFormState").finish()
+    }
+}
+
 /// 通用数据列表页状态（切片 2 定型、切片 3 起复用）。
 ///
 /// 与 Dioxus 版 ListPageState 对应：rows 保留原始 JSON（显示字段渲染时
@@ -690,6 +735,7 @@ pub struct AppState {
     pub skill_editor: SkillEditorState,
     pub evolution_editor: EvolutionEditorState,
     pub grant: GrantState,
+    pub config_form: ConfigFormState,
 }
 
 impl AppState {
@@ -711,6 +757,7 @@ impl AppState {
             skill_editor: SkillEditorState::new(),
             evolution_editor: EvolutionEditorState::new(),
             grant: GrantState::new(),
+            config_form: ConfigFormState::new(),
         }
     }
 }

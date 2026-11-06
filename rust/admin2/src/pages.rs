@@ -480,10 +480,12 @@ pub fn Admin(state: Box<AppState>) -> VNode {
 
 fn global_config_page(st: &AppState) -> VNode {
     let cfg = st.config.clone();
+    let cf = st.config_form.clone();
     let load_state = cfg.loaded.get();
     let draft = cfg.draft.get();
     let dirty = cfg.is_dirty();
     let saving = cfg.saving.get();
+    let raw_mode = cf.raw_mode.get();
 
     let body = match &load_state {
         None => rsx! { div { class: "admin-loading", "正在加载全局配置..." } },
@@ -511,12 +513,38 @@ fn global_config_page(st: &AppState) -> VNode {
             } else {
                 "admin-btn disabled"
             };
-            let rows = draft.lines().count().max(4).min(30);
+            let mode_label = if raw_mode {
+                "切换到表单"
+            } else {
+                "切换到原始 JSON"
+            };
+            let content = if raw_mode {
+                let rows = draft.lines().count().max(4).min(30);
+                rsx! {
+                    div { class: "admin-card admin-config-editor",
+                        textarea {
+                            class: "admin-config-textarea",
+                            rows: rows,
+                            spellcheck: "false",
+                            "data-pm-adm-config-input": "1",
+                            "{draft}"
+                        }
+                    }
+                }
+            } else {
+                config_form_body(st)
+            };
             rsx! {
                 div { class: "admin-card admin-config-editor",
                     div { class: "admin-config-toolbar",
                         span { class: "admin-config-hint",
-                            "直接编辑配置 JSON（切片 1 形态；表单化随后续切片）"
+                            if dirty { "有未保存修改" } else { "与已保存版本一致" }
+                        }
+                        button {
+                            class: "admin-btn",
+                            disabled: saving,
+                            "data-pm-adm-config-rawmode": "1",
+                            "{mode_label}"
                         }
                         button {
                             class: save_cls,
@@ -531,13 +559,7 @@ fn global_config_page(st: &AppState) -> VNode {
                             "重置修改"
                         }
                     }
-                    textarea {
-                        class: "admin-config-textarea",
-                        rows: rows,
-                        spellcheck: "false",
-                        "data-pm-adm-config-input": "1",
-                        "{draft}"
-                    }
+                    ..vec![content]
                 }
             }
         }
@@ -4860,6 +4882,583 @@ fn grant_modal(st: &AppState) -> VNode {
                     ..vec![next_btn]
                 }
             }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 全局配置分节表单（切片 14）
+// ---------------------------------------------------------------------------
+
+/// 配置字段的类型。表单按类型渲染对应控件。
+#[derive(Clone, Copy, PartialEq)]
+enum CfgKind {
+    Bool,
+    Num,
+    Text,
+    /// 分节标题（不是字段）。
+    Section(&'static str),
+}
+
+/// (键, 标签, 类型, 说明)。键就是 `pm_config.key`；顺序即渲染顺序。
+///
+/// 只列表单建模的键——不在表里的键在保存时原样保留（Dioxus 版用强类型
+/// `GlobalConfigType` 反序列化，`is_enable_pvp` / `pvp_xp_multiple` /
+/// `cancel_pvp_price` / `skill_rules_json` 这些 DB 里真实存在的键会被
+/// 悄悄丢掉；按实际键读写避开了这个问题）。
+const CONFIG_FIELDS: &[(&str, &str, CfgKind, &str)] = &[
+    ("", "基础设定", CfgKind::Section("基础设定"), ""),
+    ("is_open", "是否开放", CfgKind::Bool, "插件全局开关"),
+    ("ann_title", "页眉公告标题", CfgKind::Text, ""),
+    ("ann_url", "页眉公告链接", CfgKind::Text, "https://..."),
+    ("", "亲密度设定", CfgKind::Section("亲密度设定"), ""),
+    (
+        "intimacy_increase_per_hour",
+        "每小时亲密度增加量",
+        CfgKind::Num,
+        "0 时随机增加 1-10",
+    ),
+    (
+        "intimacy_increase_per_earn_xp",
+        "每次获得经验亲密度增加量",
+        CfgKind::Num,
+        "关闭宠物蛋模式时也不应设置为 0",
+    ),
+    (
+        "intimacy_increase_multiple",
+        "亲密度增加倍率",
+        CfgKind::Num,
+        "填 0 时宠物蛋无法正常孵化",
+    ),
+    ("", "治疗设定", CfgKind::Section("治疗设定"), ""),
+    ("revive_time", "宠物复活所需时间", CfgKind::Num, "单位：分钟"),
+    ("medical_price", "宠物单次治疗费用", CfgKind::Num, ""),
+    (
+        "posts_count_for_wakeup",
+        "宠物复活所需回帖数量",
+        CfgKind::Num,
+        "",
+    ),
+    ("", "捕捉设定", CfgKind::Section("捕捉设定"), ""),
+    ("is_enable_catch", "是否开放捕捉", CfgKind::Bool, ""),
+    (
+        "catch_price_in_catch_area",
+        "捕捉区域进入费用",
+        CfgKind::Num,
+        "",
+    ),
+    (
+        "pve_catch_xp_multiple",
+        "捕捉经验倍率",
+        CfgKind::Num,
+        "填 0 采用地图经验倍数设置",
+    ),
+    (
+        "pve_catch_level",
+        "可捕捉等级",
+        CfgKind::Num,
+        "填 0 采用各宠物自己的设置",
+    ),
+    ("", "PVE 设定", CfgKind::Section("PVE 设定"), ""),
+    (
+        "is_enable_earn_xp_on_pve",
+        "是否开放战斗获得经验",
+        CfgKind::Bool,
+        "关闭后无法获得战斗经验",
+    ),
+    ("drop_money_on_pve", "是否掉落金钱", CfgKind::Bool, ""),
+    (
+        "drop_money_config_by_global",
+        "金钱掉落配置来源",
+        CfgKind::Bool,
+        "否则以宠物各自设置为准",
+    ),
+    (
+        "drop_money_percent_min_on_pve",
+        "金钱掉落下限（全局）",
+        CfgKind::Num,
+        "以全局配置为准时生效",
+    ),
+    (
+        "drop_money_percent_max_on_pve",
+        "金钱掉落上限（全局）",
+        CfgKind::Num,
+        "",
+    ),
+    (
+        "drop_money_level_gap",
+        "等级差距上限",
+        CfgKind::Num,
+        "高出超过此级数不掉落宠物币；0 = 不限制",
+    ),
+    (
+        "drop_money_daily_limit",
+        "每日宠物币上限",
+        CfgKind::Num,
+        "0 = 不限制",
+    ),
+    ("", "PVP 设定", CfgKind::Section("PVP 设定"), ""),
+    ("is_enable_pvp", "是否开放 PVP", CfgKind::Bool, ""),
+    (
+        "is_enable_earn_xp_on_pvp",
+        "PVP 是否获得经验",
+        CfgKind::Bool,
+        "",
+    ),
+    ("pvp_xp_multiple", "PVP 经验倍率", CfgKind::Num, ""),
+    ("cancel_pvp_price", "取消 PVP 费用", CfgKind::Num, ""),
+    ("", "宠物蛋设定", CfgKind::Section("宠物蛋设定"), ""),
+    (
+        "is_enable_egg",
+        "是否开放宠物蛋直接领取",
+        CfgKind::Bool,
+        "",
+    ),
+    ("is_enable_buy_egg", "是否允许购买宠物蛋", CfgKind::Bool, ""),
+    (
+        "is_enable_buy_pokemon",
+        "是否允许购买宠物",
+        CfgKind::Bool,
+        "",
+    ),
+    (
+        "is_enable_multiple_eggs",
+        "是否允许持有多个宠物蛋",
+        CfgKind::Bool,
+        "仅对免费领取有效",
+    ),
+    ("egg_price", "宠物蛋购买费用", CfgKind::Num, ""),
+    (
+        "hatch_egg_intimacy",
+        "孵化所需最低亲密度",
+        CfgKind::Num,
+        "最大 255；小于 50 则直接孵化",
+    ),
+];
+
+/// 单个配置值的显示文本（布尔用 "1"/"" 与 DB 一致）。
+fn config_value_text(config: &serde_json::Value, key: &str) -> String {
+    match config.get(key) {
+        Some(serde_json::Value::Bool(b)) => {
+            if *b {
+                "1".to_string()
+            } else {
+                String::new()
+            }
+        }
+        Some(serde_json::Value::String(s)) => s.clone(),
+        Some(serde_json::Value::Number(n)) => n.to_string(),
+        Some(serde_json::Value::Null) | None => String::new(),
+        Some(other) => other.to_string(),
+    }
+}
+
+fn config_value_bool(config: &serde_json::Value, key: &str) -> bool {
+    match config.get(key) {
+        Some(serde_json::Value::Bool(b)) => *b,
+        Some(serde_json::Value::Number(n)) => n.as_i64().unwrap_or(0) != 0,
+        Some(serde_json::Value::String(s)) => {
+            matches!(s.trim().to_ascii_lowercase().as_str(), "1" | "true" | "yes" | "on")
+        }
+        _ => false,
+    }
+}
+
+/// 改一个配置值并重建 draft 文本（dirty 判定依赖 draft 与 saved 的差异）。
+pub fn set_config_field(state: &AppState, key: &str, value: &str, checked: bool) {
+    let cfg = state.config.clone();
+    let Ok(mut parsed) = serde_json::from_str::<serde_json::Value>(&cfg.draft.get()) else {
+        return;
+    };
+    let Some(obj) = parsed.as_object_mut() else {
+        return;
+    };
+    let is_bool = matches!(obj.get(key), Some(serde_json::Value::Bool(_)));
+    if is_bool || CONFIG_FIELDS
+        .iter()
+        .any(|(k, _, kind, _)| *k == key && *kind == CfgKind::Bool)
+    {
+        // 布尔沿用 DB 的 "1"/"" 文本形态：服务端 data_type 是 string 的
+        // 键也只认这种写法。
+        obj.insert(
+            key.to_string(),
+            serde_json::Value::String(if checked { "1" } else { "" }.to_string()),
+        );
+    } else {
+        obj.insert(
+            key.to_string(),
+            serde_json::Value::String(value.to_string()),
+        );
+    }
+    cfg.draft
+        .inner()
+        .set(serde_json::to_string_pretty(&parsed).unwrap_or_default());
+    crate::request_remount();
+}
+
+pub fn toggle_config_bool(state: &AppState, key: &str) {
+    let cfg = state.config.clone();
+    let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&cfg.draft.get()) else {
+        return;
+    };
+    let next = !config_value_bool(&parsed, key);
+    set_config_field(state, key, if next { "1" } else { "" }, next);
+}
+
+pub fn toggle_config_raw_mode(state: &AppState) {
+    let cf = state.config_form.clone();
+    cf.raw_mode.inner().set(!cf.raw_mode.get());
+    crate::request_remount();
+}
+
+// -- 新闻公告列表编辑器 ------------------------------------------------------
+
+fn announcements_of(config: &serde_json::Value) -> Vec<serde_json::Value> {
+    match config.get("news_announcements") {
+        Some(serde_json::Value::Array(items)) => items.clone(),
+        // 服务端可能把 JSON 存成字符串（DB 里就是 "[]"）。
+        Some(serde_json::Value::String(s)) => serde_json::from_str::<Vec<serde_json::Value>>(s)
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
+fn write_announcements(state: &AppState, items: Vec<serde_json::Value>) {
+    let cfg = state.config.clone();
+    let Ok(mut parsed) = serde_json::from_str::<serde_json::Value>(&cfg.draft.get()) else {
+        return;
+    };
+    if let Some(obj) = parsed.as_object_mut() {
+        // 写成紧凑 JSON 字符串：DB 里这一列是 string，服务端按字符串接收。
+        obj.insert(
+            "news_announcements".to_string(),
+            serde_json::Value::String(serde_json::to_string(&items).unwrap_or_else(|_| "[]".into())),
+        );
+    }
+    cfg.draft
+        .inner()
+        .set(serde_json::to_string_pretty(&parsed).unwrap_or_default());
+    crate::request_remount();
+}
+
+pub fn open_announcement(state: &AppState, index: Option<usize>) {
+    let cf = state.config_form.clone();
+    let cfg = state.config.clone();
+    let items = match serde_json::from_str::<serde_json::Value>(&cfg.draft.get()) {
+        Ok(v) => announcements_of(&v),
+        Err(_) => Vec::new(),
+    };
+    match index {
+        Some(i) => {
+            let item = items.get(i).cloned().unwrap_or_default();
+            cf.ann_title.inner().set(json_str(&item, "title"));
+            cf.ann_url.inner().set(json_str(&item, "url"));
+        }
+        None => {
+            cf.ann_title.inner().set(String::new());
+            cf.ann_url.inner().set(String::new());
+        }
+    }
+    cf.ann_editing.inner().set(index);
+    cf.ann_open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_announcement(state: &AppState) {
+    let cf = state.config_form.clone();
+    cf.ann_open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn set_announcement_field(state: &AppState, key: &str, value: &str) {
+    let cf = state.config_form.clone();
+    match key {
+        "title" => cf.ann_title.inner().set(value.to_string()),
+        "url" => cf.ann_url.inner().set(value.to_string()),
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+pub fn save_announcement(state: &AppState) {
+    let cf = state.config_form.clone();
+    let cfg = state.config.clone();
+    let title = cf.ann_title.get().trim().to_string();
+    if title.is_empty() {
+        crate::state::show_toast_silent(&cfg, ToastKind::Error, "公告标题不能为空".to_string());
+        crate::request_remount();
+        return;
+    }
+    let Ok(draft) = serde_json::from_str::<serde_json::Value>(&cfg.draft.get()) else {
+        return;
+    };
+    let mut items = announcements_of(&draft);
+    let entry = serde_json::json!({ "title": title, "url": cf.ann_url.get().trim() });
+    match cf.ann_editing.get() {
+        Some(i) if i < items.len() => items[i] = entry,
+        Some(_) => items.push(entry),
+        None => {
+            // Dioxus 版上限 6 条，这里保持一致。
+            if items.len() >= 6 {
+                crate::state::show_toast_silent(
+                    &cfg,
+                    ToastKind::Error,
+                    "最多只能配置 6 条公告".to_string(),
+                );
+                crate::request_remount();
+                return;
+            }
+            items.push(entry);
+        }
+    }
+    write_announcements(state, items);
+    cf.ann_open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn remove_announcement(state: &AppState, index: usize) {
+    let cfg = state.config.clone();
+    let Ok(draft) = serde_json::from_str::<serde_json::Value>(&cfg.draft.get()) else {
+        return;
+    };
+    let mut items = announcements_of(&draft);
+    if index < items.len() {
+        items.remove(index);
+        write_announcements(state, items);
+    }
+}
+
+fn config_form_body(st: &AppState) -> VNode {
+    let cfg = st.config.clone();
+    let cf = st.config_form.clone();
+    let Ok(config) = serde_json::from_str::<serde_json::Value>(&cfg.draft.get()) else {
+        return rsx! {
+            p { class: "admin-empty-hint", "配置内容不是合法 JSON，请切到原始 JSON 模式修正。" }
+        };
+    };
+
+    let mut blocks: Vec<VNode> = Vec::new();
+    let mut section: Vec<VNode> = Vec::new();
+    let mut current_title: Option<&'static str> = None;
+
+    let flush = |section: &mut Vec<VNode>, title: Option<&'static str>, blocks: &mut Vec<VNode>| {
+        if let Some(t) = title {
+            let rows: Vec<VNode> = section.drain(..).collect();
+            blocks.push(rsx! {
+                div { class: "adm-cfg-section",
+                    div { class: "adm-cfg-section-title", "{t}" }
+                    div { class: "adm-cfg-grid",
+                        for i in 0..rows.len() {
+                            ..vec![rows[i].clone()]
+                        }
+                    }
+                }
+            });
+        }
+    };
+
+    for (key, label, kind, hint) in CONFIG_FIELDS {
+        let label: &str = label;
+        let hint: &str = hint;
+        if let CfgKind::Section(title) = kind {
+            flush(&mut section, current_title, &mut blocks);
+            current_title = Some(title);
+            continue;
+        }
+        let k = key.to_string();
+        match kind {
+            CfgKind::Bool => {
+                let on = config_value_bool(&config, key);
+                let text = if on { "是" } else { "否" };
+                let cls = if on {
+                    "admin-btn admin-btn-primary adm-cfg-toggle"
+                } else {
+                    "admin-btn adm-cfg-toggle"
+                };
+                section.push(rsx! {
+                    div { class: "adm-cfg-field",
+                        span { class: "adm-cfg-label", "{label}" }
+                        button {
+                            class: cls,
+                            "data-pm-adm-cfg-toggle": k.clone(),
+                            "{text}"
+                        }
+                        if !hint.is_empty() {
+                            span { class: "adm-cfg-hint", "{hint}" }
+                        }
+                    }
+                });
+            }
+            CfgKind::Num | CfgKind::Text => {
+                let value = config_value_text(&config, key);
+                let is_num = *kind == CfgKind::Num;
+                section.push(rsx! {
+                    div { class: "adm-cfg-field",
+                        span { class: "adm-cfg-label", "{label}" }
+                        input {
+                            class: "adm-filter-input adm-cfg-input",
+                            r#type: if is_num { "number" } else { "text" },
+                            value: value,
+                            "data-pm-adm-cfg": k.clone()
+                        }
+                        if !hint.is_empty() {
+                            span { class: "adm-cfg-hint", "{hint}" }
+                        }
+                    }
+                });
+            }
+            CfgKind::Section(_) => {}
+        }
+    }
+    flush(&mut section, current_title, &mut blocks);
+
+    // 新闻公告列表
+    let items = announcements_of(&config);
+    let mut ann_rows: Vec<VNode> = Vec::new();
+    for (i, item) in items.iter().enumerate() {
+        let title = json_str(item, "title");
+        let url = json_str(item, "url");
+        let idx = i.to_string();
+        let idx_edit = idx.clone();
+        ann_rows.push(rsx! {
+            div { class: "adm-cfg-ann-row",
+                span { class: "adm-cfg-ann-title", "{title}" }
+                span { class: "adm-cfg-ann-url", "{url}" }
+                div { class: "adm-cfg-ann-actions",
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-pm-adm-ann-edit": idx_edit,
+                        "编辑"
+                    }
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-pm-adm-ann-del": idx,
+                        "删除"
+                    }
+                }
+            }
+        });
+    }
+    let can_add = items.len() < 6;
+    let ann_body = if ann_rows.is_empty() {
+        rsx! { p { class: "adm-editor-hint", "暂无公告" } }
+    } else {
+        rsx! {
+            div { class: "adm-cfg-ann-list",
+                for i in 0..ann_rows.len() {
+                    ..vec![ann_rows[i].clone()]
+                }
+            }
+        }
+    };
+    blocks.push(rsx! {
+        div { class: "adm-cfg-section",
+            div { class: "adm-cfg-section-title",
+                "首页新闻公告"
+                span { class: "adm-cfg-hint", "（最多 6 条）" }
+            }
+            ..vec![ann_body]
+            button {
+                class: "admin-btn adm-cfg-add",
+                disabled: !can_add,
+                "data-pm-adm-ann-new": "1",
+                "新增公告"
+            }
+        }
+    });
+
+    // 未建模的键原样列出，避免用户以为它们不存在。
+    let mut extra_rows: Vec<VNode> = Vec::new();
+    let modeled: Vec<&str> = CONFIG_FIELDS.iter().map(|(k, _, _, _)| *k).collect();
+    if let Some(obj) = config.as_object() {
+        for (k, v) in obj {
+            if modeled.contains(&k.as_str()) || k == "news_announcements" {
+                continue;
+            }
+            let text = match v {
+                serde_json::Value::String(s) => s.clone(),
+                other => other.to_string(),
+            };
+            extra_rows.push(rsx! {
+                div { class: "adm-cfg-field",
+                    span { class: "adm-cfg-label", "{k}" }
+                    span { class: "adm-cfg-hint", "{text}" }
+                }
+            });
+        }
+    }
+    if !extra_rows.is_empty() {
+        blocks.push(rsx! {
+            div { class: "adm-cfg-section",
+                div { class: "adm-cfg-section-title", "其他键（只读，原样保留）" }
+                div { class: "adm-cfg-grid",
+                    for i in 0..extra_rows.len() {
+                        ..vec![extra_rows[i].clone()]
+                    }
+                }
+            }
+        });
+    }
+
+    // 公告编辑弹窗
+    let ann_modal = if cf.ann_open.get() {
+        let editing = cf.ann_editing.get();
+        let title = match editing {
+            Some(i) => format!("编辑公告 #{}", i + 1),
+            None => "新增公告".to_string(),
+        };
+        rsx! {
+            div { class: "modal-overlay", "data-pm-adm-ann-overlay": "1",
+                div { class: "adm-editor-modal adm-editor-modal--narrow",
+                    div { class: "modal-header",
+                        h3 { "{title}" }
+                        button { class: "modal-close", "data-pm-adm-ann-close": "1", "×" }
+                    }
+                    div { class: "modal-body adm-editor-body",
+                        div { class: "adm-editor-grid",
+                            label { class: "adm-editor-field",
+                                span { "标题" }
+                                input {
+                                    class: "adm-filter-input",
+                                    r#type: "text",
+                                    value: cf.ann_title.get(),
+                                    "data-pm-adm-annf": "title"
+                                }
+                            }
+                            label { class: "adm-editor-field",
+                                span { "链接（可空）" }
+                                input {
+                                    class: "adm-filter-input",
+                                    r#type: "text",
+                                    value: cf.ann_url.get(),
+                                    "data-pm-adm-annf": "url"
+                                }
+                            }
+                        }
+                    }
+                    div { class: "adm-editor-footer",
+                        button {
+                            class: "admin-btn",
+                            "data-pm-adm-ann-close": "1",
+                            "取消"
+                        }
+                        button {
+                            class: "admin-btn admin-btn-primary",
+                            "data-pm-adm-ann-save": "1",
+                            "确定"
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        VNode::empty()
+    };
+
+    blocks.push(ann_modal);
+    rsx! {
+        for i in 0..blocks.len() {
+            ..vec![blocks[i].clone()]
         }
     }
 }

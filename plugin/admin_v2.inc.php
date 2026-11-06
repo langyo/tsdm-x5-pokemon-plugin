@@ -126,6 +126,24 @@ include template('common/header');
 .adm-grant-results { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; max-height:180px; overflow:auto; }
 .adm-grant-result { padding:4px 10px; font-size:12px; }
 .adm-grant-picked { display:flex; align-items:center; gap:10px; margin:4px 0 12px; }
+
+/* 全局配置分节表单（切片 14） */
+.adm-cfg-section { margin:0 0 18px; }
+.adm-cfg-section:last-child { margin-bottom:4px; }
+.adm-cfg-section-title { font-size:13px; font-weight:600; color:#333; margin:0 0 10px; padding-bottom:6px; border-bottom:1px solid #eee; }
+.adm-cfg-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px 18px; }
+.adm-cfg-field { display:flex; flex-direction:column; gap:4px; font-size:12px; }
+.adm-cfg-label { color:#555; }
+.adm-cfg-hint { font-size:11px; color:#999; }
+.adm-cfg-input { width:100%; box-sizing:border-box; }
+.adm-cfg-toggle { align-self:flex-start; padding:3px 14px; font-size:12px; }
+.adm-cfg-ann-list { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.adm-cfg-ann-row { display:flex; align-items:center; gap:10px; padding:6px 10px; background:#fafafa; border:1px solid #eee; border-radius:6px; }
+.adm-cfg-ann-title { font-weight:600; color:#333; }
+.adm-cfg-ann-url { flex:1; min-width:0; color:#888; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.adm-cfg-ann-actions { display:flex; gap:6px; flex-shrink:0; }
+.adm-cfg-add { margin-top:2px; }
+.adm-editor-modal--narrow { width:520px; }
 </style>
 
 <div class="pm-ui-switch">
