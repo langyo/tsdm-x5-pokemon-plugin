@@ -72,6 +72,12 @@ pub fn install(app: &WitElement, state: &AppState) {
                     crate::pages::set_skill_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-evf") {
                     crate::pages::set_evolution_editor_field(&st, &key, &ev.value);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-grantf") {
+                    if key == "query" {
+                        crate::pages::set_grant_query(&st, &ev.value);
+                    } else {
+                        crate::pages::set_grant_field(&st, &key, &ev.value);
+                    }
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -253,6 +259,56 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((_, id)) = find_with_attr(target, "data-pm-adm-ev-edit") {
         if let Ok(id) = id.trim().parse::<u64>() {
             crate::pages::open_evolution_edit(state, id);
+        }
+        return;
+    }
+    // 用户发放弹窗（grant 前缀）。两个入口分别带 uid。
+    // 顺序注意：遮罩判断必须放在本块最后——find_with_attr 会一路向上找到
+    // 遮罩，若提前判定并 return，弹窗内部所有按钮都会被吞掉（曾经踩过）。
+    if find_with_attr(target, "data-pm-adm-grant-close").is_some() {
+        crate::pages::close_grant(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-grant-search").is_some() {
+        crate::pages::search_grant_types(state);
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-grant-pick") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::pick_grant_type(state, id);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-adm-grant-step") {
+        if let Ok(step) = v.trim().parse::<u8>() {
+            crate::pages::grant_go_step(state, step);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-grant-shiny").is_some() {
+        crate::pages::toggle_grant_shiny(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-grant-submit").is_some() {
+        crate::pages::submit_grant(state);
+        return;
+    }
+    if let Some((_, uid)) = find_with_attr(target, "data-pm-adm-grant-poke") {
+        if let Ok(uid) = uid.trim().parse::<u64>() {
+            crate::pages::open_grant(state, uid, "pokemon");
+        }
+        return;
+    }
+    if let Some((_, uid)) = find_with_attr(target, "data-pm-adm-grant-item") {
+        if let Ok(uid) = uid.trim().parse::<u64>() {
+            crate::pages::open_grant(state, uid, "item");
+        }
+        return;
+    }
+    // 遮罩关闭放在发放块最后：只有点在遮罩自身上才关，点弹窗内部空白不关。
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-grant-overlay") {
+        if hit == target {
+            crate::pages::close_grant(state);
         }
         return;
     }

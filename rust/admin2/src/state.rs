@@ -573,6 +573,104 @@ impl std::fmt::Debug for EvolutionEditorState {
     }
 }
 
+/// 用户发放弹窗状态（切片 13）。
+///
+/// 对应 Dioxus 版的 GrantPokemonModal / GrantItemModal 两个两步向导。这里
+/// 合成一个弹窗、用 `mode` 区分：两边的第一步都是「按名称搜类型 → 选中」，
+/// 第二步才分叉（宠物是属性配置，物品只是数量）。
+///
+/// 发放宠物走 `insert::pokemon_info`，载荷字段由服务端硬校验（type_id 必须
+/// 存在、skills 数组、site/status/sex 是固定串），个体值三档模式与 Dioxus
+/// 一致：随机 0-31 / 按品质档位随机 / 手动指定。
+#[derive(Clone)]
+pub struct GrantPokeDraft {
+    pub type_id: Option<u64>,
+    pub type_name: String,
+    pub name: String,
+    pub level: String,
+    /// header / bag / store
+    pub site: String,
+    /// male / female / unknown
+    pub sex: String,
+    pub is_shiny: bool,
+    pub intimacy: String,
+    /// random / quality / manual
+    pub iv_mode: String,
+    /// 1-8（E..SS+）
+    pub iv_quality: String,
+    pub ivs: [String; 6],
+    /// 手动模式下的努力值（0-3）。Dioxus 版固定为 0，这里保留可编辑。
+    pub base_points: [String; 6],
+}
+
+impl GrantPokeDraft {
+    pub fn blank() -> Self {
+        Self {
+            type_id: None,
+            type_name: String::new(),
+            name: String::new(),
+            level: "1".to_string(),
+            site: "store".to_string(),
+            sex: "unknown".to_string(),
+            is_shiny: false,
+            intimacy: "50".to_string(),
+            iv_mode: "random".to_string(),
+            iv_quality: "5".to_string(),
+            ivs: std::array::from_fn(|_| "0".to_string()),
+            base_points: std::array::from_fn(|_| "0".to_string()),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct GrantState {
+    pub open: ReactiveSignal<bool>,
+    /// pokemon / item
+    pub mode: ReactiveSignal<String>,
+    /// 被发放的用户 UID（从用户行按钮带上来的）
+    pub owner_uid: ReactiveSignal<u64>,
+    /// 1 = 选择类型，2 = 配置
+    pub step: ReactiveSignal<u8>,
+    // 第一步：搜索
+    pub query: ReactiveSignal<String>,
+    pub results: ReactiveSignal<Vec<(u64, String)>>,
+    pub searching: ReactiveSignal<bool>,
+    pub picked_id: ReactiveSignal<Option<u64>>,
+    pub picked_name: ReactiveSignal<String>,
+    // 第二步（宠物）
+    pub poke: ReactiveSignal<GrantPokeDraft>,
+    // 第二步（物品）
+    pub item_count: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl GrantState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            mode: use_signal(|| "pokemon".to_string()),
+            owner_uid: use_signal(|| 0u64),
+            step: use_signal(|| 1u8),
+            query: use_signal(String::new),
+            results: use_signal(Vec::new),
+            searching: use_signal(|| false),
+            picked_id: use_signal(|| None),
+            picked_name: use_signal(String::new),
+            poke: use_signal(GrantPokeDraft::blank),
+            item_count: use_signal(|| "1".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for GrantState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GrantState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -591,6 +689,7 @@ pub struct AppState {
     pub map_editor: MapEditorState,
     pub skill_editor: SkillEditorState,
     pub evolution_editor: EvolutionEditorState,
+    pub grant: GrantState,
 }
 
 impl AppState {
@@ -611,6 +710,7 @@ impl AppState {
             map_editor: MapEditorState::new(),
             skill_editor: SkillEditorState::new(),
             evolution_editor: EvolutionEditorState::new(),
+            grant: GrantState::new(),
         }
     }
 }

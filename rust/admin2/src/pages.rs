@@ -1288,6 +1288,7 @@ fn user_data_page(st: &AppState) -> VNode {
                 let mut trs: Vec<VNode> = Vec::new();
                 for item in rows.iter() {
                     let id = json_u64(item, "id").to_string();
+                    let uid = id.clone();
                     let name = json_str(item, "name");
                     let win = json_u64(item, "win_count").to_string();
                     let lose = json_u64(item, "lose_count").to_string();
@@ -1315,6 +1316,22 @@ fn user_data_page(st: &AppState) -> VNode {
                             td { "{exp}" }
                             td { "{pm_count}" }
                             td { "{item_count}" }
+                            td {
+                                div { class: "adm-row-actions",
+                                    button {
+                                        class: "admin-btn adm-row-edit",
+                                        disabled: busy,
+                                        "data-pm-adm-grant-poke": uid.clone(),
+                                        "给宠物"
+                                    }
+                                    button {
+                                        class: "admin-btn adm-row-edit",
+                                        disabled: busy,
+                                        "data-pm-adm-grant-item": uid,
+                                        "给物品"
+                                    }
+                                }
+                            }
                         }
                     });
                 }
@@ -1330,6 +1347,7 @@ fn user_data_page(st: &AppState) -> VNode {
                                 th { "经验" }
                                 th { "宠物" }
                                 th { "物品" }
+                                th { "操作" }
                             }
                         }
                         tbody {
@@ -1418,7 +1436,7 @@ fn user_data_page(st: &AppState) -> VNode {
                     "刷新"
                 }
             }
-            ..vec![body]
+            ..vec![body, grant_modal(st)]
         }
     }
 }
@@ -4096,6 +4114,750 @@ fn evolution_editor_modal(st: &AppState) -> VNode {
                         "data-pm-adm-ev-save": "1",
                         "{save_label}"
                     }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 用户发放弹窗（切片 13）：发放宠物 / 发放物品
+// ---------------------------------------------------------------------------
+
+/// 品质档位阈值（与 `_utils::functions::quality` 及 PHP `pm_quality_thresholds`
+/// 同一套阶梯：E 0-9 ... SS 170-185、SS+ 恰好 186）。
+const GRANT_QUALITY_THRESHOLDS: [u64; 8] = [0, 10, 70, 100, 120, 150, 170, 186];
+const GRANT_QUALITY_GRADES: [&str; 8] = ["E", "D", "C", "B", "A", "S", "SS", "SS+"];
+const GRANT_IV_TOTAL_MAX: u64 = 186;
+
+/// 伪随机数：没有导入 crypto 接口（glue 未提供该域），用时钟低位做种子。
+/// 这里只用于「发放宠物时掷个体值」，不承担任何安全职责。
+fn grant_random_below(bound: u64) -> u64 {
+    if bound <= 1 {
+        return 0;
+    }
+    use std::cell::Cell;
+    thread_local! {
+        static SEED: Cell<u64> = const { Cell::new(0) };
+    }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0x9e3779b97f4a7c15);
+    let next = SEED.with(|s| {
+        let mut x = s.get() ^ nanos ^ 0x9e3779b97f4a7c15;
+        // xorshift64*
+        x ^= x >> 12;
+        x ^= x << 25;
+        x ^= x >> 27;
+        s.set(x);
+        x.wrapping_mul(0x2545F4914F6CDD1D)
+    });
+    next % bound
+}
+
+/// 掷出一组落在指定品质档位内的六项个体值（0-31）。
+///
+/// 与 `_utils::functions::quality::roll_for_rank` / PHP `pm_roll_ivs_for_rank`
+/// 同一策略：档位区间内取目标总和 → 均分六项 → 保持总和随机搬移。
+fn grant_roll_ivs_for_rank(rank: u8) -> [u64; 6] {
+    let rank = rank.clamp(1, 8);
+    let min = GRANT_QUALITY_THRESHOLDS[(rank - 1) as usize];
+    let max = if rank == 8 {
+        GRANT_IV_TOTAL_MAX
+    } else {
+        GRANT_QUALITY_THRESHOLDS[rank as usize] - 1
+    };
+    let target = min + grant_random_below(max - min + 1);
+    let mut values = [target / 6; 6];
+    for v in values.iter_mut().take((target % 6) as usize) {
+        *v += 1;
+    }
+    for _ in 0..24 {
+        let from = grant_random_below(6) as usize;
+        let to = grant_random_below(6) as usize;
+        if from == to {
+            continue;
+        }
+        let delta = 1 + grant_random_below(4);
+        if values[from] < delta || values[to] + delta > 31 {
+            continue;
+        }
+        values[from] -= delta;
+        values[to] += delta;
+    }
+    values
+}
+
+/// 随机 0-31（与野怪捕捉一致）。
+fn grant_random_ivs() -> [u64; 6] {
+    std::array::from_fn(|_| grant_random_below(32))
+}
+
+pub fn open_grant(state: &AppState, uid: u64, mode: &str) {
+    let g = state.grant.clone();
+    g.open.inner().set(true);
+    g.mode.inner().set(mode.to_string());
+    g.owner_uid.inner().set(uid);
+    g.step.inner().set(1);
+    g.query.inner().set(String::new());
+    g.results.inner().set(Vec::new());
+    g.searching.inner().set(false);
+    g.picked_id.inner().set(None);
+    g.picked_name.inner().set(String::new());
+    g.poke.inner().set(crate::state::GrantPokeDraft::blank());
+    g.item_count.inner().set("1".to_string());
+    g.err.inner().set(None);
+    crate::request_remount();
+}
+
+pub fn close_grant(state: &AppState) {
+    let g = state.grant.clone();
+    if g.saving.get() {
+        return;
+    }
+    g.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn set_grant_query(state: &AppState, query: &str) {
+    let g = state.grant.clone();
+    g.query.inner().set(query.to_string());
+    crate::request_remount();
+}
+
+/// 按名称搜类型（宠物类型 / 物品类型）。
+///
+/// 复用 `filter::<entity>` 的「名称 contains」筛选——Dioxus 版用的是
+/// 名称 equal，但 contains 更适合边输边搜，且服务端语义一致。
+pub fn search_grant_types(state: &AppState) {
+    let g = state.grant.clone();
+    if g.searching.get() {
+        return;
+    }
+    let query = g.query.get().trim().to_string();
+    if query.is_empty() {
+        g.results.inner().set(Vec::new());
+        crate::request_remount();
+        return;
+    }
+    let entity = if g.mode.get() == "item" {
+        "item_type"
+    } else {
+        "pokemon_type"
+    };
+    let packages = vec![crate::api::filter_package("名称", "contains", &query)];
+    let filters = serde_json::Value::Array(packages).to_string();
+    g.searching.inner().set(true);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::filter_entity(
+        entity,
+        filters,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let g = st.grant.clone();
+            match result {
+                Ok(items) => {
+                    let rows: Vec<(u64, String)> = items
+                        .iter()
+                        .map(|it| (json_u64(it, "id"), json_str(it, "name")))
+                        .collect();
+                    g.results.inner().set(rows);
+                    g.err.inner().set(None);
+                }
+                Err(e) => {
+                    g.results.inner().set(Vec::new());
+                    g.err.inner().set(Some(format!("搜索失败：{e}")));
+                }
+            }
+            g.searching.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+}
+
+pub fn pick_grant_type(state: &AppState, id: u64) {
+    let g = state.grant.clone();
+    let name = g
+        .results
+        .get()
+        .into_iter()
+        .find(|(rid, _)| *rid == id)
+        .map(|(_, name)| name)
+        .unwrap_or_default();
+    g.picked_id.inner().set(Some(id));
+    g.picked_name.inner().set(name);
+    g.err.inner().set(None);
+    crate::request_remount();
+}
+
+pub fn grant_go_step(state: &AppState, step: u8) {
+    let g = state.grant.clone();
+    if step == 2 && g.picked_id.get().is_none() {
+        g.err.inner().set(Some("请先选择一个类型".to_string()));
+        crate::request_remount();
+        return;
+    }
+    g.step.inner().set(step);
+    g.err.inner().set(None);
+    crate::request_remount();
+}
+
+/// 宠物表单字段变更。`key` 形如 `site` / `iv:3` / `bp:0`。
+pub fn set_grant_field(state: &AppState, key: &str, value: &str) {
+    let g = state.grant.clone();
+    let mut d = g.poke.get();
+    match key {
+        "name" => d.name = value.to_string(),
+        "level" => d.level = value.to_string(),
+        "site" => d.site = value.to_string(),
+        "sex" => d.sex = value.to_string(),
+        "intimacy" => d.intimacy = value.to_string(),
+        "iv_mode" => d.iv_mode = value.to_string(),
+        "iv_quality" => d.iv_quality = value.to_string(),
+        "item_count" => g.item_count.inner().set(value.to_string()),
+        _ => {
+            if let Some((group, idx)) = key.split_once(':') {
+                if let Ok(i) = idx.parse::<usize>() {
+                    if i < 6 {
+                        if group == "iv" {
+                            d.ivs[i] = value.to_string();
+                        } else if group == "bp" {
+                            d.base_points[i] = value.to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    g.poke.inner().set(d);
+    crate::request_remount();
+}
+
+pub fn toggle_grant_shiny(state: &AppState) {
+    let g = state.grant.clone();
+    let mut d = g.poke.get();
+    d.is_shiny = !d.is_shiny;
+    g.poke.inner().set(d);
+    crate::request_remount();
+}
+
+/// 提交发放。
+pub fn submit_grant(state: &AppState) {
+    let g = state.grant.clone();
+    if g.saving.get() {
+        return;
+    }
+    let Some(type_id) = g.picked_id.get() else {
+        g.err.inner().set(Some("请先选择一个类型".to_string()));
+        crate::request_remount();
+        return;
+    };
+    let uid = g.owner_uid.get();
+    if uid == 0 {
+        g.err.inner().set(Some("用户 UID 无效".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let parse = |s: &str| s.trim().parse::<u64>().unwrap_or(0);
+    if g.mode.get() == "item" {
+        // 服务端把 nums 当 SMALLINT，1..=32767；提前拦比让它报错更清楚。
+        let count = parse(&g.item_count.get());
+        if count < 1 || count > 32767 {
+            g.err
+                .inner()
+                .set(Some("数量必须是 1 至 32767 的整数".to_string()));
+            crate::request_remount();
+            return;
+        }
+        let body = serde_json::json!({
+            "owner": uid,
+            "type_id": type_id,
+            "count": count,
+        })
+        .to_string();
+        g.saving.inner().set(true);
+        g.err.inner().set(None);
+        crate::request_remount();
+        let st = state.clone();
+        crate::api::insert_entity(
+            "item_info",
+            body,
+            Box::new(move |result: Result<serde_json::Value, String>| {
+                let g = st.grant.clone();
+                g.saving.inner().set(false);
+                match result {
+                    Ok(saved) => {
+                        g.open.inner().set(false);
+                        let id = json_u64(&saved, "id");
+                        crate::state::show_toast_silent(
+                            &st.config,
+                            ToastKind::Success,
+                            format!("已为用户 #{uid} 发放物品 #{id}"),
+                        );
+                        st.user.loaded.inner().set(None);
+                        st.user.rows.inner().set(Vec::new());
+                        crate::request_remount();
+                        reload_list(crate::state::USER_SPEC, &st.user);
+                    }
+                    Err(e) => {
+                        g.err.inner().set(Some(format!("发放失败：{e}")));
+                        crate::request_remount();
+                    }
+                }
+            }),
+        );
+        return;
+    }
+
+    let d = g.poke.get();
+    let level = parse(&d.level);
+    if level < 1 || level > 100 {
+        g.err
+            .inner()
+            .set(Some("等级必须在 1 至 100 之间".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let intimacy = parse(&d.intimacy);
+    if intimacy > 100 {
+        g.err.inner().set(Some("亲密度必须在 0 至 100".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let ivs: [u64; 6] = match d.iv_mode.as_str() {
+        "quality" => {
+            let rank = parse(&d.iv_quality).clamp(1, 8) as u8;
+            grant_roll_ivs_for_rank(rank)
+        }
+        "manual" => std::array::from_fn(|i| parse(&d.ivs[i]).min(31)),
+        _ => grant_random_ivs(),
+    };
+    let base: [u64; 6] = std::array::from_fn(|i| parse(&d.base_points[i]).min(3));
+    // 昵称留空时服务端会退化成类型名（insert_pokemon_info 里 nowname 直接用），
+    // 所以这里显式带上类型名，避免出现空名字的宠物。
+    let name = {
+        let typed = d.name.trim();
+        if typed.is_empty() {
+            g.picked_name.get()
+        } else {
+            typed.to_string()
+        }
+    };
+    let stat_obj = |keys: [&str; 6], values: [u64; 6]| {
+        let mut map = serde_json::Map::new();
+        for i in 0..6 {
+            map.insert(keys[i].to_string(), serde_json::json!(values[i]));
+        }
+        serde_json::Value::Object(map)
+    };
+    let body = serde_json::json!({
+        "id": 0,
+        "type_id": type_id,
+        "owner": uid,
+        "name": name,
+        "site": d.site,
+        "level": level,
+        "experience": 0,
+        "intimacy": intimacy,
+        "using_ball_id": 1,
+        "is_shiny": d.is_shiny,
+        "status": "normal",
+        "sex": d.sex,
+        "statistic": stat_obj(STAT_KEYS, ivs),
+        "base_points": stat_obj(STAT_KEYS, base),
+        "skills": [],
+        "armor_slots_id": [serde_json::Value::Null, serde_json::Value::Null, serde_json::Value::Null, serde_json::Value::Null],
+    })
+    .to_string();
+    g.saving.inner().set(true);
+    g.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::insert_entity(
+        "pokemon_info",
+        body,
+        Box::new(move |result: Result<serde_json::Value, String>| {
+            let g = st.grant.clone();
+            g.saving.inner().set(false);
+            match result {
+                Ok(saved) => {
+                    g.open.inner().set(false);
+                    let id = json_u64(&saved, "id");
+                    crate::state::show_toast_silent(
+                        &st.config,
+                        ToastKind::Success,
+                        format!("已为用户 #{uid} 发放宠物 #{id}"),
+                    );
+                    st.user.loaded.inner().set(None);
+                    st.user.rows.inner().set(Vec::new());
+                    crate::request_remount();
+                    reload_list(crate::state::USER_SPEC, &st.user);
+                }
+                Err(e) => {
+                    g.err.inner().set(Some(format!("发放失败：{e}")));
+                    crate::request_remount();
+                }
+            }
+        }),
+    );
+}
+
+fn grant_modal(st: &AppState) -> VNode {
+    let g = st.grant.clone();
+    if !g.open.get() {
+        return VNode::empty();
+    }
+    let mode = g.mode.get();
+    let is_item = mode == "item";
+    let uid = g.owner_uid.get();
+    let step = g.step.get();
+    let saving = g.saving.get();
+    let err = g.err.get();
+    let picked = g.picked_id.get();
+    let picked_name = g.picked_name.get();
+    let query = g.query.get();
+    let searching = g.searching.get();
+    let title = if is_item {
+        format!("发放物品给用户 #{uid}")
+    } else {
+        format!("发放宠物给用户 #{uid}")
+    };
+    let noun = if is_item { "物品" } else { "宠物" };
+    let save_label = if saving { "发放中..." } else { "发放" };
+
+    // 第一步：搜索 + 结果列表
+    let step1 = {
+        let mut result_rows: Vec<VNode> = Vec::new();
+        for (rid, rname) in g.results.get().into_iter() {
+            let rid_text = rid.to_string();
+            let cls = if picked == Some(rid) {
+                "admin-btn admin-btn-primary adm-grant-result"
+            } else {
+                "admin-btn adm-grant-result"
+            };
+            result_rows.push(rsx! {
+                button {
+                    class: cls,
+                    disabled: saving,
+                    "data-pm-adm-grant-pick": rid_text,
+                    "{rname}"
+                }
+            });
+        }
+        let results_block = if searching {
+            rsx! { p { class: "adm-editor-hint", "搜索中..." } }
+        } else if result_rows.is_empty() {
+            let hint = format!("输入名称后点「搜索」查找{noun}类型");
+            rsx! { p { class: "adm-editor-hint", "{hint}" } }
+        } else {
+            rsx! {
+                div { class: "adm-grant-results",
+                    for i in 0..result_rows.len() {
+                        ..vec![result_rows[i].clone()]
+                    }
+                }
+            }
+        };
+        let step1_parts: Vec<VNode> = vec![
+            rsx! {
+                div { class: "adm-editor-grid",
+                    label { class: "adm-editor-field",
+                        span { "名称（包含）" }
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "text",
+                            value: query,
+                            "data-pm-adm-grantf": "query"
+                        }
+                    }
+                    button {
+                        class: "admin-btn adm-editor-toggle",
+                        disabled: saving || searching,
+                        "data-pm-adm-grant-search": "1",
+                        "搜索"
+                    }
+                }
+            },
+            results_block,
+        ];
+        rsx! {
+            for i in 0..step1_parts.len() {
+                ..vec![step1_parts[i].clone()]
+            }
+        }
+    };
+
+    // 第二步：物品只要数量；宠物要一整套属性
+    let step2 = if is_item {
+        rsx! {
+            div { class: "adm-editor-grid",
+                label { class: "adm-editor-field",
+                    span { "数量（1-32767）" }
+                    input {
+                        class: "adm-filter-input",
+                        r#type: "number",
+                        min: "1",
+                        max: "32767",
+                        value: g.item_count.get(),
+                        "data-pm-adm-grantf": "item_count"
+                    }
+                }
+            }
+        }
+    } else {
+        let d = g.poke.get();
+        let mut iv_inputs: Vec<VNode> = Vec::new();
+        for i in 0..6 {
+            let label = STAT_LABELS[i];
+            let attr = format!("iv:{i}");
+            let v = d.ivs[i].clone();
+            iv_inputs.push(rsx! {
+                label { class: "adm-editor-field",
+                    span { "{label}" }
+                    input {
+                        class: "adm-filter-input",
+                        r#type: "number",
+                        min: "0",
+                        max: "31",
+                        value: v,
+                        "data-pm-adm-grantf": attr
+                    }
+                }
+            });
+        }
+        let iv_block = if d.iv_mode == "manual" {
+            rsx! {
+                div { class: "adm-editor-section-title", "个体值（0-31）" }
+                div { class: "adm-editor-grid",
+                    for i in 0..iv_inputs.len() {
+                        ..vec![iv_inputs[i].clone()]
+                    }
+                }
+            }
+        } else {
+            VNode::empty()
+        };
+        let quality_block = if d.iv_mode == "quality" {
+            let mut opts: Vec<VNode> = Vec::new();
+            for (i, grade) in GRANT_QUALITY_GRADES.iter().enumerate() {
+                let code = (i + 1).to_string();
+                let selected = d.iv_quality == code;
+                let label = *grade;
+                opts.push(rsx! {
+                    option { value: code, selected: selected, "{label}" }
+                });
+            }
+            rsx! {
+                label { class: "adm-editor-field",
+                    span { "品质档位（结果落在该档内）" }
+                    select {
+                        class: "adm-filter-input",
+                        "data-pm-adm-grantf": "iv_quality",
+                        for i in 0..opts.len() {
+                            ..vec![opts[i].clone()]
+                        }
+                    }
+                }
+            }
+        } else {
+            VNode::empty()
+        };
+        let mut mode_opts: Vec<VNode> = Vec::new();
+        for (code, label) in [
+            ("random", "随机 0-31（同野怪捕捉）"),
+            ("quality", "按品质档位随机"),
+            ("manual", "手动指定六项"),
+        ] {
+            let selected = d.iv_mode == code;
+            mode_opts.push(rsx! {
+                option { value: code, selected: selected, "{label}" }
+            });
+        }
+        let mut site_opts: Vec<VNode> = Vec::new();
+        for (code, label) in [
+            ("store", "仓库"),
+            ("bag", "背包"),
+            ("header", "跟随玩家"),
+        ] {
+            let selected = d.site == code;
+            site_opts.push(rsx! {
+                option { value: code, selected: selected, "{label}" }
+            });
+        }
+        let mut sex_opts: Vec<VNode> = Vec::new();
+        for (code, label) in [("unknown", "未知"), ("male", "雄性"), ("female", "雌性")] {
+            let selected = d.sex == code;
+            sex_opts.push(rsx! {
+                option { value: code, selected: selected, "{label}" }
+            });
+        }
+        let shiny_label = if d.is_shiny { "闪光：是" } else { "闪光：否" };
+        let shiny_cls = if d.is_shiny {
+            "admin-btn admin-btn-primary adm-editor-toggle"
+        } else {
+            "admin-btn adm-editor-toggle"
+        };
+        let step2_parts: Vec<VNode> = vec![
+            rsx! {
+                div { class: "adm-editor-grid",
+                    label { class: "adm-editor-field",
+                        span { "昵称（留空用类型名）" }
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "text",
+                            value: d.name.clone(),
+                            "data-pm-adm-grantf": "name"
+                        }
+                    }
+                    label { class: "adm-editor-field",
+                        span { "等级（1-100）" }
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "number",
+                            min: "1",
+                            max: "100",
+                            value: d.level.clone(),
+                            "data-pm-adm-grantf": "level"
+                        }
+                    }
+                    label { class: "adm-editor-field",
+                        span { "位置" }
+                        select {
+                            class: "adm-filter-input",
+                            "data-pm-adm-grantf": "site",
+                            for i in 0..site_opts.len() {
+                                ..vec![site_opts[i].clone()]
+                            }
+                        }
+                    }
+                    label { class: "adm-editor-field",
+                        span { "性别" }
+                        select {
+                            class: "adm-filter-input",
+                            "data-pm-adm-grantf": "sex",
+                            for i in 0..sex_opts.len() {
+                                ..vec![sex_opts[i].clone()]
+                            }
+                        }
+                    }
+                    label { class: "adm-editor-field",
+                        span { "亲密度（0-100）" }
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "number",
+                            min: "0",
+                            max: "100",
+                            value: d.intimacy.clone(),
+                            "data-pm-adm-grantf": "intimacy"
+                        }
+                    }
+                    button {
+                        class: shiny_cls,
+                        disabled: saving,
+                        "data-pm-adm-grant-shiny": "1",
+                        "{shiny_label}"
+                    }
+                    label { class: "adm-editor-field",
+                        span { "个体值模式" }
+                        select {
+                            class: "adm-filter-input",
+                            "data-pm-adm-grantf": "iv_mode",
+                            for i in 0..mode_opts.len() {
+                                ..vec![mode_opts[i].clone()]
+                            }
+                        }
+                    }
+                    ..vec![quality_block]
+                }
+            },
+            iv_block,
+        ];
+        rsx! {
+            for i in 0..step2_parts.len() {
+                ..vec![step2_parts[i].clone()]
+            }
+        }
+    };
+
+    let picked_bar = match picked {
+        Some(id) => {
+            let text = format!("已选：#{id} {picked_name}");
+            rsx! {
+                div { class: "adm-grant-picked",
+                    span { class: "adm-editor-hint", "{text}" }
+                    button {
+                        class: "admin-btn",
+                        disabled: saving,
+                        "data-pm-adm-grant-step": "1",
+                        "重新选择"
+                    }
+                }
+            }
+        }
+        None => VNode::empty(),
+    };
+
+    let body_parts: Vec<VNode> = if step == 1 {
+        vec![step1]
+    } else {
+        vec![picked_bar, step2]
+    };
+    let body = rsx! {
+        for i in 0..body_parts.len() {
+            ..vec![body_parts[i].clone()]
+        }
+    };
+
+    let next_btn = if step == 1 {
+        rsx! {
+            button {
+                class: "admin-btn admin-btn-primary",
+                disabled: saving,
+                "data-pm-adm-grant-step": "2",
+                "下一步"
+            }
+        }
+    } else {
+        rsx! {
+            button {
+                class: "admin-btn admin-btn-primary",
+                disabled: saving,
+                "data-pm-adm-grant-submit": "1",
+                "{save_label}"
+            }
+        }
+    };
+
+    let err_block = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+    let step_hint = if step == 1 {
+        format!("第 1 步 / 共 2 步：选择{noun}类型")
+    } else {
+        format!("第 2 步 / 共 2 步：设置发放内容")
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-grant-overlay": "1",
+            div { class: "adm-editor-modal",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-grant-close": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    p { class: "adm-editor-hint", "{step_hint}" }
+                    ..vec![body, err_block]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: saving,
+                        "data-pm-adm-grant-close": "1",
+                        "取消"
+                    }
+                    ..vec![next_btn]
                 }
             }
         }

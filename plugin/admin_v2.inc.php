@@ -122,6 +122,10 @@ include template('common/header');
 .adm-row-edit { padding:3px 12px; font-size:12px; }
 .adm-editor-hint { font-size:12px; color:#999; align-self:center; margin:0; }
 .adm-editor-sprite { display:block; width:48px; height:48px; object-fit:contain; margin-top:12px; image-rendering:pixelated; }
+.adm-row-actions { display:flex; gap:6px; }
+.adm-grant-results { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; max-height:180px; overflow:auto; }
+.adm-grant-result { padding:4px 10px; font-size:12px; }
+.adm-grant-picked { display:flex; align-items:center; gap:10px; margin:4px 0 12px; }
 </style>
 
 <div class="pm-ui-switch">
