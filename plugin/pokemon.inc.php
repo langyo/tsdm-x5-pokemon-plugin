@@ -82,6 +82,12 @@ if ($index === 'game') {
 }
 
 if ($index === 'admin') {
+    // 迁移期双后台：&ui=v2 走 tairitsu 版（admin_v2.inc.php），默认仍是
+    // Dioxus 版。两者共享同一套 admin API 与权限门禁。
+    if (isset($_GET['ui']) && $_GET['ui'] === 'v2') {
+        include_once __DIR__ . '/admin_v2.inc.php';
+        return;
+    }
     include_once __DIR__ . '/admincp.inc.php';
     return;
 }
