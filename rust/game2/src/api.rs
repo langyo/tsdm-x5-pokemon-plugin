@@ -635,11 +635,23 @@ pub fn use_item(
 #[derive(Deserialize)]
 struct PokemonSkillDto {
     #[serde(default)]
+    type_id: u64,
+    #[serde(default)]
     pp: i64,
     #[serde(default)]
     name: String,
     #[serde(default)]
+    skill_type: String,
+    #[serde(default)]
+    category: String,
+    #[serde(default)]
+    level: u32,
+    #[serde(default)]
+    power: u32,
+    #[serde(default)]
     max_pp: i64,
+    #[serde(default)]
+    can_forget: bool,
 }
 
 #[derive(Deserialize)]
@@ -711,11 +723,20 @@ pub fn pokemon_list(on_done: Box<dyn FnOnce(Result<Vec<crate::state::PokemonBasi
                 dto.pokemons
                     .into_iter()
                     .map(|p| {
-                        let depleted_pp = p
+                        let skills = p
                             .skills
-                            .iter()
-                            .filter(|s| s.max_pp > 0 && s.pp < s.max_pp && !s.name.is_empty())
-                            .map(|s| format!("{}/{}", s.pp, s.max_pp))
+                            .into_iter()
+                            .map(|s| crate::state::PokemonSkill {
+                                type_id: s.type_id,
+                                pp: s.pp.max(0) as u64,
+                                max_pp: s.max_pp.max(0) as u64,
+                                name: s.name,
+                                skill_type: s.skill_type,
+                                category: s.category,
+                                level: s.level,
+                                power: s.power,
+                                can_forget: s.can_forget,
+                            })
                             .collect();
                         crate::state::PokemonBasic {
                             id: p.id,
@@ -730,7 +751,7 @@ pub fn pokemon_list(on_done: Box<dyn FnOnce(Result<Vec<crate::state::PokemonBasi
                             state: p.state,
                             state_text: p.state_text,
                             state_class: p.state_class,
-                            depleted_pp,
+                            skills,
                             is_legendary: p.base_info.map(|b| b.is_legendary).unwrap_or(false),
                         }
                     })
@@ -1051,6 +1072,107 @@ pub fn unequip_item(
     request(
         "pokemon",
         "unequip_item",
+        Some(body),
+        Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
+    );
+}
+
+// ===========================================================================
+// 技能（我的宝可梦「技能」标签页）
+// ===========================================================================
+
+#[derive(Deserialize)]
+struct LearnableSkillDto {
+    #[serde(default)]
+    id: u64,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    description: String,
+    #[serde(rename = "type", default)]
+    skill_type: String,
+    #[serde(default)]
+    category: String,
+    #[serde(default)]
+    power: u32,
+    #[serde(default)]
+    max_pp: u32,
+    #[serde(default)]
+    required_level: u32,
+    #[serde(default)]
+    is_available: bool,
+}
+
+#[derive(Deserialize)]
+struct LearnableResponseDto {
+    #[serde(default)]
+    available_skills: Vec<LearnableSkillDto>,
+    #[serde(default)]
+    unlocked_skills: Vec<LearnableSkillDto>,
+}
+
+fn map_learnable(d: LearnableSkillDto) -> crate::state::LearnableSkill {
+    crate::state::LearnableSkill {
+        id: d.id,
+        name: d.name,
+        description: d.description,
+        skill_type: d.skill_type,
+        category: d.category,
+        power: d.power,
+        max_pp: d.max_pp,
+        required_level: d.required_level,
+        is_available: d.is_available,
+    }
+}
+
+/// 可学习技能列表：返回 (可学习, 等级不足)。
+pub fn learnable_skills(
+    pokemon_id: u64,
+    on_done: Box<
+        dyn FnOnce(
+            Result<
+                (
+                    Vec<crate::state::LearnableSkill>,
+                    Vec<crate::state::LearnableSkill>,
+                ),
+                String,
+            >,
+        ),
+    >,
+) {
+    request(
+        "pokemon",
+        &format!("learnable_skills&pokemon_id={pokemon_id}"),
+        None,
+        Box::new(|result: Result<LearnableResponseDto, String>| {
+            on_done(result.map(|dto| {
+                (
+                    dto.available_skills
+                        .into_iter()
+                        .map(map_learnable)
+                        .collect(),
+                    dto.unlocked_skills.into_iter().map(map_learnable).collect(),
+                )
+            }))
+        }),
+    );
+}
+
+pub fn learn_skill(pokemon_id: u64, skill_id: u64, on_done: Box<dyn FnOnce(Result<(), String>)>) {
+    let body = serde_json::json!({ "pokemon_id": pokemon_id, "skill_id": skill_id }).to_string();
+    request(
+        "pokemon",
+        "learn_skill",
+        Some(body),
+        Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
+    );
+}
+
+pub fn forget_skill(pokemon_id: u64, skill_id: u64, on_done: Box<dyn FnOnce(Result<(), String>)>) {
+    let body = serde_json::json!({ "pokemon_id": pokemon_id, "skill_id": skill_id }).to_string();
+    request(
+        "pokemon",
+        "forget_skill",
         Some(body),
         Box::new(move |result: Result<serde_json::Value, String>| on_done(result.map(|_| ()))),
     );

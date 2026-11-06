@@ -173,6 +173,7 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((_, v)) = find_with_attr(target, "data-pm-my-pm-tab") {
         let tab = match v.as_str() {
             "equipment" => crate::state::MyPokemonTab::Equipment,
+            "skills" => crate::state::MyPokemonTab::Skills,
             _ => crate::state::MyPokemonTab::Stats,
         };
         crate::my_pokemon::switch_tab(state, tab);
@@ -206,6 +207,39 @@ fn dispatch_click(state: &AppState, target: u64) {
         state.my_pm.equipment.inner().set(None);
         crate::request_remount();
         crate::my_pokemon::ensure_equipment(state);
+        return;
+    }
+    // 技能：卡片选中 / 遗忘 / 空槽学习 / 弹窗内学习与关闭
+    if let Some((_, v)) = find_with_attr(target, "data-pm-skill-forget") {
+        if let Ok(tid) = v.parse::<u64>() {
+            crate::my_pokemon::forget_skill(state, tid);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-skill-card") {
+        if let Ok(tid) = v.parse::<u64>() {
+            crate::my_pokemon::toggle_skill_card(state, tid);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-learn-item") {
+        if let Ok(sid) = v.parse::<u64>() {
+            crate::my_pokemon::learn_skill(state, sid);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-skill-learn-slot").is_some() {
+        crate::my_pokemon::open_learn_modal(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-learn-reload").is_some() {
+        state.my_pm.learnable.inner().set(None);
+        crate::request_remount();
+        crate::my_pokemon::open_learn_modal(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-learn-close").is_some() {
+        crate::my_pokemon::close_learn_modal(state);
         return;
     }
     if find_with_attr(target, "data-pm-my-pm-nick-edit").is_some() {

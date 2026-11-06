@@ -529,6 +529,49 @@ async function stepMyPokemon() {
   } else {
     skip('装备卡细节', '没有可装备物品');
   }
+
+  // 技能标签页（只读断言：卡片渲染 + 选中展开遗忘 + 弹窗列表 + 关闭）
+  await evaljs(() => document.querySelector('[data-pm-my-pm-tab="skills"]')?.click());
+  await waitFor(async () => (await evaljs(() => !!document.querySelector('.skills-grid'))), 15000, '技能页');
+  const skView = await evaljs(() => ({
+    cards: document.querySelectorAll('[data-pm-skill-card]').length,
+    emptySlots: document.querySelectorAll('[data-pm-skill-learn-slot]').length,
+    totalSlots: document.querySelectorAll('.skill-card-v2, [data-pm-skill-learn-slot]').length,
+    pp: document.querySelector('.skill-card-v2 .skill-pp')?.textContent?.trim() ?? null,
+    panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
+  }));
+  ok('技能页无 panic', skView.panic === null, skView.panic ?? '');
+  ok('技能槽恒定 4 个（卡 + 空槽）', skView.totalSlots === 4,
+    `cards=${skView.cards}, empty=${skView.emptySlots}`);
+  if (skView.cards > 0) {
+    ok('技能卡带 PP', /^PP\s*\d+\/\d+/.test(skView.pp ?? ''), skView.pp ?? '');
+    // 选中卡片展开遗忘按钮，再点一次收起（不执行遗忘）
+    await evaljs(() => document.querySelector('[data-pm-skill-card]')?.click());
+    await waitFor(async () => (await evaljs(() => !!document.querySelector('[data-pm-skill-forget]'))), 8000, '遗忘按钮');
+    ok('选中技能卡展开遗忘操作',
+      await evaljs(() => !!document.querySelector('.skill-card-v2.selected')));
+    await evaljs(() => document.querySelector('[data-pm-skill-card]')?.click());
+    await sleep(500);
+  } else {
+    skip('技能卡细节', '宠物没有已学技能');
+  }
+  if (skView.emptySlots > 0) {
+    await evaljs(() => document.querySelector('[data-pm-skill-learn-slot]')?.click());
+    await waitFor(async () => (await evaljs(() => !!document.querySelector('.modal-overlay'))), 10000, '学习弹窗');
+    await waitFor(async () => (await evaljs(() => !document.querySelector('.skill-learn-loading'))), 15000, '技能列表加载');
+    const modal = await evaljs(() => ({
+      title: document.querySelector('.modal-header h3')?.textContent?.trim() ?? null,
+      sections: [...document.querySelectorAll('.skill-section-title')].map((s) => s.textContent?.trim()),
+      bodyHasContent: (document.querySelector('.modal-body')?.textContent ?? '').length > 0,
+    }));
+    ok('学习弹窗标题带等级', /^学习新技能 \(Lv\.\d+\)$/.test(modal.title ?? ''), modal.title ?? '');
+    ok('学习弹窗给出列表或空态', modal.bodyHasContent);
+    await evaljs(() => document.querySelector('[data-pm-learn-close]')?.click());
+    await sleep(700);
+    ok('学习弹窗关闭', await evaljs(() => !document.querySelector('.modal-overlay')));
+  } else {
+    skip('学习弹窗', '没有空技能槽');
+  }
   // 回属性页（保持后续步骤的页面状态干净）
   await evaljs(() => document.querySelector('[data-pm-my-pm-tab="stats"]')?.click());
   await sleep(600);

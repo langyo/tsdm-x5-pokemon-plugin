@@ -535,6 +535,10 @@ function api_get_pokemon_list()
                 'level' => (int) $sk['level_required'],
                 'power' => (int) $sk['power'],
                 'max_pp' => (int) $sk['max_pp'],
+                // 与 detail 载荷同规则：遗忘要求PP为满；max_uses=0 恒可遗忘。
+                // 两个载荷都必须给出该字段——前端（Dioxus/tairitsu）以
+                // serde(default)=false 反序列化，缺失会被当成不可遗忘。
+                'can_forget' => ((int) $sk['max_pp'] === 0 || (int) $sk['skillnum'] >= (int) $sk['max_pp']),
             ];
         }
 

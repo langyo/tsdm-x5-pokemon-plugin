@@ -234,9 +234,20 @@ pub struct PokemonBasic {
     pub state: u8,
     pub state_text: String,
     pub state_class: String,
-    /// 未满 PP 的技能列表（"pp/max"），用于治疗页提示。
-    pub depleted_pp: Vec<String>,
+    /// 技能槽（list 载荷恒定 4 槽，空槽 type_id=0）。
+    pub skills: Vec<PokemonSkill>,
     pub is_legendary: bool,
+}
+
+impl PokemonBasic {
+    /// 未满 PP 的技能列表（"pp/max"），用于治疗页提示。
+    pub fn depleted_pp(&self) -> Vec<String> {
+        self.skills
+            .iter()
+            .filter(|s| s.max_pp > 0 && s.pp < s.max_pp && !s.name.is_empty())
+            .map(|s| format!("{}/{}", s.pp, s.max_pp))
+            .collect()
+    }
 }
 
 impl PokemonBasic {
@@ -305,11 +316,41 @@ pub fn center_show_toast_silent(state: &CenterState, kind: ToastKind, message: S
     state.toast_visible.inner().set(true);
 }
 
-/// 我的宝可梦页签名：技能标签页随技能写流程接入。
+/// 我的宝可梦页签名。
 #[derive(Clone, Copy, PartialEq)]
 pub enum MyPokemonTab {
     Stats,
     Equipment,
+    Skills,
+}
+
+/// 宠物技能槽（list 载荷 skills 数组的显示子集）。
+#[derive(Debug, Clone, Default)]
+pub struct PokemonSkill {
+    pub type_id: u64,
+    pub pp: u64,
+    pub max_pp: u64,
+    pub name: String,
+    pub skill_type: String,
+    pub category: String,
+    pub level: u32,
+    pub power: u32,
+    /// 是否满足遗忘条件（遗忘要求 PP 为满；max_pp=0 恒可遗忘）。
+    pub can_forget: bool,
+}
+
+/// 可学习技能（learnable_skills 载荷）。
+#[derive(Debug, Clone, Default)]
+pub struct LearnableSkill {
+    pub id: u64,
+    pub name: String,
+    pub description: String,
+    pub skill_type: String,
+    pub category: String,
+    pub power: u32,
+    pub max_pp: u32,
+    pub required_level: u32,
+    pub is_available: bool,
 }
 
 /// 装备物品（equipment 载荷的显示子集，槽位与背包共用同一形态）。
@@ -464,6 +505,16 @@ pub struct MyPokemonState {
     pub toast_visible: ReactiveSignal<bool>,
     pub toast_message: ReactiveSignal<String>,
     pub toast_kind: ReactiveSignal<ToastKind>,
+
+    // ---- 技能标签页 ----
+    /// 当前选中（展开遗忘操作）的技能 type_id。
+    pub skill_selected: ReactiveSignal<Option<u64>>,
+    pub learn_modal_open: ReactiveSignal<bool>,
+    /// None = 加载中；Some(Err) = 失败。(可学习, 等级不足)
+    pub learnable:
+        ReactiveSignal<Option<Result<(Vec<LearnableSkill>, Vec<LearnableSkill>), String>>>,
+    /// 学习/遗忘进行中（互斥守卫）。
+    pub skill_loading: ReactiveSignal<bool>,
 }
 
 impl MyPokemonState {
@@ -484,6 +535,10 @@ impl MyPokemonState {
             toast_visible: use_signal(|| false),
             toast_message: use_signal(String::new),
             toast_kind: use_signal(|| ToastKind::Success),
+            skill_selected: use_signal(|| None),
+            learn_modal_open: use_signal(|| false),
+            learnable: use_signal(|| None),
+            skill_loading: use_signal(|| false),
         }
     }
 }

@@ -491,6 +491,168 @@ fn equip_to(state: &AppState, myitem_id: u64, slot_index: u32, success_msg: &str
 }
 
 // ---------------------------------------------------------------------------
+// 技能标签页：动作入口（delegation.rs 调用）
+// ---------------------------------------------------------------------------
+
+/// 打开学习弹窗（拉可学习列表）。
+pub fn open_learn_modal(state: &AppState) {
+    let my = state.my_pm.clone();
+    if my.skill_loading.get() {
+        return;
+    }
+    my.learn_modal_open.inner().set(true);
+    my.learnable.inner().set(None);
+    crate::request_remount();
+    load_learnable(state);
+}
+
+pub fn close_learn_modal(state: &AppState) {
+    let my = state.my_pm.clone();
+    if my.skill_loading.get() {
+        return;
+    }
+    my.learn_modal_open.inner().set(false);
+    crate::request_remount();
+}
+
+fn load_learnable(state: &AppState) {
+    let Some(pid) = current_pokemon_id(state) else {
+        return;
+    };
+    let my = state.my_pm.clone();
+    crate::api::learnable_skills(
+        pid,
+        Box::new(move |result| {
+            my.learnable.inner().set(Some(result));
+            crate::request_remount();
+        }),
+    );
+}
+
+/// 技能动作收尾：清守卫、刷列表（技能槽来自 list 载荷）。
+fn finish_skill_action(
+    state: &AppState,
+    message: Option<(crate::state::ToastKind, String)>,
+    close_modal: bool,
+) {
+    let my = state.my_pm.clone();
+    if let Some((kind, msg)) = message {
+        crate::state::mypm_show_toast_silent(&my, kind, msg);
+    }
+    my.skill_loading.inner().set(false);
+    my.skill_selected.inner().set(None);
+    if close_modal {
+        my.learn_modal_open.inner().set(false);
+    }
+    crate::request_remount();
+    // 技能槽在 list 载荷里：重拉列表即可（详情不含技能，无需失效）。
+    let st = state.clone();
+    crate::api::pokemon_list(Box::new(move |result| {
+        st.center.pokemons.inner().set(Some(result));
+        crate::request_remount();
+    }));
+}
+
+/// 学习技能（弹窗内）。
+pub fn learn_skill(state: &AppState, skill_id: u64) {
+    let my = state.my_pm.clone();
+    if my.skill_loading.get() {
+        return;
+    }
+    let Some(Ok((available, _))) = my.learnable.get() else {
+        return;
+    };
+    if !available.iter().any(|s| s.id == skill_id && s.is_available) {
+        return;
+    }
+    let Some(pid) = current_pokemon_id(state) else {
+        return;
+    };
+    my.skill_loading.inner().set(true);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::learn_skill(
+        pid,
+        skill_id,
+        Box::new(move |result| match result {
+            Ok(()) => finish_skill_action(
+                &st,
+                Some((crate::state::ToastKind::Success, "技能学习成功".to_string())),
+                true,
+            ),
+            Err(e) => finish_skill_action(
+                &st,
+                Some((crate::state::ToastKind::Error, format!("学习技能失败：{e}"))),
+                false,
+            ),
+        }),
+    );
+}
+
+/// 选中/取消选中技能卡（展开遗忘操作）。
+pub fn toggle_skill_card(state: &AppState, skill_type_id: u64) {
+    let my = state.my_pm.clone();
+    if my.skill_loading.get() {
+        return;
+    }
+    let next = if my.skill_selected.get() == Some(skill_type_id) {
+        None
+    } else {
+        Some(skill_type_id)
+    };
+    my.skill_selected.inner().set(next);
+    crate::request_remount();
+}
+
+/// 遗忘技能（客户端先行校验 can_forget，对齐 Dioxus 版）。
+pub fn forget_skill(state: &AppState, skill_type_id: u64) {
+    let my = state.my_pm.clone();
+    if my.skill_loading.get() {
+        return;
+    }
+    let Some(list) = state.center.pokemons.get().and_then(|r| r.ok()) else {
+        return;
+    };
+    let Some(pm) = pick_target(&list, state.my_pm.selected_id.get()) else {
+        return;
+    };
+    let Some(skill) = pm.skills.iter().find(|s| s.type_id == skill_type_id) else {
+        return;
+    };
+    if !skill.can_forget {
+        crate::state::mypm_show_toast_silent(
+            &my,
+            crate::state::ToastKind::Error,
+            format!(
+                "该技能PP未满（{}/{}），请先在宠物中心治疗，或使用PP恢复道具补满后再遗忘",
+                skill.pp, skill.max_pp
+            ),
+        );
+        crate::request_remount();
+        return;
+    }
+    my.skill_loading.inner().set(true);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::forget_skill(
+        pm.id,
+        skill_type_id,
+        Box::new(move |result| match result {
+            Ok(()) => finish_skill_action(
+                &st,
+                Some((crate::state::ToastKind::Success, "技能遗忘成功".to_string())),
+                false,
+            ),
+            Err(e) => finish_skill_action(
+                &st,
+                Some((crate::state::ToastKind::Error, format!("遗忘技能失败：{e}"))),
+                false,
+            ),
+        }),
+    );
+}
+
+// ---------------------------------------------------------------------------
 // 组件
 // ---------------------------------------------------------------------------
 
@@ -530,7 +692,7 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
     } else if let Some(pm) = current.clone() {
         let selector = pet_selector(&list, pm.id, &st);
 
-        // 标签页菜单（技能页随技能写流程接入）。
+        // 标签页菜单。
         let stats_cls = if tab == crate::state::MyPokemonTab::Stats {
             "mypm-tab active"
         } else {
@@ -541,10 +703,16 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
         } else {
             "mypm-tab"
         };
+        let skills_cls = if tab == crate::state::MyPokemonTab::Skills {
+            "mypm-tab active"
+        } else {
+            "mypm-tab"
+        };
         let tab_menu = rsx! {
             div { class: "mypm-tab-menu",
                 button { class: stats_cls, "data-pm-my-pm-tab": "stats", "属性" }
                 button { class: equip_cls, "data-pm-my-pm-tab": "equipment", "装备" }
+                button { class: skills_cls, "data-pm-my-pm-tab": "skills", "技能" }
             }
         };
 
@@ -594,6 +762,7 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
                             },
                         },
                         crate::state::MyPokemonTab::Equipment => equipment_panel(&st, pm.id),
+                        crate::state::MyPokemonTab::Skills => skills_panel(&st, &pm),
                     }]
                 }
             }
@@ -608,6 +777,13 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
         }
     } else {
         rsx! { div { class: "empty-hint", "你还没有宠物，快去冒险捕捉吧！" } }
+    };
+
+    // 学习弹窗（技能页打开时）。
+    let learn_modal = if st.my_pm.learn_modal_open.get() {
+        learn_modal_vnode(&st)
+    } else {
+        VNode::empty()
     };
 
     let toast = if st.my_pm.toast_visible.get() {
@@ -641,7 +817,7 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
                 }
                 div { class: "mypm-card-body", ..vec![body] }
             }
-            ..vec![toast]
+            ..vec![learn_modal, toast]
         }
     }
 }
@@ -1326,5 +1502,243 @@ trait ToRadians {
 impl ToRadians for f64 {
     fn to_f64_radians(self) -> f64 {
         self * std::f64::consts::PI / 180.0
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 技能标签页面板与学习弹窗
+// ---------------------------------------------------------------------------
+
+/// 技能标签页面板：技能卡（点击展开遗忘）+ 空槽（点击学习）。
+fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
+    let loading = st.my_pm.skill_loading.get();
+    let selected = st.my_pm.skill_selected.get();
+
+    let valid: Vec<&crate::state::PokemonSkill> =
+        pm.skills.iter().filter(|s| s.type_id > 0).collect();
+    let empty_count = 4usize.saturating_sub(valid.len());
+
+    let mut cards: Vec<VNode> = Vec::new();
+    for skill in &valid {
+        let tid = skill.type_id.to_string();
+        let is_selected = selected == Some(skill.type_id);
+        let card_cls = if is_selected {
+            "skill-card-v2 skill-slot-clickable selected"
+        } else {
+            "skill-card-v2 skill-slot-clickable"
+        };
+        let name = if skill.name.is_empty() {
+            format!("技能 {}", skill.type_id)
+        } else {
+            skill.name.clone()
+        };
+        let pp_head = format!("PP {}", skill.pp);
+        let pp_tail = if skill.max_pp > 0 {
+            format!("/{}", skill.max_pp)
+        } else {
+            format!("/{}", skill.pp)
+        };
+        let type_badge_cls = format!("badge badge-type-{}", skill.skill_type);
+        let cat_badge_cls = format!("badge badge-cat-{}", skill.category);
+        let power_label = match skill.category.as_str() {
+            "特攻" | "特殊" => "特攻",
+            "物攻" | "物理" => "物攻",
+            _ => "威力",
+        };
+        let power_text = format!("{}：{}", power_label, skill.power);
+        let pp_text = format!("PP：{}/{}", skill.pp, skill.max_pp);
+        let level_text = if skill.level > 0 {
+            Some(format!("Lv {}", skill.level))
+        } else {
+            None
+        };
+        let stype = skill.skill_type.clone();
+        let scat = skill.category.clone();
+
+        let forget_block = if is_selected {
+            let btn_cls = if skill.can_forget {
+                "skill-forget-btn"
+            } else {
+                "skill-forget-btn disabled"
+            };
+            rsx! {
+                button {
+                    class: btn_cls,
+                    r#type: "button",
+                    disabled: loading,
+                    "data-pm-skill-forget": tid.clone(),
+                    "遗忘此技能"
+                }
+            }
+        } else {
+            VNode::empty()
+        };
+
+        cards.push(rsx! {
+            div { class: card_cls,
+                "data-pm-skill-card": tid.clone(),
+                div { class: "skill-card-top",
+                    span { class: "skill-name", "{name}" }
+                    span { class: "skill-pp",
+                        "{pp_head}"
+                        strong { "{pp_tail}" }
+                    }
+                }
+                div { class: "skill-card-bottom",
+                    span { class: type_badge_cls, "{stype}" }
+                    span { class: cat_badge_cls, "{scat}" }
+                    span { class: "skill-power", "{power_text}" }
+                    span { class: "skill-pp", "{pp_text}" }
+                    if let Some(_lv) = level_text {
+                        span { class: "skill-level", "{_lv}" }
+                    }
+                }
+                ..vec![forget_block]
+            }
+        });
+    }
+    for _ in 0..empty_count {
+        cards.push(rsx! {
+            button {
+                r#type: "button",
+                class: "skill-slot-empty",
+                disabled: loading,
+                "data-pm-skill-learn-slot": "1",
+                div { class: "skill-slot-plus", "+" }
+                div { class: "skill-slot-hint", "点击学习新技能" }
+            }
+        });
+    }
+
+    let loading_hint = if loading {
+        rsx! { div { role: "status", class: "skill-loading-hint", "正在更新技能..." } }
+    } else {
+        VNode::empty()
+    };
+
+    rsx! {
+        div { class: "skills-grid-container",
+            ..vec![loading_hint]
+            div { class: "skills-grid",
+                for i in 0..cards.len() {
+                    ..vec![cards[i].clone()]
+                }
+            }
+        }
+    }
+}
+
+/// 学习弹窗：可学习 + 等级不足两段列表。
+fn learn_modal_vnode(st: &AppState) -> VNode {
+    let level = st
+        .center
+        .pokemons
+        .get()
+        .and_then(|r| r.ok())
+        .and_then(|list| {
+            list.iter()
+                .find(|p| Some(p.id) == st.my_pm.selected_id.get())
+                .or_else(|| list.first())
+                .map(|p| p.level)
+        })
+        .unwrap_or(0);
+    let title = format!("学习新技能 (Lv.{level})");
+
+    let body = match st.my_pm.learnable.get() {
+        None => rsx! { div { class: "skill-learn-loading", "加载技能列表中..." } },
+        Some(Err(error)) => {
+            let msg = format!("技能加载失败：{error}");
+            rsx! {
+                div { role: "alert", class: "error-message", "{msg}" }
+                button { class: "btn btn-primary", "data-pm-learn-reload": "1", "重新加载技能" }
+            }
+        }
+        Some(Ok((available, locked))) if available.is_empty() && locked.is_empty() => {
+            rsx! { div { class: "skill-learn-empty", "暂无可学习的技能" } }
+        }
+        Some(Ok((available, locked))) => {
+            let mut rows: Vec<VNode> = Vec::new();
+            if !available.is_empty() {
+                rows.push(rsx! { div { class: "skill-section-title", "可学习" } });
+                for skill in &available {
+                    rows.push(learn_item(skill, st.my_pm.skill_loading.get()));
+                }
+            }
+            if !locked.is_empty() {
+                rows.push(rsx! { div { class: "skill-section-title", "等级不足" } });
+                for skill in &locked {
+                    rows.push(learn_item(skill, true));
+                }
+            }
+            rsx! {
+                for i in 0..rows.len() {
+                    ..vec![rows[i].clone()]
+                }
+            }
+        }
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-learn-close": "1",
+            div { class: "modal-content",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-learn-close": "1", "×" }
+                }
+                div { class: "modal-body",
+                    div { class: "skill-learn-content", ..vec![body] }
+                }
+            }
+        }
+    }
+}
+
+fn learn_item(skill: &crate::state::LearnableSkill, loading: bool) -> VNode {
+    let sid = skill.id.to_string();
+    let cls = if skill.is_available {
+        "skill-learn-item"
+    } else {
+        "skill-learn-item disabled"
+    };
+    let type_cls = format!("badge badge-type-{}", skill.skill_type);
+    let cat_cls = format!("badge badge-cat-{}", skill.category);
+    let power_text = if skill.power > 0 {
+        Some(format!("威力：{}", skill.power))
+    } else {
+        None
+    };
+    let pp_text = format!("PP: {}", skill.max_pp);
+    let hint = if skill.is_available {
+        "学习".to_string()
+    } else {
+        format!("需要 Lv.{}", skill.required_level)
+    };
+    let sname = skill.name.clone();
+    let stype = skill.skill_type.clone();
+    let scat = skill.category.clone();
+    let sdesc = skill.description.clone();
+
+    rsx! {
+        button {
+            r#type: "button",
+            class: cls,
+            disabled: !skill.is_available || loading,
+            "data-pm-learn-item": sid,
+            div { class: "skill-learn-item-header",
+                span { class: "skill-learn-name", "{sname}" }
+                span { class: "skill-learn-hint", "{hint}" }
+            }
+            div { class: "skill-learn-item-body",
+                span { class: type_cls, "{stype}" }
+                span { class: cat_cls, "{scat}" }
+                if let Some(_p) = power_text {
+                    span { class: "skill-power", "{_p}" }
+                }
+                span { class: "skill-pp", "{pp_text}" }
+            }
+            if !skill.description.is_empty() {
+                div { class: "skill-description", "{sdesc}" }
+            }
+        }
     }
 }

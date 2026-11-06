@@ -223,10 +223,11 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                     let hp_text = format!("{}/{}", pm.hp, pm.max_hp);
                     let state_cls = format!("state-label state-{}", pm.state_class);
                     let state_text = pm.state_text.clone();
-                    let pp_hint = if pm.depleted_pp.is_empty() {
+                    let depleted = pm.depleted_pp();
+                    let pp_hint = if depleted.is_empty() {
                         String::new()
                     } else {
-                        format!("技能PP未满：{}", pm.depleted_pp.join("、"))
+                        format!("技能PP未满：{}", depleted.join("、"))
                     };
                     let is_in_battle = in_battle && pm.site == 1;
                     let btn_cls = if is_in_battle {
