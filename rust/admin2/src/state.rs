@@ -489,6 +489,15 @@ pub struct MapEditorState {
     pub experience_increase_times: ReactiveSignal<String>,
     /// bosses 数组的 JSON 原文（boss/hybrid 模式下参与提交）。
     pub bosses_json: ReactiveSignal<String>,
+    // -- 野怪管理（切片 18，direct_actions；仅已保存的地图可用） --
+    /// (pokemon_type_id, name) 当前地图的野怪。
+    pub wild: ReactiveSignal<Vec<(u64, String)>>,
+    pub wild_loading: ReactiveSignal<bool>,
+    pub wild_err: ReactiveSignal<Option<String>>,
+    pub wild_query: ReactiveSignal<String>,
+    /// 搜索结果（filter_pokemon_type contains）。
+    pub wild_results: ReactiveSignal<Vec<(u64, String)>>,
+    pub wild_searching: ReactiveSignal<bool>,
     pub saving: ReactiveSignal<bool>,
     pub err: ReactiveSignal<Option<String>>,
 }
@@ -508,6 +517,12 @@ impl MapEditorState {
             experience: use_signal(|| "0".to_string()),
             experience_increase_times: use_signal(|| "0".to_string()),
             bosses_json: use_signal(|| "[]".to_string()),
+            wild: use_signal(Vec::new),
+            wild_loading: use_signal(|| false),
+            wild_err: use_signal(|| None),
+            wild_query: use_signal(String::new),
+            wild_results: use_signal(Vec::new),
+            wild_searching: use_signal(|| false),
             saving: use_signal(|| false),
             err: use_signal(|| None),
         }

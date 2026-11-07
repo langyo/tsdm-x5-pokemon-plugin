@@ -3095,6 +3095,10 @@ pub fn open_map_new(state: &AppState) {
         .set("0".to_string());
     ed.bosses_json.inner().set("[]".to_string());
     ed.err.inner().set(None);
+    ed.wild.inner().set(Vec::new());
+    ed.wild_err.inner().set(None);
+    ed.wild_query.inner().set(String::new());
+    ed.wild_results.inner().set(Vec::new());
     ed.open.inner().set(true);
     crate::request_remount();
 }
@@ -3137,8 +3141,128 @@ pub fn open_map_edit(state: &AppState, id: u64) {
         .inner()
         .set(serde_json::to_string_pretty(&bosses).unwrap_or_else(|_| "[]".to_string()));
     ed.err.inner().set(None);
+    ed.wild.inner().set(Vec::new());
+    ed.wild_err.inner().set(None);
+    ed.wild_query.inner().set(String::new());
+    ed.wild_results.inner().set(Vec::new());
     ed.open.inner().set(true);
+    load_wild(state, id);
     crate::request_remount();
+}
+
+// -- 地图野怪管理（切片 18，direct_actions） ----------------------------------
+
+fn load_wild(state: &AppState, map_id: u64) {
+    let ed = state.map_editor.clone();
+    if ed.wild_loading.get() {
+        return;
+    }
+    ed.wild_loading.inner().set(true);
+    ed.wild_err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::wild_list(
+        map_id,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let ed = st.map_editor.clone();
+            match result {
+                Ok(rows) => {
+                    let wild: Vec<(u64, String)> = rows
+                        .iter()
+                        .map(|r| (json_u64(r, "id"), json_str(r, "name")))
+                        .collect();
+                    ed.wild.inner().set(wild);
+                }
+                Err(e) => {
+                    ed.wild_err.inner().set(Some(format!("野怪列表加载失败：{e}")));
+                }
+            }
+            ed.wild_loading.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+}
+
+pub fn wild_search(state: &AppState) {
+    let ed = state.map_editor.clone();
+    if ed.wild_searching.get() {
+        return;
+    }
+    let query = ed.wild_query.get().trim().to_string();
+    if query.is_empty() {
+        ed.wild_results.inner().set(Vec::new());
+        crate::request_remount();
+        return;
+    }
+    let packages = vec![crate::api::filter_package("名称", "contains", &query)];
+    let filters = serde_json::Value::Array(packages).to_string();
+    ed.wild_searching.inner().set(true);
+    ed.wild_err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::filter_entity(
+        "pokemon_type",
+        filters,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let ed = st.map_editor.clone();
+            match result {
+                Ok(items) => {
+                    let rows: Vec<(u64, String)> = items
+                        .iter()
+                        .map(|it| (json_u64(it, "id"), json_str(it, "name")))
+                        .collect();
+                    ed.wild_results.inner().set(rows);
+                }
+                Err(e) => {
+                    ed.wild_results.inner().set(Vec::new());
+                    ed.wild_err.inner().set(Some(format!("搜索失败：{e}")));
+                }
+            }
+            ed.wild_searching.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+}
+
+fn wild_apply(state: &AppState, result: Result<(), String>, map_id: u64) {
+    let ed = state.map_editor.clone();
+    match result {
+        Ok(()) => load_wild(state, map_id),
+        Err(e) => {
+            ed.wild_err.inner().set(Some(format!("野怪操作失败：{e}")));
+            crate::request_remount();
+        }
+    }
+}
+
+pub fn wild_add(state: &AppState, pokemon_type_id: u64) {
+    let map_id = match state.map_editor.editing_id.get() {
+        Some(id) => id,
+        None => return,
+    };
+    let st = state.clone();
+    crate::api::wild_add(
+        map_id,
+        pokemon_type_id,
+        Box::new(move |result: Result<(), String>| {
+            wild_apply(&st, result, map_id);
+        }),
+    );
+}
+
+pub fn wild_remove(state: &AppState, pokemon_type_id: u64) {
+    let map_id = match state.map_editor.editing_id.get() {
+        Some(id) => id,
+        None => return,
+    };
+    let st = state.clone();
+    crate::api::wild_remove(
+        map_id,
+        pokemon_type_id,
+        Box::new(move |result: Result<(), String>| {
+            wild_apply(&st, result, map_id);
+        }),
+    );
 }
 
 pub fn close_map_editor(state: &AppState) {
@@ -3158,6 +3282,7 @@ pub fn set_map_editor_field(state: &AppState, key: &str, value: &str) {
         "experience" => ed.experience.inner().set(value.to_string()),
         "increase_times" => ed.experience_increase_times.inner().set(value.to_string()),
         "bosses" => ed.bosses_json.inner().set(value.to_string()),
+        "wild_query" => ed.wild_query.inner().set(value.to_string()),
         _ => {}
     }
     crate::request_remount();
@@ -3410,6 +3535,92 @@ fn map_editor_modal(st: &AppState) -> VNode {
         v
     };
 
+    // -- 野怪管理区（仅已保存地图；Dioxus 的「野生宠物列表」对应物）--
+    let wild_section = {
+        let mut chips: Vec<VNode> = Vec::new();
+        for (pid, name) in ed.wild.get().into_iter() {
+            let label = format!("{name} #{pid}");
+            let attr = pid.to_string();
+            chips.push(rsx! {
+                span { class: "adm-wild-chip",
+                    "{label}"
+                    button {
+                        class: "adm-wild-chip-x",
+                        disabled: ed.wild_loading.get(),
+                        "data-pm-adm-mp-wild-del": attr,
+                        "×"
+                    }
+                }
+            });
+        }
+        let wild_list_block = if ed.wild_loading.get() {
+            rsx! { p { class: "adm-editor-hint", "野怪加载中..." } }
+        } else if chips.is_empty() {
+            rsx! { p { class: "adm-editor-hint", "该地图暂无野怪。" } }
+        } else {
+            rsx! {
+                div { class: "adm-grant-results",
+                    for i in 0..chips.len() {
+                        ..vec![chips[i].clone()]
+                    }
+                }
+            }
+        };
+        let mut result_chips: Vec<VNode> = Vec::new();
+        for (pid, name) in ed.wild_results.get().into_iter() {
+            let label = format!("{name} #{pid}");
+            let attr = pid.to_string();
+            result_chips.push(rsx! {
+                button {
+                    class: "admin-btn adm-grant-result",
+                    disabled: ed.wild_searching.get(),
+                    "data-pm-adm-mp-wild-pick": attr,
+                    "{label}"
+                }
+            });
+        }
+        let search_block = if ed.wild_searching.get() {
+            rsx! { p { class: "adm-editor-hint", "搜索中..." } }
+        } else if result_chips.is_empty() {
+            VNode::empty()
+        } else {
+            rsx! {
+                div { class: "adm-grant-results",
+                    for i in 0..result_chips.len() {
+                        ..vec![result_chips[i].clone()]
+                    }
+                }
+            }
+        };
+        match editing {
+            Some(_) => rsx! {
+                div { class: "adm-cfg-section",
+                    div { class: "adm-editor-section-title", "野生宠物" }
+                    ..vec![wild_list_block]
+                    div { class: "adm-editor-grid",
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "text",
+                            placeholder: "按名称搜索宠物类型（包含）",
+                            value: ed.wild_query.get(),
+                            "data-pm-adm-mpf": "wild_query"
+                        }
+                        button {
+                            class: "admin-btn adm-editor-toggle",
+                            disabled: ed.wild_searching.get(),
+                            "data-pm-adm-mp-wild-search": "1",
+                            "搜索"
+                        }
+                    }
+                    ..vec![search_block]
+                }
+            },
+            None => rsx! {
+                p { class: "adm-editor-hint", "保存地图后即可管理野生宠物。" }
+            },
+        }
+    };
+
     let err_block = match err {
         Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
         None => VNode::empty(),
@@ -3498,7 +3709,7 @@ fn map_editor_modal(st: &AppState) -> VNode {
                             ..vec![mode_extras[i].clone()]
                         }
                     }
-                    ..vec![err_block]
+                    ..vec![wild_section, err_block]
                 }
                 div { class: "adm-editor-footer",
                     button {

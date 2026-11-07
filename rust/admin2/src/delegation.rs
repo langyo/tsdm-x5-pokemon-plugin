@@ -200,6 +200,22 @@ fn dispatch_click(state: &AppState, target: u64) {
         }
         return;
     }
+    if find_with_attr(target, "data-pm-adm-mp-wild-search").is_some() {
+        crate::pages::wild_search(state);
+        return;
+    }
+    if let Some((_, pid)) = find_with_attr(target, "data-pm-adm-mp-wild-pick") {
+        if let Ok(pid) = pid.trim().parse::<u64>() {
+            crate::pages::wild_add(state, pid);
+        }
+        return;
+    }
+    if let Some((_, pid)) = find_with_attr(target, "data-pm-adm-mp-wild-del") {
+        if let Ok(pid) = pid.trim().parse::<u64>() {
+            crate::pages::wild_remove(state, pid);
+        }
+        return;
+    }
     if find_with_attr(target, "data-pm-adm-mp-save").is_some() {
         crate::pages::submit_map_editor(state);
         return;

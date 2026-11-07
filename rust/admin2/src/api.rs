@@ -228,6 +228,65 @@ pub fn list_user_instances(
     );
 }
 
+/// 地图野怪管理三连（dispatch 的 direct_actions 分支，动作名即原始字符串）。
+/// 野怪关系存在 pm_data.mapid（CSV）里：add 追加并排序去重，remove 差集后重排。
+
+pub fn wild_list(map_id: u64, on_done: Box<dyn FnOnce(Result<Vec<Value>, String>)>) {
+    let body = serde_json::json!({
+        "action": "get_wild_pokemons_for_map",
+        "map_id": map_id,
+    })
+    .to_string();
+    request(
+        body,
+        Box::new(|result: Result<Value, String>| {
+            on_done(result.and_then(|data| extract_items(&data)))
+        }),
+    );
+}
+
+pub fn wild_add(
+    map_id: u64,
+    pokemon_type_id: u64,
+    on_done: Box<dyn FnOnce(Result<(), String>)>,
+) {
+    let body = serde_json::json!({
+        "action": "add_pokemon_to_map",
+        "map_id": map_id,
+        "pokemon_type_id": pokemon_type_id,
+    })
+    .to_string();
+    tairitsu_web::fetch_text_with_options(
+        "/plugin.php?id=pokemon:pokemon&index=admin",
+        &serde_json::json!({ "method": "POST", "body": body }).to_string(),
+        Box::new(move |resp| match resp {
+            Ok(text) => on_done(parse_envelope_ok(&text)),
+            Err(e) => on_done(Err(format!("网络错误: {e}"))),
+        }),
+    );
+}
+
+pub fn wild_remove(
+    map_id: u64,
+    pokemon_type_id: u64,
+    on_done: Box<dyn FnOnce(Result<(), String>)>,
+) {
+    let body = serde_json::json!({
+        "action": "remove_pokemon_from_map",
+        "map_id": map_id,
+        "pokemon_type_id": pokemon_type_id,
+    })
+    .to_string();
+    tairitsu_web::fetch_text_with_options(
+        "/plugin.php?id=pokemon:pokemon&index=admin",
+        &serde_json::json!({ "method": "POST", "body": body }).to_string(),
+        Box::new(move |resp| match resp {
+            Ok(text) => on_done(parse_envelope_ok(&text)),
+            Err(e) => on_done(Err(format!("网络错误: {e}"))),
+        }),
+    );
+}
+
 /// `delete::<entity>`（id 为路径参数；dispatch 端按 `params["id"]` 取整数）。
 pub fn delete_entity(entity: &str, id: u64, on_done: Box<dyn FnOnce(Result<(), String>)>) {
     let body = serde_json::json!({

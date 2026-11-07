@@ -150,6 +150,8 @@ include template('common/header');
 .admin-btn-danger:hover { background:#c0392b; }
 .adm-tab-btn { padding:2px 10px; font-size:11px; margin-left:6px; }
 .adm-editor-section-title { display:flex; align-items:center; }
+.adm-wild-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; background:#f0f7ff; border:1px solid #cfe4f7; border-radius:12px; font-size:12px; color:#2a6496; }
+.adm-wild-chip-x { border:none; background:none; color:#c0392b; cursor:pointer; font-size:13px; padding:0 2px; line-height:1; }
 </style>
 
 <div class="pm-ui-switch">
