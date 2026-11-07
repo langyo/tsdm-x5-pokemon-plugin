@@ -37,6 +37,23 @@ fn parse_envelope(body: &str) -> Result<Value, String> {
     env.data.ok_or_else(|| "响应缺少 data".to_string())
 }
 
+/// 只看 `success` 的信封解析：delete 端点不返回 data（PHP 函数无返回值时
+/// `data` 键缺失或为 null），按 data 解析会把它误判成失败。
+fn parse_envelope_ok(body: &str) -> Result<(), String> {
+    #[derive(serde::Deserialize)]
+    struct Envelope {
+        #[serde(default)]
+        success: bool,
+        #[serde(default)]
+        reason: Option<String>,
+    }
+    let env: Envelope = serde_json::from_str(body).map_err(|e| format!("响应解析失败: {e}"))?;
+    if !env.success {
+        return Err(env.reason.unwrap_or_else(|| "未知错误".to_string()));
+    }
+    Ok(())
+}
+
 /// `list::global_config` → 配置对象。
 ///
 /// 服务端的 data[0] 就是配置本身（扁平，带 `_TYPE` 标记），不是
@@ -183,6 +200,23 @@ pub fn insert_entity(
         body,
         Box::new(|result: Result<Value, String>| {
             on_done(result.and_then(|data| extract_config(&data, "新建响应为空")))
+        }),
+    );
+}
+
+/// `delete::<entity>`（id 为路径参数；dispatch 端按 `params["id"]` 取整数）。
+pub fn delete_entity(entity: &str, id: u64, on_done: Box<dyn FnOnce(Result<(), String>)>) {
+    let body = serde_json::json!({
+        "action": format!("delete::{entity}"),
+        "id": id,
+    })
+    .to_string();
+    tairitsu_web::fetch_text_with_options(
+        "/plugin.php?id=pokemon:pokemon&index=admin",
+        &serde_json::json!({ "method": "POST", "body": body }).to_string(),
+        Box::new(move |resp| match resp {
+            Ok(text) => on_done(parse_envelope_ok(&text)),
+            Err(e) => on_done(Err(format!("网络错误: {e}"))),
         }),
     );
 }

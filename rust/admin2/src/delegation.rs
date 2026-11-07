@@ -82,6 +82,8 @@ pub fn install(app: &WitElement, state: &AppState) {
                     } else {
                         crate::pages::set_grant_field(&st, &key, &ev.value);
                     }
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-efx-f") {
+                    crate::pages::set_effect_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -313,6 +315,54 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-grant-overlay") {
         if hit == target {
             crate::pages::close_grant(state);
+        }
+        return;
+    }
+    // 效果编辑弹窗（efx 前缀）。
+    if find_with_attr(target, "data-pm-adm-efx-save").is_some() {
+        crate::pages::submit_effect_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-efx-close").is_some() {
+        crate::pages::close_effect_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-efx-new").is_some() {
+        crate::pages::open_effect_new(state);
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-efx-edit") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::open_effect_edit(state, id);
+        }
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-efx-overlay") {
+        if hit == target {
+            crate::pages::close_effect_editor(state);
+        }
+        return;
+    }
+    // 行删除确认（六实体共用，值形如 "pk:25"）。确认/取消先于遮罩。
+    if find_with_attr(target, "data-pm-adm-del-ok").is_some() {
+        crate::pages::submit_delete(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-del-cancel").is_some() {
+        crate::pages::close_delete_confirm(state);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-adm-del") {
+        if let Some((page, id)) = v.split_once(':') {
+            if let Ok(id) = id.trim().parse::<u64>() {
+                crate::pages::open_delete_confirm(state, page, id);
+            }
+        }
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-del-overlay") {
+        if hit == target {
+            crate::pages::close_delete_confirm(state);
         }
         return;
     }

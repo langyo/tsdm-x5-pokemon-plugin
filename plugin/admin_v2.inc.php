@@ -144,6 +144,10 @@ include template('common/header');
 .adm-cfg-ann-actions { display:flex; gap:6px; flex-shrink:0; }
 .adm-cfg-add { margin-top:2px; }
 .adm-editor-modal--narrow { width:520px; }
+.adm-row-del { padding:3px 12px; font-size:12px; border-color:#e74c3c; color:#c0392b; }
+.adm-row-del:hover { background:#fdf0ef; }
+.admin-btn-danger { border-color:#e74c3c; background:#e74c3c; color:#fff; }
+.admin-btn-danger:hover { background:#c0392b; }
 </style>
 
 <div class="pm-ui-switch">

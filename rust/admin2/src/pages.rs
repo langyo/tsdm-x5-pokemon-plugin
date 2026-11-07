@@ -473,7 +473,7 @@ pub fn Admin(state: Box<AppState>) -> VNode {
                 }
                 ..vec![content]
             }
-            ..vec![toast]
+            ..vec![toast, delete_confirm_modal(&st)]
         }
     }
 }
@@ -646,6 +646,7 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                     let id_for_edit = id.clone();
                     let name = json_str(item, "name");
                     // kind: ["fire", "water"] / ["normal", null]
+                    let del_attr_pk = format!("pk:{id}");
                     let kinds: Vec<&str> = item
                         .get("kind")
                         .and_then(|k| k.as_array())
@@ -706,11 +707,19 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                             td { "{cost_text}" }
                             td { class: "adm-pk-stats", "{stats_text}" }
                             td {
-                                button {
-                                    class: "admin-btn adm-row-edit",
-                                    disabled: busy,
-                                    "data-pm-adm-pk-edit": id_for_edit,
-                                    "编辑"
+                                div { class: "adm-row-actions",
+                                    button {
+                                        class: "admin-btn adm-row-edit",
+                                        disabled: busy,
+                                        "data-pm-adm-pk-edit": id_for_edit,
+                                        "编辑"
+                                    }
+                                    button {
+                                        class: "admin-btn adm-row-del",
+                                        disabled: busy,
+                                        "data-pm-adm-del": del_attr_pk,
+                                        "删除"
+                                    }
                                 }
                             }
                         }
@@ -872,6 +881,7 @@ fn item_data_page(st: &AppState) -> VNode {
                     let id = json_u64(item, "id").to_string();
                     let id_for_edit = id.clone();
                     let name = json_str(item, "name");
+                    let del_attr_it = format!("it:{id}");
                     // tag: {"drug":null} / {"ball":5} / {"evolution":3} / {"armor":…} / {"special":"…"}
                     let tag_label = item
                         .get("tag")
@@ -909,11 +919,19 @@ fn item_data_page(st: &AppState) -> VNode {
                             td { "{selling}" }
                             td { class: "adm-pk-stats", "{desc_short}" }
                             td {
-                                button {
-                                    class: "admin-btn adm-row-edit",
-                                    disabled: busy,
-                                    "data-pm-adm-it-edit": id_for_edit,
-                                    "编辑"
+                                div { class: "adm-row-actions",
+                                    button {
+                                        class: "admin-btn adm-row-edit",
+                                        disabled: busy,
+                                        "data-pm-adm-it-edit": id_for_edit,
+                                        "编辑"
+                                    }
+                                    button {
+                                        class: "admin-btn adm-row-del",
+                                        disabled: busy,
+                                        "data-pm-adm-del": del_attr_it,
+                                        "删除"
+                                    }
                                 }
                             }
                         }
@@ -1105,6 +1123,7 @@ fn map_data_page(st: &AppState) -> VNode {
                     let id = json_u64(item, "id").to_string();
                     let id_for_edit = id.clone();
                     let name = json_str(item, "name");
+                    let del_attr_mp = format!("mp:{id}");
                     let area = area_name(&json_str(item, "area_type")).to_string();
                     let enabled_text = if json_bool(item, "is_enabled") {
                         "启用"
@@ -1137,11 +1156,19 @@ fn map_data_page(st: &AppState) -> VNode {
                             td { "{mode_label}" }
                             td { "{quality_text}" }
                             td {
-                                button {
-                                    class: "admin-btn adm-row-edit",
-                                    disabled: busy,
-                                    "data-pm-adm-mp-edit": id_for_edit,
-                                    "编辑"
+                                div { class: "adm-row-actions",
+                                    button {
+                                        class: "admin-btn adm-row-edit",
+                                        disabled: busy,
+                                        "data-pm-adm-mp-edit": id_for_edit,
+                                        "编辑"
+                                    }
+                                    button {
+                                        class: "admin-btn adm-row-del",
+                                        disabled: busy,
+                                        "data-pm-adm-del": del_attr_mp,
+                                        "删除"
+                                    }
                                 }
                             }
                         }
@@ -1515,6 +1542,7 @@ fn evolution_data_page(st: &AppState) -> VNode {
                     let id = json_u64(item, "id").to_string();
                     let id_for_edit = id.clone();
                     // 历史数据存在 from_id/to_id 为 0 的孤儿行，名字为空——显示占位符。
+                    let del_attr_ev = format!("ev:{id}");
                     let source = {
                         let s = json_str(item, "source_name");
                         if s.is_empty() {
@@ -1548,11 +1576,19 @@ fn evolution_data_page(st: &AppState) -> VNode {
                             td { "{item_hint}" }
                             td { "{priority}" }
                             td {
-                                button {
-                                    class: "admin-btn adm-row-edit",
-                                    disabled: busy,
-                                    "data-pm-adm-ev-edit": id_for_edit,
-                                    "编辑"
+                                div { class: "adm-row-actions",
+                                    button {
+                                        class: "admin-btn adm-row-edit",
+                                        disabled: busy,
+                                        "data-pm-adm-ev-edit": id_for_edit,
+                                        "编辑"
+                                    }
+                                    button {
+                                        class: "admin-btn adm-row-del",
+                                        disabled: busy,
+                                        "data-pm-adm-del": del_attr_ev,
+                                        "删除"
+                                    }
                                 }
                             }
                         }
@@ -1714,6 +1750,7 @@ fn skill_data_page(st: &AppState) -> VNode {
                     let id_for_edit = id.clone();
                     let name = json_str(item, "name");
                     let desc = json_str(item, "description");
+                    let del_attr_sk = format!("sk:{id}");
                     let desc_short = if desc.chars().count() > 18 {
                         let cut: String = desc.chars().take(18).collect();
                         format!("{cut}…")
@@ -1738,11 +1775,19 @@ fn skill_data_page(st: &AppState) -> VNode {
                             td { "{uses}" }
                             td { "{species_count}" }
                             td {
-                                button {
-                                    class: "admin-btn adm-row-edit",
-                                    disabled: busy,
-                                    "data-pm-adm-sk-edit": id_for_edit,
-                                    "编辑"
+                                div { class: "adm-row-actions",
+                                    button {
+                                        class: "admin-btn adm-row-edit",
+                                        disabled: busy,
+                                        "data-pm-adm-sk-edit": id_for_edit,
+                                        "编辑"
+                                    }
+                                    button {
+                                        class: "admin-btn adm-row-del",
+                                        disabled: busy,
+                                        "data-pm-adm-del": del_attr_sk,
+                                        "删除"
+                                    }
                                 }
                             }
                         }
@@ -1885,8 +1930,10 @@ fn effect_data_page(st: &AppState) -> VNode {
                 let mut trs: Vec<VNode> = Vec::new();
                 for item in rows.iter() {
                     let id = json_u64(item, "id").to_string();
+                    let id_for_edit = id.clone();
                     let code = json_str(item, "code");
                     let kind = json_str(item, "kind");
+                    let del_attr_ef = format!("ef:{id}");
                     let version = json_u64(item, "version").to_string();
                     let hooks = item
                         .get("hooks")
@@ -1913,6 +1960,22 @@ fn effect_data_page(st: &AppState) -> VNode {
                             td { class: "adm-pk-stats", "{hooks}" }
                             td { "{version}" }
                             td { class: "adm-pk-stats", "{desc_short}" }
+                            td {
+                                div { class: "adm-row-actions",
+                                    button {
+                                        class: "admin-btn adm-row-edit",
+                                        disabled: busy,
+                                        "data-pm-adm-efx-edit": id_for_edit,
+                                        "编辑"
+                                    }
+                                    button {
+                                        class: "admin-btn adm-row-del",
+                                        disabled: busy,
+                                        "data-pm-adm-del": del_attr_ef,
+                                        "删除"
+                                    }
+                                }
+                            }
                         }
                     });
                 }
@@ -1926,6 +1989,7 @@ fn effect_data_page(st: &AppState) -> VNode {
                                 th { "钩子" }
                                 th { "版本" }
                                 th { "描述" }
+                                th { "操作" }
                             }
                         }
                         tbody {
@@ -1976,8 +2040,14 @@ fn effect_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-l-reload": "ef",
                     "刷新"
                 }
+                button {
+                    class: "admin-btn admin-btn-primary",
+                    disabled: busy,
+                    "data-pm-adm-efx-new": "1",
+                    "新增效果"
+                }
             }
-            ..vec![body]
+            ..vec![body, effect_editor_modal(st)]
         }
     }
 }
@@ -5459,6 +5529,484 @@ fn config_form_body(st: &AppState) -> VNode {
     rsx! {
         for i in 0..blocks.len() {
             ..vec![blocks[i].clone()]
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 行删除确认弹窗（切片 15）
+// ---------------------------------------------------------------------------
+
+/// 页键 → (实体名, delete 端点实体, 列表状态, 列表 SPEC)。us 不在列：用户行没有删除。
+fn delete_target(
+    st: &AppState,
+    page: &str,
+) -> Option<(&'static str, &'static str, crate::state::ListState, crate::state::EntitySpec)> {
+    match page {
+        "pk" => Some((
+            "宠物",
+            "pokemon_type",
+            st.pokemon.clone(),
+            crate::state::POKEMON_SPEC,
+        )),
+        "it" => Some((
+            "物品",
+            "item_type",
+            st.item.clone(),
+            crate::state::ITEM_SPEC,
+        )),
+        "mp" => Some(("地图", "map_info", st.map.clone(), crate::state::MAP_SPEC)),
+        "ev" => Some((
+            "进化链",
+            "evolution_info",
+            st.evolution.clone(),
+            crate::state::EVOLUTION_SPEC,
+        )),
+        "sk" => Some((
+            "技能",
+            "skill_type",
+            st.skill.clone(),
+            crate::state::SKILL_SPEC,
+        )),
+        "ef" => Some((
+            "效果",
+            "effect_data",
+            st.effect.clone(),
+            crate::state::EFFECT_SPEC,
+        )),
+        _ => None,
+    }
+}
+
+/// 行名展示键：各实体列表里最像「名字」的字段。
+fn delete_row_label(item: &serde_json::Value, page: &str) -> String {
+    match page {
+        "pk" | "it" | "sk" => json_str(item, "name"),
+        "mp" => json_str(item, "name"),
+        "ef" => json_str(item, "code"),
+        "ev" => {
+            let s = json_str(item, "source_name");
+            let t = json_str(item, "target_name");
+            if s.is_empty() && t.is_empty() {
+                String::new()
+            } else {
+                format!("{s} → {t}")
+            }
+        }
+        _ => String::new(),
+    }
+}
+
+pub fn open_delete_confirm(state: &AppState, page: &str, id: u64) {
+    if delete_target(state, page).is_none() {
+        return;
+    }
+    let label = {
+        let ls = match page {
+            "pk" => state.pokemon.clone(),
+            "it" => state.item.clone(),
+            "mp" => state.map.clone(),
+            "ev" => state.evolution.clone(),
+            "sk" => state.skill.clone(),
+            "ef" => state.effect.clone(),
+            _ => state.pokemon.clone(),
+        };
+        ls.rows
+            .get()
+            .into_iter()
+            .find(|r| json_u64(r, "id") == id)
+            .map(|r| delete_row_label(&r, page))
+            .unwrap_or_default()
+    };
+    let d = state.delete.clone();
+    d.page.inner().set(page.to_string());
+    d.id.inner().set(Some(id));
+    d.label.inner().set(label);
+    d.err.inner().set(None);
+    d.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_delete_confirm(state: &AppState) {
+    let d = state.delete.clone();
+    if d.busy.get() {
+        return;
+    }
+    d.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn submit_delete(state: &AppState) {
+    let d = state.delete.clone();
+    if d.busy.get() {
+        return;
+    }
+    let Some(id) = d.id.get() else { return };
+    let page = d.page.get();
+    let Some((_, entity, ls, spec)) = delete_target(state, &page) else {
+        return;
+    };
+    d.busy.inner().set(true);
+    d.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::delete_entity(
+        entity,
+        id,
+        Box::new(move |result: Result<(), String>| {
+            let d = st.delete.clone();
+            match result {
+                Ok(()) => {
+                    d.open.inner().set(false);
+                    d.busy.inner().set(false);
+                    ls.loaded.inner().set(None);
+                    ls.rows.inner().set(Vec::new());
+                    crate::request_remount();
+                    reload_list(spec, &ls);
+                }
+                Err(e) => {
+                    d.busy.inner().set(false);
+                    d.err.inner().set(Some(format!("删除失败：{e}")));
+                    crate::request_remount();
+                }
+            }
+        }),
+    );
+}
+
+/// 删除确认弹窗（挂载在 Admin 壳层，全页共用）。
+fn delete_confirm_modal(st: &AppState) -> VNode {
+    let d = st.delete.clone();
+    if !d.open.get() {
+        return VNode::empty();
+    }
+    let page = d.page.get();
+    let Some((entity_title, _, _, _)) = delete_target(st, &page) else {
+        return VNode::empty();
+    };
+    let id = d.id.get();
+    let id_text = id.map(|n| n.to_string()).unwrap_or_default();
+    let label = d.label.get();
+    let display = if label.is_empty() {
+        format!("#{id_text}")
+    } else {
+        format!("{label}（#{id_text}）")
+    };
+    let busy = d.busy.get();
+    let err = d.err.get();
+    let title = format!("删除{}", entity_title);
+    let confirm_label = if busy { "删除中..." } else { "确认删除" };
+    let del_message = format!("确定要删除 {display} 吗？此操作不可撤销。");
+    let err_block = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-del-overlay": "1",
+            div { class: "adm-editor-modal adm-editor-modal--narrow",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-del-cancel": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    p { "{del_message}" }
+                    ..vec![err_block]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: busy,
+                        "data-pm-adm-del-cancel": "1",
+                        "取消"
+                    }
+                    button {
+                        class: "admin-btn admin-btn-danger",
+                        disabled: busy,
+                        "data-pm-adm-del-ok": "1",
+                        "{confirm_label}"
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 效果数据编辑弹窗（切片 15）
+// ---------------------------------------------------------------------------
+
+const EFFECT_KIND_OPTIONS: [(&str, &str); 6] = [
+    ("move", "招式"),
+    ("ability", "特性"),
+    ("item", "道具"),
+    ("weather", "天气"),
+    ("field", "场地"),
+    ("status", "状态"),
+];
+
+pub fn open_effect_new(state: &AppState) {
+    let ed = state.effect_editor.clone();
+    ed.editing_id.inner().set(None);
+    ed.code.inner().set(String::new());
+    ed.kind.inner().set("move".to_string());
+    ed.hooks_json.inner().set("[\n  \"on_after_move\"\n]".to_string());
+    ed.params_json
+        .inner()
+        .set("{\n  \"code\": \"\"\n}".to_string());
+    ed.description.inner().set(String::new());
+    ed.version.inner().set("1".to_string());
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn open_effect_edit(state: &AppState, id: u64) {
+    let ed = state.effect_editor.clone();
+    let row = state
+        .effect
+        .rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == id);
+    let Some(row) = row else { return };
+    ed.editing_id.inner().set(Some(id));
+    ed.code.inner().set(json_str(&row, "code"));
+    ed.kind.inner().set(json_str(&row, "kind"));
+    let hooks = row.get("hooks").cloned().unwrap_or(serde_json::json!([]));
+    let params = row.get("params").cloned().unwrap_or(serde_json::json!({}));
+    ed.hooks_json
+        .inner()
+        .set(serde_json::to_string_pretty(&hooks).unwrap_or_else(|_| "[]".into()));
+    ed.params_json
+        .inner()
+        .set(serde_json::to_string_pretty(&params).unwrap_or_else(|_| "{}".into()));
+    ed.description.inner().set(json_str(&row, "description"));
+    ed.version
+        .inner()
+        .set(json_u64(&row, "version").to_string());
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_effect_editor(state: &AppState) {
+    state.effect_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn set_effect_editor_field(state: &AppState, key: &str, value: &str) {
+    let ed = state.effect_editor.clone();
+    match key {
+        "code" => ed.code.inner().set(value.to_string()),
+        "kind" => ed.kind.inner().set(value.to_string()),
+        "hooks" => ed.hooks_json.inner().set(value.to_string()),
+        "params" => ed.params_json.inner().set(value.to_string()),
+        "description" => ed.description.inner().set(value.to_string()),
+        "version" => ed.version.inner().set(value.to_string()),
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+pub fn submit_effect_editor(state: &AppState) {
+    let ed = state.effect_editor.clone();
+    if ed.saving.get() {
+        return;
+    }
+    let code = ed.code.get().trim().to_string();
+    if code.is_empty() {
+        ed.err.inner().set(Some("效果码不能为空".to_string()));
+        crate::request_remount();
+        return;
+    }
+    // hooks 必须是非空数组；params 必须是含 code 键的对象——服务端
+    // build_effect_declaration 同样硬校验，这里提前拦解析错误。
+    let hooks: serde_json::Value = match serde_json::from_str(&ed.hooks_json.get()) {
+        Ok(v) => v,
+        Err(e) => {
+            ed.err.inner().set(Some(format!("钩子 JSON 无效：{e}")));
+            crate::request_remount();
+            return;
+        }
+    };
+    if !hooks.as_array().is_some_and(|a| !a.is_empty()) {
+        ed.err
+            .inner()
+            .set(Some("钩子必须是非空数组（如 [\"on_after_move\"]）".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let params: serde_json::Value = match serde_json::from_str(&ed.params_json.get()) {
+        Ok(v) => v,
+        Err(e) => {
+            ed.err.inner().set(Some(format!("参数 JSON 无效：{e}")));
+            crate::request_remount();
+            return;
+        }
+    };
+    if !params.get("code").and_then(|c| c.as_str()).is_some_and(|c| !c.is_empty()) {
+        ed.err.inner().set(Some(
+            "参数必须是对象且包含非空 code 键（核心效果码）".to_string(),
+        ));
+        crate::request_remount();
+        return;
+    }
+    let version = ed.version.get().trim().parse::<u64>().unwrap_or(1).max(1);
+    let mut payload = serde_json::json!({
+        "code": code,
+        "kind": ed.kind.get(),
+        "hooks": hooks,
+        "params": params,
+        "description": ed.description.get(),
+        "version": version,
+    });
+    let editing = ed.editing_id.get();
+    if let Some(id) = editing {
+        if let Some(obj) = payload.as_object_mut() {
+            obj.insert("id".to_string(), serde_json::json!(id));
+        }
+    }
+    let body = payload.to_string();
+    ed.saving.inner().set(true);
+    ed.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    let on_done: Box<dyn FnOnce(Result<serde_json::Value, String>)> =
+        Box::new(move |result: Result<serde_json::Value, String>| {
+            let ed = st.effect_editor.clone();
+            match result {
+                Ok(_) => {
+                    ed.open.inner().set(false);
+                    ed.saving.inner().set(false);
+                    st.effect.loaded.inner().set(None);
+                    st.effect.rows.inner().set(Vec::new());
+                    crate::request_remount();
+                    reload_list(crate::state::EFFECT_SPEC, &st.effect);
+                }
+                Err(e) => {
+                    ed.saving.inner().set(false);
+                    ed.err.inner().set(Some(format!("保存失败：{e}")));
+                    crate::request_remount();
+                }
+            }
+        });
+    if editing.is_some() {
+        crate::api::set_entity("effect_data", body, on_done);
+    } else {
+        crate::api::insert_entity("effect_data", body, on_done);
+    }
+}
+
+fn effect_editor_modal(st: &AppState) -> VNode {
+    let ed = st.effect_editor.clone();
+    if !ed.open.get() {
+        return VNode::empty();
+    }
+    let editing = ed.editing_id.get();
+    let title = match editing {
+        Some(id) => format!("编辑效果 #{id}"),
+        None => "新增效果".to_string(),
+    };
+    let saving = ed.saving.get();
+    let err = ed.err.get();
+    let kind = ed.kind.get();
+    let save_label = if saving { "保存中..." } else { "保存" };
+
+    let mut kind_opts: Vec<VNode> = Vec::new();
+    for (code, label) in EFFECT_KIND_OPTIONS {
+        kind_opts.push(rsx! {
+            option { value: code, selected: code == kind, "{label}" }
+        });
+    }
+
+    let err_block = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-efx-overlay": "1",
+            div { class: "adm-editor-modal",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-efx-close": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    div { class: "adm-editor-grid",
+                        label { class: "adm-editor-field",
+                            span { "效果码（唯一标识）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "text",
+                                value: ed.code.get(),
+                                "data-pm-adm-efx-f": "code"
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "类型" }
+                            select {
+                                class: "adm-filter-input",
+                                "data-pm-adm-efx-f": "kind",
+                                for i in 0..kind_opts.len() {
+                                    ..vec![kind_opts[i].clone()]
+                                }
+                            }
+                        }
+                        label { class: "adm-editor-field",
+                            span { "版本（≥1）" }
+                            input {
+                                class: "adm-filter-input",
+                                r#type: "number",
+                                min: "1",
+                                value: ed.version.get(),
+                                "data-pm-adm-efx-f": "version"
+                            }
+                        }
+                    }
+                    label { class: "adm-editor-field adm-editor-wide",
+                        span { "描述" }
+                        textarea {
+                            class: "adm-editor-textarea",
+                            rows: 2,
+                            "data-pm-adm-efx-f": "description",
+                            "{ed.description.get()}"
+                        }
+                    }
+                    label { class: "adm-editor-field adm-editor-wide",
+                        span { "钩子 JSON（非空数组，如 on_before_move / on_hit / on_after_move / on_turn_end …）" }
+                        textarea {
+                            class: "adm-editor-textarea",
+                            rows: 4,
+                            "data-pm-adm-efx-f": "hooks",
+                            "{ed.hooks_json.get()}"
+                        }
+                    }
+                    label { class: "adm-editor-field adm-editor-wide",
+                        span { "参数 JSON（对象，必须含非空 code 键 = 核心效果码）" }
+                        textarea {
+                            class: "adm-editor-textarea",
+                            rows: 8,
+                            "data-pm-adm-efx-f": "params",
+                            "{ed.params_json.get()}"
+                        }
+                    }
+                    ..vec![err_block]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: saving,
+                        "data-pm-adm-efx-close": "1",
+                        "取消"
+                    }
+                    button {
+                        class: "admin-btn admin-btn-primary",
+                        disabled: saving,
+                        "data-pm-adm-efx-save": "1",
+                        "{save_label}"
+                    }
+                }
+            }
         }
     }
 }

@@ -716,6 +716,87 @@ impl std::fmt::Debug for GrantState {
     }
 }
 
+/// 行删除确认弹窗状态（切片 15）。
+///
+/// 六个数据实体（宝可梦/物品/地图/进化链/技能/效果）共用一个确认弹窗：
+/// 行按钮只带 `page:id`，实体名与行名在打开时从列表状态里解析，确认后
+/// 按 page 键路由到对应实体的 `delete::` 端点并整表刷新。
+/// 用户数据页没有行删除（Dioxus 版同样没有 delete::user_info 调用）。
+#[derive(Clone)]
+pub struct DeleteState {
+    pub open: ReactiveSignal<bool>,
+    /// 页键：pk / it / mp / ev / sk / ef。
+    pub page: ReactiveSignal<String>,
+    pub id: ReactiveSignal<Option<u64>>,
+    /// 确认弹窗里展示的行名（解析不到时退化为 #id）。
+    pub label: ReactiveSignal<String>,
+    pub busy: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl DeleteState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            page: use_signal(String::new),
+            id: use_signal(|| None),
+            label: use_signal(String::new),
+            busy: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for DeleteState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DeleteState").finish()
+    }
+}
+
+/// 效果数据编辑弹窗状态（切片 15）。
+///
+/// 服务端载荷：`{id, code, kind, hooks, params, description, version}`。
+/// `hooks` 必须是非空数组（触发时机），`params` 必须是含 `code` 键的对象
+/// （核心效果码）——两者都以 JSON 文本框承载，校验交给服务端的
+/// `build_effect_declaration`，前端只拦 JSON 解析失败与空 code。
+#[derive(Clone)]
+pub struct EffectEditorState {
+    pub open: ReactiveSignal<bool>,
+    pub editing_id: ReactiveSignal<Option<u64>>,
+    pub code: ReactiveSignal<String>,
+    /// move / ability / item / weather / field / status
+    pub kind: ReactiveSignal<String>,
+    pub hooks_json: ReactiveSignal<String>,
+    pub params_json: ReactiveSignal<String>,
+    pub description: ReactiveSignal<String>,
+    pub version: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl EffectEditorState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            editing_id: use_signal(|| None),
+            code: use_signal(String::new),
+            kind: use_signal(|| "move".to_string()),
+            hooks_json: use_signal(|| "[]".to_string()),
+            params_json: use_signal(|| "{\n  \"code\": \"\"\n}".to_string()),
+            description: use_signal(String::new),
+            version: use_signal(|| "1".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for EffectEditorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EffectEditorState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -736,6 +817,8 @@ pub struct AppState {
     pub evolution_editor: EvolutionEditorState,
     pub grant: GrantState,
     pub config_form: ConfigFormState,
+    pub delete: DeleteState,
+    pub effect_editor: EffectEditorState,
 }
 
 impl AppState {
@@ -758,6 +841,8 @@ impl AppState {
             evolution_editor: EvolutionEditorState::new(),
             grant: GrantState::new(),
             config_form: ConfigFormState::new(),
+            delete: DeleteState::new(),
+            effect_editor: EffectEditorState::new(),
         }
     }
 }
