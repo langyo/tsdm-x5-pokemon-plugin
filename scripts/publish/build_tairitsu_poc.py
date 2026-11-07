@@ -490,21 +490,34 @@ def write_boot_assets() -> None:
       var callbacks = pending;
       pending = [];
       for (var i = 0; i < callbacks.length; i++) {{
+        if (!callbacks[i].cb) continue;  // 已 cancel 的帧
         window.__tairitsuFrames.ran++;
         try {{
-          callbacks[i](performance.now());
+          callbacks[i].cb(performance.now());
         }} catch (err) {{
           console.error('[tairitsu] frame callback failed', err);
         }}
       }}
     }};
+    // 帧调度带真 cancel：id 单调递增，pending 存 {{id, cb}}；cancel 按 id
+    // 置空（取消的帧不再投递，也不计入 ran）。组件侧
+    // TimerOps::cancel_animation_frame 由此真正生效。
+    var rafSeq = 0;
     window.requestAnimationFrame = function (cb) {{
       window.__tairitsuFrames.scheduled++;
-      pending.push(cb);
+      var id = ++rafSeq;
+      pending.push({{ id: id, cb: cb }});
       channel.port2.postMessage(0);
-      return pending.length;
+      return id;
     }};
-    window.cancelAnimationFrame = function () {{}};
+    window.cancelAnimationFrame = function (id) {{
+      for (var i = 0; i < pending.length; i++) {{
+        if (pending[i].id === id) {{
+          pending[i].cb = null;
+          return;
+        }}
+      }}
+    }};
   }}
 
   globalThis.__setWasmExports = globalThis.__setWasmExports || function (e) {{

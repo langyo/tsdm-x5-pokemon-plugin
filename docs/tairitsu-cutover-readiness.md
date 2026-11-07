@@ -99,14 +99,15 @@
    geckodriver；Safari 无 Windows 版
 4. **构建产物就绪**：`plugin/wasm2/` 由 `build_tairitsu_admin.py` /
    `build_tairitsu_poc.py` / `build_tairitsu_cap.py`（能力探针）产出，
-   vendored glue 已含上游 #124/#127 修复（rev `3e4c17d`）
+   vendored glue 已含上游 #124/#127/#128 修复（rev `49e4d0c`）
 
 ## 六、风险与长期项
 
 | 风险 | 等级 | 处置 |
 | --- | --- | --- |
-| 整树重挂在超大列表上的上限 | 低 | 实测 1126 行 <1s；若未来列表量级增长可加分页/虚拟化 |
-| 上游 tairitsu 锁定 git rev `8f7a36c`（vendored） | 低 | 无运行时依赖上游发版；升级=显式重跑 vendor 流程 |
+| ~~整树重挂在超大列表上的上限~~ | 已消除 | diff/patch 管线（§10.1.5）：1126 行弹窗 51/24ms |
+| 上游 tairitsu 锁定 git rev `49e4d0c`（vendored） | 低 | 无运行时依赖上游发版；升级=显式重跑 vendor 流程；#126/#127/#128 均为本仓库提交 |
+| ~~diff 基线与活 DOM 无对账~~ | 已消除 | reconcile 守卫（#128）：子数漂移自动发现 + 原位修复，实测注入漂移可自愈 |
 | 效果编辑器 hooks/params 为 JSON 文本框 | 低 | 服务端严格校验兜底，错误原因透出到弹窗 |
 | Discuz 论坛主题对 `#app` 容器的样式干扰 | 低 | 现双前端已同壳运行多月，未见冲突 |
 | Dioxus 版退役后 `plugin/wasm/` 目录 | 信息 | 确认稳定一个版本周期后可删除 |

@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/element
-import { INTERFACES } from '../glue/dom/index.js?v=1794089442';
+import { INTERFACES } from '../glue/dom/index.js?v=1794091609';
 const obj = INTERFACES['@tairitsu-glue/element'];
 export const closest = obj.closest;
 export const getAttribute = obj.getAttribute;

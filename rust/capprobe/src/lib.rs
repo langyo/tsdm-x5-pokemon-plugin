@@ -551,10 +551,7 @@ fn run_test(state: &CapState, idx: usize, done: Done) {
                 p2.set_timeout(
                     Box::new(move || {
                         if f3.get() {
-                            done(
-                                CapStatus::Skip,
-                                "取消后仍触发：boot.js 的 MessageChannel 帧驱动把 cancel 实现为 no-op（驱动缺口，非组件能力）".into(),
-                            );
+                            done(CapStatus::Fail, "取消后仍触发".into());
                         } else {
                             done(CapStatus::Pass, "取消后未触发".into());
                         }

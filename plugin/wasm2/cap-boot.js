@@ -8,15 +8,15 @@
 (function () {
   'use strict';
 
-  var BUILD_ID = '1794089472';
-  var GLUE_CORE_ID = '1794089536';
+  var BUILD_ID = '1794091537';
+  var GLUE_CORE_ID = '1794091582';
   var BASE = '/source/plugin/pokemon/wasm2';
 
   // importmap 必须在任何 module 载入前注册，且每页只能有一个。
   if (!document.querySelector('script[type="importmap"]')) {
     var map = document.createElement('script');
     map.type = 'importmap';
-    map.textContent = JSON.stringify({ imports: {"@bytecodealliance/preview2-shim/cli": "/source/plugin/pokemon/wasm2/wasi/cli.js?v=1794089472", "@bytecodealliance/preview2-shim/clocks": "/source/plugin/pokemon/wasm2/wasi/clocks.js?v=1794089472", "@bytecodealliance/preview2-shim/io": "/source/plugin/pokemon/wasm2/wasi/io.js?v=1794089472", "@bytecodealliance/preview2-shim/random": "/source/plugin/pokemon/wasm2/wasi/random.js?v=1794089472", "tairitsu-browser:full/css-style-declaration": "/source/plugin/pokemon/wasm2/shims/css-style-declaration.js?v=1794089472", "tairitsu-browser:full/document": "/source/plugin/pokemon/wasm2/shims/document.js?v=1794089472", "tairitsu-browser:full/dom-token-list": "/source/plugin/pokemon/wasm2/shims/dom-token-list.js?v=1794089472", "tairitsu-browser:full/element": "/source/plugin/pokemon/wasm2/shims/element.js?v=1794089472", "tairitsu-browser:full/element-css-inline-style": "/source/plugin/pokemon/wasm2/shims/element-css-inline-style.js?v=1794089472", "tairitsu-browser:full/event": "/source/plugin/pokemon/wasm2/shims/event.js?v=1794089472", "tairitsu-browser:full/event-target": "/source/plugin/pokemon/wasm2/shims/event-target.js?v=1794089472", "tairitsu-browser:full/html-input-element": "/source/plugin/pokemon/wasm2/shims/html-input-element.js?v=1794089472", "tairitsu-browser:full/mouse-event": "/source/plugin/pokemon/wasm2/shims/mouse-event.js?v=1794089472", "tairitsu-browser:full/node": "/source/plugin/pokemon/wasm2/shims/node.js?v=1794089472", "tairitsu-browser:full/node-list": "/source/plugin/pokemon/wasm2/shims/node-list.js?v=1794089472", "tairitsu-browser:full/non-element-parent-node": "/source/plugin/pokemon/wasm2/shims/non-element-parent-node.js?v=1794089472", "tairitsu-browser:full/parent-node": "/source/plugin/pokemon/wasm2/shims/parent-node.js?v=1794089472", "tairitsu-browser:full/platform-helpers": "/source/plugin/pokemon/wasm2/shims/platform-helpers.js?v=1794089472", "tairitsu-browser:full/pointer-event": "/source/plugin/pokemon/wasm2/shims/pointer-event.js?v=1794089472", "tairitsu-browser:full/wheel-event": "/source/plugin/pokemon/wasm2/shims/wheel-event.js?v=1794089472", "tairitsu-browser:full/window": "/source/plugin/pokemon/wasm2/shims/window.js?v=1794089472", "tairitsu-browser:full/history": "/source/plugin/pokemon/wasm2/shims/history.js?v=1794089472", "tairitsu-browser:full/location": "/source/plugin/pokemon/wasm2/shims/location.js?v=1794089472", "tairitsu-browser:full/mutation-observer": "/source/plugin/pokemon/wasm2/shims/mutation-observer.js?v=1794089472", "tairitsu-browser:full/resize-observer": "/source/plugin/pokemon/wasm2/shims/resize-observer.js?v=1794089472", "tairitsu-browser:full/media-query-list": "/source/plugin/pokemon/wasm2/shims/media-query-list.js?v=1794089472", "tairitsu-browser:full/html-canvas-element": "/source/plugin/pokemon/wasm2/shims/html-canvas-element.js?v=1794089472", "tairitsu-browser:full/canvas-rect": "/source/plugin/pokemon/wasm2/shims/canvas-rect.js?v=1794089472", "tairitsu-browser:full/canvas-fill-stroke-styles": "/source/plugin/pokemon/wasm2/shims/canvas-fill-stroke-styles.js?v=1794089472"} });
+    map.textContent = JSON.stringify({ imports: {"@bytecodealliance/preview2-shim/cli": "/source/plugin/pokemon/wasm2/wasi/cli.js?v=1794091537", "@bytecodealliance/preview2-shim/clocks": "/source/plugin/pokemon/wasm2/wasi/clocks.js?v=1794091537", "@bytecodealliance/preview2-shim/io": "/source/plugin/pokemon/wasm2/wasi/io.js?v=1794091537", "@bytecodealliance/preview2-shim/random": "/source/plugin/pokemon/wasm2/wasi/random.js?v=1794091537", "tairitsu-browser:full/css-style-declaration": "/source/plugin/pokemon/wasm2/shims/css-style-declaration.js?v=1794091537", "tairitsu-browser:full/document": "/source/plugin/pokemon/wasm2/shims/document.js?v=1794091537", "tairitsu-browser:full/dom-token-list": "/source/plugin/pokemon/wasm2/shims/dom-token-list.js?v=1794091537", "tairitsu-browser:full/element": "/source/plugin/pokemon/wasm2/shims/element.js?v=1794091537", "tairitsu-browser:full/element-css-inline-style": "/source/plugin/pokemon/wasm2/shims/element-css-inline-style.js?v=1794091537", "tairitsu-browser:full/event": "/source/plugin/pokemon/wasm2/shims/event.js?v=1794091537", "tairitsu-browser:full/event-target": "/source/plugin/pokemon/wasm2/shims/event-target.js?v=1794091537", "tairitsu-browser:full/html-input-element": "/source/plugin/pokemon/wasm2/shims/html-input-element.js?v=1794091537", "tairitsu-browser:full/mouse-event": "/source/plugin/pokemon/wasm2/shims/mouse-event.js?v=1794091537", "tairitsu-browser:full/node": "/source/plugin/pokemon/wasm2/shims/node.js?v=1794091537", "tairitsu-browser:full/node-list": "/source/plugin/pokemon/wasm2/shims/node-list.js?v=1794091537", "tairitsu-browser:full/non-element-parent-node": "/source/plugin/pokemon/wasm2/shims/non-element-parent-node.js?v=1794091537", "tairitsu-browser:full/parent-node": "/source/plugin/pokemon/wasm2/shims/parent-node.js?v=1794091537", "tairitsu-browser:full/platform-helpers": "/source/plugin/pokemon/wasm2/shims/platform-helpers.js?v=1794091537", "tairitsu-browser:full/pointer-event": "/source/plugin/pokemon/wasm2/shims/pointer-event.js?v=1794091537", "tairitsu-browser:full/wheel-event": "/source/plugin/pokemon/wasm2/shims/wheel-event.js?v=1794091537", "tairitsu-browser:full/window": "/source/plugin/pokemon/wasm2/shims/window.js?v=1794091537", "tairitsu-browser:full/history": "/source/plugin/pokemon/wasm2/shims/history.js?v=1794091537", "tairitsu-browser:full/location": "/source/plugin/pokemon/wasm2/shims/location.js?v=1794091537", "tairitsu-browser:full/mutation-observer": "/source/plugin/pokemon/wasm2/shims/mutation-observer.js?v=1794091537", "tairitsu-browser:full/resize-observer": "/source/plugin/pokemon/wasm2/shims/resize-observer.js?v=1794091537", "tairitsu-browser:full/media-query-list": "/source/plugin/pokemon/wasm2/shims/media-query-list.js?v=1794091537", "tairitsu-browser:full/html-canvas-element": "/source/plugin/pokemon/wasm2/shims/html-canvas-element.js?v=1794091537", "tairitsu-browser:full/canvas-rect": "/source/plugin/pokemon/wasm2/shims/canvas-rect.js?v=1794091537", "tairitsu-browser:full/canvas-fill-stroke-styles": "/source/plugin/pokemon/wasm2/shims/canvas-fill-stroke-styles.js?v=1794091537"} });
     document.head.appendChild(map);
   }
 
@@ -35,21 +35,34 @@
       var callbacks = pending;
       pending = [];
       for (var i = 0; i < callbacks.length; i++) {
+        if (!callbacks[i].cb) continue;  // 已 cancel 的帧
         window.__tairitsuFrames.ran++;
         try {
-          callbacks[i](performance.now());
+          callbacks[i].cb(performance.now());
         } catch (err) {
           console.error('[tairitsu] frame callback failed', err);
         }
       }
     };
+    // 帧调度带真 cancel：id 单调递增，pending 存 {id, cb}；cancel 按 id
+    // 置空（取消的帧不再投递，也不计入 ran）。组件侧
+    // TimerOps::cancel_animation_frame 由此真正生效。
+    var rafSeq = 0;
     window.requestAnimationFrame = function (cb) {
       window.__tairitsuFrames.scheduled++;
-      pending.push(cb);
+      var id = ++rafSeq;
+      pending.push({ id: id, cb: cb });
       channel.port2.postMessage(0);
-      return pending.length;
+      return id;
     };
-    window.cancelAnimationFrame = function () {};
+    window.cancelAnimationFrame = function (id) {
+      for (var i = 0; i < pending.length; i++) {
+        if (pending[i].id === id) {
+          pending[i].cb = null;
+          return;
+        }
+      }
+    };
   }
 
   globalThis.__setWasmExports = globalThis.__setWasmExports || function (e) {

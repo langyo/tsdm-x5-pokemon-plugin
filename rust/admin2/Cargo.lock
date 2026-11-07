@@ -2467,7 +2467,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-browser-worlds"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=3e4c17d#3e4c17dde811a357714188dbd8477b1df837625e"
+source = "git+https://github.com/celestia-island/tairitsu?rev=49e4d0c#49e4d0ca756b15b78c9285d95542bbebd6108821"
 dependencies = [
  "anyhow",
 ]
@@ -2475,7 +2475,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-hooks"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=3e4c17d#3e4c17dde811a357714188dbd8477b1df837625e"
+source = "git+https://github.com/celestia-island/tairitsu?rev=49e4d0c#49e4d0ca756b15b78c9285d95542bbebd6108821"
 dependencies = [
  "anyhow",
  "tairitsu-vdom",
@@ -2487,7 +2487,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-macros"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=3e4c17d#3e4c17dde811a357714188dbd8477b1df837625e"
+source = "git+https://github.com/celestia-island/tairitsu?rev=49e4d0c#49e4d0ca756b15b78c9285d95542bbebd6108821"
 dependencies = [
  "grass",
  "hex",
@@ -2503,7 +2503,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-style"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=3e4c17d#3e4c17dde811a357714188dbd8477b1df837625e"
+source = "git+https://github.com/celestia-island/tairitsu?rev=49e4d0c#49e4d0ca756b15b78c9285d95542bbebd6108821"
 dependencies = [
  "pest",
  "pest_derive",
@@ -2517,7 +2517,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-vdom"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=3e4c17d#3e4c17dde811a357714188dbd8477b1df837625e"
+source = "git+https://github.com/celestia-island/tairitsu?rev=49e4d0c#49e4d0ca756b15b78c9285d95542bbebd6108821"
 dependencies = [
  "anyhow",
  "serde",
@@ -2528,7 +2528,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-web"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=3e4c17d#3e4c17dde811a357714188dbd8477b1df837625e"
+source = "git+https://github.com/celestia-island/tairitsu?rev=49e4d0c#49e4d0ca756b15b78c9285d95542bbebd6108821"
 dependencies = [
  "anyhow",
  "serde",

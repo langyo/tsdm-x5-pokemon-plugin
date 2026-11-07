@@ -724,9 +724,28 @@ OutputStream resource"）。诊断输出必须走 DOM 属性（本仓库的
    entries 必须是 WIT record（句柄数组会被记录校验拒掉）；
    history pushState/replaceState 单参形态兼容。
 
-**最终结果：39 Pass / 0 Fail / 9 Skip**（每个 Skip 带理由：headless
-剪贴板/地理权限、无视频源、无 input.files→blob 句柄获取途径、
-MessageChannel 帧驱动的 cancel 缺口）。修复前：33/10/5 且两处 trap。
+**最终结果：40 Pass / 0 Fail / 8 Skip**（每个 Skip 带理由：headless
+剪贴板/地理权限、无视频源、无 input.files→blob 句柄获取途径）。
+修复前：33/10/5 且两处 trap。
+
+**后续补齐（2026-11-08 第二批）**：
+
+- **rAF 帧驱动真 cancel**：boot 模板的 MessageChannel 驱动从
+  「pending 数组 + cancel no-op」升级为「单调 id + 按 id 置空」，
+  `TimerOps::cancel_animation_frame` 真正生效，探针
+  timer/cancelAnimationFrame 由 Skip 转 Pass（40/0/8）。
+- **reconcile 守卫（上游 celestia-island/tairitsu#128 已合入，本仓库
+  rev 锁定 `49e4d0c`）**：§10.1.5 记录的「diff 基线是 stored vnode、
+  apply 目标是活 DOM、无对账机制」边界自此关闭——每批补丁落地后，
+  runtime 把（组件, 期望根子数, 新 vnode）交给 web 层守卫；守卫实测
+  DOM 根子数，不一致即 warn + 原位重建（保留根元素身份，嵌入方的
+  patch 锚点不失效）。O(1) 开销。实测：正常增量批次零误触（补丁
+  1→4→5 全程增量），人为删除根子节点制造的漂移在下一帧被发现并
+  修复（子数回到期望、页面功能完好）。三组件在 `49e4d0c` 复验：
+  探针 40/0/8、admin2 八路由 ALL DONE、game2 背包搜索精确、
+  战斗启动/回合有服务端行级证据（battle 14 fled / 15 victory /
+  16 defeat——bturn 脚本超时是战斗 RNG（弱宠战败自动结束），非管线
+  回归）。
 
 **Firefox 抽测（尝试记录）**：本机装有 Firefox，但其 CDP 端点已在上游
 移除（--remote-debugging-port 不监听）、--screenshot 模式被站点自签
