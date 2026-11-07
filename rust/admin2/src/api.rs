@@ -204,6 +204,30 @@ pub fn insert_entity(
     );
 }
 
+/// `list::pokemon_info` / `list::item_info`：按用户取实例列表。
+///
+/// dispatch 对这两个实体走特殊分支——`list_<entity>(uid, from, count)`，
+/// `uid` 是必带参数（不同于普通实体的 from/count 分页）。
+pub fn list_user_instances(
+    entity: &str,
+    uid: u64,
+    on_done: Box<dyn FnOnce(Result<Vec<Value>, String>)>,
+) {
+    let body = serde_json::json!({
+        "action": format!("list::{entity}"),
+        "uid": uid.to_string(),
+        "from": "0",
+        "count": "100",
+    })
+    .to_string();
+    request(
+        body,
+        Box::new(|result: Result<Value, String>| {
+            on_done(result.and_then(|data| extract_items(&data)))
+        }),
+    );
+}
+
 /// `delete::<entity>`（id 为路径参数；dispatch 端按 `params["id"]` 取整数）。
 pub fn delete_entity(entity: &str, id: u64, on_done: Box<dyn FnOnce(Result<(), String>)>) {
     let body = serde_json::json!({

@@ -797,6 +797,170 @@ impl std::fmt::Debug for EffectEditorState {
     }
 }
 
+/// 用户宠物实例编辑弹窗状态（切片 16）。
+///
+/// 对应 Dioxus 的 EditPokemonInfoModal / `set::pokemon_info`。owner 固定
+/// 不可改（服务端禁止改持有者），技能列表以 JSON 文本框承载
+/// （`[{type_id, count}]`，服务端逐条校验存在性）。
+#[derive(Clone)]
+pub struct InstancePmEditorState {
+    pub open: ReactiveSignal<bool>,
+    pub editing_id: ReactiveSignal<Option<u64>>,
+    /// 只读展示：种族 id 与名。
+    pub type_id: ReactiveSignal<u64>,
+    pub owner: ReactiveSignal<u64>,
+    pub name: ReactiveSignal<String>,
+    /// header / bag / store / hospital
+    pub site: ReactiveSignal<String>,
+    /// male / female / unknown
+    pub sex: ReactiveSignal<String>,
+    /// normal / critical / sick1 ... / dead / weak3（服务端标签或 0-22 数字）
+    pub status: ReactiveSignal<String>,
+    pub is_shiny: ReactiveSignal<bool>,
+    pub level: ReactiveSignal<String>,
+    pub experience: ReactiveSignal<String>,
+    pub intimacy: ReactiveSignal<String>,
+    pub using_ball_id: ReactiveSignal<String>,
+    /// 六项个体值（statistic）。
+    pub stat: ReactiveSignal<[String; 6]>,
+    /// 六项努力值（base_points）。
+    pub base: ReactiveSignal<[String; 6]>,
+    /// 四个装备槽（armor_slots_id，0 = 空）。
+    pub armor: ReactiveSignal<[String; 4]>,
+    pub skills_json: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl InstancePmEditorState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            editing_id: use_signal(|| None),
+            type_id: use_signal(|| 0u64),
+            owner: use_signal(|| 0u64),
+            name: use_signal(String::new),
+            site: use_signal(|| "store".to_string()),
+            sex: use_signal(|| "male".to_string()),
+            status: use_signal(|| "normal".to_string()),
+            is_shiny: use_signal(|| false),
+            level: use_signal(|| "1".to_string()),
+            experience: use_signal(|| "0".to_string()),
+            intimacy: use_signal(|| "0".to_string()),
+            using_ball_id: use_signal(|| "1".to_string()),
+            stat: use_signal(|| std::array::from_fn(|_| "0".to_string())),
+            base: use_signal(|| std::array::from_fn(|_| "0".to_string())),
+            armor: use_signal(|| std::array::from_fn(|_| "0".to_string())),
+            skills_json: use_signal(|| "[]".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for InstancePmEditorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InstancePmEditorState").finish()
+    }
+}
+
+/// 用户物品实例编辑弹窗状态（切片 16，`set::item_info`）。
+#[derive(Clone)]
+pub struct InstanceItemEditorState {
+    pub open: ReactiveSignal<bool>,
+    pub editing_id: ReactiveSignal<Option<u64>>,
+    pub owner: ReactiveSignal<u64>,
+    pub type_id: ReactiveSignal<String>,
+    pub count: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl InstanceItemEditorState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            editing_id: use_signal(|| None),
+            owner: use_signal(|| 0u64),
+            type_id: use_signal(String::new),
+            count: use_signal(|| "1".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for InstanceItemEditorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InstanceItemEditorState").finish()
+    }
+}
+
+/// 用户下钻弹窗状态（切片 16）：某用户的宠物/物品实例管理。
+///
+/// 打开时拉两份实例列表（`list::pokemon_info` / `list::item_info` 带 uid）
+/// 与两份类型目录（种族名 / 物品名+类型，Dioxus 同样预载目录用于展示与
+/// 物品 tab 过滤；目录只拉一次缓存复用）。
+#[derive(Clone)]
+pub struct UserDrillState {
+    pub open: ReactiveSignal<bool>,
+    pub uid: ReactiveSignal<u64>,
+    pub loading: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+    pub pm_rows: ReactiveSignal<Vec<serde_json::Value>>,
+    pub item_rows: ReactiveSignal<Vec<serde_json::Value>>,
+    /// (id, name) 种族目录。
+    pub pm_catalog: ReactiveSignal<Vec<(u64, String)>>,
+    /// (id, name, tag_kind) 物品目录——tab 过滤按 tag。
+    pub item_catalog: ReactiveSignal<Vec<(u64, String, String)>>,
+    pub catalog_loaded: ReactiveSignal<bool>,
+    /// all / bag / store
+    pub pm_tab: ReactiveSignal<String>,
+    /// all / drug / ball / evolution / enhance / armor / special
+    pub item_tab: ReactiveSignal<String>,
+    /// 实例删除确认：pm 或 item。
+    pub del_open: ReactiveSignal<bool>,
+    pub del_kind: ReactiveSignal<String>,
+    pub del_id: ReactiveSignal<Option<u64>>,
+    pub del_label: ReactiveSignal<String>,
+    pub del_busy: ReactiveSignal<bool>,
+    pub del_err: ReactiveSignal<Option<String>>,
+    pub pm_editor: InstancePmEditorState,
+    pub item_editor: InstanceItemEditorState,
+}
+
+impl UserDrillState {
+    pub fn new() -> Self {
+        Self {
+            open: use_signal(|| false),
+            uid: use_signal(|| 0u64),
+            loading: use_signal(|| false),
+            err: use_signal(|| None),
+            pm_rows: use_signal(Vec::new),
+            item_rows: use_signal(Vec::new),
+            pm_catalog: use_signal(Vec::new),
+            item_catalog: use_signal(Vec::new),
+            catalog_loaded: use_signal(|| false),
+            pm_tab: use_signal(|| "all".to_string()),
+            item_tab: use_signal(|| "all".to_string()),
+            del_open: use_signal(|| false),
+            del_kind: use_signal(String::new),
+            del_id: use_signal(|| None),
+            del_label: use_signal(String::new),
+            del_busy: use_signal(|| false),
+            del_err: use_signal(|| None),
+            pm_editor: InstancePmEditorState::new(),
+            item_editor: InstanceItemEditorState::new(),
+        }
+    }
+}
+
+impl std::fmt::Debug for UserDrillState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserDrillState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
@@ -819,6 +983,7 @@ pub struct AppState {
     pub config_form: ConfigFormState,
     pub delete: DeleteState,
     pub effect_editor: EffectEditorState,
+    pub drill: UserDrillState,
 }
 
 impl AppState {
@@ -843,6 +1008,7 @@ impl AppState {
             config_form: ConfigFormState::new(),
             delete: DeleteState::new(),
             effect_editor: EffectEditorState::new(),
+            drill: UserDrillState::new(),
         }
     }
 }

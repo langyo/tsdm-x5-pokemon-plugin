@@ -84,6 +84,10 @@ pub fn install(app: &WitElement, state: &AppState) {
                     }
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-efx-f") {
                     crate::pages::set_effect_editor_field(&st, &key, &ev.value);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-ipef") {
+                    crate::pages::set_pm_instance_field(&st, &key, &ev.value);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-iief") {
+                    crate::pages::set_item_instance_field(&st, &key, &ev.value);
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -363,6 +367,101 @@ fn dispatch_click(state: &AppState, target: u64) {
     if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-del-overlay") {
         if hit == target {
             crate::pages::close_delete_confirm(state);
+        }
+        return;
+    }
+    // 用户下钻（drill）：实例编辑器/删除确认的按钮必须先于下钻内部按钮与
+    // 遮罩（三个弹窗同屏叠放，find_with_attr 会向上穿过遮罩）。
+    if find_with_attr(target, "data-pm-adm-ipe-save").is_some() {
+        crate::pages::submit_pm_instance_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-ipe-close").is_some() {
+        crate::pages::close_pm_instance_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-ipe-shiny").is_some() {
+        crate::pages::toggle_pm_instance_shiny(state);
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-ipe-overlay") {
+        if hit == target {
+            crate::pages::close_pm_instance_editor(state);
+        }
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-ipe-edit") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::open_pm_instance_edit(state, id);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-iie-save").is_some() {
+        crate::pages::submit_item_instance_editor(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-iie-close").is_some() {
+        crate::pages::close_item_instance_editor(state);
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-iie-overlay") {
+        if hit == target {
+            crate::pages::close_item_instance_editor(state);
+        }
+        return;
+    }
+    if let Some((_, id)) = find_with_attr(target, "data-pm-adm-iie-edit") {
+        if let Ok(id) = id.trim().parse::<u64>() {
+            crate::pages::open_item_instance_edit(state, id);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-idel-ok").is_some() {
+        crate::pages::submit_instance_delete(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-idel-cancel").is_some() {
+        crate::pages::close_instance_delete(state);
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-idel-overlay") {
+        if hit == target {
+            crate::pages::close_instance_delete(state);
+        }
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-adm-idel") {
+        if let Some((kind, id)) = v.split_once(':') {
+            if let Ok(id) = id.trim().parse::<u64>() {
+                crate::pages::open_instance_delete(state, kind, id);
+            }
+        }
+        return;
+    }
+    // 下钻弹窗内部（tab/刷新/行编辑引用由上面的编辑器分支兜住）。
+    if let Some((_, v)) = find_with_attr(target, "data-pm-adm-drill-tab") {
+        if let Some((kind, tab)) = v.split_once(':') {
+            crate::pages::set_drill_tab(state, kind, tab);
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-drill-refresh").is_some() {
+        crate::pages::refresh_drill(state, "all");
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-drill-close").is_some() {
+        crate::pages::close_drill(state);
+        return;
+    }
+    if let Some((_, uid)) = find_with_attr(target, "data-pm-adm-drill") {
+        if let Ok(uid) = uid.trim().parse::<u64>() {
+            crate::pages::open_drill(state, uid);
+        }
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-drill-overlay") {
+        if hit == target {
+            crate::pages::close_drill(state);
         }
         return;
     }

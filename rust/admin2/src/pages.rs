@@ -1376,8 +1376,14 @@ fn user_data_page(st: &AppState) -> VNode {
                                     button {
                                         class: "admin-btn adm-row-edit",
                                         disabled: busy,
-                                        "data-pm-adm-grant-item": uid,
+                                        "data-pm-adm-grant-item": uid.clone(),
                                         "给物品"
+                                    }
+                                    button {
+                                        class: "admin-btn",
+                                        disabled: busy,
+                                        "data-pm-adm-drill": uid,
+                                        "管理"
                                     }
                                 }
                             }
@@ -1485,7 +1491,7 @@ fn user_data_page(st: &AppState) -> VNode {
                     "刷新"
                 }
             }
-            ..vec![body, grant_modal(st)]
+            ..vec![body, grant_modal(st), user_drill_modal(st)]
         }
     }
 }
@@ -6007,6 +6013,1169 @@ fn effect_editor_modal(st: &AppState) -> VNode {
                     }
                 }
             }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 用户下钻：宠物/物品实例管理（切片 16）
+// ---------------------------------------------------------------------------
+
+/// 宠物状态标签（与 Dioxus 的 status_options 同表；服务端同时认 0-22 数字）。
+const PM_STATUS_OPTIONS: [(&str, &str); 23] = [
+    ("critical", "濒危"),
+    ("normal", "正常"),
+    ("sick1", "生病一"),
+    ("sick2", "生病二"),
+    ("sick3", "生病三"),
+    ("hungry1", "饥饿一"),
+    ("hungry2", "饥饿二"),
+    ("tired", "疲惫"),
+    ("excited1", "兴奋一"),
+    ("excited2", "兴奋二"),
+    ("excited3", "兴奋三"),
+    ("hurt", "受伤"),
+    ("happy1", "快乐一"),
+    ("happy2", "快乐二"),
+    ("happy3", "快乐三"),
+    ("shock", "惊慌"),
+    ("self_love1", "自恋一"),
+    ("self_love2", "自恋二"),
+    ("angry1", "愤怒一"),
+    ("angry2", "愤怒二"),
+    ("dead", "虚弱一"),
+    ("weak2", "虚弱二"),
+    ("weak3", "虚弱三"),
+];
+
+/// 宠物位置（site）载荷值 → 中文名。
+fn pm_site_name(site: &str) -> &'static str {
+    match site {
+        "header" => "跟随",
+        "bag" => "背包",
+        "hospital" => "医院",
+        _ => "仓库",
+    }
+}
+
+/// 物品 tag_kind → tab 键（物品 tab 过滤用，与 Dioxus 的 ItemTab 对齐）。
+fn item_tag_kind(tag: &serde_json::Value) -> String {
+    tag.as_object()
+        .and_then(|obj| obj.keys().next())
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// 拉某用户的两份实例列表。
+fn drill_load_lists(state: &AppState) {
+    let dr = state.drill.clone();
+    if dr.loading.get() {
+        return;
+    }
+    let uid = dr.uid.get();
+    dr.loading.inner().set(true);
+    dr.err.inner().set(None);
+    crate::request_remount();
+    let st1 = state.clone();
+    crate::api::list_user_instances(
+        "pokemon_info",
+        uid,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let dr = st1.drill.clone();
+            match result {
+                Ok(rows) => dr.pm_rows.inner().set(rows),
+                Err(e) => dr.err.inner().set(Some(format!("宠物列表加载失败：{e}"))),
+            }
+            dr.loading.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+    let st2 = state.clone();
+    crate::api::list_user_instances(
+        "item_info",
+        uid,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let dr = st2.drill.clone();
+            match result {
+                Ok(rows) => dr.item_rows.inner().set(rows),
+                Err(e) => dr.err.inner().set(Some(format!("物品列表加载失败：{e}"))),
+            }
+            crate::request_remount();
+        }),
+    );
+}
+
+/// 拉类型目录（种族名 / 物品名+tag），只拉一次缓存。
+fn drill_load_catalogs(state: &AppState) {
+    let dr = state.drill.clone();
+    if dr.catalog_loaded.get() {
+        return;
+    }
+    let st = state.clone();
+    crate::api::list_entity(
+        "pokemon_type",
+        0,
+        1000,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let dr = st.drill.clone();
+            if let Ok(rows) = result {
+                let catalog: Vec<(u64, String)> = rows
+                    .iter()
+                    .map(|r| (json_u64(r, "id"), json_str(r, "name")))
+                    .collect();
+                dr.pm_catalog.inner().set(catalog);
+            }
+            crate::request_remount();
+        }),
+    );
+    let st2 = state.clone();
+    crate::api::list_entity(
+        "item_type",
+        0,
+        1000,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let dr = st2.drill.clone();
+            if let Ok(rows) = result {
+                let catalog: Vec<(u64, String, String)> = rows
+                    .iter()
+                    .map(|r| {
+                        (
+                            json_u64(r, "id"),
+                            json_str(r, "name"),
+                            item_tag_kind(r.get("tag").unwrap_or(&serde_json::Value::Null)),
+                        )
+                    })
+                    .collect();
+                dr.item_catalog.inner().set(catalog);
+            }
+            dr.catalog_loaded.inner().set(true);
+            crate::request_remount();
+        }),
+    );
+}
+
+pub fn open_drill(state: &AppState, uid: u64) {
+    let dr = state.drill.clone();
+    dr.uid.inner().set(uid);
+    dr.open.inner().set(true);
+    dr.pm_rows.inner().set(Vec::new());
+    dr.item_rows.inner().set(Vec::new());
+    dr.pm_tab.inner().set("all".to_string());
+    dr.item_tab.inner().set("all".to_string());
+    dr.err.inner().set(None);
+    drill_load_catalogs(state);
+    drill_load_lists(state);
+    crate::request_remount();
+}
+
+pub fn close_drill(state: &AppState) {
+    let dr = state.drill.clone();
+    if dr.loading.get() || dr.pm_editor.saving.get() || dr.item_editor.saving.get() {
+        return;
+    }
+    dr.open.inner().set(false);
+    dr.del_open.inner().set(false);
+    dr.pm_editor.open.inner().set(false);
+    dr.item_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn refresh_drill(state: &AppState, which: &str) {
+    // 两份列表共用一个 loading 守卫，刷新任一就重拉两份（数据量小，简单优先）。
+    let _ = which;
+    drill_load_lists(state);
+}
+
+pub fn set_drill_tab(state: &AppState, kind: &str, tab: &str) {
+    let dr = state.drill.clone();
+    if kind == "pm" {
+        dr.pm_tab.inner().set(tab.to_string());
+    } else {
+        dr.item_tab.inner().set(tab.to_string());
+    }
+    crate::request_remount();
+}
+
+// -- 宠物实例编辑器 ----------------------------------------------------------
+
+pub fn open_pm_instance_edit(state: &AppState, id: u64) {
+    let dr = state.drill.clone();
+    let row = dr
+        .pm_rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == id);
+    let Some(row) = row else { return };
+    let ed = dr.pm_editor.clone();
+    ed.editing_id.inner().set(Some(id));
+    ed.type_id.inner().set(json_u64(&row, "type_id"));
+    ed.owner.inner().set(json_u64(&row, "owner"));
+    ed.name.inner().set(json_str(&row, "name"));
+    ed.site.inner().set(json_str(&row, "site"));
+    ed.sex.inner().set(json_str(&row, "sex"));
+    ed.status.inner().set(json_str(&row, "status"));
+    ed.is_shiny.inner().set(json_bool(&row, "is_shiny"));
+    ed.level.inner().set(json_u64(&row, "level").to_string());
+    ed.experience
+        .inner()
+        .set(json_u64(&row, "experience").to_string());
+    ed.intimacy
+        .inner()
+        .set(json_u64(&row, "intimacy").to_string());
+    ed.using_ball_id
+        .inner()
+        .set(json_u64(&row, "using_ball_id").to_string());
+    let read6 = |key: &str| -> [String; 6] {
+        let node = row.get(key).cloned().unwrap_or_default();
+        std::array::from_fn(|i| {
+            node.get(STAT_KEYS[i])
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
+                .to_string()
+        })
+    };
+    ed.stat.inner().set(read6("statistic"));
+    ed.base.inner().set(read6("base_points"));
+    let armor_node = row.get("armor_slots_id").cloned().unwrap_or_default();
+    ed.armor.inner().set(std::array::from_fn(|i| {
+        armor_node
+            .get(i)
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0)
+            .to_string()
+    }));
+    let skills = row.get("skills").cloned().unwrap_or(serde_json::json!([]));
+    ed.skills_json
+        .inner()
+        .set(serde_json::to_string_pretty(&skills).unwrap_or_else(|_| "[]".into()));
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_pm_instance_editor(state: &AppState) {
+    state.drill.pm_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn toggle_pm_instance_shiny(state: &AppState) {
+    let ed = state.drill.pm_editor.clone();
+    ed.is_shiny.inner().set(!ed.is_shiny.get());
+    crate::request_remount();
+}
+
+/// 宠物实例字段变更。数组字段用 `stat:i` / `base:i` / `armor:i`。
+pub fn set_pm_instance_field(state: &AppState, key: &str, value: &str) {
+    let ed = state.drill.pm_editor.clone();
+    match key {
+        "name" => ed.name.inner().set(value.to_string()),
+        "site" => ed.site.inner().set(value.to_string()),
+        "sex" => ed.sex.inner().set(value.to_string()),
+        "status" => ed.status.inner().set(value.to_string()),
+        "level" => ed.level.inner().set(value.to_string()),
+        "experience" => ed.experience.inner().set(value.to_string()),
+        "intimacy" => ed.intimacy.inner().set(value.to_string()),
+        "using_ball_id" => ed.using_ball_id.inner().set(value.to_string()),
+        "skills" => ed.skills_json.inner().set(value.to_string()),
+        _ => {
+            if let Some((group, idx)) = key.split_once(':') {
+                if let Ok(i) = idx.parse::<usize>() {
+                    match group {
+                        "stat" if i < 6 => {
+                            let mut a = ed.stat.get();
+                            a[i] = value.to_string();
+                            ed.stat.inner().set(a);
+                        }
+                        "base" if i < 6 => {
+                            let mut a = ed.base.get();
+                            a[i] = value.to_string();
+                            ed.base.inner().set(a);
+                        }
+                        "armor" if i < 4 => {
+                            let mut a = ed.armor.get();
+                            a[i] = value.to_string();
+                            ed.armor.inner().set(a);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+    crate::request_remount();
+}
+
+pub fn submit_pm_instance_editor(state: &AppState) {
+    let ed = state.drill.pm_editor.clone();
+    if ed.saving.get() {
+        return;
+    }
+    let parse = |s: &str| s.trim().parse::<u64>().unwrap_or(0);
+    let level = parse(&ed.level.get());
+    if level < 1 {
+        ed.err.inner().set(Some("等级必须 ≥ 1".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let skills: serde_json::Value = match serde_json::from_str(&ed.skills_json.get()) {
+        Ok(v) => v,
+        Err(e) => {
+            ed.err.inner().set(Some(format!("技能 JSON 无效：{e}")));
+            crate::request_remount();
+            return;
+        }
+    };
+    if !skills.is_array() {
+        ed.err
+            .inner()
+            .set(Some("技能必须是数组（[{type_id, count}]）".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let stat = ed.stat.get();
+    let base = ed.base.get();
+    let armor = ed.armor.get();
+    let stat_obj = |values: &[String; 6]| {
+        let mut m = serde_json::Map::new();
+        for i in 0..6 {
+            m.insert(
+                STAT_KEYS[i].to_string(),
+                serde_json::json!(parse(&values[i])),
+            );
+        }
+        serde_json::Value::Object(m)
+    };
+    let payload = serde_json::json!({
+        "id": ed.editing_id.get(),
+        "type_id": ed.type_id.get(),
+        "owner": ed.owner.get(),
+        "name": ed.name.get(),
+        "site": ed.site.get(),
+        "level": level,
+        "experience": parse(&ed.experience.get()),
+        "intimacy": parse(&ed.intimacy.get()),
+        "using_ball_id": parse(&ed.using_ball_id.get()),
+        "is_shiny": ed.is_shiny.get(),
+        "status": ed.status.get(),
+        "sex": ed.sex.get(),
+        "statistic": stat_obj(&stat),
+        "base_points": stat_obj(&base),
+        "skills": skills,
+        "armor_slots_id": [
+            parse(&armor[0]), parse(&armor[1]), parse(&armor[2]), parse(&armor[3])
+        ],
+    });
+    let body = payload.to_string();
+    ed.saving.inner().set(true);
+    ed.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::set_entity(
+        "pokemon_info",
+        body,
+        Box::new(move |result: Result<serde_json::Value, String>| {
+            let dr = st.drill.clone();
+            let ed = dr.pm_editor.clone();
+            match result {
+                Ok(_) => {
+                    ed.open.inner().set(false);
+                    ed.saving.inner().set(false);
+                    drill_load_lists(&st);
+                }
+                Err(e) => {
+                    ed.saving.inner().set(false);
+                    ed.err.inner().set(Some(format!("保存失败：{e}")));
+                    crate::request_remount();
+                }
+            }
+        }),
+    );
+}
+
+// -- 物品实例编辑器 ----------------------------------------------------------
+
+pub fn open_item_instance_edit(state: &AppState, id: u64) {
+    let dr = state.drill.clone();
+    let row = dr
+        .item_rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == id);
+    let Some(row) = row else { return };
+    let ed = dr.item_editor.clone();
+    ed.editing_id.inner().set(Some(id));
+    ed.owner.inner().set(json_u64(&row, "owner"));
+    ed.type_id
+        .inner()
+        .set(json_u64(&row, "type_id").to_string());
+    ed.count.inner().set(json_u64(&row, "count").to_string());
+    ed.err.inner().set(None);
+    ed.open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_item_instance_editor(state: &AppState) {
+    state.drill.item_editor.open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn set_item_instance_field(state: &AppState, key: &str, value: &str) {
+    let ed = state.drill.item_editor.clone();
+    match key {
+        "type_id" => ed.type_id.inner().set(value.to_string()),
+        "count" => ed.count.inner().set(value.to_string()),
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+pub fn submit_item_instance_editor(state: &AppState) {
+    let ed = state.drill.item_editor.clone();
+    if ed.saving.get() {
+        return;
+    }
+    let parse = |s: &str| s.trim().parse::<u64>().unwrap_or(0);
+    let type_id = parse(&ed.type_id.get());
+    if type_id == 0 {
+        ed.err.inner().set(Some("物品类型 ID 必须为正整数".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let count = parse(&ed.count.get());
+    if count < 1 || count > 32767 {
+        ed.err
+            .inner()
+            .set(Some("数量必须是 1 至 32767 的整数".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let payload = serde_json::json!({
+        "id": ed.editing_id.get(),
+        "owner": ed.owner.get(),
+        "type_id": type_id,
+        "count": count,
+    });
+    let body = payload.to_string();
+    ed.saving.inner().set(true);
+    ed.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::set_entity(
+        "item_info",
+        body,
+        Box::new(move |result: Result<serde_json::Value, String>| {
+            let dr = st.drill.clone();
+            let ed = dr.item_editor.clone();
+            match result {
+                Ok(_) => {
+                    ed.open.inner().set(false);
+                    ed.saving.inner().set(false);
+                    drill_load_lists(&st);
+                }
+                Err(e) => {
+                    ed.saving.inner().set(false);
+                    ed.err.inner().set(Some(format!("保存失败：{e}")));
+                    crate::request_remount();
+                }
+            }
+        }),
+    );
+}
+
+// -- 实例删除确认 ------------------------------------------------------------
+
+pub fn open_instance_delete(state: &AppState, kind: &str, id: u64) {
+    let dr = state.drill.clone();
+    let label = if kind == "pm" {
+        dr.pm_rows
+            .get()
+            .into_iter()
+            .find(|r| json_u64(r, "id") == id)
+            .map(|r| json_str(&r, "name"))
+            .unwrap_or_default()
+    } else {
+        let type_id = dr
+            .item_rows
+            .get()
+            .into_iter()
+            .find(|r| json_u64(r, "id") == id)
+            .map(|r| json_u64(&r, "type_id"))
+            .unwrap_or(0);
+        dr.item_catalog
+            .get()
+            .into_iter()
+            .find(|(tid, _, _)| *tid == type_id)
+            .map(|(_, name, _)| name)
+            .unwrap_or_else(|| format!("#{}", type_id))
+    };
+    dr.del_kind.inner().set(kind.to_string());
+    dr.del_id.inner().set(Some(id));
+    dr.del_label.inner().set(label);
+    dr.del_err.inner().set(None);
+    dr.del_open.inner().set(true);
+    crate::request_remount();
+}
+
+pub fn close_instance_delete(state: &AppState) {
+    let dr = state.drill.clone();
+    if dr.del_busy.get() {
+        return;
+    }
+    dr.del_open.inner().set(false);
+    crate::request_remount();
+}
+
+pub fn submit_instance_delete(state: &AppState) {
+    let dr = state.drill.clone();
+    if dr.del_busy.get() {
+        return;
+    }
+    let Some(id) = dr.del_id.get() else { return };
+    let entity = if dr.del_kind.get() == "pm" {
+        "pokemon_info"
+    } else {
+        "item_info"
+    };
+    dr.del_busy.inner().set(true);
+    dr.del_err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::delete_entity(
+        entity,
+        id,
+        Box::new(move |result: Result<(), String>| {
+            let dr = st.drill.clone();
+            match result {
+                Ok(()) => {
+                    dr.del_open.inner().set(false);
+                    dr.del_busy.inner().set(false);
+                    drill_load_lists(&st);
+                }
+                Err(e) => {
+                    dr.del_busy.inner().set(false);
+                    dr.del_err.inner().set(Some(format!("删除失败：{e}")));
+                    crate::request_remount();
+                }
+            }
+        }),
+    );
+}
+
+/// 下钻弹窗 + 两个实例编辑器 + 删除确认（三个弹窗互斥层级：编辑器/确认在
+/// 下钻之上，由委托顺序保证内部按钮优先于各自遮罩）。
+fn user_drill_modal(st: &AppState) -> VNode {
+    let dr = st.drill.clone();
+    if !dr.open.get() {
+        return VNode::empty();
+    }
+    let uid = dr.uid.get();
+    let loading = dr.loading.get();
+    let err = dr.err.get();
+    let pm_tab = dr.pm_tab.get();
+    let item_tab = dr.item_tab.get();
+    let title = format!("用户 #{} 的宠物与物品", uid);
+
+    // -- 宠物表 --
+    let mut pm_trs: Vec<VNode> = Vec::new();
+    for row in dr.pm_rows.get().iter() {
+        let site = json_str(row, "site");
+        if pm_tab == "bag" && site != "bag" {
+            continue;
+        }
+        if pm_tab == "store" && site != "store" {
+            continue;
+        }
+        let id = json_u64(row, "id").to_string();
+        let id_for_edit = id.clone();
+        let del_attr = format!("pm:{}", id);
+        let type_id = json_u64(row, "type_id");
+        let species = dr
+            .pm_catalog
+            .get()
+            .into_iter()
+            .find(|(tid, _)| *tid == type_id)
+            .map(|(_, n)| n)
+            .unwrap_or_else(|| format!("#{}", type_id));
+        let name = json_str(row, "name");
+        let level = json_u64(row, "level").to_string();
+        let site_text = pm_site_name(&site).to_string();
+        pm_trs.push(rsx! {
+            tr {
+                td { "{id}" }
+                td { "{species}" }
+                td { "{name}" }
+                td { "{level}" }
+                td { "{site_text}" }
+                td {
+                    div { class: "adm-row-actions",
+                        button {
+                            class: "admin-btn adm-row-edit",
+                            disabled: loading,
+                            "data-pm-adm-ipe-edit": id_for_edit,
+                            "编辑"
+                        }
+                        button {
+                            class: "admin-btn adm-row-del",
+                            disabled: loading,
+                            "data-pm-adm-idel": del_attr,
+                            "放生"
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // -- 物品表 --
+    let mut item_trs: Vec<VNode> = Vec::new();
+    for row in dr.item_rows.get().iter() {
+        let type_id = json_u64(row, "type_id");
+        let entry = dr
+            .item_catalog
+            .get()
+            .into_iter()
+            .find(|(tid, _, _)| *tid == type_id);
+        let (name, tag_kind) = entry
+            .clone()
+            .map(|(_, n, t)| (n, t))
+            .unwrap_or_else(|| (format!("#{}", type_id), String::new()));
+        if item_tab != "all" && item_tab != tag_kind {
+            continue;
+        }
+        let id = json_u64(row, "id").to_string();
+        let id_for_edit = id.clone();
+        let del_attr = format!("item:{}", id);
+        let count = json_u64(row, "count").to_string();
+        item_trs.push(rsx! {
+            tr {
+                td { "{id}" }
+                td { "{name}" }
+                td { "{count}" }
+                td {
+                    div { class: "adm-row-actions",
+                        button {
+                            class: "admin-btn adm-row-edit",
+                            disabled: loading,
+                            "data-pm-adm-iie-edit": id_for_edit,
+                            "编辑"
+                        }
+                        button {
+                            class: "admin-btn adm-row-del",
+                            disabled: loading,
+                            "data-pm-adm-idel": del_attr,
+                            "删除"
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    let catalog_ready = dr.catalog_loaded.get();
+    let pm_table = if !catalog_ready {
+        rsx! { p { class: "adm-editor-hint", "类型目录加载中..." } }
+    } else if pm_trs.is_empty() {
+        rsx! { p { class: "admin-empty-hint", "该用户暂无宠物。" } }
+    } else {
+        rsx! {
+            table { class: "adm-table",
+                thead {
+                    tr {
+                        th { "ID" }
+                        th { "种族" }
+                        th { "昵称" }
+                        th { "等级" }
+                        th { "位置" }
+                        th { "操作" }
+                    }
+                }
+                tbody {
+                    for i in 0..pm_trs.len() {
+                        ..vec![pm_trs[i].clone()]
+                    }
+                }
+            }
+        }
+    };
+    let item_table = if !catalog_ready {
+        rsx! { p { class: "adm-editor-hint", "类型目录加载中..." } }
+    } else if item_trs.is_empty() {
+        rsx! { p { class: "admin-empty-hint", "该用户暂无物品。" } }
+    } else {
+        rsx! {
+            table { class: "adm-table",
+                thead {
+                    tr {
+                        th { "ID" }
+                        th { "类型" }
+                        th { "数量" }
+                        th { "操作" }
+                    }
+                }
+                tbody {
+                    for i in 0..item_trs.len() {
+                        ..vec![item_trs[i].clone()]
+                    }
+                }
+            }
+        }
+    };
+
+    let err_bar = match err {
+        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+        None => VNode::empty(),
+    };
+    let pm_tab_btn = |code: &str, label: &str, active: &str| -> VNode {
+        let cls = if active == code {
+            "admin-btn admin-btn-primary adm-tab-btn"
+        } else {
+            "admin-btn adm-tab-btn"
+        };
+        let attr = format!("pm:{}", code);
+        rsx! {
+            button {
+                class: cls,
+                disabled: loading,
+                "data-pm-adm-drill-tab": attr,
+                "{label}"
+            }
+        }
+    };
+    let item_tab_btn = |code: &str, label: &str, active: &str| -> VNode {
+        let cls = if active == code {
+            "admin-btn admin-btn-primary adm-tab-btn"
+        } else {
+            "admin-btn adm-tab-btn"
+        };
+        let attr = format!("item:{}", code);
+        rsx! {
+            button {
+                class: cls,
+                disabled: loading,
+                "data-pm-adm-drill-tab": attr,
+                "{label}"
+            }
+        }
+    };
+
+    // -- 宠物实例编辑器 --
+    let pm_editor = {
+        let ed = dr.pm_editor.clone();
+        if !ed.open.get() {
+            VNode::empty()
+        } else {
+            let saving = ed.saving.get();
+            let err = ed.err.get();
+            let title = format!("编辑宠物 #{}（种族 #{}）", ed.editing_id.get().unwrap_or(0), ed.type_id.get());
+            let save_label = if saving { "保存中..." } else { "保存" };
+            let shiny_label = if ed.is_shiny.get() { "闪光：是" } else { "闪光：否" };
+            let shiny_cls = if ed.is_shiny.get() {
+                "admin-btn admin-btn-primary adm-editor-toggle"
+            } else {
+                "admin-btn adm-editor-toggle"
+            };
+            let site = ed.site.get();
+            let sex = ed.sex.get();
+            let status = ed.status.get();
+            let stat = ed.stat.get();
+            let base = ed.base.get();
+            let armor = ed.armor.get();
+
+            fn sel(opts: &[(&str, &str)], current: &str) -> Vec<VNode> {
+                opts.iter()
+                    .map(|(code, label)| {
+                        let selected: bool = *code == current;
+                        let code: &str = code;
+                        let label: &str = label;
+                        rsx! {
+                            option { value: code, selected: selected, "{label}" }
+                        }
+                    })
+                    .collect()
+            }
+            let site_opts = sel(
+                &[
+                    ("header", "跟随"),
+                    ("bag", "背包"),
+                    ("store", "仓库"),
+                    ("hospital", "医院"),
+                ],
+                &site,
+            );
+            let sex_opts = sel(
+                &[("male", "雄性"), ("female", "雌性"), ("unknown", "未知")],
+                &sex,
+            );
+            let status_opts = sel(&PM_STATUS_OPTIONS, &status);
+
+            let mut stat_inputs: Vec<VNode> = Vec::new();
+            let mut base_inputs: Vec<VNode> = Vec::new();
+            for i in 0..6 {
+                let sl = STAT_LABELS[i];
+                let sv = stat[i].clone();
+                let sa = format!("stat:{i}");
+                stat_inputs.push(rsx! {
+                    label { class: "adm-editor-field",
+                        span { "个体 {sl}" }
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "number",
+                            value: sv,
+                            "data-pm-adm-ipef": sa
+                        }
+                    }
+                });
+                let bv = base[i].clone();
+                let ba = format!("base:{i}");
+                base_inputs.push(rsx! {
+                    label { class: "adm-editor-field",
+                        span { "努力 {sl}" }
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "number",
+                            value: bv,
+                            "data-pm-adm-ipef": ba
+                        }
+                    }
+                });
+            }
+            let mut armor_inputs: Vec<VNode> = Vec::new();
+            for i in 0..4 {
+                let label = format!("装备槽 {}", i + 1);
+                let av = armor[i].clone();
+                let aa = format!("armor:{i}");
+                armor_inputs.push(rsx! {
+                    label { class: "adm-editor-field",
+                        span { "{label}" }
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "number",
+                            value: av,
+                            "data-pm-adm-ipef": aa
+                        }
+                    }
+                });
+            }
+
+            let err_block = match err {
+                Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+                None => VNode::empty(),
+            };
+
+            rsx! {
+                div { class: "modal-overlay", "data-pm-adm-ipe-overlay": "1",
+                    div { class: "adm-editor-modal",
+                        div { class: "modal-header",
+                            h3 { "{title}" }
+                            button { class: "modal-close", "data-pm-adm-ipe-close": "1", "×" }
+                        }
+                        div { class: "modal-body adm-editor-body",
+                            div { class: "adm-editor-grid",
+                                label { class: "adm-editor-field",
+                                    span { "昵称" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "text",
+                                        value: ed.name.get(),
+                                        "data-pm-adm-ipef": "name"
+                                    }
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "位置" }
+                                    select {
+                                        class: "adm-filter-input",
+                                        "data-pm-adm-ipef": "site",
+                                        for i in 0..site_opts.len() {
+                                            ..vec![site_opts[i].clone()]
+                                        }
+                                    }
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "性别" }
+                                    select {
+                                        class: "adm-filter-input",
+                                        "data-pm-adm-ipef": "sex",
+                                        for i in 0..sex_opts.len() {
+                                            ..vec![sex_opts[i].clone()]
+                                        }
+                                    }
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "状态" }
+                                    select {
+                                        class: "adm-filter-input",
+                                        "data-pm-adm-ipef": "status",
+                                        for i in 0..status_opts.len() {
+                                            ..vec![status_opts[i].clone()]
+                                        }
+                                    }
+                                }
+                                button {
+                                    class: shiny_cls,
+                                    disabled: saving,
+                                    "data-pm-adm-ipe-shiny": "1",
+                                    "{shiny_label}"
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "等级" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "number",
+                                        min: "1",
+                                        value: ed.level.get(),
+                                        "data-pm-adm-ipef": "level"
+                                    }
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "经验" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "number",
+                                        value: ed.experience.get(),
+                                        "data-pm-adm-ipef": "experience"
+                                    }
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "亲密度" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "number",
+                                        value: ed.intimacy.get(),
+                                        "data-pm-adm-ipef": "intimacy"
+                                    }
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "精灵球 ID" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "number",
+                                        value: ed.using_ball_id.get(),
+                                        "data-pm-adm-ipef": "using_ball_id"
+                                    }
+                                }
+                            }
+                            div { class: "adm-editor-section-title", "个体值" }
+                            div { class: "adm-editor-grid",
+                                for i in 0..stat_inputs.len() {
+                                    ..vec![stat_inputs[i].clone()]
+                                }
+                            }
+                            div { class: "adm-editor-section-title", "努力值" }
+                            div { class: "adm-editor-grid",
+                                for i in 0..base_inputs.len() {
+                                    ..vec![base_inputs[i].clone()]
+                                }
+                            }
+                            div { class: "adm-editor-section-title", "装备槽（0 = 空）" }
+                            div { class: "adm-editor-grid",
+                                for i in 0..armor_inputs.len() {
+                                    ..vec![armor_inputs[i].clone()]
+                                }
+                            }
+                            label { class: "adm-editor-field adm-editor-wide",
+                                span { "技能 JSON（[{type_id, count}]，服务端逐条校验）" }
+                                textarea {
+                                    class: "adm-editor-textarea",
+                                    rows: 4,
+                                    "data-pm-adm-ipef": "skills",
+                                    "{ed.skills_json.get()}"
+                                }
+                            }
+                            ..vec![err_block]
+                        }
+                        div { class: "adm-editor-footer",
+                            button {
+                                class: "admin-btn",
+                                disabled: saving,
+                                "data-pm-adm-ipe-close": "1",
+                                "取消"
+                            }
+                            button {
+                                class: "admin-btn admin-btn-primary",
+                                disabled: saving,
+                                "data-pm-adm-ipe-save": "1",
+                                "{save_label}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    // -- 物品实例编辑器 --
+    let item_editor = {
+        let ed = dr.item_editor.clone();
+        if !ed.open.get() {
+            VNode::empty()
+        } else {
+            let saving = ed.saving.get();
+            let err = ed.err.get();
+            let title = format!("编辑物品实例 #{}", ed.editing_id.get().unwrap_or(0));
+            let save_label = if saving { "保存中..." } else { "保存" };
+            let err_block = match err {
+                Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+                None => VNode::empty(),
+            };
+            rsx! {
+                div { class: "modal-overlay", "data-pm-adm-iie-overlay": "1",
+                    div { class: "adm-editor-modal adm-editor-modal--narrow",
+                        div { class: "modal-header",
+                            h3 { "{title}" }
+                            button { class: "modal-close", "data-pm-adm-iie-close": "1", "×" }
+                        }
+                        div { class: "modal-body adm-editor-body",
+                            div { class: "adm-editor-grid",
+                                label { class: "adm-editor-field",
+                                    span { "物品类型 ID" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "number",
+                                        min: "1",
+                                        value: ed.type_id.get(),
+                                        "data-pm-adm-iief": "type_id"
+                                    }
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "数量（1-32767）" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "number",
+                                        min: "1",
+                                        max: "32767",
+                                        value: ed.count.get(),
+                                        "data-pm-adm-iief": "count"
+                                    }
+                                }
+                            }
+                            ..vec![err_block]
+                        }
+                        div { class: "adm-editor-footer",
+                            button {
+                                class: "admin-btn",
+                                disabled: saving,
+                                "data-pm-adm-iie-close": "1",
+                                "取消"
+                            }
+                            button {
+                                class: "admin-btn admin-btn-primary",
+                                disabled: saving,
+                                "data-pm-adm-iie-save": "1",
+                                "{save_label}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    // -- 实例删除确认 --
+    let del_confirm = {
+        if !dr.del_open.get() {
+            VNode::empty()
+        } else {
+            let busy = dr.del_busy.get();
+            let err = dr.del_err.get();
+            let kind = dr.del_kind.get();
+            let noun = if kind == "pm" { "宠物" } else { "物品" };
+            let title = format!("删除{}", noun);
+            let label = dr.del_label.get();
+            let id = dr.del_id.get();
+            let id_text = id.map(|n| n.to_string()).unwrap_or_default();
+            let display = if label.is_empty() {
+                format!("#{id_text}")
+            } else {
+                format!("{label}（#{id_text}）")
+            };
+            // 放生有额外护栏：最后一只不可放生、战斗中首位不可放生。
+            let extra = if kind == "pm" { "（放生有护栏：最后一只、战斗中的首位都会被服务端拒绝）" } else { "" };
+            let message = format!("确定要删除 {display} 吗？{extra}");
+            let confirm_label = if busy { "删除中..." } else { "确认删除" };
+            let err_block = match err {
+                Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+                None => VNode::empty(),
+            };
+            rsx! {
+                div { class: "modal-overlay", "data-pm-adm-idel-overlay": "1",
+                    div { class: "adm-editor-modal adm-editor-modal--narrow",
+                        div { class: "modal-header",
+                            h3 { "{title}" }
+                            button { class: "modal-close", "data-pm-adm-idel-cancel": "1", "×" }
+                        }
+                        div { class: "modal-body adm-editor-body",
+                            p { "{message}" }
+                            ..vec![err_block]
+                        }
+                        div { class: "adm-editor-footer",
+                            button {
+                                class: "admin-btn",
+                                disabled: busy,
+                                "data-pm-adm-idel-cancel": "1",
+                                "取消"
+                            }
+                            button {
+                                class: "admin-btn admin-btn-danger",
+                                disabled: busy,
+                                "data-pm-adm-idel-ok": "1",
+                                "{confirm_label}"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    rsx! {
+        div { class: "modal-overlay", "data-pm-adm-drill-overlay": "1",
+            div { class: "adm-editor-modal",
+                div { class: "modal-header",
+                    h3 { "{title}" }
+                    button { class: "modal-close", "data-pm-adm-drill-close": "1", "×" }
+                }
+                div { class: "modal-body adm-editor-body",
+                    ..vec![err_bar]
+                    div { class: "adm-editor-section-title",
+                        if loading { "宠物（加载中...）" } else { "宠物" }
+                        ..vec![pm_tab_btn("all", "全部", &pm_tab), pm_tab_btn("bag", "背包", &pm_tab), pm_tab_btn("store", "仓库", &pm_tab)]
+                        button {
+                            class: "admin-btn adm-tab-btn",
+                            disabled: loading,
+                            "data-pm-adm-drill-refresh": "pm",
+                            "刷新"
+                        }
+                    }
+                    ..vec![pm_table]
+                    div { class: "adm-editor-section-title",
+                        if loading { "物品（加载中...）" } else { "物品" }
+                        ..vec![
+                            item_tab_btn("all", "全部", &item_tab),
+                            item_tab_btn("drug", "药品", &item_tab),
+                            item_tab_btn("ball", "宠物球", &item_tab),
+                            item_tab_btn("evolution", "素材", &item_tab),
+                            item_tab_btn("armor", "装备", &item_tab),
+                            item_tab_btn("special", "特殊", &item_tab),
+                        ]
+                        button {
+                            class: "admin-btn adm-tab-btn",
+                            disabled: loading,
+                            "data-pm-adm-drill-refresh": "item",
+                            "刷新"
+                        }
+                    }
+                    ..vec![item_table]
+                }
+                div { class: "adm-editor-footer",
+                    button {
+                        class: "admin-btn",
+                        disabled: loading,
+                        "data-pm-adm-drill-close": "1",
+                        "关闭"
+                    }
+                }
+            }
+            ..vec![pm_editor, item_editor, del_confirm]
         }
     }
 }

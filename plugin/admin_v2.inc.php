@@ -148,6 +148,8 @@ include template('common/header');
 .adm-row-del:hover { background:#fdf0ef; }
 .admin-btn-danger { border-color:#e74c3c; background:#e74c3c; color:#fff; }
 .admin-btn-danger:hover { background:#c0392b; }
+.adm-tab-btn { padding:2px 10px; font-size:11px; margin-left:6px; }
+.adm-editor-section-title { display:flex; align-items:center; }
 </style>
 
 <div class="pm-ui-switch">
