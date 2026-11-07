@@ -16,10 +16,10 @@ crate-type = ["cdylib", "rlib"]
 # - hikari 声明 tairitsu ^0.5.18；下面的 [patch.crates-io] 把它统一到同一
 #   rev，避免双版本类型冲突（§5.5）。
 [dependencies]
-tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "7f2f6ef", default-features = false }
-tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "7f2f6ef", default-features = false }
-tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "7f2f6ef", default-features = false }
-tairitsu-web = { git = "https://github.com/celestia-island/tairitsu", rev = "7f2f6ef", default-features = false, features = [
+tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d", default-features = false }
+tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d", default-features = false }
+tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d", default-features = false }
+tairitsu-web = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d", default-features = false, features = [
     "browser",
     "vdom",
     "wit-bindings",
@@ -32,7 +32,7 @@ serde = { version = "^1", features = ["derive"] }
 serde_json = "^1"
 
 [patch.crates-io]
-tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "7f2f6ef" }
-tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "7f2f6ef" }
-tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "7f2f6ef" }
-tairitsu-style = { git = "https://github.com/celestia-island/tairitsu", rev = "7f2f6ef" }
+tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d" }
+tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d" }
+tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d" }
+tairitsu-style = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d" }

@@ -1,0 +1,27 @@
+[package]
+name = "_capprobe"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "tairitsu wasm component capability probe: exercises every platform API in a real browser"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# 依赖与 admin2 同源（同 rev 锁定，见 admin2/Cargo.toml 的依赖策略注释）。
+[dependencies]
+tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d", default-features = false }
+tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d", default-features = false }
+tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d", default-features = false }
+tairitsu-web = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d", default-features = false, features = [
+    "browser",
+    "vdom",
+    "wit-bindings",
+] }
+anyhow = "1"
+
+[patch.crates-io]
+tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d" }
+tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d" }
+tairitsu-macros = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d" }
+tairitsu-style = { git = "https://github.com/celestia-island/tairitsu", rev = "3e4c17d" }

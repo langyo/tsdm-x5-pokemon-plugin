@@ -691,6 +691,48 @@ OutputStream resource"）。诊断输出必须走 DOM 属性（本仓库的
 二者没有对账机制——错位一次即永久漂移（admin 的流程全对齐所以纯增量
 安全；game2 兜底绕开）。根治需要基线/DOM 一致性校验或 reconcile 通道。
 
+### 10.1.6 wasm component 能力探针：每个平台能力真实跑通（2026-11-08）
+
+目标「给 tairitsu 的每个 wasm component 能力都真正可以跑起来」的落地：
+新增第三个组件 **capprobe**（`rust/capprobe/`，入口
+`plugin.php?id=pokemon:game&index=capprobe`，构建
+`scripts/publish/build_tairitsu_cap.py`），在真实浏览器里顺序执行
+48 项能力测试（DOM/布局/定时器/事件/网络/剪贴板/observer/媒体查询/
+滚动/导航/canvas/IDB/文件/音频/视频/地理/全屏/batch/ws/misc），
+每项输出 Pass / Fail / Skip（Skip 必须带环境或 API 面理由）。
+
+**探针揪出并修复的上游缺陷（PR celestia-island/tairitsu#127 已合入，
+本仓库 rev 锁定 `3e4c17d`）**：
+
+1. **回调派发的 RefCell 锁纪律**：Rust 2021 的 if-let 条件临时值存活
+   到块尾，`with(|m| { if let Some(cb) = m.borrow_mut().remove(..) { cb() } })`
+   的守卫跨用户回调持有——回调里再注册 timer/interval/idb/ws 必撞
+   「already borrowed」，jco 下 panic 即 wasm trap（守卫卡死 +
+   markTrapped 毒化实例）。全部派发器改为 take-then-run（FnOnce）/
+   take-run-put-back（FnMut）：timer/interval/idb/ws×4/observer×2/
+   mql/scroll/window-resize/video/geo×2/file-reader×2。
+2. **npm 分发 glue 缺整块能力**：setInterval/clearInterval（set_interval
+   一调就 trap）、connectWebSocket（web-socket-callbacks 派发）、
+   canvas 2D 三件套、element closest/getClientWidth/getInnerHtml/
+   requestFullscreen（WIT 返回 u64，glue 必须返回数字）、document
+   elementFromPoint/execCommand、node getParentNode、window
+   matchMedia/getScrollY、media-query-list 接口组。
+3. **wire 级修正**：onPromiseRejected 必须带 error 字符串（缺参被 jco
+   拒，整个拒绝派发静默死在 JS 侧）；idbOpen 走 onIdbRequestSuccess
+   回库句柄字符串（组件无 on-idb-open 导出）+ 升级兜底建 kv 店
+   （IdbOps 无建店 API 面）；idbGet 结果 String 化；MutationObserver
+   entries 必须是 WIT record（句柄数组会被记录校验拒掉）；
+   history pushState/replaceState 单参形态兼容。
+
+**最终结果：39 Pass / 0 Fail / 9 Skip**（每个 Skip 带理由：headless
+剪贴板/地理权限、无视频源、无 input.files→blob 句柄获取途径、
+MessageChannel 帧驱动的 cancel 缺口）。修复前：33/10/5 且两处 trap。
+
+**Firefox 抽测（尝试记录）**：本机装有 Firefox，但其 CDP 端点已在上游
+移除（--remote-debugging-port 不监听）、--screenshot 模式被站点自签
+证书页挡住（headless 无证书豁免开关）——无法无人值守抽测，留待手动
+或 geckodriver 方案。Chromium 系（Edge）为已验证环境。
+
 ### 10.2 双站点并行（行为对照）
 
 入口按 `ui` 参数分流，两套前端共用同一 Discuz 外壳与 API：

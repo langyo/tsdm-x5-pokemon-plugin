@@ -1,10 +1,11 @@
 // shim for tairitsu-browser:full/node
-import { INTERFACES } from '../glue/dom/index.js?v=1794074086';
+import { INTERFACES } from '../glue/dom/index.js?v=1794089442';
 const obj = INTERFACES['@tairitsu-glue/node'];
 export const appendChild = obj.appendChild;
 export const getFirstChild = obj.getFirstChild;
 export const getNodeType = obj.getNodeType;
 export const getParentElement = obj.getParentElement;
+export const getParentNode = obj.getParentNode;
 export const insertBefore = obj.insertBefore;
 export const removeChild = obj.removeChild;
 export const replaceChild = obj.replaceChild;

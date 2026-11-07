@@ -58,12 +58,16 @@ WASI_VENDOR_URL = (
 # 函数清单以 component-wrapper/_game2.js 顶部 import 语句为准（构建后核对）。
 INTERFACE_MAP = {
     "css-style-declaration": ("css", ["getPropertyValue", "setProperty"]),
-    "document": ("dom", ["createElement", "createTextNode", "getBody"]),
+    "document": ("dom", [
+        "createElement", "createTextNode", "elementFromPoint", "execCommand",
+        "getBody",
+    ]),
     "dom-token-list": ("css", ["add", "contains", "remove"]),
     "element": ("dom", [
-        "getAttribute", "getBoundingClientRect", "getClassList", "getClientHeight",
-        "getScrollHeight", "getScrollTop", "getTagName", "removeAttribute",
-        "setAttribute", "setInnerHtml", "setScrollTop",
+        "closest", "getAttribute", "getBoundingClientRect", "getClassList",
+        "getClientHeight", "getClientWidth", "getInnerHtml", "getScrollHeight",
+        "getScrollTop", "getTagName", "removeAttribute", "setAttribute",
+        "requestFullscreen", "setInnerHtml", "setScrollTop",
     ]),
     "element-css-inline-style": ("css", ["getStyle"]),
     "event": ("events", ["getCurrentTarget", "getTarget"]),
@@ -82,7 +86,8 @@ INTERFACE_MAP = {
     # patch 路径的 text-slot 修复入 glue，这里平铺导出。
     "node": ("dom", [
         "appendChild", "getFirstChild", "getNodeType", "getParentElement",
-        "insertBefore", "removeChild", "replaceChild", "setTextContent",
+        "getParentNode", "insertBefore", "removeChild", "replaceChild",
+        "setTextContent",
     ]),
     # node-list 整个接口 tarball 缺失，shim 生成段全手写。
     "node-list": (None, ["getLength", "item"]),
@@ -90,8 +95,15 @@ INTERFACE_MAP = {
     "parent-node": ("dom", ["querySelector"]),
     "platform-helpers": ("platform", [
         "cancelAnimationFrame", "clearInterval", "clearTimeout",
-        "copyToClipboard", "fetchPromise", "readClipboard",
-        "requestAnimationFrame", "setInterval", "setTimeout",
+        "clipboardWriteTextPromise", "connectWebSocket", "copyToClipboard",
+        "createAudioContext", "createMutationObserver", "createResizeObserver",
+        "drawQrcodeOnCanvasById", "fetchPromise", "getContenteditableState",
+        "getCurrentPosition", "getElementRectById", "getGeolocationHandle",
+        "getSelectionEnd", "getSelectionStart", "idbClear", "idbDelete",
+        "idbGet", "idbOpen", "idbPut", "onScroll", "prefersDarkMode",
+        "querySelector", "querySelectorAll", "readClipboard",
+        "requestAnimationFrame", "scrollTo", "setContentEditable",
+        "setInterval", "setTimeout",
     ]),
     "pointer-event": ("events", [
         "getHeight", "getIsPrimary", "getPointerId", "getPointerType",
@@ -101,7 +113,23 @@ INTERFACE_MAP = {
     "wheel-event": ("events", [
         "getDeltaMode", "getDeltaX", "getDeltaY", "getDeltaZ",
     ]),
-    "window": ("html", ["getComputedStyle", "getInnerWidth"]),
+    "window": ("html", [
+        "getComputedStyle", "getInnerHeight", "getInnerWidth", "getScrollY",
+        "matchMedia",
+    ]),
+    # 能力探针（capprobe）带出的接口：history/location 走 html 域；
+    # mutation-observer/resize-observer 走各自域；media-query-list 与
+    # canvas 2D 三件套在上游 npm glue 的 platform 域注册。
+    "history": ("html", ["pushState", "replaceState"]),
+    "location": ("html", ["getPathname"]),
+    "mutation-observer": ("observers", ["observe", "disconnect"]),
+    "resize-observer": ("resize-observer", ["observe", "unobserve", "disconnect"]),
+    "media-query-list": ("html", [
+        "addListener", "getMatches", "getMedia", "removeListener",
+    ]),
+    "html-canvas-element": ("platform", ["getContext"]),
+    "canvas-rect": ("platform", ["clearRect", "fillRect"]),
+    "canvas-fill-stroke-styles": ("platform", ["setFillStyle"]),
 }
 
 # glue 运行时需要预置的句柄表/计数器（inventory 出自 tarball glue 全部 globalThis 引用）。

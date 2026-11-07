@@ -1,0 +1,33 @@
+{
+  "build_id": "1794089442",
+  "base": "/source/plugin/pokemon/wasm2",
+  "entry": "/source/plugin/pokemon/wasm2/cap-boot.js?v=1794089442",
+  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_capprobe.js?b=1794089442",
+  "interfaces": [
+    "canvas-fill-stroke-styles",
+    "canvas-rect",
+    "css-style-declaration",
+    "document",
+    "dom-token-list",
+    "element",
+    "element-css-inline-style",
+    "event",
+    "event-target",
+    "history",
+    "html-canvas-element",
+    "html-input-element",
+    "location",
+    "media-query-list",
+    "mouse-event",
+    "mutation-observer",
+    "node",
+    "node-list",
+    "non-element-parent-node",
+    "parent-node",
+    "platform-helpers",
+    "pointer-event",
+    "resize-observer",
+    "wheel-event",
+    "window"
+  ]
+}

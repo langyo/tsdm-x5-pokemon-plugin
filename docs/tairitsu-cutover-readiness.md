@@ -94,9 +94,12 @@
    - 技能可学种族为 chip 选择器（搜索添加/去重/移除/名称后台解析，
      验收全绿）
 3. **多浏览器/移动端抽测**：当前实测覆盖 Chromium（headless Edge）；
-   Firefox/Safari 未测——同为 WASM+ESM 门槛，风险低但建议上线前抽测
+   Firefox 已装本机但无法无人值守抽测（上游已移除 CDP 端点，
+   --screenshot 被自签证书页拦截，见研究文档 §10.1.6）——留待手动或
+   geckodriver；Safari 无 Windows 版
 4. **构建产物就绪**：`plugin/wasm2/` 由 `build_tairitsu_admin.py` /
-   `build_tairitsu_poc.py` 产出，vendored glue 已含上游 #124 修复
+   `build_tairitsu_poc.py` / `build_tairitsu_cap.py`（能力探针）产出，
+   vendored glue 已含上游 #124/#127 修复（rev `3e4c17d`）
 
 ## 六、风险与长期项
 
