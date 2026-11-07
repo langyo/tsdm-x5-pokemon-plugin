@@ -596,6 +596,33 @@ rebase 到当前 master——顺带给测试脚本加了 `--experimental-strip-t
 重建产物。八路由后台回归与 `verify_game2.mjs`（71 通过 / 0 失败 / 1 跳过）
 在新 glue 上全绿。
 
+### 10.1.4 diff/patch 通道的工程化尝试与三重阻断（2026-11-07）
+
+整树重挂是当前架构的最大性能税（最坏 1126 行弹窗开关 776-843ms）。本轮尝试切到
+框架原生响应式管线（signal.set → notify_signal → mark_dirty → flush_render →
+diff → apply_patches），接线全部正确（初始渲染在组件上下文内注册依赖、
+apply_patches 挂到 vnode 根元素、schedule 回调与 pm-flush 桥就位），实测被 jco
+wrapper 层三重阻断：
+
+1. **rAF→wasm 不存在**：wrapper（jco 转译产物）未导出
+   `onAnimationFrame`（`onTimeout`/`onPromiseResolve`/`onGenericEvent`/
+   `onMouseEvent` 都有，唯独缺它）——`set_schedule_callback` 的 rAF 路径
+   整条死路，这是 §10.1.1「三条投递链路全哑」的精确根因。
+2. **promise 任务上 flush 卡死**：fetch 回调（promise 任务）里执行
+   `flush_render` 后 `FLUSHING` 守卫永不复位（`debug_state()` 实测
+   `true|true|1|1`），之后所有 flush 被静默跳过——即 §10.1.2 遗留清单
+   「渲染路径中某个特定接口调用在事件任务上仍被排队」的可复现形态。
+3. **事件任务重入一次后失活**：观察器→pm-flush→事件任务 flush 的第一
+   次投递成功（render+apply 各 1 次），之后 MutationObserver 与 pm-flush
+   监听器双双失活（JS 侧手动 setAttribute / dispatchEvent 均不再触发
+   wasm 回调），wasm 实例疑似在首次重入中被毒化。
+
+工作副本已回退到整树重挂（回归全绿）。**解锁 diff 路径需要上游动作**：
+jco wrapper 补 `onAnimationFrame` 导出、修 promise 任务的渲染重入、或提供
+显式的「帧调度导出」。这是 tairitsu 作为正式工程化框架（对标 Vue 生态）
+的关键缺口——通用接口问题（wasm component）已解决，任务调度/回调投递
+的可靠性是下一道门槛。
+
 ### 10.2 双站点并行（行为对照）
 
 入口按 `ui` 参数分流，两套前端共用同一 Discuz 外壳与 API：
