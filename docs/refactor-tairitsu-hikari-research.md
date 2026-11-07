@@ -549,6 +549,148 @@ hook 先写 `#app[data-panic]` 再尝试 stderr，任何 panic 都能在 DOM 上
   `debug_flush_counts()`，配合 `debug_state()` 把「调度未到/排空挂起/
   队列孤儿」三种冻结形态分开。
 
+### 10.1.3 glue `getParentElement` 补丁的退役复查点
+
+`scripts/publish/build_tairitsu_poc.py` 里的 `patch_glue()` 修的是 vendored
+glue 的一个缺陷：`getParentElement` 用「元素对象」当 key 去查
+`__elementHandles`——那张表的键是 bigint 句柄，元素当 key 永远查不到，
+parent 链第一跳就断。事件委托全靠向上找祖先属性，所以这个缺陷会让
+所有 `data-pm-*` 委托失效、点任何按钮都没反应。
+
+本地修法：改走 glue-core 维护的 `__nodeIdentity`（WeakMap 元素 → 句柄）。
+上游修法在 `celestia-island/tairitsu#124`，等价但用的是 `__storeNode`——
+两者都是「元素 → 句柄」反查，只是辅助函数不同。**因此上游版落地后必须
+删掉本地补丁，不能并存**（并存会让同一处代码被改两次，第二次替换不再命中，
+且阅读时容易误判实际生效的是哪一版）。
+
+**复查步骤**（三步都满足才可退役）：
+
+1. `gh pr view 124 --repo celestia-island/tairitsu --json state,mergedAt`
+   → 期望 `state=MERGED` 且 `mergedAt` 非空；
+2. `gh release list --repo celestia-island/tairitsu --limit 3`
+   → 期望出现晚于合并时间的新 release；
+3. 升级 vendor 后 `grep '__elementHandles.get(t)' plugin/wasm2/glue/dom/index.js`
+   → 期望不再命中（说明上游实现已就位）。
+
+退役动作：删除 `patch_glue()` 及其两处调用
+（`build_tairitsu_poc.py` 主流程、`build_tairitsu_admin.py`），重建产物，
+然后重跑八路由后台回归 + `scripts/verify_game2.mjs`——事件委托全链路都
+依赖 parent 链，回归必须覆盖到点击行为，不能只看页面能渲染。
+
+**复查记录**：
+
+| 日期 | PR 状态 | mergedAt | 最新 release | 结论 |
+| --- | --- | --- | --- | --- |
+| 2026-11-07 | OPEN | null | v0.5.26（2026-11-03） | 受上游阻塞，补丁保留 |
+| 2026-11-07（同日晚些） | MERGED（squash `84ca3f7`） | 2026-11-07 | 未发版 | **补丁已退役**（见下） |
+
+**退役执行记录（2026-11-07）**：PR 原分支基于 #123 之前的 master，直接
+合并会把 #123 的 workflow 触发策略收缩整个拖回去（mergeStateStatus 只保证
+文本无冲突）。因此先用 worktree 把 PR 的代码部分（glue-dom.ts + 测试）
+rebase 到当前 master——顺带给测试脚本加了 `--experimental-strip-types`，
+让 `npm run test` 在 Node 22 也能直接跑（14/14 过）——强推后 squash 合入
+（`84ca3f7`）。随后从合并后的 master 构建 glue dist（33/33 域）、
+走 `vendor_copy` 完整刷新 vendor，确认
+`plugin/wasm2/glue/dom/index.js` 的 `getParentElement` 已走 `__storeNode`
+且 `__elementHandles.get(t)` 不再命中，删除 `patch_glue()` 及两处调用并
+重建产物。八路由后台回归与 `verify_game2.mjs`（71 通过 / 0 失败 / 1 跳过）
+在新 glue 上全绿。
+
+### 10.1.4 diff/patch 通道的工程化尝试与三重阻断（2026-11-07）
+
+整树重挂是当前架构的最大性能税（最坏 1126 行弹窗开关 776-843ms）。本轮尝试切到
+框架原生响应式管线（signal.set → notify_signal → mark_dirty → flush_render →
+diff → apply_patches），接线全部正确（初始渲染在组件上下文内注册依赖、
+apply_patches 挂到 vnode 根元素、schedule 回调与 pm-flush 桥就位），实测被 jco
+wrapper 层三重阻断：
+
+1. **rAF→wasm 不存在**：wrapper（jco 转译产物）未导出
+   `onAnimationFrame`（`onTimeout`/`onPromiseResolve`/`onGenericEvent`/
+   `onMouseEvent` 都有，唯独缺它）——`set_schedule_callback` 的 rAF 路径
+   整条死路，这是 §10.1.1「三条投递链路全哑」的精确根因。
+2. **promise 任务上 flush 卡死**：fetch 回调（promise 任务）里执行
+   `flush_render` 后 `FLUSHING` 守卫永不复位（`debug_state()` 实测
+   `true|true|1|1`），之后所有 flush 被静默跳过——即 §10.1.2 遗留清单
+   「渲染路径中某个特定接口调用在事件任务上仍被排队」的可复现形态。
+3. **事件任务重入一次后失活**：观察器→pm-flush→事件任务 flush 的第一
+   次投递成功（render+apply 各 1 次），之后 MutationObserver 与 pm-flush
+   监听器双双失活（JS 侧手动 setAttribute / dispatchEvent 均不再触发
+   wasm 回调），wasm 实例疑似在首次重入中被毒化。
+
+工作副本已回退到整树重挂（回归全绿）。**解锁 diff 路径需要上游动作**：
+jco wrapper 补 `onAnimationFrame` 导出、修 promise 任务的渲染重入、或提供
+显式的「帧调度导出」。这是 tairitsu 作为正式工程化框架（对标 Vue 生态）
+的关键缺口——通用接口问题（wasm component）已解决，任务调度/回调投递
+的可靠性是下一道门槛。
+
+### 10.1.5 §10.1.4 勘误与 diff/patch 管线落地（2026-11-08）
+
+**勘误**：§10.1.4 的「三重阻断」结论部分错误。复核 wrapper（jco 转译产物）
+与 glue 后：
+
+1. 「wrapper 未导出 onAnimationFrame」——**grep 错名**。WIT 的导出名是
+   `on-frame`，jco 转译为 `onFrame`（实测 wrapper 内 11 处），glue 派发
+   `exp.onFrame`，整条 rAF→wasm 链路结构完整且实测可达（boot.js 的
+   MessageChannel 帧驱动 + `window.__tairitsuFrames` 计数器可观测）。
+2. 「promise 任务上 flush 卡死」——真实现象、错误归因。卡死的
+   `debug_state()=true|true|1|1` 是**补丁应用阶段 wasm trap** 的结果：
+   首个交互补丁在 text 节点槽位上执行了元素专有 DOM 调用（见下），
+   trap 不走 Rust 解栈（`FlushGuard::drop` 不执行），守卫永久卡住。
+   promise 任务本身没有限制。
+3. 「实例毒化」——机制确认：jco wrapper 的每个导出入口先
+   `throwIfTrapped()`，wasm 调用内的任何 JS 异常都会 `markTrapped` 永久
+   毒化实例（boot.js 帧驱动的 try/catch 恰好拦在 wrapper 之外时才幸免）。
+
+**真实根因（全部在 tairitsu 上游，PR celestia-island/tairitsu#126 已合入）**：
+
+- **ReplaceNode 是「原位重建内容」而非「替换节点」**：槽位换了节点种类后
+  仍保留旧元素身份（stale `<table>`/modal overlay），后续所有按索引寻址
+  的补丁逐批错位，DOM 与 diff 基线永久失同步。修复：按新 vnode 种类建
+  新节点 + `replaceChild` 真替换。
+- **元素专有操作落在 text 槽位上直接 trap**：glue 的 `setAttribute` 在
+  text 节点上抛 TypeError → jco 下是 wasm trap。修复：用
+  `node.get-node-type` 判别，非元素槽位 warn+skip。
+- **同批 RemoveChild 必须降序执行**：位置 diff 的全部索引基于旧子表，
+  先执行的删除会把后续索引顶偏（实测 `rm4(f,n=6)` 后 `rm5(found=false,
+  n=5)`，overlay 幸存）。修复：非删除操作按原序先跑（数量中性、旧帧
+  索引保持有效），删除操作按索引降序后跑。**关键在嵌套 UpdateChild 的
+  子补丁列表同样要走这套纪律**——最初的修复只覆盖根层批次，弹窗关闭
+  依然挂，事件序列（rmh 日志）揪出了递归层的朴素 for 循环。
+- **npm glue 分发缺 node 三操作**：`getNodeType`/`insertBefore`/
+  `replaceChild` 在运行时 glue 源里有、npm 分发源里没有——wrapper
+  加载即报 "does not provide an export named 'getNodeType'"。
+
+**附带发现（jco 生态坑，下游规避即可）**：帧任务（隐式线程）里 wasi
+stderr 的 OutputStream 资源句柄无效——渲染/补丁路径上任何
+`eprintln!`/panic-hook 落 stderr 都会 trap（"Not a valid
+OutputStream resource"）。诊断输出必须走 DOM 属性（本仓库的
+`data-dbg-*` 仪表即为此设计）。
+
+**落地架构（两端均已切换，rev 锁定 7f2f6ef）**：
+
+- 状态变更 → `request_remount()`（名字保留，语义=mark_dirty）→ rAF
+  调度（init_runtime 注册 + boot.js MessageChannel 帧驱动）→
+  `flush_render` → `diff(old,new)` → `apply_patches`。旧的
+  data-flush-pending 属性 → MutationObserver → pm-flush → 整树重挂
+  桥退役。
+- **admin2：纯增量管线**。八路由 + 六编辑器套件（弹窗开闭往返、发放
+  向导、下钻实例管理、野怪管理、六实体删除）全部实测通过；最坏场景
+  性能提升 15–35×（1126 行弹窗开/关 776/843ms → 51/24ms；全量加载
+  10.7s → 3.76s；千行加载更多 873–934ms → 440–459ms）。
+- **game2：增量 + 结构性批次整树替换兜底**。深层嵌套 UpdateChild 的
+  索引错位类缺口尚未根除（背包搜索实测复现：状态 1 项、DOM 残留 3 卡，
+  服务端响应无辜），含 Insert/Remove/Replace/Create 的批次直接整树
+  替换（游戏单屏 20–50 塔片，替换 ≈21–24ms 与旧重挂持平），换来
+  「DOM 与基线永远同源」的硬保证；纯属性/文本批次（战斗回合 19–21ms）
+  保持增量。玩家端 70 断言全绿、战斗回合/逃脱/结算链路实测通过。
+- 管线仪表：#app 上的 `data-dbg-*` 属性（req/sched/frame/patch/
+  patch-n/state-after/plog，game2 另有 [S] 标记），验收脚本与现场
+  诊断共用。
+
+**已知边界（上游后续）**：diff 基线是 stored vnode、apply 目标是活 DOM，
+二者没有对账机制——错位一次即永久漂移（admin 的流程全对齐所以纯增量
+安全；game2 兜底绕开）。根治需要基线/DOM 一致性校验或 reconcile 通道。
+
 ### 10.2 双站点并行（行为对照）
 
 入口按 `ui` 参数分流，两套前端共用同一 Discuz 外壳与 API：

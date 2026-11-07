@@ -77,10 +77,12 @@ INTERFACE_MAP = {
         "getCtrlKey", "getMetaKey", "getOffsetX", "getOffsetY", "getPageX",
         "getPageY", "getScreenX", "getScreenY", "getShiftKey",
     ]),
-    # node 缺 getChildNodes（0.5.26 world 新增），由 shim 生成段补写。
+    # node 的 getChildNodes 由 shim 生成段补写（0.5.26 world 新增时的
+    # 历史原因，现已入 glue node_exports）；getNodeType/replaceChild 随
+    # patch 路径的 text-slot 修复入 glue，这里平铺导出。
     "node": ("dom", [
-        "appendChild", "getFirstChild", "getParentElement", "insertBefore",
-        "removeChild", "setTextContent",
+        "appendChild", "getFirstChild", "getNodeType", "getParentElement",
+        "insertBefore", "removeChild", "replaceChild", "setTextContent",
     ]),
     # node-list 整个接口 tarball 缺失，shim 生成段全手写。
     "node-list": (None, ["getLength", "item"]),
@@ -88,7 +90,8 @@ INTERFACE_MAP = {
     "parent-node": ("dom", ["querySelector"]),
     "platform-helpers": ("platform", [
         "cancelAnimationFrame", "clearInterval", "clearTimeout",
-        "fetchPromise", "requestAnimationFrame", "setInterval", "setTimeout",
+        "copyToClipboard", "fetchPromise", "readClipboard",
+        "requestAnimationFrame", "setInterval", "setTimeout",
     ]),
     "pointer-event": ("events", [
         "getHeight", "getIsPrimary", "getPointerId", "getPointerType",
@@ -233,33 +236,6 @@ def vendor_copy() -> None:
         sys.exit(f"vendor wasi missing: {src_browser}")
     shutil.copytree(src_browser, wasi_dir, ignore=shutil.ignore_patterns("*.d.ts"))
     print("[poc] vendored glue domains + wasi browser shims")
-
-
-def patch_glue() -> None:
-    """对 vendored glue 打补丁（每次构建幂等执行，作用于 plugin/wasm2/glue）。
-
-    已知缺陷：
-    - dom 域 getParentElement 用「元素对象」作 key 查 __elementHandles——
-      那是 handle→元素 的表，键是 bigint 句柄，元素当 key 永远查不到，
-      parent 链在第一跳就断（事件委托的 closest 语义全灭）。改用
-      glue-core 维护的 __nodeIdentity（WeakMap 元素→句柄）。
-    """
-    dom = OUT / "glue" / "dom" / "index.js"
-    if not dom.exists():
-        sys.exit("patch_glue: glue/dom/index.js missing")
-    js = dom.read_text(encoding="utf-8")
-    broken = "globalThis.__elementHandles.get(t)"
-    if broken in js:
-        js = js.replace(
-            broken,
-            "(globalThis.__nodeIdentity&&globalThis.__nodeIdentity.get(t))",
-        )
-        dom.write_text(js, encoding="utf-8")
-        print("[poc] patched glue dom: getParentElement via __nodeIdentity")
-    elif "__nodeIdentity.get(t)" in js:
-        print("[poc] glue dom already patched")
-    else:
-        print("[poc] WARN: getParentElement pattern not found; check glue version")
 
 
 def shims_from_glue(build_id: str) -> None:
@@ -681,7 +657,9 @@ def main() -> None:
         vendor_copy()
     elif not (OUT / "glue").is_dir() or not (OUT / "wasi").is_dir():
         sys.exit("--skip-vendor requires existing plugin/wasm2/glue and plugin/wasm2/wasi")
-    patch_glue()
+    # glue getParentElement 补丁已退役（2026-11-07）：上游
+    # celestia-island/tairitsu#124 合入并随 dist 重新 vendor，vendored
+    # dom glue 自带 __storeNode 实现，无需再改写。
     shims_from_glue(build_id)
     glue_core()
     write_boot_assets()

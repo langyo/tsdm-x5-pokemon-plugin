@@ -52,47 +52,81 @@ pub fn element_handle(id: &str) -> Option<u64> {
 
 #[cfg(target_family = "wasm")]
 thread_local! {
-    /// 最新 AppState：remount 通道由此取状态构建整树。
-    /// （pm-flush 监听器是 'static 闭包，不能捕获局部 state。）
-    static LATEST_STATE: std::cell::RefCell<Option<crate::app_state::AppState>> =
+    /// 根组件 ID：request_remount 据此 mark_dirty（0 = 尚未完成启动）。
+    static ROOT_COMPONENT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    /// TEMP DIAG：vnode 根元素（apply 回调用）。
+    static PATCH_ROOT: std::cell::RefCell<Option<WitElement>> =
+        const { std::cell::RefCell::new(None) };
+    /// 兜底整树替换用的最新状态。
+    static STATE_CACHE: std::cell::RefCell<Option<crate::app_state::AppState>> =
         const { std::cell::RefCell::new(None) };
 }
 
-/// 请求一次重挂载：由 boot.js 的观察器把属性变化转成 pm-flush 事件，
-/// 再由 remount_latest 执行。可从任何线程调用（只做同步导入）。
+/// 请求一次增量渲染：mark_dirty → rAF（boot.js 的 MessageChannel 帧驱动）
+/// → flush_render → diff(old,new) → apply_patches 只落差异。
+///
+/// 名字保留 request_remount 是为了不动各页面模块里的调用点；语义自
+/// §10.1.5 起从「整树重挂」改为「标脏 + 帧调度增量渲染」（旧观察器桥
+/// 与整树重挂通道已退役）。
 #[cfg(target_family = "wasm")]
 pub fn request_remount() {
-    use std::cell::Cell;
-    thread_local! {
-        static TICK: Cell<u64> = const { Cell::new(0) };
-    }
-    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::set_attribute;
-    TICK.with(|t| {
-        let n = t.get() + 1;
-        t.set(n);
-        if let Some(app) = element_handle("app") {
-            let _ = set_attribute(app, "data-flush-pending", &n.to_string());
+    ROOT_COMPONENT.with(|id| {
+        if id.get() != 0 {
+            tairitsu_vdom::runtime::mark_dirty(id.get());
         }
     });
 }
 
-/// 整树重挂载：清空 #app 后按最新信号值与路由重建整棵树。
-///
-/// 为什么不走 flush_render（diff/apply）：jco 下 apply 路径的嵌套
-/// UpdateChild 索引解析会挂起（带数据的 patch 在事件任务上实测卡死，
-/// 见研究文档 §10.1.3）；而 mount_vnode_to_app 的「create + append」
-/// 纯构造链在挂载任务上对任意规模树都可靠。游戏单屏 20–50 个瓦片，
-/// 重挂载开销可接受；上游修好 apply 后换回增量路径。
+/// 批次是否含结构性操作（增删/替换子节点）——递归扫描嵌套 UpdateChild。
 #[cfg(target_family = "wasm")]
-fn remount_latest() {
-    let state = LATEST_STATE.with(|s| s.borrow().clone());
-    let Some(state) = state else { return };
-    let vnode = render_route(&state);
-    if let Ok(platform) = WitPlatform::new() {
-        let _ = platform.mount_vnode_to_app(vnode);
+fn patch_has_structural(ps: &[tairitsu_vdom::Patch]) -> bool {
+    use tairitsu_vdom::Patch;
+    ps.iter().any(|p| match p {
+        Patch::InsertChild { .. }
+        | Patch::RemoveChild { .. }
+        | Patch::ReplaceNode { .. }
+        | Patch::CreateNode { .. } => true,
+        Patch::UpdateChild { patches, .. } => patch_has_structural(patches),
+        _ => false,
+    })
+}
+
+/// TEMP DIAG：补丁变体摘要（最近 3 批滚动日志用）。
+#[cfg(target_family = "wasm")]
+fn patch_summary(p: &tairitsu_vdom::Patch, depth: usize) -> String {
+    use tairitsu_vdom::Patch;
+    if depth > 5 {
+        return "…".into();
+    }
+    match p {
+        Patch::CreateNode { .. } => "CreateNode".into(),
+        Patch::ReplaceNode { .. } => "ReplaceNode".into(),
+        Patch::RemoveNode => "RemoveNode".into(),
+        Patch::UpdateText { text } => format!("UpdateText({}字)", text.chars().count()),
+        Patch::UpdateAttribute { name, .. } => format!("UpdAttr({name})"),
+        Patch::AddAttribute { name, .. } => format!("AddAttr({name})"),
+        Patch::RemoveAttribute { name } => format!("RmAttr({name})"),
+        Patch::UpdateStyle { .. } => "UpdStyle".into(),
+        Patch::UpdateClass { .. } => "UpdClass".into(),
+        Patch::InsertChild { index, .. } => format!("InsertChild({index})"),
+        Patch::RemoveChild { index } => format!("RemoveChild({index})"),
+        Patch::UpdateChild { index, patches } => format!(
+            "UpdateChild({index},[{}])",
+            patches
+                .iter()
+                .map(|cp| patch_summary(cp, depth + 1))
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        Patch::AddEvent { name, .. } => format!("AddEvent({name})"),
+        Patch::UpdateEvent { name, .. } => format!("UpdEvent({name})"),
+        Patch::RemoveEvent { name } => format!("RmEvent({name})"),
+        _ => "Other".into(),
     }
 }
 
+/// 整树重挂载：清空 #app 后按最新信号值与路由重建整棵树。
+///
 /// 按路由渲染页面：欢迎页整屏；其余页面带顶部导航（对齐 Dioxus 版
 /// Header 的 首页/商店 入口，未移植页面暂不列出）。
 #[cfg(target_family = "wasm")]
@@ -267,13 +301,12 @@ pub fn run_app() -> Result<()> {
     state.battle.component_id.set(component_id as u32);
 
     let state_for_render = state.clone();
-    let latest_for_remount = state.clone();
     let state_for_delegation = state.clone();
     tairitsu_vdom::runtime::update_render_function(component_id, move || {
         render_route(&state_for_render)
     });
     let vnode = render_route(&state);
-    LATEST_STATE.with(|s| *s.borrow_mut() = Some(latest_for_remount));
+    ROOT_COMPONENT.with(|id| id.set(component_id));
 
     // 启动路由判定（对齐 Dioxus 版 Layout 的 needs_welcome）：
     // user/profile → is_new_player 或 total_pokemons==0 → Welcome，
@@ -307,37 +340,98 @@ pub fn run_app() -> Result<()> {
     let vnode_root_handle = item(children_handle, 0).expect("rendered vnode root not found");
     let root_element = WitElement::from_raw(vnode_root_handle);
     tairitsu_web::init_runtime(root_element.clone());
+    PATCH_ROOT.with(|p| *p.borrow_mut() = Some(root_element.clone()));
 
-    // 调度（重挂载通道）：
-    //   - 任何线程的数据更新 → request_remount 写 data-flush-pending
-    //     （同步导入，全线程可靠）→ boot.js 的 MutationObserver 派发
-    //     pm-flush 事件 → 下面的监听器在事件任务里整树重挂载
-    //     （mount 链路对任意规模树已验证可靠；diff/apply 会挂起，
-    //     见研究文档 §10.1.3）。
-    //   - 交互：事件委托（delegation.rs）在 #app 上注册一次，重挂载
-    //     零监听器开销。
+    STATE_CACHE.with(|c| *c.borrow_mut() = Some(state.clone()));
+    // 补丁批次滚动日志（data-dbg-plog，最近 10 批）+ 结构性兜底（§10.1.5）：
+    // 含 Insert/Remove/Replace/Create 的批次整树替换——游戏单屏 20–50 塔片，
+    // 替换开销与旧重挂相当（21–24ms），换来 DOM 与 diff 基线永远同源；
+    // 纯属性/文本批次（战斗回合等热路径）保持增量。增量索引在深层
+    // UpdateChild 路径上存在错位类缺口（背包搜索实测复现，见研究文档）。
+    tairitsu_vdom::runtime::set_apply_patches_callback(
+        |component_id: tairitsu_vdom::ComponentId,
+         patches: Vec<tairitsu_vdom::Patch>| {
+            let structural = patch_has_structural(&patches);
+            let summary = format!(
+                "{}n={} | {}",
+                if structural { "[S] " } else { "" },
+                patches.len(),
+                patches
+                    .iter()
+                    .map(|p| patch_summary(p, 0))
+                    .collect::<Vec<_>>()
+                    .join(" ; ")
+            );
+            thread_local! {
+                static PLOG: std::cell::RefCell<Vec<String>> =
+                    const { std::cell::RefCell::new(Vec::new()) };
+            }
+            PLOG.with(|l| {
+                let mut v = l.borrow_mut();
+                v.push(summary);
+                let len = v.len();
+                if len > 10 {
+                    v.drain(0..len - 10);
+                }
+                let joined = v
+                    .iter()
+                    .enumerate()
+                    .map(|(i, e)| format!("[{i}] {e}"))
+                    .collect::<Vec<_>>()
+                    .join(" ||| ");
+                let joined: String = joined.chars().take(900).collect();
+                if let Some(app) = get_element_by_id(0, "app") {
+                    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::set_attribute;
+                    let _ = set_attribute(app, "data-dbg-plog", &joined);
+                }
+            });
+            if structural {
+                // 结构性批次：整树替换（§10.1.5 兜底策略，注释见 run_app 头部）。
+                let state = STATE_CACHE.with(|s| s.borrow().clone());
+                let Some(state) = state else { return };
+                let vnode = render_route(&state);
+                if let Ok(platform) = WitPlatform::new() {
+                    let _ = platform.mount_vnode_to_app(vnode.clone());
+                }
+                if let Some(app_handle) = get_element_by_id(0, "app") {
+                    let children_handle = get_child_nodes(app_handle);
+                    if let Some(root_handle) = item(children_handle, 0) {
+                        let root_element = WitElement::from_raw(root_handle);
+                        // 不重跑 init_runtime：它会覆盖本回调。调度回调与根
+                        // 无关仍然有效；apply 走本回调自己的 PATCH_ROOT。
+                        PATCH_ROOT.with(|p| *p.borrow_mut() = Some(root_element));
+                    }
+                }
+                tairitsu_vdom::runtime::store_initial_vnode(component_id, vnode);
+                return;
+            }
+            let root = PATCH_ROOT.with(|p| p.borrow().clone());
+            if let Some(root) = root {
+                if let Ok(platform) = WitPlatform::new() {
+                    tairitsu_web::wit_platform::wasm_impl::with_render_component(
+                        component_id,
+                        || {
+                            let _ = platform.apply_patches(&root, &patches);
+                        },
+                    );
+                }
+            }
+        },
+    );
+
+    // 调度（增量渲染通道，§10.1.5）：
+    //   - 数据更新 → request_remount → mark_dirty → init_runtime 注册的
+    //     rAF 调度（boot.js 用 MessageChannel 驱动 rAF）→ flush_render →
+    //     diff → apply_patches。
+    //   - 交互：事件委托（delegation.rs）在 #app 上注册一次。
+    //   - 旧的 data-flush-pending 观察器桥与 pm-flush 整树重挂通道已退役
+    //     （boot.js 的观察器不再有属性变化可观察，自然静默）。
     {
         use tairitsu_vdom::platform::DomOps;
-        let platform = WitPlatform::new()?;
         let app =
             WitElement::from_raw(get_element_by_id(0, "app").expect("#app mount point not found"));
-        platform.add_event_listener(
-            &app,
-            "pm-flush",
-            Box::new(|_| {
-                remount_latest();
-            }),
-        );
         delegation::install(&app, &state_for_delegation);
     }
-    tairitsu_vdom::runtime::set_schedule_callback(Box::new(|callback: Box<dyn FnOnce()>| {
-        let id = tairitsu_web::wit_platform::wasm_impl::next_callback_id();
-        tairitsu_web::wit_platform::wasm_impl::ANIMATION_CALLBACKS.with(|m| {
-            m.borrow_mut()
-                .insert(id, Some(Box::new(move |_ts| callback())));
-        });
-        tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::platform_helpers::request_animation_frame(id);
-    }));
 
     tairitsu_vdom::runtime::store_initial_vnode(component_id, vnode);
     Ok(())

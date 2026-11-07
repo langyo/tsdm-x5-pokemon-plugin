@@ -2,6 +2,12 @@
 defined('IN_DISCUZ') || exit('Access Denied');
 
 if (isset($_GET['index']) && $_GET['index'] === 'admin') {
+    // 迁移期双后台：&ui=v2 走 tairitsu 版（admin_v2.inc.php），默认仍是
+    // Dioxus 版（admincp.inc.php）。
+    if (isset($_GET['ui']) && $_GET['ui'] === 'v2') {
+        include_once __DIR__ . '/admin_v2.inc.php';
+        return;
+    }
     include_once __DIR__ . '/admincp.inc.php';
     return;
 }
