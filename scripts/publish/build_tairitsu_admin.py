@@ -25,7 +25,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 
-# 复用 poc 脚本的共享装配与常量（OUT / INTERFACE_MAP / patch_glue / ...）。
+# 复用 poc 脚本的共享装配与常量（OUT / INTERFACE_MAP / ...）。
 _spec = importlib.util.spec_from_file_location("poc_build", HERE / "build_tairitsu_poc.py")
 poc = importlib.util.module_from_spec(_spec)
 sys.modules["poc_build"] = poc
@@ -152,7 +152,7 @@ def main() -> None:
         poc.vendor_copy()
     elif not (OUT / "glue").is_dir() or not (OUT / "wasi").is_dir():
         sys.exit("--skip-vendor requires existing plugin/wasm2/glue and plugin/wasm2/wasi")
-    poc.patch_glue()
+    # glue getParentElement 补丁已随上游 #124 的合入退役（见 poc 脚本主流程注释）。
     poc.shims_from_glue(build_id)
     poc.glue_core()
     write_boot_assets(build_id)

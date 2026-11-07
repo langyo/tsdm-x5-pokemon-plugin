@@ -582,9 +582,19 @@ parent 链第一跳就断。事件委托全靠向上找祖先属性，所以这�
 | 日期 | PR 状态 | mergedAt | 最新 release | 结论 |
 | --- | --- | --- | --- | --- |
 | 2026-11-07 | OPEN | null | v0.5.26（2026-11-03） | 受上游阻塞，补丁保留 |
+| 2026-11-07（同日晚些） | MERGED（squash `84ca3f7`） | 2026-11-07 | 未发版 | **补丁已退役**（见下） |
 
-下次复查条件：PR #124 出现 `mergedAt`，或 tairitsu 发布晚于
-2026-11-06 的新版本（当前 v0.5.26 早于 PR 最后更新时间，因此必然不含该修复）。
+**退役执行记录（2026-11-07）**：PR 原分支基于 #123 之前的 master，直接
+合并会把 #123 的 workflow 触发策略收缩整个拖回去（mergeStateStatus 只保证
+文本无冲突）。因此先用 worktree 把 PR 的代码部分（glue-dom.ts + 测试）
+rebase 到当前 master——顺带给测试脚本加了 `--experimental-strip-types`，
+让 `npm run test` 在 Node 22 也能直接跑（14/14 过）——强推后 squash 合入
+（`84ca3f7`）。随后从合并后的 master 构建 glue dist（33/33 域）、
+走 `vendor_copy` 完整刷新 vendor，确认
+`plugin/wasm2/glue/dom/index.js` 的 `getParentElement` 已走 `__storeNode`
+且 `__elementHandles.get(t)` 不再命中，删除 `patch_glue()` 及两处调用并
+重建产物。八路由后台回归与 `verify_game2.mjs`（71 通过 / 0 失败 / 1 跳过）
+在新 glue 上全绿。
 
 ### 10.2 双站点并行（行为对照）
 
