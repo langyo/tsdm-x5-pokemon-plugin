@@ -72,6 +72,8 @@ pub fn install(app: &WitElement, state: &AppState) {
                     crate::pages::set_item_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-mpf") {
                     crate::pages::set_map_editor_field(&st, &key, &ev.value);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-bossf") {
+                    crate::pages::set_boss_field(&st, &key, &ev.value);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-skf") {
                     crate::pages::set_skill_editor_field(&st, &key, &ev.value);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-evf") {
@@ -216,6 +218,51 @@ fn dispatch_click(state: &AppState, target: u64) {
         }
         return;
     }
+    // Boss 二级弹窗（内部按钮必须先于 mp-overlay 判定：find_with_attr 会
+    // 向上穿到一级遮罩）。二级弹窗的遮罩自身（boss-overlay）点空白关闭
+    // 二级弹窗而非一级。
+    if find_with_attr(target, "data-pm-adm-mp-boss-add").is_some() {
+        crate::pages::boss_modal_open(state, None);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-mp-boss-search").is_some() {
+        crate::pages::boss_search(state);
+        return;
+    }
+    if let Some((_, pick)) = find_with_attr(target, "data-pm-adm-mp-boss-pick") {
+        if let Some((pid, name)) = pick.split_once(':') {
+            if let Ok(pid) = pid.trim().parse::<u64>() {
+                crate::pages::boss_pick(state, pid, name);
+            }
+        }
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-mp-boss-save").is_some() {
+        crate::pages::boss_save(state);
+        return;
+    }
+    if find_with_attr(target, "data-pm-adm-mp-boss-cancel").is_some() {
+        crate::pages::close_boss_modal(state);
+        return;
+    }
+    if let Some((_, idx)) = find_with_attr(target, "data-pm-adm-mp-boss-edit") {
+        if let Ok(idx) = idx.trim().parse::<usize>() {
+            crate::pages::boss_modal_open(state, Some(idx));
+        }
+        return;
+    }
+    if let Some((_, idx)) = find_with_attr(target, "data-pm-adm-mp-boss-del") {
+        if let Ok(idx) = idx.trim().parse::<usize>() {
+            crate::pages::boss_remove(state, idx);
+        }
+        return;
+    }
+    if let Some((hit, _)) = find_with_attr(target, "data-pm-adm-boss-overlay") {
+        if hit == target {
+            crate::pages::close_boss_modal(state);
+        }
+        return;
+    }
     if find_with_attr(target, "data-pm-adm-mp-save").is_some() {
         crate::pages::submit_map_editor(state);
         return;
@@ -241,6 +288,25 @@ fn dispatch_click(state: &AppState, target: u64) {
         return;
     }
     // 技能编辑弹窗（sk 前缀）。
+    // 可学种族 chip 选择器（UX 对等 B；先于 sk-overlay 判定）。
+    if find_with_attr(target, "data-pm-adm-sk-sp-search").is_some() {
+        crate::pages::skill_species_search(state);
+        return;
+    }
+    if let Some((_, pick)) = find_with_attr(target, "data-pm-adm-sk-sp-pick") {
+        if let Some((pid, name)) = pick.split_once(':') {
+            if let Ok(pid) = pid.trim().parse::<u64>() {
+                crate::pages::skill_species_pick(state, pid, name);
+            }
+        }
+        return;
+    }
+    if let Some((_, pid)) = find_with_attr(target, "data-pm-adm-sk-sp-del") {
+        if let Ok(pid) = pid.trim().parse::<u64>() {
+            crate::pages::skill_species_remove(state, pid);
+        }
+        return;
+    }
     if find_with_attr(target, "data-pm-adm-sk-save").is_some() {
         crate::pages::submit_skill_editor(state);
         return;

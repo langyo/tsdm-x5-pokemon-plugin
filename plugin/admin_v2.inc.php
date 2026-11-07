@@ -152,6 +152,20 @@ include template('common/header');
 .adm-editor-section-title { display:flex; align-items:center; }
 .adm-wild-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; background:#f0f7ff; border:1px solid #cfe4f7; border-radius:12px; font-size:12px; color:#2a6496; }
 .adm-wild-chip-x { border:none; background:none; color:#c0392b; cursor:pointer; font-size:13px; padding:0 2px; line-height:1; }
+/* Boss 管理（UX 对等 A）：列表行 + 二级弹窗 */
+.adm-boss-list { border:1px solid #e3e8ee; border-radius:6px; margin-top:6px; }
+.adm-boss-row { display:flex; align-items:center; gap:10px; padding:5px 10px; border-bottom:1px dashed #e3e8ee; font-size:12px; }
+.adm-boss-row:last-child { border-bottom:none; }
+.adm-boss-row-name { flex:1; color:#2c3e50; }
+.adm-boss-row-level { color:#7f8c8d; min-width:52px; }
+.adm-boss-row-mult { color:#8e44ad; min-width:44px; }
+.adm-boss-row-actions { display:flex; gap:6px; }
+.adm-boss-overlay { z-index:1060; }
+.adm-boss-modal { max-width:560px; }
+.adm-boss-fields { align-items:end; }
+.adm-boss-ivs { grid-template-columns:repeat(3, 1fr); }
+/* 可学种族 chip 选择器（UX 对等 B） */
+.adm-species-picker { display:flex; flex-direction:column; gap:8px; margin-top:4px; }
 </style>
 
 <div class="pm-ui-switch">

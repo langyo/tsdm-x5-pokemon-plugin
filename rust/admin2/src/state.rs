@@ -470,8 +470,8 @@ impl std::fmt::Debug for ItemEditorState {
 /// `translate_map_mode_to_db_fields` 按 mode 决定写 experience=-1（boss）
 /// 还是写倍率（wild），bosses 只在 boss/hybrid 下被读。
 ///
-/// Boss 配置在 Dioxus 版是独立二级弹窗（宠物搜索 + 个体值 + 倍率），这里
-/// 先用 JSON 文本框承载 `bosses` 数组：字段完整可编辑，但不提供选择器 UI。
+/// Boss 配置走二级弹窗（宠物搜索 + 等级 + 六个体值 + 倍率 + 编辑/删除，
+/// UX 对等 A）；bosses_json 仍是提交时的数组存储，只是不再直接编辑原文。
 #[derive(Clone)]
 pub struct MapEditorState {
     pub open: ReactiveSignal<bool>,
@@ -489,6 +489,23 @@ pub struct MapEditorState {
     pub experience_increase_times: ReactiveSignal<String>,
     /// bosses 数组的 JSON 原文（boss/hybrid 模式下参与提交）。
     pub bosses_json: ReactiveSignal<String>,
+    // -- Boss 管理（UX 对等 A：二级弹窗，对齐 Dioxus 的 MapBoss 编辑器） --
+    pub boss_open: ReactiveSignal<bool>,
+    /// Some(i) = 编辑 bosses_json[i]；None = 新增。
+    pub boss_editing_idx: ReactiveSignal<Option<usize>>,
+    /// 0 = 未选物种。
+    pub boss_species_id: ReactiveSignal<u64>,
+    pub boss_species_name: ReactiveSignal<String>,
+    pub boss_query: ReactiveSignal<String>,
+    /// 物种搜索结果（filter_pokemon_type contains）。
+    pub boss_results: ReactiveSignal<Vec<(u64, String)>>,
+    pub boss_searching: ReactiveSignal<bool>,
+    pub boss_level: ReactiveSignal<String>,
+    /// 六项个体值文本（HP/攻/防/特攻/特防/速，0-255）。
+    pub boss_ivs: ReactiveSignal<[String; 6]>,
+    /// 属性倍率文本（1.0-5.0）。
+    pub boss_mult: ReactiveSignal<String>,
+    pub boss_err: ReactiveSignal<Option<String>>,
     // -- 野怪管理（切片 18，direct_actions；仅已保存的地图可用） --
     /// (pokemon_type_id, name) 当前地图的野怪。
     pub wild: ReactiveSignal<Vec<(u64, String)>>,
@@ -517,6 +534,17 @@ impl MapEditorState {
             experience: use_signal(|| "0".to_string()),
             experience_increase_times: use_signal(|| "0".to_string()),
             bosses_json: use_signal(|| "[]".to_string()),
+            boss_open: use_signal(|| false),
+            boss_editing_idx: use_signal(|| None),
+            boss_species_id: use_signal(|| 0),
+            boss_species_name: use_signal(String::new),
+            boss_query: use_signal(String::new),
+            boss_results: use_signal(Vec::new),
+            boss_searching: use_signal(|| false),
+            boss_level: use_signal(|| "50".to_string()),
+            boss_ivs: use_signal(|| std::array::from_fn(|_| "0".to_string())),
+            boss_mult: use_signal(|| "1.5".to_string()),
+            boss_err: use_signal(|| None),
             wild: use_signal(Vec::new),
             wild_loading: use_signal(|| false),
             wild_err: use_signal(|| None),
@@ -554,9 +582,17 @@ pub struct SkillEditorState {
     /// 中文属性名（空串 = 无，对应服务端 kind 翻译的 null 分支）。
     pub element: ReactiveSignal<String>,
     pub power: ReactiveSignal<String>,
-    /// 可学种族 ID 列表（逗号分隔文本：服务端载荷是数字数组，
-    /// 技能动辄关联上百个种族，纯文本串比逐个 chip 更实用）。
+    /// 可学种族 ID 列表（逗号分隔文本，chip 选择器的存储形态：服务端
+    /// 载荷是数字数组，提交时排序去重）。
     pub available: ReactiveSignal<String>,
+    // -- 可学种族 chip 选择器（UX 对等 B：对齐 Dioxus 的搜索 + chip 列表） --
+    pub species_query: ReactiveSignal<String>,
+    /// 搜索结果（filter_pokemon_type 名称 contains）。
+    pub species_results: ReactiveSignal<Vec<(u64, String)>>,
+    pub species_searching: ReactiveSignal<bool>,
+    /// id → 名称缓存（chip 显示用：搜索点选即写入；编辑器打开时对既有
+    /// id 后台逐个解析，上限 40 个，超出的 chip 只显示 #id）。
+    pub species_names: ReactiveSignal<std::collections::BTreeMap<u64, String>>,
     /// 战斗引擎 2.0 效果模板 ID（0 = 不绑定）。
     pub effect_id: ReactiveSignal<String>,
     pub saving: ReactiveSignal<bool>,
@@ -576,6 +612,10 @@ impl SkillEditorState {
             element: use_signal(String::new),
             power: use_signal(|| "0".to_string()),
             available: use_signal(String::new),
+            species_query: use_signal(String::new),
+            species_results: use_signal(Vec::new),
+            species_searching: use_signal(|| false),
+            species_names: use_signal(std::collections::BTreeMap::new),
             effect_id: use_signal(|| "0".to_string()),
             saving: use_signal(|| false),
             err: use_signal(|| None),

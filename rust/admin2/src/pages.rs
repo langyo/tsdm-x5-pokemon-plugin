@@ -3265,6 +3265,243 @@ pub fn wild_remove(state: &AppState, pokemon_type_id: u64) {
     );
 }
 
+// ---------------------------------------------------------------------------
+// Boss 管理（UX 对等 A）：bosses_json 的结构化编辑，对齐 Dioxus 二级弹窗。
+// ---------------------------------------------------------------------------
+
+/// 解析 bosses_json 为对象数组（容错：坏 JSON / 非数组都返回空表）。
+fn boss_entries(ed: &crate::state::MapEditorState) -> Vec<serde_json::Value> {
+    serde_json::from_str::<Vec<serde_json::Value>>(&ed.bosses_json.get()).unwrap_or_default()
+}
+
+/// 打开 Boss 二级弹窗。idx=Some(i) 预填 bosses_json[i]，None 用 Dioxus 默认
+/// （等级 50 / 六维 0 / 倍率 1.5）。
+pub fn boss_modal_open(state: &AppState, idx: Option<usize>) {
+    let ed = state.map_editor.clone();
+    let entries = boss_entries(&ed);
+    match idx {
+        Some(i) if i < entries.len() => {
+            let e = &entries[i];
+            let attrs = e.get("attributes").cloned().unwrap_or(serde_json::Value::Null);
+            let iv_keys = [
+                "hit_points",
+                "attack",
+                "defense",
+                "special_attack",
+                "special_defense",
+                "speed",
+            ];
+            let ivs: [String; 6] = std::array::from_fn(|k| {
+                let raw = attrs
+                    .get(iv_keys[k])
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                raw.to_string()
+            });
+            let mult = e
+                .get("boss_multiplier")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(1.5);
+            ed.boss_editing_idx.inner().set(Some(i));
+            ed.boss_species_id
+                .inner()
+                .set(json_u64(e, "pokemon_type_id"));
+            ed.boss_species_name
+                .inner()
+                .set(json_str(e, "pokemon_name"));
+            ed.boss_level
+                .inner()
+                .set(json_u64(e, "level").to_string());
+            ed.boss_ivs.inner().set(ivs);
+            ed.boss_mult
+                .inner()
+                .set(format!("{mult:.1}"));
+        }
+        _ => {
+            ed.boss_editing_idx.inner().set(None);
+            ed.boss_species_id.inner().set(0);
+            ed.boss_species_name.inner().set(String::new());
+            ed.boss_level.inner().set("50".to_string());
+            ed.boss_ivs.inner().set(std::array::from_fn(|_| "0".to_string()));
+            ed.boss_mult.inner().set("1.5".to_string());
+        }
+    }
+    ed.boss_query.inner().set(String::new());
+    ed.boss_results.inner().set(Vec::new());
+    ed.boss_err.inner().set(None);
+    ed.boss_open.inner().set(true);
+    crate::request_remount();
+}
+
+/// Boss 物种搜索（与野怪搜索同一 filter_pokemon_type contains 通道）。
+pub fn boss_search(state: &AppState) {
+    let ed = state.map_editor.clone();
+    if ed.boss_searching.get() {
+        return;
+    }
+    let query = ed.boss_query.get().trim().to_string();
+    if query.is_empty() {
+        ed.boss_results.inner().set(Vec::new());
+        crate::request_remount();
+        return;
+    }
+    let packages = vec![crate::api::filter_package("名称", "contains", &query)];
+    let filters = serde_json::Value::Array(packages).to_string();
+    ed.boss_searching.inner().set(true);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::filter_entity(
+        "pokemon_type",
+        filters,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let ed = st.map_editor.clone();
+            match result {
+                Ok(items) => {
+                    let rows: Vec<(u64, String)> = items
+                        .iter()
+                        .map(|it| (json_u64(it, "id"), json_str(it, "name")))
+                        .collect();
+                    ed.boss_results.inner().set(rows);
+                }
+                Err(e) => {
+                    ed.boss_err.inner().set(Some(format!("物种搜索失败：{e}")));
+                }
+            }
+            ed.boss_searching.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+}
+
+/// 从搜索结果选中物种。
+pub fn boss_pick(state: &AppState, pokemon_type_id: u64, name: &str) {
+    let ed = state.map_editor.clone();
+    ed.boss_species_id.inner().set(pokemon_type_id);
+    ed.boss_species_name.inner().set(name.to_string());
+    ed.boss_results.inner().set(Vec::new());
+    ed.boss_query.inner().set(String::new());
+    crate::request_remount();
+}
+
+/// Boss 表单字段写入。
+pub fn set_boss_field(state: &AppState, key: &str, value: &str) {
+    let ed = state.map_editor.clone();
+    match key {
+        "query" => ed.boss_query.inner().set(value.to_string()),
+        "level" => ed.boss_level.inner().set(value.to_string()),
+        "mult" => ed.boss_mult.inner().set(value.to_string()),
+        k if k.starts_with("iv:") => {
+            if let Ok(i) = k[3..].parse::<usize>() {
+                if i < 6 {
+                    let mut ivs = ed.boss_ivs.get();
+                    ivs[i] = value.to_string();
+                    ed.boss_ivs.inner().set(ivs);
+                }
+            }
+        }
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+/// 校验并落盘：写回 bosses_json（替换 idx 或追加），关闭二级弹窗。
+/// 校验规则对齐 Dioxus：物种必选、等级 ≥1、个体值 0-255、倍率 1.0-5.0。
+pub fn boss_save(state: &AppState) {
+    let ed = state.map_editor.clone();
+    let species_id = ed.boss_species_id.get();
+    if species_id == 0 {
+        ed.boss_err.inner().set(Some("请先搜索并选择一个物种".into()));
+        crate::request_remount();
+        return;
+    }
+    let level: Result<u64, _> = ed.boss_level.get().trim().parse();
+    let level = match level {
+        Ok(v) if v >= 1 => v,
+        _ => {
+            ed.boss_err
+                .inner()
+                .set(Some("等级必须是 ≥1 的整数（可超过 100）".into()));
+            crate::request_remount();
+            return;
+        }
+    };
+    let iv_keys = [
+        "hit_points",
+        "attack",
+        "defense",
+        "special_attack",
+        "special_defense",
+        "speed",
+    ];
+    let mut ivs = [0u64; 6];
+    for (i, raw) in ed.boss_ivs.get().iter().enumerate() {
+        match raw.trim().parse::<u64>() {
+            Ok(v) if v <= 255 => ivs[i] = v,
+            _ => {
+                ed.boss_err
+                    .inner()
+                    .set(Some("个体值必须是 0-255 的整数".into()));
+                crate::request_remount();
+                return;
+            }
+        }
+    }
+    let mult: Result<f64, _> = ed.boss_mult.get().trim().parse();
+    let mult = match mult {
+        Ok(v) if (1.0..=5.0).contains(&v) => (v * 10.0).round() / 10.0,
+        _ => {
+            ed.boss_err
+                .inner()
+                .set(Some("属性倍率必须在 1.0 - 5.0 之间（步进 0.1）".into()));
+            crate::request_remount();
+            return;
+        }
+    };
+    let name = ed.boss_species_name.get();
+    let entry = serde_json::json!({
+        "pokemon_type_id": species_id,
+        "pokemon_name": name,
+        "level": level,
+        "attributes": {
+            iv_keys[0]: ivs[0],
+            iv_keys[1]: ivs[1],
+            iv_keys[2]: ivs[2],
+            iv_keys[3]: ivs[3],
+            iv_keys[4]: ivs[4],
+            iv_keys[5]: ivs[5],
+        },
+        "boss_multiplier": mult,
+    });
+    let mut entries = boss_entries(&ed);
+    match ed.boss_editing_idx.get() {
+        Some(i) if i < entries.len() => entries[i] = entry,
+        _ => entries.push(entry),
+    }
+    ed.bosses_json
+        .inner()
+        .set(serde_json::Value::Array(entries).to_string());
+    ed.boss_open.inner().set(false);
+    crate::request_remount();
+}
+
+/// 删除 bosses_json[i]。
+pub fn boss_remove(state: &AppState, idx: usize) {
+    let ed = state.map_editor.clone();
+    let mut entries = boss_entries(&ed);
+    if idx < entries.len() {
+        entries.remove(idx);
+        ed.bosses_json
+            .inner()
+            .set(serde_json::Value::Array(entries).to_string());
+    }
+    crate::request_remount();
+}
+
+pub fn close_boss_modal(state: &AppState) {
+    state.map_editor.boss_open.inner().set(false);
+    crate::request_remount();
+}
+
 pub fn close_map_editor(state: &AppState) {
     state.map_editor.open.inner().set(false);
     crate::request_remount();
@@ -3521,15 +3758,207 @@ fn map_editor_modal(st: &AppState) -> VNode {
                 }
             });
         }
-        v.push(rsx! {
-            label { class: "adm-editor-field adm-editor-wide",
-                span { "Boss 配置 JSON（数组，元素含 pokemon_type_id / pokemon_name / level / attributes / boss_multiplier）" }
-                textarea {
-                    class: "adm-editor-textarea",
-                    rows: 8,
-                    "data-pm-adm-mpf": "bosses",
-                    "{ed.bosses_json.get()}"
+        // Boss 列表 + 二级编辑弹窗（UX 对等 A：对齐 Dioxus 的 Boss 挑战区）。
+        let mut boss_rows: Vec<VNode> = Vec::new();
+        let boss_entries: Vec<serde_json::Value> =
+            serde_json::from_str(&ed.bosses_json.get()).unwrap_or_default();
+        for (i, e) in boss_entries.iter().enumerate() {
+            let idx_attr = i.to_string();
+            let name = json_str(e, "pokemon_name");
+            let lv = json_u64(e, "level");
+            let mult = e
+                .get("boss_multiplier")
+                .and_then(|m| m.as_f64())
+                .unwrap_or(1.5);
+            let lv_text = format!("Lv.{lv}");
+            let mult_text = format!("{mult:.1}x");
+            boss_rows.push(rsx! {
+                div { class: "adm-boss-row",
+                    span { class: "adm-boss-row-name", "{name}" }
+                    span { class: "adm-boss-row-level", "{lv_text}" }
+                    span { class: "adm-boss-row-mult", "{mult_text}" }
+                    span { class: "adm-boss-row-actions",
+                        button {
+                            class: "admin-btn adm-row-edit",
+                            "data-pm-adm-mp-boss-edit": idx_attr.clone(),
+                            "编辑"
+                        }
+                        button {
+                            class: "admin-btn adm-row-del",
+                            "data-pm-adm-mp-boss-del": idx_attr.clone(),
+                            "删除"
+                        }
+                    }
                 }
+            });
+        }
+        let boss_list_block = if boss_rows.is_empty() {
+            rsx! {
+                div { class: "adm-boss-list",
+                    p { class: "adm-editor-hint", "暂无 Boss，点击右侧按钮添加。" }
+                }
+            }
+        } else {
+            rsx! {
+                div { class: "adm-boss-list",
+                    for i in 0..boss_rows.len() {
+                        ..vec![boss_rows[i].clone()]
+                    }
+                }
+            }
+        };
+        // 二级弹窗本体（仅 boss_open 时渲染）。
+        let boss_modal = if ed.boss_open.get() {
+            let title = if ed.boss_editing_idx.get().is_some() {
+                "编辑 Boss".to_string()
+            } else {
+                "添加 Boss".to_string()
+            };
+            let mut result_chips: Vec<VNode> = Vec::new();
+            for (pid, name) in ed.boss_results.get().into_iter() {
+                let label = format!("{name} #{pid}");
+                let attr = format!("{pid}:{name}");
+                result_chips.push(rsx! {
+                    button {
+                        class: "admin-btn adm-grant-result",
+                        disabled: ed.boss_searching.get(),
+                        "data-pm-adm-mp-boss-pick": attr,
+                        "{label}"
+                    }
+                });
+            }
+            let search_block = if ed.boss_searching.get() {
+                rsx! { p { class: "adm-editor-hint", "搜索中..." } }
+            } else if result_chips.is_empty() {
+                VNode::empty()
+            } else {
+                rsx! {
+                    div { class: "adm-grant-results",
+                        for i in 0..result_chips.len() {
+                            ..vec![result_chips[i].clone()]
+                        }
+                    }
+                }
+            };
+            let picked = if ed.boss_species_id.get() != 0 {
+                format!(
+                    "已选：{} #{}",
+                    ed.boss_species_name.get(),
+                    ed.boss_species_id.get()
+                )
+            } else {
+                "尚未选择物种（搜索后点选）".to_string()
+            };
+            let iv_labels = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
+            let mut iv_fields: Vec<VNode> = Vec::new();
+            for (i, lab) in iv_labels.iter().enumerate() {
+                let key = format!("iv:{i}");
+                let lab = *lab;
+                let val = ed.boss_ivs.get()[i].clone();
+                iv_fields.push(rsx! {
+                    label { class: "adm-editor-field",
+                        span { "{lab}" }
+                        input {
+                            class: "adm-filter-input",
+                            r#type: "number",
+                            min: "0",
+                            max: "255",
+                            value: val,
+                            "data-pm-adm-bossf": key
+                        }
+                    }
+                });
+            }
+            let boss_err_block = match ed.boss_err.get() {
+                Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+                None => VNode::empty(),
+            };
+            rsx! {
+                div { class: "modal-overlay adm-boss-overlay", "data-pm-adm-boss-overlay": "1",
+                    div { class: "adm-editor-modal adm-boss-modal",
+                        div { class: "modal-header",
+                            h3 { "{title}" }
+                            button { class: "modal-close", "data-pm-adm-mp-boss-cancel": "1", "×" }
+                        }
+                        div { class: "modal-body adm-editor-body",
+                            div { class: "adm-editor-grid",
+                                input {
+                                    class: "adm-filter-input",
+                                    r#type: "text",
+                                    placeholder: "按名称搜索物种（包含）",
+                                    value: ed.boss_query.get(),
+                                    "data-pm-adm-bossf": "query"
+                                }
+                                button {
+                                    class: "admin-btn adm-editor-toggle",
+                                    disabled: ed.boss_searching.get(),
+                                    "data-pm-adm-mp-boss-search": "1",
+                                    "搜索"
+                                }
+                            }
+                            ..vec![search_block]
+                            p { class: "adm-grant-picked", "{picked}" }
+                            div { class: "adm-editor-grid adm-boss-fields",
+                                label { class: "adm-editor-field",
+                                    span { "等级（可超过 100）" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "number",
+                                        min: "1",
+                                        value: ed.boss_level.get(),
+                                        "data-pm-adm-bossf": "level"
+                                    }
+                                }
+                                label { class: "adm-editor-field",
+                                    span { "属性倍率（1.0 = 无加成）" }
+                                    input {
+                                        class: "adm-filter-input",
+                                        r#type: "number",
+                                        min: "1.0",
+                                        max: "5.0",
+                                        step: "0.1",
+                                        value: ed.boss_mult.get(),
+                                        "data-pm-adm-bossf": "mult"
+                                    }
+                                }
+                            }
+                            div { class: "adm-editor-section-title", "个体值（0-255）" }
+                            div { class: "adm-editor-grid adm-boss-ivs",
+                                for i in 0..iv_fields.len() {
+                                    ..vec![iv_fields[i].clone()]
+                                }
+                            }
+                            ..vec![boss_err_block]
+                            div { class: "adm-editor-actions",
+                                button {
+                                    class: "admin-btn admin-btn-primary",
+                                    "data-pm-adm-mp-boss-save": "1",
+                                    "保存"
+                                }
+                                button {
+                                    class: "admin-btn",
+                                    "data-pm-adm-mp-boss-cancel": "2",
+                                    "取消"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            VNode::empty()
+        };
+        v.push(rsx! {
+            div { class: "adm-editor-field adm-editor-wide",
+                div { class: "adm-editor-section-title",
+                    "Boss 挑战"
+                    button {
+                        class: "admin-btn adm-editor-toggle",
+                        "data-pm-adm-mp-boss-add": "1",
+                        "＋ 添加 Boss"
+                    }
+                }
+                ..vec![boss_list_block, boss_modal]
             }
         });
         v
@@ -3813,9 +4242,225 @@ pub fn open_skill_edit(state: &AppState, id: u64) {
     ed.effect_id
         .inner()
         .set(json_u64(&row, "effect_id").to_string());
+    // chip 选择器复位 + 既有 id 的名称后台解析（UX 对等 B）。
+    ed.species_query.inner().set(String::new());
+    ed.species_results.inner().set(Vec::new());
+    ed.species_searching.inner().set(false);
+    let unresolved: Vec<u64> = ids
+        .iter()
+        .filter_map(|t| t.parse::<u64>().ok())
+        .filter(|id| !ed.species_names.get().contains_key(id))
+        .take(40)
+        .collect();
+    if !unresolved.is_empty() {
+        resolve_species_names(state.clone(), unresolved);
+    }
     ed.err.inner().set(None);
     ed.open.inner().set(true);
     crate::request_remount();
+}
+
+/// 后台逐个解析物种名称（ID equal 精确查；每完成一个写缓存并重渲染）。
+/// 串行发起避免几十个并发请求；逐个落地让 chip 渐进显示名称。
+fn resolve_species_names(state: AppState, mut rest: Vec<u64>) {
+    let Some(id) = rest.first().copied() else { return };
+    rest.remove(0);
+    let packages = vec![crate::api::filter_package("ID", "equal", &id.to_string())];
+    let filters = serde_json::Value::Array(packages).to_string();
+    let st = state.clone();
+    crate::api::filter_entity(
+        "pokemon_type",
+        filters,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let ed = st.skill_editor.clone();
+            if let Ok(items) = &result {
+                if let Some(first) = items.first() {
+                    let name = json_str(first, "name");
+                    let mut names = ed.species_names.get();
+                    names.insert(id, name);
+                    ed.species_names.inner().set(names);
+                    crate::request_remount();
+                }
+            }
+            if !rest.is_empty() {
+                resolve_species_names(st.clone(), rest);
+            }
+        }),
+    );
+}
+
+/// 可学种族 chip：搜索（名称 contains，与野怪/Boss 同通道）。
+pub fn skill_species_search(state: &AppState) {
+    let ed = state.skill_editor.clone();
+    if ed.species_searching.get() {
+        return;
+    }
+    let query = ed.species_query.get().trim().to_string();
+    if query.is_empty() {
+        ed.species_results.inner().set(Vec::new());
+        crate::request_remount();
+        return;
+    }
+    let packages = vec![crate::api::filter_package("名称", "contains", &query)];
+    let filters = serde_json::Value::Array(packages).to_string();
+    ed.species_searching.inner().set(true);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::filter_entity(
+        "pokemon_type",
+        filters,
+        Box::new(move |result: Result<Vec<serde_json::Value>, String>| {
+            let ed = st.skill_editor.clone();
+            match result {
+                Ok(items) => {
+                    let rows: Vec<(u64, String)> = items
+                        .iter()
+                        .map(|it| (json_u64(it, "id"), json_str(it, "name")))
+                        .collect();
+                    ed.species_results.inner().set(rows);
+                }
+                Err(e) => {
+                    ed.err.inner().set(Some(format!("物种搜索失败：{e}")));
+                }
+            }
+            ed.species_searching.inner().set(false);
+            crate::request_remount();
+        }),
+    );
+}
+
+/// 可学种族 chip：点选添加（写 available 串 + 名称缓存，排序去重）。
+pub fn skill_species_pick(state: &AppState, id: u64, name: &str) {
+    let ed = state.skill_editor.clone();
+    let mut ids: Vec<u64> = ed
+        .available
+        .get()
+        .split([',', '，', ' ', '\n'])
+        .filter_map(|t| t.trim().parse::<u64>().ok())
+        .collect();
+    if !ids.contains(&id) {
+        ids.push(id);
+        ids.sort();
+        ids.dedup();
+        ed.available.inner().set(
+            ids.iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+    }
+    let mut names = ed.species_names.get();
+    names.insert(id, name.to_string());
+    ed.species_names.inner().set(names);
+    ed.species_results.inner().set(Vec::new());
+    ed.species_query.inner().set(String::new());
+    crate::request_remount();
+}
+
+/// 可学种族 chip：移除一个 id。
+pub fn skill_species_remove(state: &AppState, id: u64) {
+    let ed = state.skill_editor.clone();
+    let ids: Vec<u64> = ed
+        .available
+        .get()
+        .split([',', '，', ' ', '\n'])
+        .filter_map(|t| t.trim().parse::<u64>().ok())
+        .filter(|n| *n != id)
+        .collect();
+    ed.available.inner().set(
+        ids.iter()
+            .map(|n| n.to_string())
+            .collect::<Vec<_>>()
+            .join(","),
+    );
+    crate::request_remount();
+}
+
+/// 技能编辑器的可学种族 chip 区（已选 chips + 搜索行 + 结果行）。
+fn skill_species_block(ed: &crate::state::SkillEditorState) -> VNode {
+    let mut chips: Vec<VNode> = Vec::new();
+    let ids: Vec<u64> = ed
+        .available
+        .get()
+        .split([',', '，', ' ', '\n'])
+        .filter_map(|t| t.trim().parse::<u64>().ok())
+        .collect();
+    for id in ids.iter() {
+        let names = ed.species_names.get();
+        let label = match names.get(id) {
+            Some(n) => format!("{n} #{id}"),
+            None => format!("#{id}"),
+        };
+        let attr = id.to_string();
+        chips.push(rsx! {
+            span { class: "adm-wild-chip",
+                "{label}"
+                button {
+                    class: "adm-wild-chip-x",
+                    "data-pm-adm-sk-sp-del": attr,
+                    "×"
+                }
+            }
+        });
+    }
+    let chips_block = if chips.is_empty() {
+        rsx! { p { class: "adm-editor-hint", "暂无可学种族，搜索后点选添加。" } }
+    } else {
+        rsx! {
+            div { class: "adm-grant-results",
+                for i in 0..chips.len() {
+                    ..vec![chips[i].clone()]
+                }
+            }
+        }
+    };
+    let mut result_chips: Vec<VNode> = Vec::new();
+    for (pid, name) in ed.species_results.get().into_iter() {
+        let label = format!("{name} #{pid}");
+        let attr = format!("{pid}:{name}");
+        result_chips.push(rsx! {
+            button {
+                class: "admin-btn adm-grant-result",
+                disabled: ed.species_searching.get(),
+                "data-pm-adm-sk-sp-pick": attr,
+                "{label}"
+            }
+        });
+    }
+    let search_block = if ed.species_searching.get() {
+        rsx! { p { class: "adm-editor-hint", "搜索中..." } }
+    } else if result_chips.is_empty() {
+        VNode::empty()
+    } else {
+        rsx! {
+            div { class: "adm-grant-results",
+                for i in 0..result_chips.len() {
+                    ..vec![result_chips[i].clone()]
+                }
+            }
+        }
+    };
+    rsx! {
+        div { class: "adm-species-picker",
+            ..vec![chips_block]
+            div { class: "adm-editor-grid",
+                input {
+                    class: "adm-filter-input",
+                    r#type: "text",
+                    placeholder: "按名称搜索物种（包含）",
+                    value: ed.species_query.get(),
+                    "data-pm-adm-skf": "species_query"
+                }
+                button {
+                    class: "admin-btn adm-editor-toggle",
+                    disabled: ed.species_searching.get(),
+                    "data-pm-adm-sk-sp-search": "1",
+                    "搜索"
+                }
+            }
+            ..vec![search_block]
+        }
+    }
 }
 
 pub fn close_skill_editor(state: &AppState) {
@@ -3834,6 +4479,7 @@ pub fn set_skill_editor_field(state: &AppState, key: &str, value: &str) {
         "element" => ed.element.inner().set(value.to_string()),
         "power" => ed.power.inner().set(value.to_string()),
         "available" => ed.available.inner().set(value.to_string()),
+        "species_query" => ed.species_query.inner().set(value.to_string()),
         "effect_id" => ed.effect_id.inner().set(value.to_string()),
         _ => {}
     }
@@ -4049,14 +4695,11 @@ fn skill_editor_modal(st: &AppState) -> VNode {
                             "{ed.description.get()}"
                         }
                     }
-                    label { class: "adm-editor-field adm-editor-wide",
-                        span { "可学种族 ID（逗号分隔，如 25,26,27）" }
-                        textarea {
-                            class: "adm-editor-textarea",
-                            rows: 3,
-                            "data-pm-adm-skf": "available",
-                            "{ed.available.get()}"
-                        }
+                    // 可学种族 chip 选择器（UX 对等 B：搜索 + chip 列表 + 移除，
+                    // 对齐 Dioxus；available 串仍是存储与提交形态）。
+                    div { class: "adm-editor-field adm-editor-wide",
+                        div { class: "adm-editor-section-title", "可学种族" }
+                        ..vec![skill_species_block(&ed)]
                     }
                     ..vec![err_block]
                 }
