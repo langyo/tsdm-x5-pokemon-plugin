@@ -6,13 +6,13 @@ import { insecureSeed as insecureSeed$1 } from "@bytecodealliance/preview2-shim/
 import { getPropertyValue, setProperty } from "tairitsu-browser:full/css-style-declaration";
 import { createElement, createTextNode, getBody } from "tairitsu-browser:full/document";
 import { add, contains, remove } from "tairitsu-browser:full/dom-token-list";
-import { getAttribute, getBoundingClientRect, getClassList, getClientHeight, getScrollHeight, getScrollTop, removeAttribute, setAttribute, setInnerHtml, setScrollTop } from "tairitsu-browser:full/element";
+import { getAttribute, getBoundingClientRect, getClassList, getClientHeight, getScrollHeight, getScrollTop, getTagName, removeAttribute, setAttribute, setInnerHtml, setScrollTop } from "tairitsu-browser:full/element";
 import { getStyle } from "tairitsu-browser:full/element-css-inline-style";
 import { getCurrentTarget, getTarget } from "tairitsu-browser:full/event";
 import { addEventListener, preventDefault, removeEventListener, stopPropagation } from "tairitsu-browser:full/event-target";
 import { getValue } from "tairitsu-browser:full/html-input-element";
 import { getAltKey, getButton, getButtons, getClientX, getClientY, getCtrlKey, getMetaKey, getOffsetX, getOffsetY, getPageX, getPageY, getScreenX, getScreenY, getShiftKey } from "tairitsu-browser:full/mouse-event";
-import { appendChild, getChildNodes, getFirstChild, getParentElement, insertBefore, removeChild, setTextContent } from "tairitsu-browser:full/node";
+import { appendChild, getChildNodes, getFirstChild, getNodeType, getParentElement, insertBefore, removeChild, replaceChild, setTextContent } from "tairitsu-browser:full/node";
 import { getLength, item } from "tairitsu-browser:full/node-list";
 import { getElementById } from "tairitsu-browser:full/non-element-parent-node";
 import { querySelector } from "tairitsu-browser:full/parent-node";
@@ -5025,168 +5025,6 @@ const _trampoline1 = function(arg0, arg1) {
 _trampoline1.fnName = 'tairitsu-browser:full/node@0.2.0#removeChild';
 
 const _trampoline2 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="prevent-default"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'preventDefault',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => preventDefault(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="prevent-default"][Instruction::Return]', {
-    funcName: 'prevent-default',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline2.fnName = 'tairitsu-browser:full/event-target@0.2.0#preventDefault';
-
-const _trampoline3 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="stop-propagation"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'stopPropagation',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => stopPropagation(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="stop-propagation"][Instruction::Return]', {
-    funcName: 'stop-propagation',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline3.fnName = 'tairitsu-browser:full/event-target@0.2.0#stopPropagation';
-
-const _trampoline4 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/element-css-inline-style@0.2.0", function="get-style"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -5266,9 +5104,9 @@ const _trampoline4 = function(arg0) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline4.fnName = 'tairitsu-browser:full/element-css-inline-style@0.2.0#getStyle';
+_trampoline2.fnName = 'tairitsu-browser:full/element-css-inline-style@0.2.0#getStyle';
 
-const _trampoline5 = function(arg0) {
+const _trampoline3 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/platform-helpers@0.2.0", function="request-animation-frame"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -5348,9 +5186,9 @@ const _trampoline5 = function(arg0) {
   task.exit();
   return toUint32(ret);
 }
-_trampoline5.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#requestAnimationFrame';
+_trampoline3.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#requestAnimationFrame';
 
-const _trampoline6 = function(arg0, arg1) {
+const _trampoline4 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/platform-helpers@0.2.0", function="set-interval"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -5430,9 +5268,9 @@ const _trampoline6 = function(arg0, arg1) {
   task.exit();
   return toInt32(ret);
 }
-_trampoline6.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#setInterval';
+_trampoline4.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#setInterval';
 
-const _trampoline7 = function(arg0) {
+const _trampoline5 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/platform-helpers@0.2.0", function="clear-timeout"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -5511,9 +5349,9 @@ const _trampoline7 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline7.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#clearTimeout';
+_trampoline5.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#clearTimeout';
 
-const _trampoline8 = function(arg0) {
+const _trampoline6 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/platform-helpers@0.2.0", function="clear-interval"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -5592,9 +5430,9 @@ const _trampoline8 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline8.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#clearInterval';
+_trampoline6.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#clearInterval';
 
-const _trampoline9 = function(arg0) {
+const _trampoline7 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/platform-helpers@0.2.0", function="cancel-animation-frame"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -5673,500 +5511,9 @@ const _trampoline9 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline9.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#cancelAnimationFrame';
+_trampoline7.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#cancelAnimationFrame';
 
-const _trampoline10 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-class-list"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getClassList',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getClassList(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-class-list"][Instruction::Return]', {
-    funcName: 'get-class-list',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toUint64(ret)]);
-  task.exit();
-  return toUint64(ret);
-}
-_trampoline10.fnName = 'tairitsu-browser:full/element@0.2.0#getClassList';
-
-const _trampoline11 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-scroll-top"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getScrollTop',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getScrollTop(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-scroll-top"][Instruction::Return]', {
-    funcName: 'get-scroll-top',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline11.fnName = 'tairitsu-browser:full/element@0.2.0#getScrollTop';
-
-const _trampoline12 = function(arg0, arg1) {
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="set-scroll-top"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'setScrollTop',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => setScrollTop(BigInt.asUintN(64, BigInt(arg0)), arg1)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="set-scroll-top"][Instruction::Return]', {
-    funcName: 'set-scroll-top',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline12.fnName = 'tairitsu-browser:full/element@0.2.0#setScrollTop';
-
-const _trampoline13 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-client-height"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getClientHeight',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getClientHeight(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-client-height"][Instruction::Return]', {
-    funcName: 'get-client-height',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toInt32(ret)]);
-  task.exit();
-  return toInt32(ret);
-}
-_trampoline13.fnName = 'tairitsu-browser:full/element@0.2.0#getClientHeight';
-
-const _trampoline14 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-scroll-height"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getScrollHeight',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getScrollHeight(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-scroll-height"][Instruction::Return]', {
-    funcName: 'get-scroll-height',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toInt32(ret)]);
-  task.exit();
-  return toInt32(ret);
-}
-_trampoline14.fnName = 'tairitsu-browser:full/element@0.2.0#getScrollHeight';
-
-const _trampoline15 = function() {
-  _debugLog('[iface="tairitsu-browser:full/window@0.2.0", function="get-inner-width"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getInnerWidth',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getInnerWidth()),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/window@0.2.0", function="get-inner-width"][Instruction::Return]', {
-    funcName: 'get-inner-width',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toInt32(ret)]);
-  task.exit();
-  return toInt32(ret);
-}
-_trampoline15.fnName = 'tairitsu-browser:full/window@0.2.0#getInnerWidth';
-
-const _trampoline16 = function(arg0, arg1) {
+const _trampoline8 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="append-child"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -6246,9 +5593,91 @@ const _trampoline16 = function(arg0, arg1) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline16.fnName = 'tairitsu-browser:full/node@0.2.0#appendChild';
+_trampoline8.fnName = 'tairitsu-browser:full/node@0.2.0#appendChild';
 
-const _trampoline17 = function(arg0, arg1, arg2, arg3) {
+const _trampoline9 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="get-node-type"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getNodeType',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getNodeType(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="get-node-type"][Instruction::Return]', {
+    funcName: 'get-node-type',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint16(ret)]);
+  task.exit();
+  return toUint16(ret);
+}
+_trampoline9.fnName = 'tairitsu-browser:full/node@0.2.0#getNodeType';
+
+const _trampoline10 = function(arg0, arg1, arg2, arg3) {
   let variant0;
   switch (arg2) {
     case 0: {
@@ -6342,9 +5771,91 @@ const _trampoline17 = function(arg0, arg1, arg2, arg3) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline17.fnName = 'tairitsu-browser:full/node@0.2.0#insertBefore';
+_trampoline10.fnName = 'tairitsu-browser:full/node@0.2.0#insertBefore';
 
-const _trampoline18 = function(arg0) {
+const _trampoline11 = function(arg0, arg1, arg2) {
+  _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="replace-child"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'replaceChild',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => replaceChild(BigInt.asUintN(64, BigInt(arg0)), BigInt.asUintN(64, BigInt(arg1)), BigInt.asUintN(64, BigInt(arg2)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="replace-child"][Instruction::Return]', {
+    funcName: 'replace-child',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint64(ret)]);
+  task.exit();
+  return toUint64(ret);
+}
+_trampoline11.fnName = 'tairitsu-browser:full/node@0.2.0#replaceChild';
+
+const _trampoline12 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="get-child-nodes"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -6424,10 +5935,10 @@ const _trampoline18 = function(arg0) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline18.fnName = 'tairitsu-browser:full/node@0.2.0#getChildNodes';
+_trampoline12.fnName = 'tairitsu-browser:full/node@0.2.0#getChildNodes';
 
-const _trampoline19 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="get-length"] [Instruction::CallInterface] (sync, @ enter)');
+const _trampoline13 = function() {
+  _debugLog('[iface="tairitsu-browser:full/window@0.2.0", function="get-inner-width"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
   let parentTask;
@@ -6439,7 +5950,7 @@ const _trampoline19 = function(arg0) {
     ({ task, threadID } = createNewCurrentImplicitThread({
       componentIdx: -1,
       isAsync: false,
-      entryFnName: 'getLength',
+      entryFnName: 'getInnerWidth',
       getCallbackFn: () => null,
       callbackFnName: null,
       errHandling: 'none',
@@ -6478,7 +5989,7 @@ const _trampoline19 = function(arg0) {
       componentIdx: task.componentIdx(),
       taskID: task.id(),
       threadID,
-      fn: () => _trackHostOperation(() => getLength(BigInt.asUintN(64, BigInt(arg0)))),
+      fn: () => _trackHostOperation(() => getInnerWidth()),
     })
     ;
   } catch (err) {
@@ -6496,675 +6007,19 @@ const _trampoline19 = function(arg0) {
     
   }
   
-  _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="get-length"][Instruction::Return]', {
-    funcName: 'get-length',
+  _debugLog('[iface="tairitsu-browser:full/window@0.2.0", function="get-inner-width"][Instruction::Return]', {
+    funcName: 'get-inner-width',
     paramCount: 1,
     async: false,
     postReturn: false
   });
-  task.resolve([toUint32(ret)]);
+  task.resolve([toInt32(ret)]);
   task.exit();
-  return toUint32(ret);
+  return toInt32(ret);
 }
-_trampoline19.fnName = 'tairitsu-browser:full/node-list@0.2.0#getLength';
+_trampoline13.fnName = 'tairitsu-browser:full/window@0.2.0#getInnerWidth';
 
-const _trampoline20 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-client-x"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getClientX',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getClientX(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-client-x"][Instruction::Return]', {
-    funcName: 'get-client-x',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline20.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getClientX';
-
-const _trampoline21 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-client-y"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getClientY',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getClientY(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-client-y"][Instruction::Return]', {
-    funcName: 'get-client-y',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline21.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getClientY';
-
-const _trampoline22 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-screen-x"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getScreenX',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getScreenX(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-screen-x"][Instruction::Return]', {
-    funcName: 'get-screen-x',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline22.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getScreenX';
-
-const _trampoline23 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-screen-y"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getScreenY',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getScreenY(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-screen-y"][Instruction::Return]', {
-    funcName: 'get-screen-y',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline23.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getScreenY';
-
-const _trampoline24 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-offset-x"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getOffsetX',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getOffsetX(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-offset-x"][Instruction::Return]', {
-    funcName: 'get-offset-x',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline24.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getOffsetX';
-
-const _trampoline25 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-offset-y"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getOffsetY',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getOffsetY(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-offset-y"][Instruction::Return]', {
-    funcName: 'get-offset-y',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline25.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getOffsetY';
-
-const _trampoline26 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-page-x"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getPageX',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getPageX(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-page-x"][Instruction::Return]', {
-    funcName: 'get-page-x',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline26.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getPageX';
-
-const _trampoline27 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-page-y"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getPageY',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getPageY(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-page-y"][Instruction::Return]', {
-    funcName: 'get-page-y',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline27.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getPageY';
-
-const _trampoline28 = function(arg0) {
+const _trampoline14 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-button"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -7244,10 +6099,10 @@ const _trampoline28 = function(arg0) {
   task.exit();
   return toInt16(ret);
 }
-_trampoline28.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getButton';
+_trampoline14.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getButton';
 
-const _trampoline29 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-buttons"] [Instruction::CallInterface] (sync, @ enter)');
+const _trampoline15 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-page-x"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
   let parentTask;
@@ -7259,7 +6114,7 @@ const _trampoline29 = function(arg0) {
     ({ task, threadID } = createNewCurrentImplicitThread({
       componentIdx: -1,
       isAsync: false,
-      entryFnName: 'getButtons',
+      entryFnName: 'getPageX',
       getCallbackFn: () => null,
       callbackFnName: null,
       errHandling: 'none',
@@ -7298,7 +6153,7 @@ const _trampoline29 = function(arg0) {
       componentIdx: task.componentIdx(),
       taskID: task.id(),
       threadID,
-      fn: () => _trackHostOperation(() => getButtons(BigInt.asUintN(64, BigInt(arg0)))),
+      fn: () => _trackHostOperation(() => getPageX(BigInt.asUintN(64, BigInt(arg0)))),
     })
     ;
   } catch (err) {
@@ -7316,20 +6171,20 @@ const _trampoline29 = function(arg0) {
     
   }
   
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-buttons"][Instruction::Return]', {
-    funcName: 'get-buttons',
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-page-x"][Instruction::Return]', {
+    funcName: 'get-page-x',
     paramCount: 1,
     async: false,
     postReturn: false
   });
-  task.resolve([toUint16(ret)]);
+  task.resolve([+ret]);
   task.exit();
-  return toUint16(ret);
+  return +ret;
 }
-_trampoline29.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getButtons';
+_trampoline15.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getPageX';
 
-const _trampoline30 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-ctrl-key"] [Instruction::CallInterface] (sync, @ enter)');
+const _trampoline16 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-page-y"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
   let parentTask;
@@ -7341,7 +6196,7 @@ const _trampoline30 = function(arg0) {
     ({ task, threadID } = createNewCurrentImplicitThread({
       componentIdx: -1,
       isAsync: false,
-      entryFnName: 'getCtrlKey',
+      entryFnName: 'getPageY',
       getCallbackFn: () => null,
       callbackFnName: null,
       errHandling: 'none',
@@ -7380,7 +6235,7 @@ const _trampoline30 = function(arg0) {
       componentIdx: task.componentIdx(),
       taskID: task.id(),
       threadID,
-      fn: () => _trackHostOperation(() => getCtrlKey(BigInt.asUintN(64, BigInt(arg0)))),
+      fn: () => _trackHostOperation(() => getPageY(BigInt.asUintN(64, BigInt(arg0)))),
     })
     ;
   } catch (err) {
@@ -7398,101 +6253,19 @@ const _trampoline30 = function(arg0) {
     
   }
   
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-ctrl-key"][Instruction::Return]', {
-    funcName: 'get-ctrl-key',
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-page-y"][Instruction::Return]', {
+    funcName: 'get-page-y',
     paramCount: 1,
     async: false,
     postReturn: false
   });
-  task.resolve([ret ? 1 : 0]);
+  task.resolve([+ret]);
   task.exit();
-  return ret ? 1 : 0;
+  return +ret;
 }
-_trampoline30.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getCtrlKey';
+_trampoline16.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getPageY';
 
-const _trampoline31 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-shift-key"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getShiftKey',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getShiftKey(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-shift-key"][Instruction::Return]', {
-    funcName: 'get-shift-key',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret ? 1 : 0]);
-  task.exit();
-  return ret ? 1 : 0;
-}
-_trampoline31.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getShiftKey';
-
-const _trampoline32 = function(arg0) {
+const _trampoline17 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-alt-key"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -7572,9 +6345,337 @@ const _trampoline32 = function(arg0) {
   task.exit();
   return ret ? 1 : 0;
 }
-_trampoline32.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getAltKey';
+_trampoline17.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getAltKey';
 
-const _trampoline33 = function(arg0) {
+const _trampoline18 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-buttons"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getButtons',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getButtons(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-buttons"][Instruction::Return]', {
+    funcName: 'get-buttons',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint16(ret)]);
+  task.exit();
+  return toUint16(ret);
+}
+_trampoline18.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getButtons';
+
+const _trampoline19 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-client-x"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getClientX',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getClientX(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-client-x"][Instruction::Return]', {
+    funcName: 'get-client-x',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline19.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getClientX';
+
+const _trampoline20 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-client-y"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getClientY',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getClientY(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-client-y"][Instruction::Return]', {
+    funcName: 'get-client-y',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline20.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getClientY';
+
+const _trampoline21 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-ctrl-key"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getCtrlKey',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getCtrlKey(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-ctrl-key"][Instruction::Return]', {
+    funcName: 'get-ctrl-key',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret ? 1 : 0]);
+  task.exit();
+  return ret ? 1 : 0;
+}
+_trampoline21.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getCtrlKey';
+
+const _trampoline22 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-meta-key"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -7654,10 +6755,10 @@ const _trampoline33 = function(arg0) {
   task.exit();
   return ret ? 1 : 0;
 }
-_trampoline33.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getMetaKey';
+_trampoline22.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getMetaKey';
 
-const _trampoline34 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pointer-id"] [Instruction::CallInterface] (sync, @ enter)');
+const _trampoline23 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-offset-x"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
   let parentTask;
@@ -7669,7 +6770,7 @@ const _trampoline34 = function(arg0) {
     ({ task, threadID } = createNewCurrentImplicitThread({
       componentIdx: -1,
       isAsync: false,
-      entryFnName: 'getPointerId',
+      entryFnName: 'getOffsetX',
       getCallbackFn: () => null,
       callbackFnName: null,
       errHandling: 'none',
@@ -7708,7 +6809,7 @@ const _trampoline34 = function(arg0) {
       componentIdx: task.componentIdx(),
       taskID: task.id(),
       threadID,
-      fn: () => _trackHostOperation(() => getPointerId(BigInt.asUintN(64, BigInt(arg0)))),
+      fn: () => _trackHostOperation(() => getOffsetX(BigInt.asUintN(64, BigInt(arg0)))),
     })
     ;
   } catch (err) {
@@ -7726,20 +6827,20 @@ const _trampoline34 = function(arg0) {
     
   }
   
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pointer-id"][Instruction::Return]', {
-    funcName: 'get-pointer-id',
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-offset-x"][Instruction::Return]', {
+    funcName: 'get-offset-x',
     paramCount: 1,
     async: false,
     postReturn: false
   });
-  task.resolve([toInt32(ret)]);
+  task.resolve([+ret]);
   task.exit();
-  return toInt32(ret);
+  return +ret;
 }
-_trampoline34.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getPointerId';
+_trampoline23.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getOffsetX';
 
-const _trampoline35 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-is-primary"] [Instruction::CallInterface] (sync, @ enter)');
+const _trampoline24 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-offset-y"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
   let parentTask;
@@ -7751,7 +6852,7 @@ const _trampoline35 = function(arg0) {
     ({ task, threadID } = createNewCurrentImplicitThread({
       componentIdx: -1,
       isAsync: false,
-      entryFnName: 'getIsPrimary',
+      entryFnName: 'getOffsetY',
       getCallbackFn: () => null,
       callbackFnName: null,
       errHandling: 'none',
@@ -7790,7 +6891,7 @@ const _trampoline35 = function(arg0) {
       componentIdx: task.componentIdx(),
       taskID: task.id(),
       threadID,
-      fn: () => _trackHostOperation(() => getIsPrimary(BigInt.asUintN(64, BigInt(arg0)))),
+      fn: () => _trackHostOperation(() => getOffsetY(BigInt.asUintN(64, BigInt(arg0)))),
     })
     ;
   } catch (err) {
@@ -7808,8 +6909,254 @@ const _trampoline35 = function(arg0) {
     
   }
   
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-is-primary"][Instruction::Return]', {
-    funcName: 'get-is-primary',
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-offset-y"][Instruction::Return]', {
+    funcName: 'get-offset-y',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline24.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getOffsetY';
+
+const _trampoline25 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-screen-x"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getScreenX',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getScreenX(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-screen-x"][Instruction::Return]', {
+    funcName: 'get-screen-x',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline25.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getScreenX';
+
+const _trampoline26 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-screen-y"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getScreenY',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getScreenY(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-screen-y"][Instruction::Return]', {
+    funcName: 'get-screen-y',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline26.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getScreenY';
+
+const _trampoline27 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-shift-key"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getShiftKey',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getShiftKey(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/mouse-event@0.2.0", function="get-shift-key"][Instruction::Return]', {
+    funcName: 'get-shift-key',
     paramCount: 1,
     async: false,
     postReturn: false
@@ -7818,10 +7165,10 @@ const _trampoline35 = function(arg0) {
   task.exit();
   return ret ? 1 : 0;
 }
-_trampoline35.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getIsPrimary';
+_trampoline27.fnName = 'tairitsu-browser:full/mouse-event@0.2.0#getShiftKey';
 
-const _trampoline36 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-width"] [Instruction::CallInterface] (sync, @ enter)');
+const _trampoline28 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="prevent-default"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
   let parentTask;
@@ -7833,7 +7180,7 @@ const _trampoline36 = function(arg0) {
     ({ task, threadID } = createNewCurrentImplicitThread({
       componentIdx: -1,
       isAsync: false,
-      entryFnName: 'getWidth',
+      entryFnName: 'preventDefault',
       getCallbackFn: () => null,
       callbackFnName: null,
       errHandling: 'none',
@@ -7868,11 +7215,11 @@ const _trampoline36 = function(arg0) {
   
   
   try {
-    ret = _withGlobalCurrentThreadMeta({
+    _withGlobalCurrentThreadMeta({
       componentIdx: task.componentIdx(),
       taskID: task.id(),
       threadID,
-      fn: () => _trackHostOperation(() => getWidth(BigInt.asUintN(64, BigInt(arg0)))),
+      fn: () => _trackHostOperation(() => preventDefault(BigInt.asUintN(64, BigInt(arg0)))),
     })
     ;
   } catch (err) {
@@ -7890,20 +7237,19 @@ const _trampoline36 = function(arg0) {
     
   }
   
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-width"][Instruction::Return]', {
-    funcName: 'get-width',
-    paramCount: 1,
+  _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="prevent-default"][Instruction::Return]', {
+    funcName: 'prevent-default',
+    paramCount: 0,
     async: false,
     postReturn: false
   });
-  task.resolve([+ret]);
+  task.resolve([ret]);
   task.exit();
-  return +ret;
 }
-_trampoline36.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getWidth';
+_trampoline28.fnName = 'tairitsu-browser:full/event-target@0.2.0#preventDefault';
 
-const _trampoline37 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-height"] [Instruction::CallInterface] (sync, @ enter)');
+const _trampoline29 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="stop-propagation"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
   let parentTask;
@@ -7915,7 +7261,7 @@ const _trampoline37 = function(arg0) {
     ({ task, threadID } = createNewCurrentImplicitThread({
       componentIdx: -1,
       isAsync: false,
-      entryFnName: 'getHeight',
+      entryFnName: 'stopPropagation',
       getCallbackFn: () => null,
       callbackFnName: null,
       errHandling: 'none',
@@ -7950,11 +7296,11 @@ const _trampoline37 = function(arg0) {
   
   
   try {
-    ret = _withGlobalCurrentThreadMeta({
+    _withGlobalCurrentThreadMeta({
       componentIdx: task.componentIdx(),
       taskID: task.id(),
       threadID,
-      fn: () => _trackHostOperation(() => getHeight(BigInt.asUintN(64, BigInt(arg0)))),
+      fn: () => _trackHostOperation(() => stopPropagation(BigInt.asUintN(64, BigInt(arg0)))),
     })
     ;
   } catch (err) {
@@ -7972,429 +7318,18 @@ const _trampoline37 = function(arg0) {
     
   }
   
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-height"][Instruction::Return]', {
-    funcName: 'get-height',
-    paramCount: 1,
+  _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="stop-propagation"][Instruction::Return]', {
+    funcName: 'stop-propagation',
+    paramCount: 0,
     async: false,
     postReturn: false
   });
-  task.resolve([+ret]);
+  task.resolve([ret]);
   task.exit();
-  return +ret;
 }
-_trampoline37.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getHeight';
+_trampoline29.fnName = 'tairitsu-browser:full/event-target@0.2.0#stopPropagation';
 
-const _trampoline38 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pressure"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getPressure',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getPressure(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pressure"][Instruction::Return]', {
-    funcName: 'get-pressure',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline38.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getPressure';
-
-const _trampoline39 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tangential-pressure"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getTangentialPressure',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getTangentialPressure(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tangential-pressure"][Instruction::Return]', {
-    funcName: 'get-tangential-pressure',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([+ret]);
-  task.exit();
-  return +ret;
-}
-_trampoline39.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getTangentialPressure';
-
-const _trampoline40 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tilt-x"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getTiltX',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getTiltX(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tilt-x"][Instruction::Return]', {
-    funcName: 'get-tilt-x',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toInt32(ret)]);
-  task.exit();
-  return toInt32(ret);
-}
-_trampoline40.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getTiltX';
-
-const _trampoline41 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tilt-y"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getTiltY',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getTiltY(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tilt-y"][Instruction::Return]', {
-    funcName: 'get-tilt-y',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toInt32(ret)]);
-  task.exit();
-  return toInt32(ret);
-}
-_trampoline41.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getTiltY';
-
-const _trampoline42 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-twist"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getTwist',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getTwist(BigInt.asUintN(64, BigInt(arg0)))),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-twist"][Instruction::Return]', {
-    funcName: 'get-twist',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toInt32(ret)]);
-  task.exit();
-  return toInt32(ret);
-}
-_trampoline42.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getTwist';
-
-const _trampoline43 = function(arg0) {
+const _trampoline30 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/wheel-event@0.2.0", function="get-delta-x"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -8474,9 +7409,9 @@ const _trampoline43 = function(arg0) {
   task.exit();
   return +ret;
 }
-_trampoline43.fnName = 'tairitsu-browser:full/wheel-event@0.2.0#getDeltaX';
+_trampoline30.fnName = 'tairitsu-browser:full/wheel-event@0.2.0#getDeltaX';
 
-const _trampoline44 = function(arg0) {
+const _trampoline31 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/wheel-event@0.2.0", function="get-delta-y"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -8556,9 +7491,9 @@ const _trampoline44 = function(arg0) {
   task.exit();
   return +ret;
 }
-_trampoline44.fnName = 'tairitsu-browser:full/wheel-event@0.2.0#getDeltaY';
+_trampoline31.fnName = 'tairitsu-browser:full/wheel-event@0.2.0#getDeltaY';
 
-const _trampoline45 = function(arg0) {
+const _trampoline32 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/wheel-event@0.2.0", function="get-delta-z"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -8638,9 +7573,9 @@ const _trampoline45 = function(arg0) {
   task.exit();
   return +ret;
 }
-_trampoline45.fnName = 'tairitsu-browser:full/wheel-event@0.2.0#getDeltaZ';
+_trampoline32.fnName = 'tairitsu-browser:full/wheel-event@0.2.0#getDeltaZ';
 
-const _trampoline46 = function(arg0) {
+const _trampoline33 = function(arg0) {
   _debugLog('[iface="tairitsu-browser:full/wheel-event@0.2.0", function="get-delta-mode"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -8720,9 +7655,1238 @@ const _trampoline46 = function(arg0) {
   task.exit();
   return toUint32(ret);
 }
-_trampoline46.fnName = 'tairitsu-browser:full/wheel-event@0.2.0#getDeltaMode';
+_trampoline33.fnName = 'tairitsu-browser:full/wheel-event@0.2.0#getDeltaMode';
 
-const _trampoline53 = function(arg0) {
+const _trampoline34 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-height"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getHeight',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getHeight(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-height"][Instruction::Return]', {
+    funcName: 'get-height',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline34.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getHeight';
+
+const _trampoline35 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tilt-x"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getTiltX',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getTiltX(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tilt-x"][Instruction::Return]', {
+    funcName: 'get-tilt-x',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toInt32(ret)]);
+  task.exit();
+  return toInt32(ret);
+}
+_trampoline35.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getTiltX';
+
+const _trampoline36 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tilt-y"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getTiltY',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getTiltY(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tilt-y"][Instruction::Return]', {
+    funcName: 'get-tilt-y',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toInt32(ret)]);
+  task.exit();
+  return toInt32(ret);
+}
+_trampoline36.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getTiltY';
+
+const _trampoline37 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pressure"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getPressure',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getPressure(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pressure"][Instruction::Return]', {
+    funcName: 'get-pressure',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline37.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getPressure';
+
+const _trampoline38 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-is-primary"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getIsPrimary',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getIsPrimary(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-is-primary"][Instruction::Return]', {
+    funcName: 'get-is-primary',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret ? 1 : 0]);
+  task.exit();
+  return ret ? 1 : 0;
+}
+_trampoline38.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getIsPrimary';
+
+const _trampoline39 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pointer-id"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getPointerId',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getPointerId(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pointer-id"][Instruction::Return]', {
+    funcName: 'get-pointer-id',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toInt32(ret)]);
+  task.exit();
+  return toInt32(ret);
+}
+_trampoline39.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getPointerId';
+
+const _trampoline40 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tangential-pressure"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getTangentialPressure',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getTangentialPressure(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-tangential-pressure"][Instruction::Return]', {
+    funcName: 'get-tangential-pressure',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline40.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getTangentialPressure';
+
+const _trampoline41 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-twist"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getTwist',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getTwist(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-twist"][Instruction::Return]', {
+    funcName: 'get-twist',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toInt32(ret)]);
+  task.exit();
+  return toInt32(ret);
+}
+_trampoline41.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getTwist';
+
+const _trampoline42 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-width"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getWidth',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getWidth(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-width"][Instruction::Return]', {
+    funcName: 'get-width',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline42.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getWidth';
+
+const _trampoline43 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="get-length"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getLength',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getLength(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="get-length"][Instruction::Return]', {
+    funcName: 'get-length',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint32(ret)]);
+  task.exit();
+  return toUint32(ret);
+}
+_trampoline43.fnName = 'tairitsu-browser:full/node-list@0.2.0#getLength';
+
+const _trampoline44 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-scroll-top"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getScrollTop',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getScrollTop(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-scroll-top"][Instruction::Return]', {
+    funcName: 'get-scroll-top',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([+ret]);
+  task.exit();
+  return +ret;
+}
+_trampoline44.fnName = 'tairitsu-browser:full/element@0.2.0#getScrollTop';
+
+const _trampoline45 = function(arg0, arg1) {
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="set-scroll-top"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'setScrollTop',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => setScrollTop(BigInt.asUintN(64, BigInt(arg0)), arg1)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="set-scroll-top"][Instruction::Return]', {
+    funcName: 'set-scroll-top',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline45.fnName = 'tairitsu-browser:full/element@0.2.0#setScrollTop';
+
+const _trampoline46 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-scroll-height"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getScrollHeight',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getScrollHeight(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-scroll-height"][Instruction::Return]', {
+    funcName: 'get-scroll-height',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toInt32(ret)]);
+  task.exit();
+  return toInt32(ret);
+}
+_trampoline46.fnName = 'tairitsu-browser:full/element@0.2.0#getScrollHeight';
+
+const _trampoline47 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-client-height"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getClientHeight',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getClientHeight(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-client-height"][Instruction::Return]', {
+    funcName: 'get-client-height',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toInt32(ret)]);
+  task.exit();
+  return toInt32(ret);
+}
+_trampoline47.fnName = 'tairitsu-browser:full/element@0.2.0#getClientHeight';
+
+const _trampoline48 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-class-list"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getClassList',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getClassList(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-class-list"][Instruction::Return]', {
+    funcName: 'get-class-list',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint64(ret)]);
+  task.exit();
+  return toUint64(ret);
+}
+_trampoline48.fnName = 'tairitsu-browser:full/element@0.2.0#getClassList';
+
+const _trampoline55 = function(arg0) {
   let variant0;
   switch (arg0) {
     case 0: {
@@ -8821,7 +8985,7 @@ const _trampoline53 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline53.fnName = 'wasi:cli/exit@0.2.12#exit';
+_trampoline55.fnName = 'wasi:cli/exit@0.2.12#exit';
 
 const handleTable0 = [T_FLAG, 0];
 handleTable0._createdReps = new Set();
@@ -8833,7 +8997,7 @@ let captureCnt0= 0;
 
 HANDLE_TABLES[0] = handleTable0;
 
-const _trampoline54 = function(arg0) {
+const _trampoline56 = function(arg0) {
   var handle1 = arg0;
   
   var rep2 = handleTable0[(handle1 << 1) + 1] % T_OWN;
@@ -8933,7 +9097,7 @@ const _trampoline54 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline54.fnName = 'wasi:io/poll@0.2.12#block';
+_trampoline56.fnName = 'wasi:io/poll@0.2.12#block';
 
 const handleTable3 = [T_FLAG, 0];
 handleTable3._createdReps = new Set();
@@ -8945,7 +9109,7 @@ let captureCnt3= 0;
 
 HANDLE_TABLES[3] = handleTable3;
 
-const _trampoline55 = function(arg0) {
+const _trampoline57 = function(arg0) {
   var handle1 = arg0;
   
   var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
@@ -9059,7 +9223,7 @@ const _trampoline55 = function(arg0) {
   task.exit();
   return handle3;
 }
-_trampoline55.fnName = 'wasi:io/streams@0.2.12#subscribe';
+_trampoline57.fnName = 'wasi:io/streams@0.2.12#subscribe';
 
 const handleTable2 = [T_FLAG, 0];
 handleTable2._createdReps = new Set();
@@ -9071,7 +9235,7 @@ let captureCnt2= 0;
 
 HANDLE_TABLES[2] = handleTable2;
 
-const _trampoline56 = function() {
+const _trampoline58 = function() {
   _debugLog('[iface="wasi:cli/stdin@0.2.12", function="get-stdin"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -9164,9 +9328,9 @@ const _trampoline56 = function() {
   task.exit();
   return handle0;
 }
-_trampoline56.fnName = 'wasi:cli/stdin@0.2.12#getStdin';
+_trampoline58.fnName = 'wasi:cli/stdin@0.2.12#getStdin';
 
-const _trampoline57 = function() {
+const _trampoline59 = function() {
   _debugLog('[iface="wasi:cli/stdout@0.2.12", function="get-stdout"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -9259,9 +9423,9 @@ const _trampoline57 = function() {
   task.exit();
   return handle0;
 }
-_trampoline57.fnName = 'wasi:cli/stdout@0.2.12#getStdout';
+_trampoline59.fnName = 'wasi:cli/stdout@0.2.12#getStdout';
 
-const _trampoline58 = function() {
+const _trampoline60 = function() {
   _debugLog('[iface="wasi:cli/stderr@0.2.12", function="get-stderr"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -9354,9 +9518,9 @@ const _trampoline58 = function() {
   task.exit();
   return handle0;
 }
-_trampoline58.fnName = 'wasi:cli/stderr@0.2.12#getStderr';
+_trampoline60.fnName = 'wasi:cli/stderr@0.2.12#getStderr';
 
-const _trampoline59 = function() {
+const _trampoline61 = function() {
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.12", function="now"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -9436,9 +9600,9 @@ const _trampoline59 = function() {
   task.exit();
   return toUint64(ret);
 }
-_trampoline59.fnName = 'wasi:clocks/monotonic-clock@0.2.12#now';
+_trampoline61.fnName = 'wasi:clocks/monotonic-clock@0.2.12#now';
 
-const _trampoline60 = function(arg0) {
+const _trampoline62 = function(arg0) {
   _debugLog('[iface="wasi:clocks/monotonic-clock@0.2.12", function="subscribe-duration"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -9531,13 +9695,13 @@ const _trampoline60 = function(arg0) {
   task.exit();
   return handle0;
 }
-_trampoline60.fnName = 'wasi:clocks/monotonic-clock@0.2.12#subscribeDuration';
+_trampoline62.fnName = 'wasi:clocks/monotonic-clock@0.2.12#subscribeDuration';
 let exports1;
 let memory0;
 let realloc0;
 let realloc0Async;
 
-const _trampoline61 = function(arg0, arg1, arg2, arg3, arg4) {
+const _trampoline63 = function(arg0, arg1, arg2, arg3, arg4) {
   var ptr0 = (arg0 >>> 0) >>> 0;
   var len0 = arg1;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -9637,9 +9801,9 @@ const _trampoline61 = function(arg0, arg1, arg2, arg3, arg4) {
   task.exit();
   return toUint64(ret);
 }
-_trampoline61.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#fetchPromise';
+_trampoline63.fnName = 'tairitsu-browser:full/platform-helpers@0.2.0#fetchPromise';
 
-const _trampoline62 = function(arg0, arg1, arg2, arg3, arg4) {
+const _trampoline64 = function(arg0, arg1, arg2, arg3, arg4) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -9724,9 +9888,289 @@ const _trampoline62 = function(arg0, arg1, arg2, arg3, arg4) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline62.fnName = 'tairitsu-browser:full/element@0.2.0#setAttribute';
+_trampoline64.fnName = 'tairitsu-browser:full/element@0.2.0#setAttribute';
 
-const _trampoline63 = function(arg0, arg1, arg2, arg3) {
+const _trampoline65 = function(arg0, arg1, arg2) {
+  var ptr0 = (arg1 >>> 0) >>> 0;
+  var len0 = arg2;
+  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="remove-attribute"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'removeAttribute',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => removeAttribute(BigInt.asUintN(64, BigInt(arg0)), result0)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="remove-attribute"][Instruction::Return]', {
+    funcName: 'remove-attribute',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline65.fnName = 'tairitsu-browser:full/element@0.2.0#removeAttribute';
+
+const _trampoline66 = function(arg0, arg1) {
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-tag-name"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getTagName',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getTagName(BigInt.asUintN(64, BigInt(arg0)))),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  
+  var encodeRes = _utf8AllocateAndEncode(ret, ((...args) => {
+    const state = getOrCreateAsyncState(0);
+    const previousMayLeave = state.mayLeave;
+    const meta = _getGlobalCurrentThreadMeta(0);
+    const thread = meta && getCurrentThread(meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+    const previousStorage = thread?.storage;
+    if (thread) { thread.storage = [0, 0]; }
+    state.mayLeave = false;
+    const restore = () => {
+      state.mayLeave = previousMayLeave;
+      if (thread) { thread.storage = previousStorage; }
+    };
+    let result;
+    try {
+      result = realloc0(...args);
+    } catch (err) {
+      restore();
+      throw err;
+    }
+    if (result && typeof result.then === 'function') {
+      return Promise.resolve(result).finally(restore);
+    }
+    restore();
+    return result;
+  }), memory0);
+  var ptr0= encodeRes.ptr;
+  var len0 = encodeRes.len;
+  
+  dataView(memory0).setUint32(((arg1 >>> 0)) + 4, len0, true);
+  dataView(memory0).setUint32(((arg1 >>> 0)) + 0, ptr0, true);
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-tag-name"][Instruction::Return]', {
+    funcName: 'get-tag-name',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline66.fnName = 'tairitsu-browser:full/element@0.2.0#getTagName';
+
+const _trampoline67 = function(arg0, arg1, arg2) {
+  var ptr0 = (arg1 >>> 0) >>> 0;
+  var len0 = arg2;
+  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="set-inner-html"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'setInnerHtml',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => setInnerHtml(BigInt.asUintN(64, BigInt(arg0)), result0)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="set-inner-html"][Instruction::Return]', {
+    funcName: 'set-inner-html',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline67.fnName = 'tairitsu-browser:full/element@0.2.0#setInnerHtml';
+
+const _trampoline68 = function(arg0, arg1, arg2, arg3) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -9846,177 +10290,9 @@ const _trampoline63 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline63.fnName = 'tairitsu-browser:full/element@0.2.0#getAttribute';
+_trampoline68.fnName = 'tairitsu-browser:full/element@0.2.0#getAttribute';
 
-const _trampoline64 = function(arg0, arg1, arg2) {
-  var ptr0 = (arg1 >>> 0) >>> 0;
-  var len0 = arg2;
-  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="set-inner-html"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'setInnerHtml',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => setInnerHtml(BigInt.asUintN(64, BigInt(arg0)), result0)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="set-inner-html"][Instruction::Return]', {
-    funcName: 'set-inner-html',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline64.fnName = 'tairitsu-browser:full/element@0.2.0#setInnerHtml';
-
-const _trampoline65 = function(arg0, arg1, arg2) {
-  var ptr0 = (arg1 >>> 0) >>> 0;
-  var len0 = arg2;
-  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="remove-attribute"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'removeAttribute',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => removeAttribute(BigInt.asUintN(64, BigInt(arg0)), result0)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="remove-attribute"][Instruction::Return]', {
-    funcName: 'remove-attribute',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline65.fnName = 'tairitsu-browser:full/element@0.2.0#removeAttribute';
-
-const _trampoline66 = function(arg0, arg1) {
+const _trampoline69 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/element@0.2.0", function="get-bounding-client-rect"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10100,9 +10376,9 @@ const _trampoline66 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline66.fnName = 'tairitsu-browser:full/element@0.2.0#getBoundingClientRect';
+_trampoline69.fnName = 'tairitsu-browser:full/element@0.2.0#getBoundingClientRect';
 
-const _trampoline67 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+const _trampoline70 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -10204,9 +10480,9 @@ const _trampoline67 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline67.fnName = 'tairitsu-browser:full/css-style-declaration@0.2.0#setProperty';
+_trampoline70.fnName = 'tairitsu-browser:full/css-style-declaration@0.2.0#setProperty';
 
-const _trampoline68 = function(arg0, arg1, arg2, arg3) {
+const _trampoline71 = function(arg0, arg1, arg2, arg3) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -10319,9 +10595,9 @@ const _trampoline68 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline68.fnName = 'tairitsu-browser:full/css-style-declaration@0.2.0#getPropertyValue';
+_trampoline71.fnName = 'tairitsu-browser:full/css-style-declaration@0.2.0#getPropertyValue';
 
-const _trampoline69 = function(arg0, arg1) {
+const _trampoline72 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="get-first-child"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10408,9 +10684,9 @@ const _trampoline69 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline69.fnName = 'tairitsu-browser:full/node@0.2.0#getFirstChild';
+_trampoline72.fnName = 'tairitsu-browser:full/node@0.2.0#getFirstChild';
 
-const _trampoline70 = function(arg0, arg1, arg2, arg3) {
+const _trampoline73 = function(arg0, arg1, arg2, arg3) {
   let variant1;
   switch (arg1) {
     case 0: {
@@ -10506,9 +10782,9 @@ const _trampoline70 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline70.fnName = 'tairitsu-browser:full/node@0.2.0#setTextContent';
+_trampoline73.fnName = 'tairitsu-browser:full/node@0.2.0#setTextContent';
 
-const _trampoline71 = function(arg0, arg1) {
+const _trampoline74 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/node@0.2.0", function="get-parent-element"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10595,9 +10871,476 @@ const _trampoline71 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline71.fnName = 'tairitsu-browser:full/node@0.2.0#getParentElement';
+_trampoline74.fnName = 'tairitsu-browser:full/node@0.2.0#getParentElement';
 
-const _trampoline72 = function(arg0, arg1, arg2, arg3, arg4) {
+const _trampoline75 = function(arg0, arg1, arg2, arg3) {
+  var ptr0 = (arg1 >>> 0) >>> 0;
+  var len0 = arg2;
+  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="tairitsu-browser:full/non-element-parent-node@0.2.0", function="get-element-by-id"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getElementById',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getElementById(BigInt.asUintN(64, BigInt(arg0)), result0)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  var variant1 = ret;
+  if (variant1 === null || variant1=== undefined) {
+    dataView(memory0).setInt8(((arg3 >>> 0)) + 0, 0, true);
+  } else {
+    const e = variant1;
+    dataView(memory0).setInt8(((arg3 >>> 0)) + 0, 1, true);
+    dataView(memory0).setBigInt64(((arg3 >>> 0)) + 8, toUint64(e), true);
+  }
+  _debugLog('[iface="tairitsu-browser:full/non-element-parent-node@0.2.0", function="get-element-by-id"][Instruction::Return]', {
+    funcName: 'get-element-by-id',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline75.fnName = 'tairitsu-browser:full/non-element-parent-node@0.2.0#getElementById';
+
+const _trampoline76 = function(arg0) {
+  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="get-body"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getBody',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getBody()),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  var variant0 = ret;
+  if (variant0 === null || variant0=== undefined) {
+    dataView(memory0).setInt8(((arg0 >>> 0)) + 0, 0, true);
+  } else {
+    const e = variant0;
+    dataView(memory0).setInt8(((arg0 >>> 0)) + 0, 1, true);
+    dataView(memory0).setBigInt64(((arg0 >>> 0)) + 8, toUint64(e), true);
+  }
+  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="get-body"][Instruction::Return]', {
+    funcName: 'get-body',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline76.fnName = 'tairitsu-browser:full/document@0.2.0#getBody';
+
+const _trampoline77 = function(arg0, arg1, arg2, arg3, arg4) {
+  var ptr0 = (arg0 >>> 0) >>> 0;
+  var len0 = arg1;
+  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  let variant2;
+  switch (arg2) {
+    case 0: {
+      variant2 = undefined;
+      break;
+    }
+    case 1: {
+      var ptr1 = (arg3 >>> 0) >>> 0;
+      var len1 = arg4;
+      var result1 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr1, len1));
+      variant2 = result1;
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant discriminant for option');
+    }
+  }
+  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="create-element"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'createElement',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => createElement(result0, variant2)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="create-element"][Instruction::Return]', {
+    funcName: 'create-element',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint64(ret)]);
+  task.exit();
+  return toUint64(ret);
+}
+_trampoline77.fnName = 'tairitsu-browser:full/document@0.2.0#createElement';
+
+const _trampoline78 = function(arg0, arg1) {
+  var ptr0 = (arg0 >>> 0) >>> 0;
+  var len0 = arg1;
+  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="create-text-node"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'createTextNode',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => createTextNode(result0)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="create-text-node"][Instruction::Return]', {
+    funcName: 'create-text-node',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint64(ret)]);
+  task.exit();
+  return toUint64(ret);
+}
+_trampoline78.fnName = 'tairitsu-browser:full/document@0.2.0#createTextNode';
+
+const _trampoline79 = function(arg0, arg1, arg2, arg3) {
+  let variant1;
+  switch (arg1) {
+    case 0: {
+      variant1 = undefined;
+      break;
+    }
+    case 1: {
+      var ptr0 = (arg2 >>> 0) >>> 0;
+      var len0 = arg3;
+      var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+      variant1 = result0;
+      break;
+    }
+    default: {
+      throw new TypeError('invalid variant discriminant for option');
+    }
+  }
+  _debugLog('[iface="tairitsu-browser:full/window@0.2.0", function="get-computed-style"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'getComputedStyle',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => getComputedStyle(BigInt.asUintN(64, BigInt(arg0)), variant1)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/window@0.2.0", function="get-computed-style"][Instruction::Return]', {
+    funcName: 'get-computed-style',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([toUint64(ret)]);
+  task.exit();
+  return toUint64(ret);
+}
+_trampoline79.fnName = 'tairitsu-browser:full/window@0.2.0#getComputedStyle';
+
+const _trampoline80 = function(arg0, arg1, arg2, arg3, arg4) {
   var ptr0 = (arg1 >>> 0) >>> 0;
   var len0 = arg2;
   var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
@@ -10723,9 +11466,9 @@ const _trampoline72 = function(arg0, arg1, arg2, arg3, arg4) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline72.fnName = 'tairitsu-browser:full/event-target@0.2.0#addEventListener';
+_trampoline80.fnName = 'tairitsu-browser:full/event-target@0.2.0#addEventListener';
 
-const _trampoline73 = function(arg0, arg1, arg2) {
+const _trampoline81 = function(arg0, arg1, arg2) {
   _debugLog('[iface="tairitsu-browser:full/event-target@0.2.0", function="remove-event-listener"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10846,9 +11589,9 @@ const _trampoline73 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline73.fnName = 'tairitsu-browser:full/event-target@0.2.0#removeEventListener';
+_trampoline81.fnName = 'tairitsu-browser:full/event-target@0.2.0#removeEventListener';
 
-const _trampoline74 = function(arg0, arg1) {
+const _trampoline82 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/html-input-element@0.2.0", function="get-value"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -10958,9 +11701,9 @@ const _trampoline74 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline74.fnName = 'tairitsu-browser:full/html-input-element@0.2.0#getValue';
+_trampoline82.fnName = 'tairitsu-browser:full/html-input-element@0.2.0#getValue';
 
-const _trampoline75 = function(arg0, arg1) {
+const _trampoline83 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/event@0.2.0", function="get-target"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -11047,9 +11790,9 @@ const _trampoline75 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline75.fnName = 'tairitsu-browser:full/event@0.2.0#getTarget';
+_trampoline83.fnName = 'tairitsu-browser:full/event@0.2.0#getTarget';
 
-const _trampoline76 = function(arg0, arg1) {
+const _trampoline84 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/event@0.2.0", function="get-current-target"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -11136,928 +11879,9 @@ const _trampoline76 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline76.fnName = 'tairitsu-browser:full/event@0.2.0#getCurrentTarget';
+_trampoline84.fnName = 'tairitsu-browser:full/event@0.2.0#getCurrentTarget';
 
-const _trampoline77 = function(arg0) {
-  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="get-body"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getBody',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getBody()),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  var variant0 = ret;
-  if (variant0 === null || variant0=== undefined) {
-    dataView(memory0).setInt8(((arg0 >>> 0)) + 0, 0, true);
-  } else {
-    const e = variant0;
-    dataView(memory0).setInt8(((arg0 >>> 0)) + 0, 1, true);
-    dataView(memory0).setBigInt64(((arg0 >>> 0)) + 8, toUint64(e), true);
-  }
-  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="get-body"][Instruction::Return]', {
-    funcName: 'get-body',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline77.fnName = 'tairitsu-browser:full/document@0.2.0#getBody';
-
-const _trampoline78 = function(arg0, arg1, arg2, arg3, arg4) {
-  var ptr0 = (arg0 >>> 0) >>> 0;
-  var len0 = arg1;
-  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-  let variant2;
-  switch (arg2) {
-    case 0: {
-      variant2 = undefined;
-      break;
-    }
-    case 1: {
-      var ptr1 = (arg3 >>> 0) >>> 0;
-      var len1 = arg4;
-      var result1 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr1, len1));
-      variant2 = result1;
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant discriminant for option');
-    }
-  }
-  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="create-element"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'createElement',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => createElement(result0, variant2)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="create-element"][Instruction::Return]', {
-    funcName: 'create-element',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toUint64(ret)]);
-  task.exit();
-  return toUint64(ret);
-}
-_trampoline78.fnName = 'tairitsu-browser:full/document@0.2.0#createElement';
-
-const _trampoline79 = function(arg0, arg1) {
-  var ptr0 = (arg0 >>> 0) >>> 0;
-  var len0 = arg1;
-  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="create-text-node"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'createTextNode',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => createTextNode(result0)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/document@0.2.0", function="create-text-node"][Instruction::Return]', {
-    funcName: 'create-text-node',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toUint64(ret)]);
-  task.exit();
-  return toUint64(ret);
-}
-_trampoline79.fnName = 'tairitsu-browser:full/document@0.2.0#createTextNode';
-
-const _trampoline80 = function(arg0, arg1, arg2, arg3) {
-  let variant1;
-  switch (arg1) {
-    case 0: {
-      variant1 = undefined;
-      break;
-    }
-    case 1: {
-      var ptr0 = (arg2 >>> 0) >>> 0;
-      var len0 = arg3;
-      var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-      variant1 = result0;
-      break;
-    }
-    default: {
-      throw new TypeError('invalid variant discriminant for option');
-    }
-  }
-  _debugLog('[iface="tairitsu-browser:full/window@0.2.0", function="get-computed-style"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getComputedStyle',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getComputedStyle(BigInt.asUintN(64, BigInt(arg0)), variant1)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/window@0.2.0", function="get-computed-style"][Instruction::Return]', {
-    funcName: 'get-computed-style',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([toUint64(ret)]);
-  task.exit();
-  return toUint64(ret);
-}
-_trampoline80.fnName = 'tairitsu-browser:full/window@0.2.0#getComputedStyle';
-
-const _trampoline81 = function(arg0, arg1, arg2, arg3) {
-  var ptr0 = (arg1 >>> 0) >>> 0;
-  var len0 = arg2;
-  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-  _debugLog('[iface="tairitsu-browser:full/parent-node@0.2.0", function="query-selector"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'querySelector',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => querySelector(BigInt.asUintN(64, BigInt(arg0)), result0)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  var variant1 = ret;
-  if (variant1 === null || variant1=== undefined) {
-    dataView(memory0).setInt8(((arg3 >>> 0)) + 0, 0, true);
-  } else {
-    const e = variant1;
-    dataView(memory0).setInt8(((arg3 >>> 0)) + 0, 1, true);
-    dataView(memory0).setBigInt64(((arg3 >>> 0)) + 8, toUint64(e), true);
-  }
-  _debugLog('[iface="tairitsu-browser:full/parent-node@0.2.0", function="query-selector"][Instruction::Return]', {
-    funcName: 'query-selector',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline81.fnName = 'tairitsu-browser:full/parent-node@0.2.0#querySelector';
-
-const _trampoline82 = function(arg0, arg1, arg2, arg3) {
-  var ptr0 = (arg1 >>> 0) >>> 0;
-  var len0 = arg2;
-  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-  _debugLog('[iface="tairitsu-browser:full/non-element-parent-node@0.2.0", function="get-element-by-id"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'getElementById',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => getElementById(BigInt.asUintN(64, BigInt(arg0)), result0)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  var variant1 = ret;
-  if (variant1 === null || variant1=== undefined) {
-    dataView(memory0).setInt8(((arg3 >>> 0)) + 0, 0, true);
-  } else {
-    const e = variant1;
-    dataView(memory0).setInt8(((arg3 >>> 0)) + 0, 1, true);
-    dataView(memory0).setBigInt64(((arg3 >>> 0)) + 8, toUint64(e), true);
-  }
-  _debugLog('[iface="tairitsu-browser:full/non-element-parent-node@0.2.0", function="get-element-by-id"][Instruction::Return]', {
-    funcName: 'get-element-by-id',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline82.fnName = 'tairitsu-browser:full/non-element-parent-node@0.2.0#getElementById';
-
-const _trampoline83 = function(arg0, arg1, arg2) {
-  _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="item"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'item',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => item(BigInt.asUintN(64, BigInt(arg0)), arg1 >>> 0)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  var variant0 = ret;
-  if (variant0 === null || variant0=== undefined) {
-    dataView(memory0).setInt8(((arg2 >>> 0)) + 0, 0, true);
-  } else {
-    const e = variant0;
-    dataView(memory0).setInt8(((arg2 >>> 0)) + 0, 1, true);
-    dataView(memory0).setBigInt64(((arg2 >>> 0)) + 8, toUint64(e), true);
-  }
-  _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="item"][Instruction::Return]', {
-    funcName: 'item',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline83.fnName = 'tairitsu-browser:full/node-list@0.2.0#item';
-
-const _trampoline84 = function(arg0, arg1, arg2) {
-  var len1 = arg2;
-  var base1 = (arg1 >>> 0) >>> 0;
-  if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError('wasm trap: out of bounds memory access');
-  if (base1 % 4 !== 0) throw new TypeError(`list pointer [${base1}] is not aligned to 4`);
-  var result1 = [];
-  for (let i = 0; i < len1; i++) {
-    const base = base1 + i * 8;
-    var ptr0 = dataView(memory0).getUint32((base) + 0, true) >>> 0;
-    var len0 = dataView(memory0).getUint32((base) + 4, true);
-    var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-    result1.push(result0);
-  }
-  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="add"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'add',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => add(BigInt.asUintN(64, BigInt(arg0)), result1)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="add"][Instruction::Return]', {
-    funcName: 'add',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline84.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#add';
-
-const _trampoline85 = function(arg0, arg1, arg2) {
-  var len1 = arg2;
-  var base1 = (arg1 >>> 0) >>> 0;
-  if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError('wasm trap: out of bounds memory access');
-  if (base1 % 4 !== 0) throw new TypeError(`list pointer [${base1}] is not aligned to 4`);
-  var result1 = [];
-  for (let i = 0; i < len1; i++) {
-    const base = base1 + i * 8;
-    var ptr0 = dataView(memory0).getUint32((base) + 0, true) >>> 0;
-    var len0 = dataView(memory0).getUint32((base) + 4, true);
-    var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-    result1.push(result0);
-  }
-  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="remove"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'remove',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => remove(BigInt.asUintN(64, BigInt(arg0)), result1)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="remove"][Instruction::Return]', {
-    funcName: 'remove',
-    paramCount: 0,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret]);
-  task.exit();
-}
-_trampoline85.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#remove';
-
-const _trampoline86 = function(arg0, arg1, arg2) {
-  var ptr0 = (arg1 >>> 0) >>> 0;
-  var len0 = arg2;
-  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
-  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="contains"] [Instruction::CallInterface] (sync, @ enter)');
-  const hostProvided = true;
-  
-  let parentTask;
-  let task;
-  let threadID;
-  let subtask;
-  
-  const createTask = () => {
-    ({ task, threadID } = createNewCurrentImplicitThread({
-      componentIdx: -1,
-      isAsync: false,
-      entryFnName: 'contains',
-      getCallbackFn: () => null,
-      callbackFnName: null,
-      errHandling: 'none',
-      callingWasmExport: false,
-    }));
-  };
-  
-  taskCreation: {
-    parentTask = getCurrentTask(
-    0,
-    _getGlobalCurrentThreadMeta(0)?.taskID,
-    )?.task;
-    
-    if (!parentTask) {
-      createTask();
-      break taskCreation;
-    }
-    
-    createTask();
-    
-    if (hostProvided) {
-      subtask = parentTask.getLatestSubtask();
-      if (!subtask) {
-        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-      }
-      task.setParentSubtask(subtask);
-    }
-  }
-  
-  const started = task.enterSync();
-  let ret;
-  
-  
-  try {
-    ret = _withGlobalCurrentThreadMeta({
-      componentIdx: task.componentIdx(),
-      taskID: task.id(),
-      threadID,
-      fn: () => _trackHostOperation(() => contains(BigInt.asUintN(64, BigInt(arg0)), result0)),
-    })
-    ;
-  } catch (err) {
-    
-    _debugLog('[Instruction::CallInterface] error during sync call', {
-      taskID: task.id(),
-      subtaskID: task.getParentSubtask()?.id(),
-      err,
-    });
-    getOrCreateAsyncState(0).markTrapped(err);
-    task.setErrored(err);
-    task.reject(err);
-    task.exit();
-    throw err;
-    
-  }
-  
-  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="contains"][Instruction::Return]', {
-    funcName: 'contains',
-    paramCount: 1,
-    async: false,
-    postReturn: false
-  });
-  task.resolve([ret ? 1 : 0]);
-  task.exit();
-  return ret ? 1 : 0;
-}
-_trampoline86.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#contains';
-
-const _trampoline87 = function(arg0, arg1) {
+const _trampoline85 = function(arg0, arg1) {
   _debugLog('[iface="tairitsu-browser:full/pointer-event@0.2.0", function="get-pointer-type"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -12167,9 +11991,461 @@ const _trampoline87 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline87.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getPointerType';
+_trampoline85.fnName = 'tairitsu-browser:full/pointer-event@0.2.0#getPointerType';
 
-const _trampoline88 = function(arg0) {
+const _trampoline86 = function(arg0, arg1, arg2) {
+  _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="item"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'item',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => item(BigInt.asUintN(64, BigInt(arg0)), arg1 >>> 0)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  var variant0 = ret;
+  if (variant0 === null || variant0=== undefined) {
+    dataView(memory0).setInt8(((arg2 >>> 0)) + 0, 0, true);
+  } else {
+    const e = variant0;
+    dataView(memory0).setInt8(((arg2 >>> 0)) + 0, 1, true);
+    dataView(memory0).setBigInt64(((arg2 >>> 0)) + 8, toUint64(e), true);
+  }
+  _debugLog('[iface="tairitsu-browser:full/node-list@0.2.0", function="item"][Instruction::Return]', {
+    funcName: 'item',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline86.fnName = 'tairitsu-browser:full/node-list@0.2.0#item';
+
+const _trampoline87 = function(arg0, arg1, arg2) {
+  var len1 = arg2;
+  var base1 = (arg1 >>> 0) >>> 0;
+  if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError('wasm trap: out of bounds memory access');
+  if (base1 % 4 !== 0) throw new TypeError(`list pointer [${base1}] is not aligned to 4`);
+  var result1 = [];
+  for (let i = 0; i < len1; i++) {
+    const base = base1 + i * 8;
+    var ptr0 = dataView(memory0).getUint32((base) + 0, true) >>> 0;
+    var len0 = dataView(memory0).getUint32((base) + 4, true);
+    var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+    result1.push(result0);
+  }
+  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="add"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'add',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => add(BigInt.asUintN(64, BigInt(arg0)), result1)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="add"][Instruction::Return]', {
+    funcName: 'add',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline87.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#add';
+
+const _trampoline88 = function(arg0, arg1, arg2) {
+  var len1 = arg2;
+  var base1 = (arg1 >>> 0) >>> 0;
+  if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError('wasm trap: out of bounds memory access');
+  if (base1 % 4 !== 0) throw new TypeError(`list pointer [${base1}] is not aligned to 4`);
+  var result1 = [];
+  for (let i = 0; i < len1; i++) {
+    const base = base1 + i * 8;
+    var ptr0 = dataView(memory0).getUint32((base) + 0, true) >>> 0;
+    var len0 = dataView(memory0).getUint32((base) + 4, true);
+    var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+    result1.push(result0);
+  }
+  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="remove"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'remove',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => remove(BigInt.asUintN(64, BigInt(arg0)), result1)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="remove"][Instruction::Return]', {
+    funcName: 'remove',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline88.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#remove';
+
+const _trampoline89 = function(arg0, arg1, arg2) {
+  var ptr0 = (arg1 >>> 0) >>> 0;
+  var len0 = arg2;
+  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="contains"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'contains',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => contains(BigInt.asUintN(64, BigInt(arg0)), result0)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  _debugLog('[iface="tairitsu-browser:full/dom-token-list@0.2.0", function="contains"][Instruction::Return]', {
+    funcName: 'contains',
+    paramCount: 1,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret ? 1 : 0]);
+  task.exit();
+  return ret ? 1 : 0;
+}
+_trampoline89.fnName = 'tairitsu-browser:full/dom-token-list@0.2.0#contains';
+
+const _trampoline90 = function(arg0, arg1, arg2, arg3) {
+  var ptr0 = (arg1 >>> 0) >>> 0;
+  var len0 = arg2;
+  var result0 = TEXT_DECODER_UTF8.decode(new Uint8Array(memory0.buffer, ptr0, len0));
+  _debugLog('[iface="tairitsu-browser:full/parent-node@0.2.0", function="query-selector"] [Instruction::CallInterface] (sync, @ enter)');
+  const hostProvided = true;
+  
+  let parentTask;
+  let task;
+  let threadID;
+  let subtask;
+  
+  const createTask = () => {
+    ({ task, threadID } = createNewCurrentImplicitThread({
+      componentIdx: -1,
+      isAsync: false,
+      entryFnName: 'querySelector',
+      getCallbackFn: () => null,
+      callbackFnName: null,
+      errHandling: 'none',
+      callingWasmExport: false,
+    }));
+  };
+  
+  taskCreation: {
+    parentTask = getCurrentTask(
+    0,
+    _getGlobalCurrentThreadMeta(0)?.taskID,
+    )?.task;
+    
+    if (!parentTask) {
+      createTask();
+      break taskCreation;
+    }
+    
+    createTask();
+    
+    if (hostProvided) {
+      subtask = parentTask.getLatestSubtask();
+      if (!subtask) {
+        throw new Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+      }
+      task.setParentSubtask(subtask);
+    }
+  }
+  
+  const started = task.enterSync();
+  let ret;
+  
+  
+  try {
+    ret = _withGlobalCurrentThreadMeta({
+      componentIdx: task.componentIdx(),
+      taskID: task.id(),
+      threadID,
+      fn: () => _trackHostOperation(() => querySelector(BigInt.asUintN(64, BigInt(arg0)), result0)),
+    })
+    ;
+  } catch (err) {
+    
+    _debugLog('[Instruction::CallInterface] error during sync call', {
+      taskID: task.id(),
+      subtaskID: task.getParentSubtask()?.id(),
+      err,
+    });
+    getOrCreateAsyncState(0).markTrapped(err);
+    task.setErrored(err);
+    task.reject(err);
+    task.exit();
+    throw err;
+    
+  }
+  
+  var variant1 = ret;
+  if (variant1 === null || variant1=== undefined) {
+    dataView(memory0).setInt8(((arg3 >>> 0)) + 0, 0, true);
+  } else {
+    const e = variant1;
+    dataView(memory0).setInt8(((arg3 >>> 0)) + 0, 1, true);
+    dataView(memory0).setBigInt64(((arg3 >>> 0)) + 8, toUint64(e), true);
+  }
+  _debugLog('[iface="tairitsu-browser:full/parent-node@0.2.0", function="query-selector"][Instruction::Return]', {
+    funcName: 'query-selector',
+    paramCount: 0,
+    async: false,
+    postReturn: false
+  });
+  task.resolve([ret]);
+  task.exit();
+}
+_trampoline90.fnName = 'tairitsu-browser:full/parent-node@0.2.0#querySelector';
+
+const _trampoline91 = function(arg0) {
   _debugLog('[iface="wasi:random/insecure-seed@0.2.12", function="insecure-seed"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -12251,9 +12527,9 @@ const _trampoline88 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline88.fnName = 'wasi:random/insecure-seed@0.2.12#insecureSeed';
+_trampoline91.fnName = 'wasi:random/insecure-seed@0.2.12#insecureSeed';
 
-const _trampoline89 = function(arg0, arg1, arg2) {
+const _trampoline92 = function(arg0, arg1, arg2) {
   var len3 = arg1;
   var base3 = (arg0 >>> 0) >>> 0;
   if (base3 < 0 || len3 < 0 || len3 > 67108863 || base3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - base3) / 4)) throw new WebAssemblyRuntimeError('wasm trap: out of bounds memory access');
@@ -12410,7 +12686,7 @@ const _trampoline89 = function(arg0, arg1, arg2) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline89.fnName = 'wasi:io/poll@0.2.12#poll';
+_trampoline92.fnName = 'wasi:io/poll@0.2.12#poll';
 
 const handleTable1 = [T_FLAG, 0];
 handleTable1._createdReps = new Set();
@@ -12422,7 +12698,7 @@ let captureCnt1= 0;
 
 HANDLE_TABLES[1] = handleTable1;
 
-const _trampoline90 = function(arg0, arg1) {
+const _trampoline93 = function(arg0, arg1) {
   var handle1 = arg0;
   
   var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
@@ -12563,9 +12839,9 @@ const _trampoline90 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline90.fnName = 'wasi:io/streams@0.2.12#checkWrite';
+_trampoline93.fnName = 'wasi:io/streams@0.2.12#checkWrite';
 
-const _trampoline91 = function(arg0, arg1, arg2, arg3) {
+const _trampoline94 = function(arg0, arg1, arg2, arg3) {
   var handle1 = arg0;
   
   var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
@@ -12710,9 +12986,9 @@ const _trampoline91 = function(arg0, arg1, arg2, arg3) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline91.fnName = 'wasi:io/streams@0.2.12#write';
+_trampoline94.fnName = 'wasi:io/streams@0.2.12#write';
 
-const _trampoline92 = function(arg0, arg1) {
+const _trampoline95 = function(arg0, arg1) {
   var handle1 = arg0;
   
   var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
@@ -12852,9 +13128,9 @@ const _trampoline92 = function(arg0, arg1) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline92.fnName = 'wasi:io/streams@0.2.12#blockingFlush';
+_trampoline95.fnName = 'wasi:io/streams@0.2.12#blockingFlush';
 
-const _trampoline93 = function(arg0) {
+const _trampoline96 = function(arg0) {
   _debugLog('[iface="wasi:cli/environment@0.2.12", function="get-environment"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -13029,7 +13305,7 @@ const _trampoline93 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline93.fnName = 'wasi:cli/environment@0.2.12#getEnvironment';
+_trampoline96.fnName = 'wasi:cli/environment@0.2.12#getEnvironment';
 
 const handleTable4 = [T_FLAG, 0];
 handleTable4._createdReps = new Set();
@@ -13041,7 +13317,7 @@ let captureCnt4= 0;
 
 HANDLE_TABLES[4] = handleTable4;
 
-const _trampoline94 = function(arg0) {
+const _trampoline97 = function(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdin@0.2.12", function="get-terminal-stdin"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -13141,7 +13417,7 @@ const _trampoline94 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline94.fnName = 'wasi:cli/terminal-stdin@0.2.12#getTerminalStdin';
+_trampoline97.fnName = 'wasi:cli/terminal-stdin@0.2.12#getTerminalStdin';
 
 const handleTable5 = [T_FLAG, 0];
 handleTable5._createdReps = new Set();
@@ -13153,7 +13429,7 @@ let captureCnt5= 0;
 
 HANDLE_TABLES[5] = handleTable5;
 
-const _trampoline95 = function(arg0) {
+const _trampoline98 = function(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stdout@0.2.12", function="get-terminal-stdout"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -13253,9 +13529,9 @@ const _trampoline95 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline95.fnName = 'wasi:cli/terminal-stdout@0.2.12#getTerminalStdout';
+_trampoline98.fnName = 'wasi:cli/terminal-stdout@0.2.12#getTerminalStdout';
 
-const _trampoline96 = function(arg0) {
+const _trampoline99 = function(arg0) {
   _debugLog('[iface="wasi:cli/terminal-stderr@0.2.12", function="get-terminal-stderr"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -13355,9 +13631,9 @@ const _trampoline96 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline96.fnName = 'wasi:cli/terminal-stderr@0.2.12#getTerminalStderr';
+_trampoline99.fnName = 'wasi:cli/terminal-stderr@0.2.12#getTerminalStderr';
 
-const _trampoline97 = function(arg0) {
+const _trampoline100 = function(arg0) {
   _debugLog('[iface="wasi:clocks/wall-clock@0.2.12", function="now"] [Instruction::CallInterface] (sync, @ enter)');
   const hostProvided = true;
   
@@ -13439,7 +13715,7 @@ const _trampoline97 = function(arg0) {
   task.resolve([ret]);
   task.exit();
 }
-_trampoline97.fnName = 'wasi:clocks/wall-clock@0.2.12#now$1';
+_trampoline100.fnName = 'wasi:clocks/wall-clock@0.2.12#now$1';
 let exports2;
 let postReturn0;
 let postReturn0Async;
@@ -16717,7 +16993,7 @@ function getVersion() {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -16825,7 +17101,7 @@ function buildStyleString(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -17027,7 +17303,7 @@ function cssPropertyToString(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -17164,7 +17440,7 @@ function cssLengthToString(arg0, arg1) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -17301,7 +17577,7 @@ function generateUtilityCss(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(15);
+  task.setReturnResultTypeIdx(16);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -17452,7 +17728,7 @@ function generateStylesheet(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -17622,7 +17898,7 @@ function parseUtilityBase(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -17759,7 +18035,7 @@ function buildClasses(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -17929,7 +18205,7 @@ function buildClassesConditional(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18101,7 +18377,7 @@ function getVersion$1() {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18209,7 +18485,7 @@ function transition(arg0, arg1) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(62);
+  task.setReturnResultTypeIdx(63);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18414,7 +18690,7 @@ function isInteractive(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(17);
+  task.setReturnResultTypeIdx(18);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18537,7 +18813,7 @@ function evaluateEasing(arg0, arg1) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(26);
+  task.setReturnResultTypeIdx(27);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18689,7 +18965,7 @@ function lerpF32(arg0, arg1, arg2) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(26);
+  task.setReturnResultTypeIdx(27);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18780,7 +19056,7 @@ function defaultAnimationConfig() {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(67);
+  task.setReturnResultTypeIdx(68);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -18948,7 +19224,7 @@ function resourceStatusQuery(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(68);
+  task.setReturnResultTypeIdx(69);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -19071,7 +19347,7 @@ function getVersion$2() {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -19179,7 +19455,7 @@ function sanitizeSvg(arg0) {
   });
   task.setCalleeIsAsync(false);
   task.setFuncTypeIsAsync(false);
-  task.setReturnResultTypeIdx(20);
+  task.setReturnResultTypeIdx(14);
   
   const started = task.enterSync();
   CURRENT_TASK_MAY_BLOCK.value = task.mayBlock() ? 1 : 0;
@@ -19346,7 +19622,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline2.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [],
+  resultLowerFns: [_lowerFlatU64],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19367,7 +19643,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline3.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [],
+  resultLowerFns: [_lowerFlatU32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19387,8 +19663,8 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline4.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatU64],
+  paramLiftFns: [_liftFlatU64,_liftFlatS32],
+  resultLowerFns: [_lowerFlatS32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19408,8 +19684,8 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline5.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatU32],
+  paramLiftFns: [_liftFlatS32],
+  resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19429,8 +19705,8 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline6.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatS32],
-  resultLowerFns: [_lowerFlatS32],
+  paramLiftFns: [_liftFlatS32],
+  resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19450,7 +19726,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline7.manuallyAsync,
-  paramLiftFns: [_liftFlatS32],
+  paramLiftFns: [_liftFlatU32],
   resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
@@ -19471,8 +19747,8 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline8.manuallyAsync,
-  paramLiftFns: [_liftFlatS32],
-  resultLowerFns: [],
+  paramLiftFns: [_liftFlatU64,_liftFlatU64],
+  resultLowerFns: [_lowerFlatU64],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19492,8 +19768,8 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline9.manuallyAsync,
-  paramLiftFns: [_liftFlatU32],
-  resultLowerFns: [],
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatU16],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19513,153 +19789,6 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline10.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatU64],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
-  importFn: _trampoline10,
-},
-);
-let trampoline11 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 11,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline11.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat64],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
-  importFn: _trampoline11,
-},
-);
-let trampoline12 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 12,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline12.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatFloat64],
-  resultLowerFns: [],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
-  importFn: _trampoline12,
-},
-);
-let trampoline13 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 13,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline13.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatS32],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
-  importFn: _trampoline13,
-},
-);
-let trampoline14 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 14,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline14.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatS32],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
-  importFn: _trampoline14,
-},
-);
-let trampoline15 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 15,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline15.manuallyAsync,
-  paramLiftFns: [],
-  resultLowerFns: [_lowerFlatS32],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
-  importFn: _trampoline15,
-},
-);
-let trampoline16 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 16,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline16.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatU64],
-  resultLowerFns: [_lowerFlatU64],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
-  importFn: _trampoline16,
-},
-);
-let trampoline17 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 17,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline17.manuallyAsync,
   paramLiftFns: [_liftFlatU64,_liftFlatU64,
   _liftFlatOption({
     caseMetas: [
@@ -19684,6 +19813,153 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => null,
   getReallocFn: undefined,
+  importFn: _trampoline10,
+},
+);
+let trampoline11 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 11,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline11.manuallyAsync,
+  paramLiftFns: [_liftFlatU64,_liftFlatU64,_liftFlatU64],
+  resultLowerFns: [_lowerFlatU64],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline11,
+},
+);
+let trampoline12 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 12,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline12.manuallyAsync,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatU64],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline12,
+},
+);
+let trampoline13 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 13,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline13.manuallyAsync,
+  paramLiftFns: [],
+  resultLowerFns: [_lowerFlatS32],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline13,
+},
+);
+let trampoline14 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 14,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline14.manuallyAsync,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatS16],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline14,
+},
+);
+let trampoline15 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 15,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline15.manuallyAsync,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatFloat64],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline15,
+},
+);
+let trampoline16 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 16,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline16.manuallyAsync,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatFloat64],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline16,
+},
+);
+let trampoline17 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 17,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline17.manuallyAsync,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatBool],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
   importFn: _trampoline17,
 },
 );
@@ -19695,7 +19971,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline18.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatU64],
+  resultLowerFns: [_lowerFlatU16],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19716,7 +19992,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline19.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatU32],
+  resultLowerFns: [_lowerFlatFloat64],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19758,7 +20034,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline21.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat64],
+  resultLowerFns: [_lowerFlatBool],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19779,7 +20055,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline22.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat64],
+  resultLowerFns: [_lowerFlatBool],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19884,7 +20160,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline27.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat64],
+  resultLowerFns: [_lowerFlatBool],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19905,7 +20181,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline28.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatS16],
+  resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19926,7 +20202,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline29.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatU16],
+  resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19947,7 +20223,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline30.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatBool],
+  resultLowerFns: [_lowerFlatFloat64],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19968,7 +20244,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline31.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatBool],
+  resultLowerFns: [_lowerFlatFloat64],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -19989,7 +20265,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline32.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatBool],
+  resultLowerFns: [_lowerFlatFloat64],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20010,7 +20286,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline33.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatBool],
+  resultLowerFns: [_lowerFlatU32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20031,7 +20307,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline34.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatS32],
+  resultLowerFns: [_lowerFlatFloat64],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20052,7 +20328,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline35.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatBool],
+  resultLowerFns: [_lowerFlatS32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20073,7 +20349,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline36.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat64],
+  resultLowerFns: [_lowerFlatS32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20094,7 +20370,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline37.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat64],
+  resultLowerFns: [_lowerFlatFloat32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20115,7 +20391,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline38.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat32],
+  resultLowerFns: [_lowerFlatBool],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20136,7 +20412,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline39.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat32],
+  resultLowerFns: [_lowerFlatS32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20157,7 +20433,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline40.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatS32],
+  resultLowerFns: [_lowerFlatFloat32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20199,7 +20475,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline42.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatS32],
+  resultLowerFns: [_lowerFlatFloat64],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20220,7 +20496,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline43.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat64],
+  resultLowerFns: [_lowerFlatU32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20261,8 +20537,8 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline45.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatFloat64],
+  paramLiftFns: [_liftFlatU64,_liftFlatFloat64],
+  resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20283,7 +20559,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline46.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatU32],
+  resultLowerFns: [_lowerFlatS32],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20296,7 +20572,49 @@ null,
   importFn: _trampoline46,
 },
 );
-function trampoline47(handle) {
+let trampoline47 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 47,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline47.manuallyAsync,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatS32],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline47,
+},
+);
+let trampoline48 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 48,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline48.manuallyAsync,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatU64],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline48,
+},
+);
+function trampoline49(handle) {
   const handleEntry = rscTableRemove(handleTable1, handle);
   if (handleEntry.own) {
     
@@ -20309,7 +20627,7 @@ function trampoline47(handle) {
     }
   }
 }
-function trampoline48(handle) {
+function trampoline50(handle) {
   const handleEntry = rscTableRemove(handleTable0, handle);
   if (handleEntry.own) {
     
@@ -20322,7 +20640,7 @@ function trampoline48(handle) {
     }
   }
 }
-function trampoline49(handle) {
+function trampoline51(handle) {
   const handleEntry = rscTableRemove(handleTable2, handle);
   if (handleEntry.own) {
     
@@ -20335,7 +20653,7 @@ function trampoline49(handle) {
     }
   }
 }
-function trampoline50(handle) {
+function trampoline52(handle) {
   const handleEntry = rscTableRemove(handleTable3, handle);
   if (handleEntry.own) {
     
@@ -20348,7 +20666,7 @@ function trampoline50(handle) {
     }
   }
 }
-function trampoline51(handle) {
+function trampoline53(handle) {
   const handleEntry = rscTableRemove(handleTable4, handle);
   if (handleEntry.own) {
     
@@ -20361,7 +20679,7 @@ function trampoline51(handle) {
     }
   }
 }
-function trampoline52(handle) {
+function trampoline54(handle) {
   const handleEntry = rscTableRemove(handleTable5, handle);
   if (handleEntry.own) {
     
@@ -20374,13 +20692,13 @@ function trampoline52(handle) {
     }
   }
 }
-let trampoline53 = _lowerImportBackwardsCompat.bind(
+let trampoline55 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 53,
+  trampolineIdx: 55,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline53.manuallyAsync,
+  isManualAsync: _trampoline55.manuallyAsync,
   paramLiftFns: [
   _liftFlatResult({
     caseMetas: [['ok', null, 0, 0, 0, []],['err', null, 0, 0, 0, []],],
@@ -20401,16 +20719,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => null,
   getReallocFn: undefined,
-  importFn: _trampoline53,
+  importFn: _trampoline55,
 },
 );
-let trampoline54 = _lowerImportBackwardsCompat.bind(
+let trampoline56 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 54,
+  trampolineIdx: 56,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline54.manuallyAsync,
+  isManualAsync: _trampoline56.manuallyAsync,
   paramLiftFns: [_liftFlatBorrow.bind(null, 0)],
   resultLowerFns: [],
   hasResultPointer: false,
@@ -20422,16 +20740,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => null,
   getReallocFn: undefined,
-  importFn: _trampoline54,
+  importFn: _trampoline56,
 },
 );
-let trampoline55 = _lowerImportBackwardsCompat.bind(
+let trampoline57 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 55,
+  trampolineIdx: 57,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline55.manuallyAsync,
+  isManualAsync: _trampoline57.manuallyAsync,
   paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
   resultLowerFns: [_lowerFlatOwn({
     componentIdx: 0,
@@ -20460,16 +20778,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => null,
   getReallocFn: undefined,
-  importFn: _trampoline55,
+  importFn: _trampoline57,
 },
 );
-let trampoline56 = _lowerImportBackwardsCompat.bind(
+let trampoline58 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 56,
+  trampolineIdx: 58,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline56.manuallyAsync,
+  isManualAsync: _trampoline58.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [_lowerFlatOwn({
     componentIdx: 0,
@@ -20498,82 +20816,6 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => null,
   getReallocFn: undefined,
-  importFn: _trampoline56,
-},
-);
-let trampoline57 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 57,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline57.manuallyAsync,
-  paramLiftFns: [],
-  resultLowerFns: [_lowerFlatOwn({
-    componentIdx: 0,
-    tableIdx: 3,
-    lowerFn: 
-    function lowerImportedOwnedHost_OutputStream(obj) {
-      if (!(obj instanceof OutputStream)) {
-        throw new TypeError('Resource error: Not a valid \"OutputStream\" resource.');
-      }
-      let handle = obj[symbolRscHandle];
-      if (!handle) {
-        const rep = (obj[symbolRscRep] ?? ++captureCnt3) >>> 0;
-        captureTable3.set(rep, obj);
-        handle = rscTableCreateOwn(handleTable3, rep);
-      }
-      return handle;
-    }
-    ,
-  })],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
-  importFn: _trampoline57,
-},
-);
-let trampoline58 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 58,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline58.manuallyAsync,
-  paramLiftFns: [],
-  resultLowerFns: [_lowerFlatOwn({
-    componentIdx: 0,
-    tableIdx: 3,
-    lowerFn: 
-    function lowerImportedOwnedHost_OutputStream(obj) {
-      if (!(obj instanceof OutputStream)) {
-        throw new TypeError('Resource error: Not a valid \"OutputStream\" resource.');
-      }
-      let handle = obj[symbolRscHandle];
-      if (!handle) {
-        const rep = (obj[symbolRscRep] ?? ++captureCnt3) >>> 0;
-        captureTable3.set(rep, obj);
-        handle = rscTableCreateOwn(handleTable3, rep);
-      }
-      return handle;
-    }
-    ,
-  })],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: null,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => null,
-  getReallocFn: undefined,
   importFn: _trampoline58,
 },
 );
@@ -20585,7 +20827,24 @@ null,
   isAsync: false,
   isManualAsync: _trampoline59.manuallyAsync,
   paramLiftFns: [],
-  resultLowerFns: [_lowerFlatU64],
+  resultLowerFns: [_lowerFlatOwn({
+    componentIdx: 0,
+    tableIdx: 3,
+    lowerFn: 
+    function lowerImportedOwnedHost_OutputStream(obj) {
+      if (!(obj instanceof OutputStream)) {
+        throw new TypeError('Resource error: Not a valid \"OutputStream\" resource.');
+      }
+      let handle = obj[symbolRscHandle];
+      if (!handle) {
+        const rep = (obj[symbolRscRep] ?? ++captureCnt3) >>> 0;
+        captureTable3.set(rep, obj);
+        handle = rscTableCreateOwn(handleTable3, rep);
+      }
+      return handle;
+    }
+    ,
+  })],
   hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20605,6 +20864,65 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline60.manuallyAsync,
+  paramLiftFns: [],
+  resultLowerFns: [_lowerFlatOwn({
+    componentIdx: 0,
+    tableIdx: 3,
+    lowerFn: 
+    function lowerImportedOwnedHost_OutputStream(obj) {
+      if (!(obj instanceof OutputStream)) {
+        throw new TypeError('Resource error: Not a valid \"OutputStream\" resource.');
+      }
+      let handle = obj[symbolRscHandle];
+      if (!handle) {
+        const rep = (obj[symbolRscRep] ?? ++captureCnt3) >>> 0;
+        captureTable3.set(rep, obj);
+        handle = rscTableCreateOwn(handleTable3, rep);
+      }
+      return handle;
+    }
+    ,
+  })],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline60,
+},
+);
+let trampoline61 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 61,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline61.manuallyAsync,
+  paramLiftFns: [],
+  resultLowerFns: [_lowerFlatU64],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: null,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => null,
+  getReallocFn: undefined,
+  importFn: _trampoline61,
+},
+);
+let trampoline62 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 62,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline62.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
   resultLowerFns: [_lowerFlatOwn({
     componentIdx: 0,
@@ -20633,16 +20951,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => null,
   getReallocFn: undefined,
-  importFn: _trampoline60,
+  importFn: _trampoline62,
 },
 );
-let trampoline61 = _lowerImportBackwardsCompat.bind(
+let trampoline63 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 61,
+  trampolineIdx: 63,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline61.manuallyAsync,
+  isManualAsync: _trampoline63.manuallyAsync,
   paramLiftFns: [_liftFlatStringAny,
   _liftFlatOption({
     caseMetas: [
@@ -20667,60 +20985,6 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline61,
-},
-);
-let trampoline62 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 62,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline62.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatStringAny],
-  resultLowerFns: [],
-  hasResultPointer: false,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: undefined,
-  importFn: _trampoline62,
-},
-);
-let trampoline63 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 63,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline63.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
-  resultLowerFns: [
-  _lowerFlatOption({
-    caseMetas: [
-    [ 'none', null, 0, 0, 0 ],
-    [ 'some', _lowerFlatStringAny, 8, 4, 2],
-    ],
-    variantSize32: 12,
-    variantAlign32: 4,
-    variantPayloadOffset32: 4,
-    variantFlatCount: 3,
-    payloadMaybeNull: false,
-  })
-  ],
-  hasResultPointer: true,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: () => realloc0,
   importFn: _trampoline63,
 },
 );
@@ -20731,7 +20995,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline64.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatStringAny],
   resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
@@ -20774,7 +21038,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline66.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatRecord({ fieldMetas: [['x', _lowerFlatFloat64, 8, 8 ],['y', _lowerFlatFloat64, 8, 8 ],['width', _lowerFlatFloat64, 8, 8 ],['height', _lowerFlatFloat64, 8, 8 ],], size32: 32, align32: 8 })],
+  resultLowerFns: [_lowerFlatStringAny],
   hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20783,7 +21047,7 @@ null,
   memoryIdx: 0,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
-  getReallocFn: undefined,
+  getReallocFn: () => realloc0,
   importFn: _trampoline66,
 },
 );
@@ -20794,20 +21058,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline67.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatStringAny,
-  _liftFlatOption({
-    caseMetas: [
-    ['none', null, 0, 0, 0, [] ],
-    ['some', _liftFlatStringAny, 8, 4, 2, ['i32','i32'] ],
-    ],
-    variantSize32: 12,
-    variantAlign32: 4,
-    variantPayloadOffset32: 4,
-    variantFlatCount: 3,
-    variantPayloadFlatTypes: ['i32','i32'],
-    payloadMaybeNull: false,
-  })
-  ],
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
   resultLowerFns: [],
   hasResultPointer: false,
   funcTypeIsAsync: false,
@@ -20829,7 +21080,19 @@ null,
   isAsync: false,
   isManualAsync: _trampoline68.manuallyAsync,
   paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
-  resultLowerFns: [_lowerFlatStringAny],
+  resultLowerFns: [
+  _lowerFlatOption({
+    caseMetas: [
+    [ 'none', null, 0, 0, 0 ],
+    [ 'some', _lowerFlatStringAny, 8, 4, 2],
+    ],
+    variantSize32: 12,
+    variantAlign32: 4,
+    variantPayloadOffset32: 4,
+    variantFlatCount: 3,
+    payloadMaybeNull: false,
+  })
+  ],
   hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20850,19 +21113,7 @@ null,
   isAsync: false,
   isManualAsync: _trampoline69.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [
-  _lowerFlatOption({
-    caseMetas: [
-    [ 'none', null, 0, 0, 0 ],
-    [ 'some', _lowerFlatU64, 8, 8, 1],
-    ],
-    variantSize32: 16,
-    variantAlign32: 8,
-    variantPayloadOffset32: 8,
-    variantFlatCount: 2,
-    payloadMaybeNull: false,
-  })
-  ],
+  resultLowerFns: [_lowerFlatRecord({ fieldMetas: [['x', _lowerFlatFloat64, 8, 8 ],['y', _lowerFlatFloat64, 8, 8 ],['width', _lowerFlatFloat64, 8, 8 ],['height', _lowerFlatFloat64, 8, 8 ],], size32: 32, align32: 8 })],
   hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -20882,7 +21133,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline70.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatStringAny,
   _liftFlatOption({
     caseMetas: [
     ['none', null, 0, 0, 0, [] ],
@@ -20916,6 +21167,27 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline71.manuallyAsync,
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
+  resultLowerFns: [_lowerFlatStringAny],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: () => realloc0,
+  importFn: _trampoline71,
+},
+);
+let trampoline72 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 72,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline72.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
   resultLowerFns: [
   _lowerFlatOption({
@@ -20939,38 +21211,6 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline71,
-},
-);
-let trampoline72 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 72,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline72.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatBool],
-  resultLowerFns: [
-  _lowerFlatResult({
-    caseMetas: [
-    [ 'ok', _lowerFlatU64, 16, 8, 8 ],
-    [ 'err', _lowerFlatStringAny, 16, 8, 8 ],
-    ],
-    variantSize32: 16,
-    variantAlign32: 8,
-    variantPayloadOffset32: 8,
-    variantFlatCount: 3,
-  })
-  ],
-  hasResultPointer: true,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: () => realloc0,
   importFn: _trampoline72,
 },
 );
@@ -20981,20 +21221,22 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline73.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatU64],
-  resultLowerFns: [
-  _lowerFlatResult({
+  paramLiftFns: [_liftFlatU64,
+  _liftFlatOption({
     caseMetas: [
-    [ 'ok', null, 12, 4, 4 ],
-    [ 'err', _lowerFlatStringAny, 12, 4, 4 ],
+    ['none', null, 0, 0, 0, [] ],
+    ['some', _liftFlatStringAny, 8, 4, 2, ['i32','i32'] ],
     ],
     variantSize32: 12,
     variantAlign32: 4,
     variantPayloadOffset32: 4,
     variantFlatCount: 3,
+    variantPayloadFlatTypes: ['i32','i32'],
+    payloadMaybeNull: false,
   })
   ],
-  hasResultPointer: true,
+  resultLowerFns: [],
+  hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -21002,7 +21244,7 @@ null,
   memoryIdx: 0,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
-  getReallocFn: () => realloc0,
+  getReallocFn: undefined,
   importFn: _trampoline73,
 },
 );
@@ -21014,7 +21256,19 @@ null,
   isAsync: false,
   isManualAsync: _trampoline74.manuallyAsync,
   paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatStringAny],
+  resultLowerFns: [
+  _lowerFlatOption({
+    caseMetas: [
+    [ 'none', null, 0, 0, 0 ],
+    [ 'some', _lowerFlatU64, 8, 8, 1],
+    ],
+    variantSize32: 16,
+    variantAlign32: 8,
+    variantPayloadOffset32: 8,
+    variantFlatCount: 2,
+    payloadMaybeNull: false,
+  })
+  ],
   hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -21023,7 +21277,7 @@ null,
   memoryIdx: 0,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
-  getReallocFn: () => realloc0,
+  getReallocFn: undefined,
   importFn: _trampoline74,
 },
 );
@@ -21034,7 +21288,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline75.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
   resultLowerFns: [
   _lowerFlatOption({
     caseMetas: [
@@ -21067,7 +21321,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline76.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
+  paramLiftFns: [],
   resultLowerFns: [
   _lowerFlatOption({
     caseMetas: [
@@ -21100,39 +21354,6 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline77.manuallyAsync,
-  paramLiftFns: [],
-  resultLowerFns: [
-  _lowerFlatOption({
-    caseMetas: [
-    [ 'none', null, 0, 0, 0 ],
-    [ 'some', _lowerFlatU64, 8, 8, 1],
-    ],
-    variantSize32: 16,
-    variantAlign32: 8,
-    variantPayloadOffset32: 8,
-    variantFlatCount: 2,
-    payloadMaybeNull: false,
-  })
-  ],
-  hasResultPointer: true,
-  funcTypeIsAsync: false,
-  getCallbackFn: () => null,
-  getPostReturnFn: () => null,
-  isCancellable: false,
-  memoryIdx: 0,
-  stringEncoding: 'utf8',
-  getMemoryFn: () => memory0,
-  getReallocFn: undefined,
-  importFn: _trampoline77,
-},
-);
-let trampoline78 = _lowerImportBackwardsCompat.bind(
-null,
-{
-  trampolineIdx: 78,
-  componentIdx: 0,
-  isAsync: false,
-  isManualAsync: _trampoline78.manuallyAsync,
   paramLiftFns: [_liftFlatStringAny,
   _liftFlatOption({
     caseMetas: [
@@ -21157,16 +21378,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline78,
+  importFn: _trampoline77,
 },
 );
-let trampoline79 = _lowerImportBackwardsCompat.bind(
+let trampoline78 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 79,
+  trampolineIdx: 78,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline79.manuallyAsync,
+  isManualAsync: _trampoline78.manuallyAsync,
   paramLiftFns: [_liftFlatStringAny],
   resultLowerFns: [_lowerFlatU64],
   hasResultPointer: false,
@@ -21178,16 +21399,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline79,
+  importFn: _trampoline78,
 },
 );
-let trampoline80 = _lowerImportBackwardsCompat.bind(
+let trampoline79 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 80,
+  trampolineIdx: 79,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline80.manuallyAsync,
+  isManualAsync: _trampoline79.manuallyAsync,
   paramLiftFns: [_liftFlatU64,
   _liftFlatOption({
     caseMetas: [
@@ -21212,6 +21433,38 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
+  importFn: _trampoline79,
+},
+);
+let trampoline80 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 80,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline80.manuallyAsync,
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny,_liftFlatBool],
+  resultLowerFns: [
+  _lowerFlatResult({
+    caseMetas: [
+    [ 'ok', _lowerFlatU64, 16, 8, 8 ],
+    [ 'err', _lowerFlatStringAny, 16, 8, 8 ],
+    ],
+    variantSize32: 16,
+    variantAlign32: 8,
+    variantPayloadOffset32: 8,
+    variantFlatCount: 3,
+  })
+  ],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: () => realloc0,
   importFn: _trampoline80,
 },
 );
@@ -21222,18 +21475,17 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline81.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
+  paramLiftFns: [_liftFlatU64,_liftFlatU64],
   resultLowerFns: [
-  _lowerFlatOption({
+  _lowerFlatResult({
     caseMetas: [
-    [ 'none', null, 0, 0, 0 ],
-    [ 'some', _lowerFlatU64, 8, 8, 1],
+    [ 'ok', null, 12, 4, 4 ],
+    [ 'err', _lowerFlatStringAny, 12, 4, 4 ],
     ],
-    variantSize32: 16,
-    variantAlign32: 8,
-    variantPayloadOffset32: 8,
-    variantFlatCount: 2,
-    payloadMaybeNull: false,
+    variantSize32: 12,
+    variantAlign32: 4,
+    variantPayloadOffset32: 4,
+    variantFlatCount: 3,
   })
   ],
   hasResultPointer: true,
@@ -21244,7 +21496,7 @@ null,
   memoryIdx: 0,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
-  getReallocFn: undefined,
+  getReallocFn: () => realloc0,
   importFn: _trampoline81,
 },
 );
@@ -21255,20 +21507,8 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline82.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
-  resultLowerFns: [
-  _lowerFlatOption({
-    caseMetas: [
-    [ 'none', null, 0, 0, 0 ],
-    [ 'some', _lowerFlatU64, 8, 8, 1],
-    ],
-    variantSize32: 16,
-    variantAlign32: 8,
-    variantPayloadOffset32: 8,
-    variantFlatCount: 2,
-    payloadMaybeNull: false,
-  })
-  ],
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatStringAny],
   hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
@@ -21277,7 +21517,7 @@ null,
   memoryIdx: 0,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
-  getReallocFn: undefined,
+  getReallocFn: () => realloc0,
   importFn: _trampoline82,
 },
 );
@@ -21288,7 +21528,7 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline83.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatU32],
+  paramLiftFns: [_liftFlatU64],
   resultLowerFns: [
   _lowerFlatOption({
     caseMetas: [
@@ -21321,14 +21561,21 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline84.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatList({
-    elemLiftFn: _liftFlatStringAny,
-    elemAlign32: 4,
-    elemSize32: 8,
-    typedArray: undefined,
-  })],
-  resultLowerFns: [],
-  hasResultPointer: false,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [
+  _lowerFlatOption({
+    caseMetas: [
+    [ 'none', null, 0, 0, 0 ],
+    [ 'some', _lowerFlatU64, 8, 8, 1],
+    ],
+    variantSize32: 16,
+    variantAlign32: 8,
+    variantPayloadOffset32: 8,
+    variantFlatCount: 2,
+    payloadMaybeNull: false,
+  })
+  ],
+  hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -21347,14 +21594,9 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline85.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatList({
-    elemLiftFn: _liftFlatStringAny,
-    elemAlign32: 4,
-    elemSize32: 8,
-    typedArray: undefined,
-  })],
-  resultLowerFns: [],
-  hasResultPointer: false,
+  paramLiftFns: [_liftFlatU64],
+  resultLowerFns: [_lowerFlatStringAny],
+  hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -21362,7 +21604,7 @@ null,
   memoryIdx: 0,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
-  getReallocFn: undefined,
+  getReallocFn: () => realloc0,
   importFn: _trampoline85,
 },
 );
@@ -21373,9 +21615,21 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline86.manuallyAsync,
-  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
-  resultLowerFns: [_lowerFlatBool],
-  hasResultPointer: false,
+  paramLiftFns: [_liftFlatU64,_liftFlatU32],
+  resultLowerFns: [
+  _lowerFlatOption({
+    caseMetas: [
+    [ 'none', null, 0, 0, 0 ],
+    [ 'some', _lowerFlatU64, 8, 8, 1],
+    ],
+    variantSize32: 16,
+    variantAlign32: 8,
+    variantPayloadOffset32: 8,
+    variantFlatCount: 2,
+    payloadMaybeNull: false,
+  })
+  ],
+  hasResultPointer: true,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -21394,9 +21648,14 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline87.manuallyAsync,
-  paramLiftFns: [_liftFlatU64],
-  resultLowerFns: [_lowerFlatStringAny],
-  hasResultPointer: true,
+  paramLiftFns: [_liftFlatU64,_liftFlatList({
+    elemLiftFn: _liftFlatStringAny,
+    elemAlign32: 4,
+    elemSize32: 8,
+    typedArray: undefined,
+  })],
+  resultLowerFns: [],
+  hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -21404,7 +21663,7 @@ null,
   memoryIdx: 0,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
-  getReallocFn: () => realloc0,
+  getReallocFn: undefined,
   importFn: _trampoline87,
 },
 );
@@ -21415,9 +21674,14 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline88.manuallyAsync,
-  paramLiftFns: [],
-  resultLowerFns: [_lowerFlatTuple({ elemLowerMetas: [[_lowerFlatU64, 8, 8],[_lowerFlatU64, 8, 8],], size32: 16, align32: 8 })],
-  hasResultPointer: true,
+  paramLiftFns: [_liftFlatU64,_liftFlatList({
+    elemLiftFn: _liftFlatStringAny,
+    elemAlign32: 4,
+    elemSize32: 8,
+    typedArray: undefined,
+  })],
+  resultLowerFns: [],
+  hasResultPointer: false,
   funcTypeIsAsync: false,
   getCallbackFn: () => null,
   getPostReturnFn: () => null,
@@ -21436,6 +21700,81 @@ null,
   componentIdx: 0,
   isAsync: false,
   isManualAsync: _trampoline89.manuallyAsync,
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
+  resultLowerFns: [_lowerFlatBool],
+  hasResultPointer: false,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: undefined,
+  importFn: _trampoline89,
+},
+);
+let trampoline90 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 90,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline90.manuallyAsync,
+  paramLiftFns: [_liftFlatU64,_liftFlatStringAny],
+  resultLowerFns: [
+  _lowerFlatOption({
+    caseMetas: [
+    [ 'none', null, 0, 0, 0 ],
+    [ 'some', _lowerFlatU64, 8, 8, 1],
+    ],
+    variantSize32: 16,
+    variantAlign32: 8,
+    variantPayloadOffset32: 8,
+    variantFlatCount: 2,
+    payloadMaybeNull: false,
+  })
+  ],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: undefined,
+  importFn: _trampoline90,
+},
+);
+let trampoline91 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 91,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline91.manuallyAsync,
+  paramLiftFns: [],
+  resultLowerFns: [_lowerFlatTuple({ elemLowerMetas: [[_lowerFlatU64, 8, 8],[_lowerFlatU64, 8, 8],], size32: 16, align32: 8 })],
+  hasResultPointer: true,
+  funcTypeIsAsync: false,
+  getCallbackFn: () => null,
+  getPostReturnFn: () => null,
+  isCancellable: false,
+  memoryIdx: 0,
+  stringEncoding: 'utf8',
+  getMemoryFn: () => memory0,
+  getReallocFn: undefined,
+  importFn: _trampoline91,
+},
+);
+let trampoline92 = _lowerImportBackwardsCompat.bind(
+null,
+{
+  trampolineIdx: 92,
+  componentIdx: 0,
+  isAsync: false,
+  isManualAsync: _trampoline92.manuallyAsync,
   paramLiftFns: [_liftFlatList({
     elemLiftFn: _liftFlatBorrow.bind(null, 0),
     elemAlign32: 4,
@@ -21456,16 +21795,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: () => realloc0,
-  importFn: _trampoline89,
+  importFn: _trampoline92,
 },
 );
-let trampoline90 = _lowerImportBackwardsCompat.bind(
+let trampoline93 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 90,
+  trampolineIdx: 93,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline90.manuallyAsync,
+  isManualAsync: _trampoline93.manuallyAsync,
   paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
   resultLowerFns: [
   _lowerFlatResult({
@@ -21511,16 +21850,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline90,
+  importFn: _trampoline93,
 },
 );
-let trampoline91 = _lowerImportBackwardsCompat.bind(
+let trampoline94 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 91,
+  trampolineIdx: 94,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline91.manuallyAsync,
+  isManualAsync: _trampoline94.manuallyAsync,
   paramLiftFns: [_liftFlatBorrow.bind(null, 3),_liftFlatList({
     elemLiftFn: _liftFlatU8,
     elemAlign32: 1,
@@ -21571,16 +21910,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline91,
+  importFn: _trampoline94,
 },
 );
-let trampoline92 = _lowerImportBackwardsCompat.bind(
+let trampoline95 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 92,
+  trampolineIdx: 95,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline92.manuallyAsync,
+  isManualAsync: _trampoline95.manuallyAsync,
   paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
   resultLowerFns: [
   _lowerFlatResult({
@@ -21626,16 +21965,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline92,
+  importFn: _trampoline95,
 },
 );
-let trampoline93 = _lowerImportBackwardsCompat.bind(
+let trampoline96 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 93,
+  trampolineIdx: 96,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline93.manuallyAsync,
+  isManualAsync: _trampoline96.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [_lowerFlatList({
     elemLowerFn: _lowerFlatTuple({ elemLowerMetas: [[_lowerFlatStringAny, 8, 4],[_lowerFlatStringAny, 8, 4],], size32: 16, align32: 4 }),
@@ -21651,16 +21990,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: () => realloc0,
-  importFn: _trampoline93,
+  importFn: _trampoline96,
 },
 );
-let trampoline94 = _lowerImportBackwardsCompat.bind(
+let trampoline97 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 94,
+  trampolineIdx: 97,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline94.manuallyAsync,
+  isManualAsync: _trampoline97.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [
   _lowerFlatOption({
@@ -21701,16 +22040,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline94,
+  importFn: _trampoline97,
 },
 );
-let trampoline95 = _lowerImportBackwardsCompat.bind(
+let trampoline98 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 95,
+  trampolineIdx: 98,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline95.manuallyAsync,
+  isManualAsync: _trampoline98.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [
   _lowerFlatOption({
@@ -21751,16 +22090,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline95,
+  importFn: _trampoline98,
 },
 );
-let trampoline96 = _lowerImportBackwardsCompat.bind(
+let trampoline99 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 96,
+  trampolineIdx: 99,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline96.manuallyAsync,
+  isManualAsync: _trampoline99.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [
   _lowerFlatOption({
@@ -21801,16 +22140,16 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline96,
+  importFn: _trampoline99,
 },
 );
-let trampoline97 = _lowerImportBackwardsCompat.bind(
+let trampoline100 = _lowerImportBackwardsCompat.bind(
 null,
 {
-  trampolineIdx: 97,
+  trampolineIdx: 100,
   componentIdx: 0,
   isAsync: false,
-  isManualAsync: _trampoline97.manuallyAsync,
+  isManualAsync: _trampoline100.manuallyAsync,
   paramLiftFns: [],
   resultLowerFns: [_lowerFlatRecord({ fieldMetas: [['seconds', _lowerFlatU64, 8, 8 ],['nanoseconds', _lowerFlatU32, 4, 4 ],], size32: 16, align32: 8 })],
   hasResultPointer: true,
@@ -21822,185 +22161,188 @@ null,
   stringEncoding: 'utf8',
   getMemoryFn: () => memory0,
   getReallocFn: undefined,
-  importFn: _trampoline97,
+  importFn: _trampoline100,
 },
 );
 
 const $init = (() => {
   let gen= (function* _initGenerator () {
-    const module0 = fetchCompile(new URL('./_admin2.core.wasm?v=1794050367', import.meta.url));
+    const module0 = fetchCompile(new URL('./_admin2.core.wasm?v=1794071353', import.meta.url));
     Promise.resolve(module0).catch(() => {});
-    const module1 = base64Compile('AGFzbQEAAAABdRFgBX9/f39/AX5gBX5/f39/AGAEfn9/fwBgA35/fwBgAn5/AGAIfn9/f39/f38AYAR+f39/AGAFfn9/f38AYAN+fn8AYAF/AGACf38BfmAEfn9/fwF+YAN+f38AYAN+f38Bf2ADf39/AGACf38AYAR/f39/AAMmJQABAgMDBAUCBAYEBwgEBAQJAAoLAgIMAwMNBAkODxAPCQkJCQkEBQFwASUlB7sBJgEwAAABMQABATIAAgEzAAMBNAAEATUABQE2AAYBNwAHATgACAE5AAkCMTAACgIxMQALAjEyAAwCMTMADQIxNAAOAjE1AA8CMTYAEAIxNwARAjE4ABICMTkAEwIyMAAUAjIxABUCMjIAFgIyMwAXAjI0ABgCMjUAGQIyNgAaAjI3ABsCMjgAHAIyOQAdAjMwAB4CMzEAHwIzMgAgAjMzACECMzQAIgIzNQAjAjM2ACQIJGltcG9ydHMBAAr/AyURACAAIAEgAiADIARBABEAAAsRACAAIAEgAiADIARBAREBAAsPACAAIAEgAiADQQIRAgALDQAgACABIAJBAxEDAAsNACAAIAEgAkEEEQMACwsAIAAgAUEFEQQACxcAIAAgASACIAMgBCAFIAYgB0EGEQUACw8AIAAgASACIANBBxECAAsLACAAIAFBCBEEAAsPACAAIAEgAiADQQkRBgALCwAgACABQQoRBAALEQAgACABIAIgAyAEQQsRBwALDQAgACABIAJBDBEIAAsLACAAIAFBDREEAAsLACAAIAFBDhEEAAsLACAAIAFBDxEEAAsJACAAQRARCQALEQAgACABIAIgAyAEQRERAAALCwAgACABQRIRCgALDwAgACABIAIgA0ETEQsACw8AIAAgASACIANBFBECAAsPACAAIAEgAiADQRURAgALDQAgACABIAJBFhEMAAsNACAAIAEgAkEXEQMACw0AIAAgASACQRgRAwALDQAgACABIAJBGRENAAsLACAAIAFBGhEEAAsJACAAQRsRCQALDQAgACABIAJBHBEOAAsLACAAIAFBHREPAAsPACAAIAEgAiADQR4REAALCwAgACABQR8RDwALCQAgAEEgEQkACwkAIABBIREJAAsJACAAQSIRCQALCQAgAEEjEQkACwkAIABBJBEJAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI1NC4w');
+    const module1 = base64Compile('AGFzbQEAAAABdRFgBX9/f39/AX5gBX5/f39/AGADfn9/AGACfn8AYAR+f39/AGAIfn9/f39/f38AYAR+f39/AGABfwBgAn9/AX5gBH5/f38BfmAFfn9/f38AYAN+fn8AYAN+f38AYAN+f38Bf2ADf39/AGACf38AYAR/f39/AAMnJgABAgMCBAMFBAMGAwQHAAgJCgsDAwMDDAICDQQHDg8QDwcHBwcHBAUBcAEmJgfAAScBMAAAATEAAQEyAAIBMwADATQABAE1AAUBNgAGATcABwE4AAgBOQAJAjEwAAoCMTEACwIxMgAMAjEzAA0CMTQADgIxNQAPAjE2ABACMTcAEQIxOAASAjE5ABMCMjAAFAIyMQAVAjIyABYCMjMAFwIyNAAYAjI1ABkCMjYAGgIyNwAbAjI4ABwCMjkAHQIzMAAeAjMxAB8CMzIAIAIzMwAhAjM0ACICMzUAIwIzNgAkAjM3ACUIJGltcG9ydHMBAAqLBCYRACAAIAEgAiADIARBABEAAAsRACAAIAEgAiADIARBAREBAAsNACAAIAEgAkECEQIACwsAIAAgAUEDEQMACw0AIAAgASACQQQRAgALDwAgACABIAIgA0EFEQQACwsAIAAgAUEGEQMACxcAIAAgASACIAMgBCAFIAYgB0EHEQUACw8AIAAgASACIANBCBEEAAsLACAAIAFBCREDAAsPACAAIAEgAiADQQoRBgALCwAgACABQQsRAwALDwAgACABIAIgA0EMEQQACwkAIABBDREHAAsRACAAIAEgAiADIARBDhEAAAsLACAAIAFBDxEIAAsPACAAIAEgAiADQRARCQALEQAgACABIAIgAyAEQRERCgALDQAgACABIAJBEhELAAsLACAAIAFBExEDAAsLACAAIAFBFBEDAAsLACAAIAFBFREDAAsLACAAIAFBFhEDAAsNACAAIAEgAkEXEQwACw0AIAAgASACQRgRAgALDQAgACABIAJBGRECAAsNACAAIAEgAkEaEQ0ACw8AIAAgASACIANBGxEEAAsJACAAQRwRBwALDQAgACABIAJBHREOAAsLACAAIAFBHhEPAAsPACAAIAEgAiADQR8REAALCwAgACABQSARDwALCQAgAEEhEQcACwkAIABBIhEHAAsJACAAQSMRBwALCQAgAEEkEQcACwkAIABBJREHAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI1NC4w');
     Promise.resolve(module1).catch(() => {});
-    const module2 = base64Compile('AGFzbQEAAAABdRFgBX9/f39/AX5gBX5/f39/AGAEfn9/fwBgA35/fwBgAn5/AGAIfn9/f39/f38AYAR+f39/AGAFfn9/f38AYAN+fn8AYAF/AGACf38BfmAEfn9/fwF+YAN+f38AYAN+f38Bf2ADf39/AGACf38AYAR/f39/AALkASYAATAAAAABMQABAAEyAAIAATMAAwABNAADAAE1AAQAATYABQABNwACAAE4AAQAATkABgACMTAABAACMTEABwACMTIACAACMTMABAACMTQABAACMTUABAACMTYACQACMTcAAAACMTgACgACMTkACwACMjAAAgACMjEAAgACMjIADAACMjMAAwACMjQAAwACMjUADQACMjYABAACMjcACQACMjgADgACMjkADwACMzAAEAACMzEADwACMzIACQACMzMACQACMzQACQACMzUACQACMzYACQAIJGltcG9ydHMBcAElJQkrAQBBAAslAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJAAvCXByb2R1Y2VycwEMcHJvY2Vzc2VkLWJ5AQ13aXQtY29tcG9uZW50BzAuMjU0LjA');
+    const module2 = base64Compile('AGFzbQEAAAABdRFgBX9/f39/AX5gBX5/f39/AGADfn9/AGACfn8AYAR+f39/AGAIfn9/f39/f38AYAR+f39/AGABfwBgAn9/AX5gBH5/f38BfmAFfn9/f38AYAN+fn8AYAN+f38AYAN+f38Bf2ADf39/AGACf38AYAR/f39/AALqAScAATAAAAABMQABAAEyAAIAATMAAwABNAACAAE1AAQAATYAAwABNwAFAAE4AAQAATkAAwACMTAABgACMTEAAwACMTIABAACMTMABwACMTQAAAACMTUACAACMTYACQACMTcACgACMTgACwACMTkAAwACMjAAAwACMjEAAwACMjIAAwACMjMADAACMjQAAgACMjUAAgACMjYADQACMjcABAACMjgABwACMjkADgACMzAADwACMzEAEAACMzIADwACMzMABwACMzQABwACMzUABwACMzYABwACMzcABwAIJGltcG9ydHMBcAEmJgksAQBBAAsmAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI1NC4w');
     Promise.resolve(module2).catch(() => {});
     const instanceFlags0 = new WebAssembly.Global({ value: "i32", mutable: true }, 1);
     INSTANCE_FLAGS.set(0, instanceFlags0);
     ({ exports: exports0 } = yield instantiateCore(yield module1));
     ({ exports: exports1 } = yield instantiateCore(yield module0, {
       "tairitsu-browser:full/css-style-declaration@0.2.0": {
-        "get-property-value": Object.assign(exports0["7"], { _jcoMaySuspend: false }),
-        "set-property": Object.assign(exports0["6"], { _jcoMaySuspend: false }),
+        "get-property-value": Object.assign(exports0["8"], { _jcoMaySuspend: false }),
+        "set-property": Object.assign(exports0["7"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/document@0.2.0": {
-        "create-element": Object.assign(exports0["17"], { _jcoMaySuspend: false }),
-        "create-text-node": Object.assign(exports0["18"], { _jcoMaySuspend: false }),
-        "get-body": Object.assign(exports0["16"], { _jcoMaySuspend: false }),
+        "create-element": Object.assign(exports0["14"], { _jcoMaySuspend: false }),
+        "create-text-node": Object.assign(exports0["15"], { _jcoMaySuspend: false }),
+        "get-body": Object.assign(exports0["13"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/dom-token-list@0.2.0": {
-        add: Object.assign(exports0["23"], { _jcoMaySuspend: false }),
-        contains: Object.assign(exports0["25"], { _jcoMaySuspend: false }),
-        remove: Object.assign(exports0["24"], { _jcoMaySuspend: false }),
+        add: Object.assign(exports0["24"], { _jcoMaySuspend: false }),
+        contains: Object.assign(exports0["26"], { _jcoMaySuspend: false }),
+        remove: Object.assign(exports0["25"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/element-css-inline-style@0.2.0": {
-        "get-style": Object.assign(_guardTrap(0, trampoline4, false), { _jcoMaySuspend: false }),
+        "get-style": Object.assign(_guardTrap(0, trampoline2, false), { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/element@0.2.0": {
-        "get-attribute": Object.assign(exports0["2"], { _jcoMaySuspend: false }),
-        "get-bounding-client-rect": Object.assign(exports0["5"], { _jcoMaySuspend: false }),
-        "get-class-list": Object.assign(_guardTrap(0, trampoline10, false), { _jcoMaySuspend: false }),
-        "get-client-height": Object.assign(_guardTrap(0, trampoline13, false), { _jcoMaySuspend: false }),
-        "get-scroll-height": Object.assign(_guardTrap(0, trampoline14, false), { _jcoMaySuspend: false }),
-        "get-scroll-top": Object.assign(_guardTrap(0, trampoline11, false), { _jcoMaySuspend: false }),
-        "remove-attribute": Object.assign(exports0["4"], { _jcoMaySuspend: false }),
+        "get-attribute": Object.assign(exports0["5"], { _jcoMaySuspend: false }),
+        "get-bounding-client-rect": Object.assign(exports0["6"], { _jcoMaySuspend: false }),
+        "get-class-list": Object.assign(_guardTrap(0, trampoline48, false), { _jcoMaySuspend: false }),
+        "get-client-height": Object.assign(_guardTrap(0, trampoline47, false), { _jcoMaySuspend: false }),
+        "get-scroll-height": Object.assign(_guardTrap(0, trampoline46, false), { _jcoMaySuspend: false }),
+        "get-scroll-top": Object.assign(_guardTrap(0, trampoline44, false), { _jcoMaySuspend: false }),
+        "get-tag-name": Object.assign(exports0["3"], { _jcoMaySuspend: false }),
+        "remove-attribute": Object.assign(exports0["2"], { _jcoMaySuspend: false }),
         "set-attribute": Object.assign(exports0["1"], { _jcoMaySuspend: false }),
-        "set-inner-html": Object.assign(exports0["3"], { _jcoMaySuspend: false }),
-        "set-scroll-top": Object.assign(_guardTrap(0, trampoline12, false), { _jcoMaySuspend: false }),
+        "set-inner-html": Object.assign(exports0["4"], { _jcoMaySuspend: false }),
+        "set-scroll-top": Object.assign(_guardTrap(0, trampoline45, false), { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/event-target@0.2.0": {
-        "add-event-listener": Object.assign(exports0["11"], { _jcoMaySuspend: false }),
-        "prevent-default": Object.assign(_guardTrap(0, trampoline2, false), { _jcoMaySuspend: false }),
-        "remove-event-listener": Object.assign(exports0["12"], { _jcoMaySuspend: false }),
-        "stop-propagation": Object.assign(_guardTrap(0, trampoline3, false), { _jcoMaySuspend: false }),
+        "add-event-listener": Object.assign(exports0["17"], { _jcoMaySuspend: false }),
+        "prevent-default": Object.assign(_guardTrap(0, trampoline28, false), { _jcoMaySuspend: false }),
+        "remove-event-listener": Object.assign(exports0["18"], { _jcoMaySuspend: false }),
+        "stop-propagation": Object.assign(_guardTrap(0, trampoline29, false), { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/event@0.2.0": {
-        "get-current-target": Object.assign(exports0["15"], { _jcoMaySuspend: false }),
-        "get-target": Object.assign(exports0["14"], { _jcoMaySuspend: false }),
+        "get-current-target": Object.assign(exports0["21"], { _jcoMaySuspend: false }),
+        "get-target": Object.assign(exports0["20"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/html-input-element@0.2.0": {
-        "get-value": Object.assign(exports0["13"], { _jcoMaySuspend: false }),
+        "get-value": Object.assign(exports0["19"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/mouse-event@0.2.0": {
-        "get-alt-key": Object.assign(_guardTrap(0, trampoline32, false), { _jcoMaySuspend: false }),
-        "get-button": Object.assign(_guardTrap(0, trampoline28, false), { _jcoMaySuspend: false }),
-        "get-buttons": Object.assign(_guardTrap(0, trampoline29, false), { _jcoMaySuspend: false }),
-        "get-client-x": Object.assign(_guardTrap(0, trampoline20, false), { _jcoMaySuspend: false }),
-        "get-client-y": Object.assign(_guardTrap(0, trampoline21, false), { _jcoMaySuspend: false }),
-        "get-ctrl-key": Object.assign(_guardTrap(0, trampoline30, false), { _jcoMaySuspend: false }),
-        "get-meta-key": Object.assign(_guardTrap(0, trampoline33, false), { _jcoMaySuspend: false }),
-        "get-offset-x": Object.assign(_guardTrap(0, trampoline24, false), { _jcoMaySuspend: false }),
-        "get-offset-y": Object.assign(_guardTrap(0, trampoline25, false), { _jcoMaySuspend: false }),
-        "get-page-x": Object.assign(_guardTrap(0, trampoline26, false), { _jcoMaySuspend: false }),
-        "get-page-y": Object.assign(_guardTrap(0, trampoline27, false), { _jcoMaySuspend: false }),
-        "get-screen-x": Object.assign(_guardTrap(0, trampoline22, false), { _jcoMaySuspend: false }),
-        "get-screen-y": Object.assign(_guardTrap(0, trampoline23, false), { _jcoMaySuspend: false }),
-        "get-shift-key": Object.assign(_guardTrap(0, trampoline31, false), { _jcoMaySuspend: false }),
+        "get-alt-key": Object.assign(_guardTrap(0, trampoline17, false), { _jcoMaySuspend: false }),
+        "get-button": Object.assign(_guardTrap(0, trampoline14, false), { _jcoMaySuspend: false }),
+        "get-buttons": Object.assign(_guardTrap(0, trampoline18, false), { _jcoMaySuspend: false }),
+        "get-client-x": Object.assign(_guardTrap(0, trampoline19, false), { _jcoMaySuspend: false }),
+        "get-client-y": Object.assign(_guardTrap(0, trampoline20, false), { _jcoMaySuspend: false }),
+        "get-ctrl-key": Object.assign(_guardTrap(0, trampoline21, false), { _jcoMaySuspend: false }),
+        "get-meta-key": Object.assign(_guardTrap(0, trampoline22, false), { _jcoMaySuspend: false }),
+        "get-offset-x": Object.assign(_guardTrap(0, trampoline23, false), { _jcoMaySuspend: false }),
+        "get-offset-y": Object.assign(_guardTrap(0, trampoline24, false), { _jcoMaySuspend: false }),
+        "get-page-x": Object.assign(_guardTrap(0, trampoline15, false), { _jcoMaySuspend: false }),
+        "get-page-y": Object.assign(_guardTrap(0, trampoline16, false), { _jcoMaySuspend: false }),
+        "get-screen-x": Object.assign(_guardTrap(0, trampoline25, false), { _jcoMaySuspend: false }),
+        "get-screen-y": Object.assign(_guardTrap(0, trampoline26, false), { _jcoMaySuspend: false }),
+        "get-shift-key": Object.assign(_guardTrap(0, trampoline27, false), { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/node-list@0.2.0": {
-        "get-length": Object.assign(_guardTrap(0, trampoline19, false), { _jcoMaySuspend: false }),
-        item: Object.assign(exports0["22"], { _jcoMaySuspend: false }),
+        "get-length": Object.assign(_guardTrap(0, trampoline43, false), { _jcoMaySuspend: false }),
+        item: Object.assign(exports0["23"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/node@0.2.0": {
-        "append-child": Object.assign(_guardTrap(0, trampoline16, false), { _jcoMaySuspend: false }),
-        "get-child-nodes": Object.assign(_guardTrap(0, trampoline18, false), { _jcoMaySuspend: false }),
-        "get-first-child": Object.assign(exports0["8"], { _jcoMaySuspend: false }),
-        "get-parent-element": Object.assign(exports0["10"], { _jcoMaySuspend: false }),
-        "insert-before": Object.assign(_guardTrap(0, trampoline17, false), { _jcoMaySuspend: false }),
+        "append-child": Object.assign(_guardTrap(0, trampoline8, false), { _jcoMaySuspend: false }),
+        "get-child-nodes": Object.assign(_guardTrap(0, trampoline12, false), { _jcoMaySuspend: false }),
+        "get-first-child": Object.assign(exports0["9"], { _jcoMaySuspend: false }),
+        "get-node-type": Object.assign(_guardTrap(0, trampoline9, false), { _jcoMaySuspend: false }),
+        "get-parent-element": Object.assign(exports0["11"], { _jcoMaySuspend: false }),
+        "insert-before": Object.assign(_guardTrap(0, trampoline10, false), { _jcoMaySuspend: false }),
         "remove-child": Object.assign(_guardTrap(0, trampoline1, false), { _jcoMaySuspend: false }),
-        "set-text-content": Object.assign(exports0["9"], { _jcoMaySuspend: false }),
+        "replace-child": Object.assign(_guardTrap(0, trampoline11, false), { _jcoMaySuspend: false }),
+        "set-text-content": Object.assign(exports0["10"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/non-element-parent-node@0.2.0": {
-        "get-element-by-id": Object.assign(exports0["21"], { _jcoMaySuspend: false }),
+        "get-element-by-id": Object.assign(exports0["12"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/parent-node@0.2.0": {
-        "query-selector": Object.assign(exports0["20"], { _jcoMaySuspend: false }),
+        "query-selector": Object.assign(exports0["27"], { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/platform-helpers@0.2.0": {
-        "cancel-animation-frame": Object.assign(_guardTrap(0, trampoline9, false), { _jcoMaySuspend: false }),
-        "clear-interval": Object.assign(_guardTrap(0, trampoline8, false), { _jcoMaySuspend: false }),
-        "clear-timeout": Object.assign(_guardTrap(0, trampoline7, false), { _jcoMaySuspend: false }),
+        "cancel-animation-frame": Object.assign(_guardTrap(0, trampoline7, false), { _jcoMaySuspend: false }),
+        "clear-interval": Object.assign(_guardTrap(0, trampoline6, false), { _jcoMaySuspend: false }),
+        "clear-timeout": Object.assign(_guardTrap(0, trampoline5, false), { _jcoMaySuspend: false }),
         "fetch-promise": Object.assign(exports0["0"], { _jcoMaySuspend: false }),
-        "request-animation-frame": Object.assign(_guardTrap(0, trampoline5, false), { _jcoMaySuspend: false }),
-        "set-interval": Object.assign(_guardTrap(0, trampoline6, false), { _jcoMaySuspend: false }),
+        "request-animation-frame": Object.assign(_guardTrap(0, trampoline3, false), { _jcoMaySuspend: false }),
+        "set-interval": Object.assign(_guardTrap(0, trampoline4, false), { _jcoMaySuspend: false }),
         "set-timeout": Object.assign(_guardTrap(0, trampoline0, false), { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/pointer-event@0.2.0": {
-        "get-height": Object.assign(_guardTrap(0, trampoline37, false), { _jcoMaySuspend: false }),
-        "get-is-primary": Object.assign(_guardTrap(0, trampoline35, false), { _jcoMaySuspend: false }),
-        "get-pointer-id": Object.assign(_guardTrap(0, trampoline34, false), { _jcoMaySuspend: false }),
-        "get-pointer-type": Object.assign(exports0["26"], { _jcoMaySuspend: false }),
-        "get-pressure": Object.assign(_guardTrap(0, trampoline38, false), { _jcoMaySuspend: false }),
-        "get-tangential-pressure": Object.assign(_guardTrap(0, trampoline39, false), { _jcoMaySuspend: false }),
-        "get-tilt-x": Object.assign(_guardTrap(0, trampoline40, false), { _jcoMaySuspend: false }),
-        "get-tilt-y": Object.assign(_guardTrap(0, trampoline41, false), { _jcoMaySuspend: false }),
-        "get-twist": Object.assign(_guardTrap(0, trampoline42, false), { _jcoMaySuspend: false }),
-        "get-width": Object.assign(_guardTrap(0, trampoline36, false), { _jcoMaySuspend: false }),
+        "get-height": Object.assign(_guardTrap(0, trampoline34, false), { _jcoMaySuspend: false }),
+        "get-is-primary": Object.assign(_guardTrap(0, trampoline38, false), { _jcoMaySuspend: false }),
+        "get-pointer-id": Object.assign(_guardTrap(0, trampoline39, false), { _jcoMaySuspend: false }),
+        "get-pointer-type": Object.assign(exports0["22"], { _jcoMaySuspend: false }),
+        "get-pressure": Object.assign(_guardTrap(0, trampoline37, false), { _jcoMaySuspend: false }),
+        "get-tangential-pressure": Object.assign(_guardTrap(0, trampoline40, false), { _jcoMaySuspend: false }),
+        "get-tilt-x": Object.assign(_guardTrap(0, trampoline35, false), { _jcoMaySuspend: false }),
+        "get-tilt-y": Object.assign(_guardTrap(0, trampoline36, false), { _jcoMaySuspend: false }),
+        "get-twist": Object.assign(_guardTrap(0, trampoline41, false), { _jcoMaySuspend: false }),
+        "get-width": Object.assign(_guardTrap(0, trampoline42, false), { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/wheel-event@0.2.0": {
-        "get-delta-mode": Object.assign(_guardTrap(0, trampoline46, false), { _jcoMaySuspend: false }),
-        "get-delta-x": Object.assign(_guardTrap(0, trampoline43, false), { _jcoMaySuspend: false }),
-        "get-delta-y": Object.assign(_guardTrap(0, trampoline44, false), { _jcoMaySuspend: false }),
-        "get-delta-z": Object.assign(_guardTrap(0, trampoline45, false), { _jcoMaySuspend: false }),
+        "get-delta-mode": Object.assign(_guardTrap(0, trampoline33, false), { _jcoMaySuspend: false }),
+        "get-delta-x": Object.assign(_guardTrap(0, trampoline30, false), { _jcoMaySuspend: false }),
+        "get-delta-y": Object.assign(_guardTrap(0, trampoline31, false), { _jcoMaySuspend: false }),
+        "get-delta-z": Object.assign(_guardTrap(0, trampoline32, false), { _jcoMaySuspend: false }),
       },
       "tairitsu-browser:full/window@0.2.0": {
-        "get-computed-style": Object.assign(exports0["19"], { _jcoMaySuspend: false }),
-        "get-inner-width": Object.assign(_guardTrap(0, trampoline15, false), { _jcoMaySuspend: false }),
+        "get-computed-style": Object.assign(exports0["16"], { _jcoMaySuspend: false }),
+        "get-inner-width": Object.assign(_guardTrap(0, trampoline13, false), { _jcoMaySuspend: false }),
       },
       "wasi:cli/environment@0.2.0": {
-        "get-environment": Object.assign(exports0["32"], { _jcoMaySuspend: false }),
+        "get-environment": Object.assign(exports0["33"], { _jcoMaySuspend: false }),
       },
       "wasi:cli/exit@0.2.0": {
-        exit: Object.assign(_guardTrap(0, trampoline53, false), { _jcoMaySuspend: false }),
+        exit: Object.assign(_guardTrap(0, trampoline55, false), { _jcoMaySuspend: false }),
       },
       "wasi:cli/stderr@0.2.0": {
-        "get-stderr": Object.assign(_guardTrap(0, trampoline58, false), { _jcoMaySuspend: false }),
+        "get-stderr": Object.assign(_guardTrap(0, trampoline60, false), { _jcoMaySuspend: false }),
       },
       "wasi:cli/stdin@0.2.0": {
-        "get-stdin": Object.assign(_guardTrap(0, trampoline56, false), { _jcoMaySuspend: false }),
+        "get-stdin": Object.assign(_guardTrap(0, trampoline58, false), { _jcoMaySuspend: false }),
       },
       "wasi:cli/stdout@0.2.0": {
-        "get-stdout": Object.assign(_guardTrap(0, trampoline57, false), { _jcoMaySuspend: false }),
+        "get-stdout": Object.assign(_guardTrap(0, trampoline59, false), { _jcoMaySuspend: false }),
       },
       "wasi:cli/terminal-input@0.2.0": {
-        "[resource-drop]terminal-input": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline51), true), { _jcoMaySuspend: false }),
+        "[resource-drop]terminal-input": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline53), true), { _jcoMaySuspend: false }),
       },
       "wasi:cli/terminal-output@0.2.0": {
-        "[resource-drop]terminal-output": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline52), true), { _jcoMaySuspend: false }),
+        "[resource-drop]terminal-output": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline54), true), { _jcoMaySuspend: false }),
       },
       "wasi:cli/terminal-stderr@0.2.0": {
-        "get-terminal-stderr": Object.assign(exports0["35"], { _jcoMaySuspend: false }),
+        "get-terminal-stderr": Object.assign(exports0["36"], { _jcoMaySuspend: false }),
       },
       "wasi:cli/terminal-stdin@0.2.0": {
-        "get-terminal-stdin": Object.assign(exports0["33"], { _jcoMaySuspend: false }),
+        "get-terminal-stdin": Object.assign(exports0["34"], { _jcoMaySuspend: false }),
       },
       "wasi:cli/terminal-stdout@0.2.0": {
-        "get-terminal-stdout": Object.assign(exports0["34"], { _jcoMaySuspend: false }),
+        "get-terminal-stdout": Object.assign(exports0["35"], { _jcoMaySuspend: false }),
       },
       "wasi:clocks/monotonic-clock@0.2.0": {
-        now: Object.assign(_guardTrap(0, trampoline59, false), { _jcoMaySuspend: false }),
-        "subscribe-duration": Object.assign(_guardTrap(0, trampoline60, false), { _jcoMaySuspend: false }),
+        now: Object.assign(_guardTrap(0, trampoline61, false), { _jcoMaySuspend: false }),
+        "subscribe-duration": Object.assign(_guardTrap(0, trampoline62, false), { _jcoMaySuspend: false }),
       },
       "wasi:clocks/wall-clock@0.2.0": {
-        now: Object.assign(exports0["36"], { _jcoMaySuspend: false }),
+        now: Object.assign(exports0["37"], { _jcoMaySuspend: false }),
       },
       "wasi:io/error@0.2.0": {
-        "[resource-drop]error": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline47), true), { _jcoMaySuspend: false }),
+        "[resource-drop]error": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline49), true), { _jcoMaySuspend: false }),
       },
       "wasi:io/poll@0.2.0": {
-        "[method]pollable.block": Object.assign(_guardTrap(0, trampoline54, false), { _jcoMaySuspend: false }),
-        "[resource-drop]pollable": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline48), true), { _jcoMaySuspend: false }),
-        poll: Object.assign(exports0["28"], { _jcoMaySuspend: false }),
+        "[method]pollable.block": Object.assign(_guardTrap(0, trampoline56, false), { _jcoMaySuspend: false }),
+        "[resource-drop]pollable": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline50), true), { _jcoMaySuspend: false }),
+        poll: Object.assign(exports0["29"], { _jcoMaySuspend: false }),
       },
       "wasi:io/streams@0.2.0": {
-        "[method]output-stream.blocking-flush": Object.assign(exports0["31"], { _jcoMaySuspend: false }),
-        "[method]output-stream.check-write": Object.assign(exports0["29"], { _jcoMaySuspend: false }),
-        "[method]output-stream.subscribe": Object.assign(_guardTrap(0, trampoline55, false), { _jcoMaySuspend: false }),
-        "[method]output-stream.write": Object.assign(exports0["30"], { _jcoMaySuspend: false }),
-        "[resource-drop]input-stream": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline49), true), { _jcoMaySuspend: false }),
-        "[resource-drop]output-stream": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline50), true), { _jcoMaySuspend: false }),
+        "[method]output-stream.blocking-flush": Object.assign(exports0["32"], { _jcoMaySuspend: false }),
+        "[method]output-stream.check-write": Object.assign(exports0["30"], { _jcoMaySuspend: false }),
+        "[method]output-stream.subscribe": Object.assign(_guardTrap(0, trampoline57, false), { _jcoMaySuspend: false }),
+        "[method]output-stream.write": Object.assign(exports0["31"], { _jcoMaySuspend: false }),
+        "[resource-drop]input-stream": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline51), true), { _jcoMaySuspend: false }),
+        "[resource-drop]output-stream": Object.assign(_guardTrap(0, _guardMayLeave(0, trampoline52), true), { _jcoMaySuspend: false }),
       },
       "wasi:random/insecure-seed@0.2.12": {
-        "insecure-seed": Object.assign(exports0["27"], { _jcoMaySuspend: false }),
+        "insecure-seed": Object.assign(exports0["28"], { _jcoMaySuspend: false }),
       },
     }));
     memory0 = exports1.memory;
@@ -22016,43 +22358,44 @@ const $init = (() => {
     ({ exports: exports2 } = yield instantiateCore(yield module2, {
       "": {
         $imports: exports0.$imports,
-        "0": Object.assign(_guardTrap(0, trampoline61, false), { _jcoMaySuspend: false }),
-        "1": Object.assign(_guardTrap(0, trampoline62, false), { _jcoMaySuspend: false }),
-        "10": Object.assign(_guardTrap(0, trampoline71, false), { _jcoMaySuspend: false }),
-        "11": Object.assign(_guardTrap(0, trampoline72, false), { _jcoMaySuspend: false }),
-        "12": Object.assign(_guardTrap(0, trampoline73, false), { _jcoMaySuspend: false }),
-        "13": Object.assign(_guardTrap(0, trampoline74, false), { _jcoMaySuspend: false }),
-        "14": Object.assign(_guardTrap(0, trampoline75, false), { _jcoMaySuspend: false }),
-        "15": Object.assign(_guardTrap(0, trampoline76, false), { _jcoMaySuspend: false }),
-        "16": Object.assign(_guardTrap(0, trampoline77, false), { _jcoMaySuspend: false }),
-        "17": Object.assign(_guardTrap(0, trampoline78, false), { _jcoMaySuspend: false }),
-        "18": Object.assign(_guardTrap(0, trampoline79, false), { _jcoMaySuspend: false }),
-        "19": Object.assign(_guardTrap(0, trampoline80, false), { _jcoMaySuspend: false }),
-        "2": Object.assign(_guardTrap(0, trampoline63, false), { _jcoMaySuspend: false }),
-        "20": Object.assign(_guardTrap(0, trampoline81, false), { _jcoMaySuspend: false }),
-        "21": Object.assign(_guardTrap(0, trampoline82, false), { _jcoMaySuspend: false }),
-        "22": Object.assign(_guardTrap(0, trampoline83, false), { _jcoMaySuspend: false }),
-        "23": Object.assign(_guardTrap(0, trampoline84, false), { _jcoMaySuspend: false }),
-        "24": Object.assign(_guardTrap(0, trampoline85, false), { _jcoMaySuspend: false }),
-        "25": Object.assign(_guardTrap(0, trampoline86, false), { _jcoMaySuspend: false }),
-        "26": Object.assign(_guardTrap(0, trampoline87, false), { _jcoMaySuspend: false }),
-        "27": Object.assign(_guardTrap(0, trampoline88, false), { _jcoMaySuspend: false }),
-        "28": Object.assign(_guardTrap(0, trampoline89, false), { _jcoMaySuspend: false }),
-        "29": Object.assign(_guardTrap(0, trampoline90, false), { _jcoMaySuspend: false }),
-        "3": Object.assign(_guardTrap(0, trampoline64, false), { _jcoMaySuspend: false }),
-        "30": Object.assign(_guardTrap(0, trampoline91, false), { _jcoMaySuspend: false }),
-        "31": Object.assign(_guardTrap(0, trampoline92, false), { _jcoMaySuspend: false }),
-        "32": Object.assign(_guardTrap(0, trampoline93, false), { _jcoMaySuspend: false }),
-        "33": Object.assign(_guardTrap(0, trampoline94, false), { _jcoMaySuspend: false }),
-        "34": Object.assign(_guardTrap(0, trampoline95, false), { _jcoMaySuspend: false }),
-        "35": Object.assign(_guardTrap(0, trampoline96, false), { _jcoMaySuspend: false }),
-        "36": Object.assign(_guardTrap(0, trampoline97, false), { _jcoMaySuspend: false }),
-        "4": Object.assign(_guardTrap(0, trampoline65, false), { _jcoMaySuspend: false }),
-        "5": Object.assign(_guardTrap(0, trampoline66, false), { _jcoMaySuspend: false }),
-        "6": Object.assign(_guardTrap(0, trampoline67, false), { _jcoMaySuspend: false }),
-        "7": Object.assign(_guardTrap(0, trampoline68, false), { _jcoMaySuspend: false }),
-        "8": Object.assign(_guardTrap(0, trampoline69, false), { _jcoMaySuspend: false }),
-        "9": Object.assign(_guardTrap(0, trampoline70, false), { _jcoMaySuspend: false }),
+        "0": Object.assign(_guardTrap(0, trampoline63, false), { _jcoMaySuspend: false }),
+        "1": Object.assign(_guardTrap(0, trampoline64, false), { _jcoMaySuspend: false }),
+        "10": Object.assign(_guardTrap(0, trampoline73, false), { _jcoMaySuspend: false }),
+        "11": Object.assign(_guardTrap(0, trampoline74, false), { _jcoMaySuspend: false }),
+        "12": Object.assign(_guardTrap(0, trampoline75, false), { _jcoMaySuspend: false }),
+        "13": Object.assign(_guardTrap(0, trampoline76, false), { _jcoMaySuspend: false }),
+        "14": Object.assign(_guardTrap(0, trampoline77, false), { _jcoMaySuspend: false }),
+        "15": Object.assign(_guardTrap(0, trampoline78, false), { _jcoMaySuspend: false }),
+        "16": Object.assign(_guardTrap(0, trampoline79, false), { _jcoMaySuspend: false }),
+        "17": Object.assign(_guardTrap(0, trampoline80, false), { _jcoMaySuspend: false }),
+        "18": Object.assign(_guardTrap(0, trampoline81, false), { _jcoMaySuspend: false }),
+        "19": Object.assign(_guardTrap(0, trampoline82, false), { _jcoMaySuspend: false }),
+        "2": Object.assign(_guardTrap(0, trampoline65, false), { _jcoMaySuspend: false }),
+        "20": Object.assign(_guardTrap(0, trampoline83, false), { _jcoMaySuspend: false }),
+        "21": Object.assign(_guardTrap(0, trampoline84, false), { _jcoMaySuspend: false }),
+        "22": Object.assign(_guardTrap(0, trampoline85, false), { _jcoMaySuspend: false }),
+        "23": Object.assign(_guardTrap(0, trampoline86, false), { _jcoMaySuspend: false }),
+        "24": Object.assign(_guardTrap(0, trampoline87, false), { _jcoMaySuspend: false }),
+        "25": Object.assign(_guardTrap(0, trampoline88, false), { _jcoMaySuspend: false }),
+        "26": Object.assign(_guardTrap(0, trampoline89, false), { _jcoMaySuspend: false }),
+        "27": Object.assign(_guardTrap(0, trampoline90, false), { _jcoMaySuspend: false }),
+        "28": Object.assign(_guardTrap(0, trampoline91, false), { _jcoMaySuspend: false }),
+        "29": Object.assign(_guardTrap(0, trampoline92, false), { _jcoMaySuspend: false }),
+        "3": Object.assign(_guardTrap(0, trampoline66, false), { _jcoMaySuspend: false }),
+        "30": Object.assign(_guardTrap(0, trampoline93, false), { _jcoMaySuspend: false }),
+        "31": Object.assign(_guardTrap(0, trampoline94, false), { _jcoMaySuspend: false }),
+        "32": Object.assign(_guardTrap(0, trampoline95, false), { _jcoMaySuspend: false }),
+        "33": Object.assign(_guardTrap(0, trampoline96, false), { _jcoMaySuspend: false }),
+        "34": Object.assign(_guardTrap(0, trampoline97, false), { _jcoMaySuspend: false }),
+        "35": Object.assign(_guardTrap(0, trampoline98, false), { _jcoMaySuspend: false }),
+        "36": Object.assign(_guardTrap(0, trampoline99, false), { _jcoMaySuspend: false }),
+        "37": Object.assign(_guardTrap(0, trampoline100, false), { _jcoMaySuspend: false }),
+        "4": Object.assign(_guardTrap(0, trampoline67, false), { _jcoMaySuspend: false }),
+        "5": Object.assign(_guardTrap(0, trampoline68, false), { _jcoMaySuspend: false }),
+        "6": Object.assign(_guardTrap(0, trampoline69, false), { _jcoMaySuspend: false }),
+        "7": Object.assign(_guardTrap(0, trampoline70, false), { _jcoMaySuspend: false }),
+        "8": Object.assign(_guardTrap(0, trampoline71, false), { _jcoMaySuspend: false }),
+        "9": Object.assign(_guardTrap(0, trampoline72, false), { _jcoMaySuspend: false }),
       },
     }));
     postReturn0 = exports1["cabi_post_tairitsu-browser:full/lifecycle@0.2.0#start"];

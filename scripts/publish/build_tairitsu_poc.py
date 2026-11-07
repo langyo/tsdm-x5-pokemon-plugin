@@ -77,10 +77,12 @@ INTERFACE_MAP = {
         "getCtrlKey", "getMetaKey", "getOffsetX", "getOffsetY", "getPageX",
         "getPageY", "getScreenX", "getScreenY", "getShiftKey",
     ]),
-    # node 缺 getChildNodes（0.5.26 world 新增），由 shim 生成段补写。
+    # node 的 getChildNodes 由 shim 生成段补写（0.5.26 world 新增时的
+    # 历史原因，现已入 glue node_exports）；getNodeType/replaceChild 随
+    # patch 路径的 text-slot 修复入 glue，这里平铺导出。
     "node": ("dom", [
-        "appendChild", "getFirstChild", "getParentElement", "insertBefore",
-        "removeChild", "setTextContent",
+        "appendChild", "getFirstChild", "getNodeType", "getParentElement",
+        "insertBefore", "removeChild", "replaceChild", "setTextContent",
     ]),
     # node-list 整个接口 tarball 缺失，shim 生成段全手写。
     "node-list": (None, ["getLength", "item"]),

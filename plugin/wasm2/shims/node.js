@@ -1,11 +1,13 @@
 // shim for tairitsu-browser:full/node
-import { INTERFACES } from '../glue/dom/index.js?v=1794050367';
+import { INTERFACES } from '../glue/dom/index.js?v=1794071353';
 const obj = INTERFACES['@tairitsu-glue/node'];
 export const appendChild = obj.appendChild;
 export const getFirstChild = obj.getFirstChild;
+export const getNodeType = obj.getNodeType;
 export const getParentElement = obj.getParentElement;
 export const insertBefore = obj.insertBefore;
 export const removeChild = obj.removeChild;
+export const replaceChild = obj.replaceChild;
 export const setTextContent = obj.setTextContent;
 // getChildNodes：0.5.26 world 新增（tarball glue 未实现）。
 // 必须返回 childNodes（全节点）：diff 的子索引把 Text vnode 也计入
