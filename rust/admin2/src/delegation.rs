@@ -88,6 +88,8 @@ pub fn install(app: &WitElement, state: &AppState) {
                     crate::pages::set_pm_instance_field(&st, &key, &ev.value);
                 } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-iief") {
                     crate::pages::set_item_instance_field(&st, &key, &ev.value);
+                } else if let Some((_, key)) = find_with_attr(target, "data-pm-adm-umf") {
+                    crate::pages::set_user_meta_field(&st, &key, &ev.value);
                 } else if let Some((_, page)) = find_with_attr(target, "data-pm-adm-f-id") {
                     let (ls, _) = list_of(&st, &page);
                     ls.f_id.inner().set(ev.value.clone());
@@ -436,6 +438,11 @@ fn dispatch_click(state: &AppState, target: u64) {
                 crate::pages::open_instance_delete(state, kind, id);
             }
         }
+        return;
+    }
+    // 用户元数据编辑（下钻弹窗顶部）。
+    if find_with_attr(target, "data-pm-adm-um-save").is_some() {
+        crate::pages::submit_user_meta(state);
         return;
     }
     // 下钻弹窗内部（tab/刷新/行编辑引用由上面的编辑器分支兜住）。

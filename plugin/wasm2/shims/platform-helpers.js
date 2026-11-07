@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/platform-helpers
-import { INTERFACES } from '../glue/platform/index.js?v=1794030310';
+import { INTERFACES } from '../glue/platform/index.js?v=1794031515';
 const obj = INTERFACES['@tairitsu-glue/platform-helpers'];
 export const cancelAnimationFrame = obj.cancelAnimationFrame;
 export const clearInterval = obj.clearInterval;

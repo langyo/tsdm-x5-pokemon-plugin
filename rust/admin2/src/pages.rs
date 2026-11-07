@@ -6163,6 +6163,39 @@ pub fn open_drill(state: &AppState, uid: u64) {
     dr.pm_tab.inner().set("all".to_string());
     dr.item_tab.inner().set("all".to_string());
     dr.err.inner().set(None);
+    // 用户元数据预填：用户列表行本身就是完整的 user_info 载荷。
+    if let Some(row) = state
+        .user
+        .rows
+        .get()
+        .into_iter()
+        .find(|r| json_u64(r, "id") == uid)
+    {
+        let m = dr.meta.clone();
+        m.money.inner().set(json_u64(&row, "money").to_string());
+        m.experience
+            .inner()
+            .set(json_u64(&row, "experience").to_string());
+        m.strength
+            .inner()
+            .set(json_u64(&row, "strength").to_string());
+        m.win_count
+            .inner()
+            .set(json_u64(&row, "win_count").to_string());
+        m.lose_count
+            .inner()
+            .set(json_u64(&row, "lose_count").to_string());
+        m.total_battles
+            .inner()
+            .set(json_u64(&row, "total_battles").to_string());
+        m.str_value
+            .inner()
+            .set(json_u64(&row, "str").to_string());
+        m.boxnum.inner().set(json_u64(&row, "boxnum").to_string());
+        m.allure.inner().set(json_u64(&row, "allure").to_string());
+        m.capture.inner().set(json_u64(&row, "capture").to_string());
+        m.err.inner().set(None);
+    }
     drill_load_catalogs(state);
     drill_load_lists(state);
     crate::request_remount();
@@ -6170,7 +6203,11 @@ pub fn open_drill(state: &AppState, uid: u64) {
 
 pub fn close_drill(state: &AppState) {
     let dr = state.drill.clone();
-    if dr.loading.get() || dr.pm_editor.saving.get() || dr.item_editor.saving.get() {
+    if dr.loading.get()
+        || dr.pm_editor.saving.get()
+        || dr.item_editor.saving.get()
+        || dr.meta.saving.get()
+    {
         return;
     }
     dr.open.inner().set(false);
@@ -6483,6 +6520,85 @@ pub fn submit_item_instance_editor(state: &AppState) {
 }
 
 // -- 实例删除确认 ------------------------------------------------------------
+
+// -- 用户元数据编辑（set::user_info） -----------------------------------------
+
+pub fn set_user_meta_field(state: &AppState, key: &str, value: &str) {
+    let m = state.drill.meta.clone();
+    match key {
+        "money" => m.money.inner().set(value.to_string()),
+        "experience" => m.experience.inner().set(value.to_string()),
+        "strength" => m.strength.inner().set(value.to_string()),
+        "win_count" => m.win_count.inner().set(value.to_string()),
+        "lose_count" => m.lose_count.inner().set(value.to_string()),
+        "total_battles" => m.total_battles.inner().set(value.to_string()),
+        "str" => m.str_value.inner().set(value.to_string()),
+        "boxnum" => m.boxnum.inner().set(value.to_string()),
+        "allure" => m.allure.inner().set(value.to_string()),
+        "capture" => m.capture.inner().set(value.to_string()),
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+pub fn submit_user_meta(state: &AppState) {
+    let m = state.drill.meta.clone();
+    if m.saving.get() {
+        return;
+    }
+    let parse = |s: &str| s.trim().parse::<u64>().unwrap_or(0);
+    let money = parse(&m.money.get());
+    // 服务端拒绝负金钱；输入框是 number 但手输 '-' 仍可能以文本到达。
+    if m.money.get().trim().starts_with('-') {
+        m.err.inner().set(Some("金钱不得为负数".to_string()));
+        crate::request_remount();
+        return;
+    }
+    let uid = state.drill.uid.get();
+    let payload = serde_json::json!({
+        "id": uid,
+        "money": money,
+        "experience": parse(&m.experience.get()),
+        "strength": parse(&m.strength.get()),
+        "win_count": parse(&m.win_count.get()),
+        "lose_count": parse(&m.lose_count.get()),
+        "total_battles": parse(&m.total_battles.get()),
+        "str": parse(&m.str_value.get()),
+        "boxnum": parse(&m.boxnum.get()),
+        "allure": parse(&m.allure.get()),
+        "capture": parse(&m.capture.get()),
+    });
+    let body = payload.to_string();
+    m.saving.inner().set(true);
+    m.err.inner().set(None);
+    crate::request_remount();
+    let st = state.clone();
+    crate::api::set_entity(
+        "user_info",
+        body,
+        Box::new(move |result: Result<serde_json::Value, String>| {
+            let m = st.drill.meta.clone();
+            m.saving.inner().set(false);
+            match result {
+                Ok(_) => {
+                    crate::state::show_toast_silent(
+                        &st.config,
+                        ToastKind::Success,
+                        format!("用户 #{} 信息已更新", uid),
+                    );
+                    st.user.loaded.inner().set(None);
+                    st.user.rows.inner().set(Vec::new());
+                    crate::request_remount();
+                    reload_list(crate::state::USER_SPEC, &st.user);
+                }
+                Err(e) => {
+                    m.err.inner().set(Some(format!("保存失败：{e}")));
+                    crate::request_remount();
+                }
+            }
+        }),
+    );
+}
 
 pub fn open_instance_delete(state: &AppState, kind: &str, id: u64) {
     let dr = state.drill.clone();
@@ -7127,6 +7243,61 @@ fn user_drill_modal(st: &AppState) -> VNode {
         }
     };
 
+    // -- 用户元数据编辑器（Dioxus 的 UserMetaEditor 对应物）--
+    let meta_editor = {
+        let m = dr.meta.clone();
+        let saving = m.saving.get();
+        let err = m.err.get();
+        let err_block = match err {
+            Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
+            None => VNode::empty(),
+        };
+        let save_label = if saving { "保存中..." } else { "保存用户信息" };
+        let fields: [(&str, &str, String); 10] = [
+            ("money", "金钱", m.money.get()),
+            ("experience", "经验值", m.experience.get()),
+            ("strength", "战力等级", m.strength.get()),
+            ("win_count", "胜场", m.win_count.get()),
+            ("lose_count", "负场", m.lose_count.get()),
+            ("total_battles", "总场次", m.total_battles.get()),
+            ("str", "战力值", m.str_value.get()),
+            ("boxnum", "仓库容量", m.boxnum.get()),
+            ("allure", "魅力值", m.allure.get()),
+            ("capture", "捕捉计数", m.capture.get()),
+        ];
+        let mut inputs: Vec<VNode> = Vec::new();
+        for (key, label, value) in fields {
+            inputs.push(rsx! {
+                label { class: "adm-editor-field",
+                    span { "{label}" }
+                    input {
+                        class: "adm-filter-input",
+                        r#type: "number",
+                        value: value,
+                        "data-pm-adm-umf": key
+                    }
+                }
+            });
+        }
+        rsx! {
+            div { class: "adm-cfg-section",
+                div { class: "adm-editor-section-title", "用户信息" }
+                div { class: "adm-editor-grid",
+                    for i in 0..inputs.len() {
+                        ..vec![inputs[i].clone()]
+                    }
+                }
+                ..vec![err_block]
+                button {
+                    class: "admin-btn admin-btn-primary adm-cfg-add",
+                    disabled: saving,
+                    "data-pm-adm-um-save": "1",
+                    "{save_label}"
+                }
+            }
+        }
+    };
+
     rsx! {
         div { class: "modal-overlay", "data-pm-adm-drill-overlay": "1",
             div { class: "adm-editor-modal",
@@ -7135,7 +7306,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                     button { class: "modal-close", "data-pm-adm-drill-close": "1", "×" }
                 }
                 div { class: "modal-body adm-editor-body",
-                    ..vec![err_bar]
+                    ..vec![err_bar, meta_editor]
                     div { class: "adm-editor-section-title",
                         if loading { "宠物（加载中...）" } else { "宠物" }
                         ..vec![pm_tab_btn("all", "全部", &pm_tab), pm_tab_btn("bag", "背包", &pm_tab), pm_tab_btn("store", "仓库", &pm_tab)]

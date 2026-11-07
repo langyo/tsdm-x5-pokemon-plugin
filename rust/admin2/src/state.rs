@@ -896,6 +896,53 @@ impl std::fmt::Debug for InstanceItemEditorState {
     }
 }
 
+/// 用户元数据编辑器状态（切片 17，`set::user_info`）。
+///
+/// 与 Dioxus 的 UserMetaEditor 对应：十个数值字段全部可编辑
+/// （服务端按 isset 逐字段增量更新，金钱为负会被拒绝）。
+/// `insert::user_info` 在 Dioxus 里只有 API 定义、没有 UI 调用点
+/// （死路径），这里同样只通过通用 set_entity 提供编辑路径。
+#[derive(Clone)]
+pub struct UserMetaState {
+    pub money: ReactiveSignal<String>,
+    pub experience: ReactiveSignal<String>,
+    pub strength: ReactiveSignal<String>,
+    pub win_count: ReactiveSignal<String>,
+    pub lose_count: ReactiveSignal<String>,
+    pub total_battles: ReactiveSignal<String>,
+    pub str_value: ReactiveSignal<String>,
+    pub boxnum: ReactiveSignal<String>,
+    pub allure: ReactiveSignal<String>,
+    pub capture: ReactiveSignal<String>,
+    pub saving: ReactiveSignal<bool>,
+    pub err: ReactiveSignal<Option<String>>,
+}
+
+impl UserMetaState {
+    pub fn new() -> Self {
+        Self {
+            money: use_signal(|| "0".to_string()),
+            experience: use_signal(|| "0".to_string()),
+            strength: use_signal(|| "1".to_string()),
+            win_count: use_signal(|| "0".to_string()),
+            lose_count: use_signal(|| "0".to_string()),
+            total_battles: use_signal(|| "0".to_string()),
+            str_value: use_signal(|| "0".to_string()),
+            boxnum: use_signal(|| "1".to_string()),
+            allure: use_signal(|| "0".to_string()),
+            capture: use_signal(|| "0".to_string()),
+            saving: use_signal(|| false),
+            err: use_signal(|| None),
+        }
+    }
+}
+
+impl std::fmt::Debug for UserMetaState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UserMetaState").finish()
+    }
+}
+
 /// 用户下钻弹窗状态（切片 16）：某用户的宠物/物品实例管理。
 ///
 /// 打开时拉两份实例列表（`list::pokemon_info` / `list::item_info` 带 uid）
@@ -927,6 +974,7 @@ pub struct UserDrillState {
     pub del_err: ReactiveSignal<Option<String>>,
     pub pm_editor: InstancePmEditorState,
     pub item_editor: InstanceItemEditorState,
+    pub meta: UserMetaState,
 }
 
 impl UserDrillState {
@@ -951,6 +999,7 @@ impl UserDrillState {
             del_err: use_signal(|| None),
             pm_editor: InstancePmEditorState::new(),
             item_editor: InstanceItemEditorState::new(),
+            meta: UserMetaState::new(),
         }
     }
 }
