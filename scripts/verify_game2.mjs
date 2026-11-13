@@ -723,6 +723,40 @@ async function stepStorage() {
   }
 }
 
+
+async function stepAdventure() {
+  console.log('[6] 冒险/战斗页');
+  await navTo('adventure');
+  // recover 异步：战斗视图或地图标记其一出现
+  await waitFor(async () => (await evaljs(() => !!document.querySelector('.page-battle')
+    || document.querySelectorAll('[data-pm-bt-region]').length > 0
+    || document.querySelectorAll('[data-pm-bt-map-open]').length > 0)), 25000, '战斗或地图');
+  const inBattle = await evaljs(() => !!document.querySelector('.page-battle'));
+  if (inBattle) {
+    // 战斗子流程只读断言：四标签 + 攻击按钮 + 双方信息块 + 我方块可点换宠
+    const bt = await evaljs(() => ({
+      tabs: document.querySelectorAll('[data-pm-bt-tab]').length,
+      attack: !!document.querySelector('[data-pm-bt-attack]'),
+      wild: !!document.querySelector('.enemy-pokemon-block'),
+      my: !!document.querySelector('.player-pokemon-block'),
+      switchOpen: !!document.querySelector('[data-pm-bt-switch-open]'),
+      panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
+    }));
+    ok('战斗页无 panic', bt.panic === null, bt.panic ?? '');
+    ok('战斗四标签', bt.tabs === 4, `got ${bt.tabs}`);
+    ok('攻击按钮与双方信息块', bt.attack && bt.wild && bt.my);
+    ok('我方块可点换宠', bt.switchOpen);
+  } else {
+    const mp = await evaljs(() => ({
+      markers: document.querySelectorAll('[data-pm-bt-region]').length
+        + document.querySelectorAll('[data-pm-bt-map-open]').length,
+      panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
+    }));
+    ok('冒险页无 panic', mp.panic === null, mp.panic ?? '');
+    ok('地图有区域或地点', mp.markers > 0, `got ${mp.markers}`);
+  }
+}
+
 async function stepShopAndHome() {
   console.log('[6] 商店页');
   await navTo('shop');
@@ -800,15 +834,17 @@ try {
     await stepPokemonCenter();
     await stepMyPokemon();
     await stepStorage();
+    await stepAdventure();
     await stepShopAndHome();
   } else {
     console.log('[2] 背包页（跳过：未登录）');
     console.log('[3] 宠物中心（跳过：未登录）');
     console.log('[4] 我的宠物（跳过：未登录）');
     console.log('[5] 仓库页（跳过：未登录）');
-    console.log('[6] 商店页（跳过：未登录）');
-    console.log('[7] 首页（跳过：未登录）');
-    skipped += 6;
+    console.log('[6] 冒险/战斗页（跳过：未登录）');
+    console.log('[7] 商店页（跳过：未登录）');
+    console.log('[8] 首页（跳过：未登录）');
+    skipped += 7;
   }
 } catch (err) {
   failed += 1;

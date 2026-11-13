@@ -100,7 +100,8 @@ impl BattleStatus {
 
     pub fn result_title(self) -> &'static str {
         match self {
-            BattleStatus::Victory | BattleStatus::Captured => "战斗胜利！",
+            BattleStatus::Victory => "战斗胜利！",
+            BattleStatus::Captured => "捕捉成功！",
             BattleStatus::Defeat => "战斗失败...",
             BattleStatus::Fled => "成功逃脱！",
             BattleStatus::Active => "战斗结束",

@@ -1,10 +1,10 @@
 [workspace]
 members = ["rust/*"]
-# game2 是独立的 wasm32-wasip2 workspace（见下），不并入本仓库的
-# cargo 门禁：它依赖 tairitsu/hikari 整个组件库，编译代价远高于游戏本体，
-# 且只能在 wasm32-wasip2 下产出。它的构建门禁是
+# game2 / admin2 是独立的 wasm32-wasip2 workspace（见下），不并入本仓库的
+# cargo 门禁：它们依赖 tairitsu/hikari 整个组件库，编译代价远高于游戏本体，
+# 且只能在 wasm32-wasip2 下产出。它们的构建门禁是
 # scripts/publish/build_tairitsu_poc.py（研究文档 §10）。
-exclude = ["rust/game2"]
+exclude = ["rust/game2", "rust/admin2", "rust/capprobe"]
 resolver = "2"
 
 [workspace.dependencies]
