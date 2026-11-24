@@ -75,6 +75,7 @@
 ## 四、切换与回滚机制（已内建）
 
 现状（`plugin/game.inc.php`）：
+
 - `plugin.php?id=pokemon:game` → Dioxus 版
 - `plugin.php?id=pokemon:game&ui=v2` → tairitsu 版
 - 后台同理（`&index=admin[&ui=v2]`）
@@ -88,16 +89,17 @@
 
 1. **应用迁移 002**（剑舞 power 40→0）——与 UI 版本无关但建议一并上；
    已在种子与 `migrations/seed-fixes/` 就绪
-2. ~~两处 UX 简化~~ **已消除（2026-11-08 UX 对等 A/B 落地）**：
+1. ~~两处 UX 简化~~ **已消除（2026-11-08 UX 对等 A/B 落地）**：
+
    - Boss 配置为二级弹窗（物种搜索+等级+六个体值+倍率+编辑/删除，
      19 断言验收全绿，含落库往返）
    - 技能可学种族为 chip 选择器（搜索添加/去重/移除/名称后台解析，
      验收全绿）
-3. **多浏览器/移动端抽测**：当前实测覆盖 Chromium（headless Edge）；
+1. **多浏览器/移动端抽测**：当前实测覆盖 Chromium（headless Edge）；
    Firefox 已装本机但无法无人值守抽测（上游已移除 CDP 端点，
    --screenshot 被自签证书页拦截，见研究文档 §10.1.6）——留待手动或
    geckodriver；Safari 无 Windows 版
-4. **构建产物就绪**：`plugin/wasm2/` 由 `build_tairitsu_admin.py` /
+1. **构建产物就绪**：`plugin/wasm2/` 由 `build_tairitsu_admin.py` /
    `build_tairitsu_poc.py` / `build_tairitsu_cap.py`（能力探针）产出，
    vendored glue 已含上游 #124/#127/#128 修复（rev `49e4d0c`）
 
@@ -115,9 +117,9 @@
 ## 七、建议路径
 
 1. **现在**：双前端继续并存；工作人员日常使用 `ui=v2`（已可执行全部操作）
-2. **短期**：完成 Firefox/Safari 抽测 → 翻转默认（`ui=v2` 为默认，`&ui=v1` 逃生）
+1. **短期**：完成 Firefox/Safari 抽测 → 翻转默认（`ui=v2` 为默认，`&ui=v1` 逃生）
    → 观察一个版本周期
-3. **之后**：确认无回滚需求后，删除 Dioxus 前端与 `plugin/wasm/`，目录归一
+1. **之后**：确认无回滚需求后，删除 Dioxus 前端与 `plugin/wasm/`，目录归一
 
 ## 附：研判依据索引
 
