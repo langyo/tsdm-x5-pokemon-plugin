@@ -5,20 +5,27 @@ defined('IN_DISCUZ') || exit('Access Denied');
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
+// 致命错误与异常只记服务端日志，响应里不带 file/line/原始消息，
+// 避免向客户端泄露路径、SQL 片段等内部细节。
 register_shutdown_function(function() {
     $error = error_get_last();
     if ($error !== null && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        error_log(sprintf(
+            '[Pokemon API Fatal] %s:%d - %s',
+            $error['file'],
+            $error['line'],
+            $error['message']
+        ));
         echo json_encode([
             'success' => false,
-            'error' => 'Fatal Error: ' . $error['message'],
-            'file' => basename($error['file']),
-            'line' => $error['line'],
+            'error' => 'Internal Server Error',
             'timestamp' => time()
         ], JSON_UNESCAPED_UNICODE);
     }
 });
 
 function api_send_error($message, $code = 500, $extra = []) {
+    http_response_code($code);
     $response = array_merge([
         'success' => false,
         'error' => $message,
@@ -30,20 +37,21 @@ function api_send_error($message, $code = 500, $extra = []) {
 }
 
 set_exception_handler(function($e) {
-    api_send_error('Internal Server Error: ' . $e->getMessage(), 500, [
-        'file' => basename($e->getFile()),
-        'line' => $e->getLine()
-    ]);
+    error_log(sprintf(
+        '[Pokemon API Exception] %s:%d - %s',
+        $e->getFile(),
+        $e->getLine(),
+        $e->getMessage()
+    ));
+    api_send_error('Internal Server Error', 500);
 });
 
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
     if (!(error_reporting() & $errno)) {
         return false;
     }
-    api_send_error("PHP Error [$errno]: $errstr", 500, [
-        'file' => basename($errfile),
-        'line' => $errline
-    ]);
+    error_log("[Pokemon API Error] $errfile:$errline - [$errno] $errstr");
+    api_send_error('Internal Server Error', 500);
 });
 
 $endpoint = isset($_GET['endpoint']) ? $_GET['endpoint'] : '';
