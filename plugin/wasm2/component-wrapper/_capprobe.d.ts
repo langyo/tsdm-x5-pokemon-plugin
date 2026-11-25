@@ -61,12 +61,12 @@ export * as stateMachine from './interfaces/tairitsu-hooks-state-machine.js'; //
 export * as animationTypes from './interfaces/tairitsu-hooks-animation-types.js'; // export tairitsu:hooks/animation-types
 export * as animationBuilder from './interfaces/tairitsu-hooks-animation-builder.js'; // export tairitsu:hooks/animation-builder
 export * as asyncResource from './interfaces/tairitsu-hooks-async-resource.js'; // export tairitsu:hooks/async-resource
-export * as version from './interfaces/tairitsu-vdom-version.js'; // export tairitsu:vdom/version
-export * as types from './interfaces/tairitsu-vdom-types.js'; // export tairitsu:vdom/types
 export * as svg from './interfaces/tairitsu-vdom-svg.js'; // export tairitsu:vdom/svg
 export * as portalTypes from './interfaces/tairitsu-vdom-portal-types.js'; // export tairitsu:vdom/portal-types
-export * as version from './interfaces/tairitsu-style-version.js'; // export tairitsu:style/version
 export * as types from './interfaces/tairitsu-style-types.js'; // export tairitsu:style/types
 export * as builder from './interfaces/tairitsu-style-builder.js'; // export tairitsu:style/builder
 export * as utility from './interfaces/tairitsu-style-utility.js'; // export tairitsu:style/utility
 export * as classes from './interfaces/tairitsu-style-classes.js'; // export tairitsu:style/classes
+/** Permanently stop this instance and dispose guest-owned host resources. */
+export const _util: { stop(): void; whenIdle(): Promise<void>;  /** Test whether a value is a declared WIT result error from this instance. */
+isComponentError(value: unknown): value is Error & { readonly payload: unknown }; };
