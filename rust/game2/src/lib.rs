@@ -359,8 +359,7 @@ pub fn run_app() -> Result<()> {
     // 纯属性/文本批次（战斗回合等热路径）保持增量。增量索引在深层
     // UpdateChild 路径上存在错位类缺口（背包搜索实测复现，见研究文档）。
     tairitsu_vdom::runtime::set_apply_patches_callback(
-        |component_id: tairitsu_vdom::ComponentId,
-         patches: Vec<tairitsu_vdom::Patch>| {
+        |component_id: tairitsu_vdom::ComponentId, patches: Vec<tairitsu_vdom::Patch>| {
             let structural = patch_has_structural(&patches);
             let summary = format!(
                 "{}n={} | {}",

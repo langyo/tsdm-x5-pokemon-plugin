@@ -18,6 +18,46 @@ pub fn ensure_loaded(state: &AppState) {
     if state.online.get().is_none() {
         load_online(state);
     }
+    if state.badge_hidden.get().is_none() {
+        load_badge_status(state);
+    }
+}
+
+/// 查询帖子徽章当前是否隐藏（对齐 Dioxus 版侧栏的 badge_status）。
+fn load_badge_status(state: &AppState) {
+    let state = state.clone();
+    crate::api::badge_status(Box::new(move |result| {
+        state
+            .badge_hidden
+            .inner()
+            .set(Some(result.map(|s| s.hidden)));
+        crate::request_remount();
+    }));
+}
+
+/// 刷新 / 隐藏帖子徽章。`hide = Some(true)` 隐藏，`None` 或 `Some(false)` 刷新显示。
+pub fn apply_badge(state: &AppState, hide: Option<bool>) {
+    if state.badge_busy.get() {
+        return;
+    }
+    state.badge_busy.set(true);
+    let state_result = state.clone();
+    let state_done = state.clone();
+    let target = hide.unwrap_or(false);
+    crate::api::refresh_forum_badge(
+        target,
+        Box::new(move |result| {
+            match result {
+                Ok(status) => state_result
+                    .badge_hidden
+                    .inner()
+                    .set(Some(Ok(status.hidden))),
+                Err(e) => state_result.badge_hidden.inner().set(Some(Err(e))),
+            }
+            state_done.badge_busy.set(false);
+            crate::request_remount();
+        }),
+    );
 }
 
 fn load_topics(state: &AppState) {
@@ -127,6 +167,53 @@ pub fn Home(state: Box<AppState>) -> VNode {
         }
     };
 
+    // 帖子徽章控制区：对齐 Dioxus 版侧栏的「刷新徽章 / 隐藏宠物」两个动作。
+    let busy = state.badge_busy.get();
+    let (badge_state_text, toggle_label, toggle_hide) = match &state.badge_hidden.get() {
+        None => (
+            "徽章状态加载中...".to_string(),
+            "隐藏宠物".to_string(),
+            true,
+        ),
+        Some(Err(e)) => (
+            format!("徽章状态加载失败：{e}"),
+            "隐藏宠物".to_string(),
+            true,
+        ),
+        Some(Ok(true)) => ("当前：已隐藏".to_string(), "显示宠物".to_string(), false),
+        Some(Ok(false)) => ("当前：显示中".to_string(), "隐藏宠物".to_string(), true),
+    };
+    let toggle_attr = if toggle_hide { "1" } else { "0" };
+    let refresh_cls = if busy {
+        "admin-btn badge-refresh-btn disabled"
+    } else {
+        "admin-btn badge-refresh-btn"
+    };
+    let toggle_cls = if busy {
+        "admin-btn badge-toggle-btn disabled"
+    } else {
+        "admin-btn badge-toggle-btn"
+    };
+    let badge_body = rsx! {
+        p { class: "player-count", "{badge_state_text}" }
+        div { class: "badge-actions",
+            button {
+                class: refresh_cls,
+                r#type: "button",
+                disabled: busy,
+                "data-pm-badge-refresh": "1",
+                if busy { "刷新中..." } else { "刷新徽章" }
+            }
+            button {
+                class: toggle_cls,
+                r#type: "button",
+                disabled: busy,
+                "data-pm-badge-toggle": toggle_attr,
+                "{toggle_label}"
+            }
+        }
+    };
+
     rsx! {
         div { class: "page-home",
             div { class: "home-main",
@@ -145,6 +232,13 @@ pub fn Home(state: Box<AppState>) -> VNode {
                         span { "在线玩家" }
                     }
                     div { class: "portal-card-body", ..vec![online_body] }
+                }
+                div { class: "portal-card",
+                    div { class: "portal-card-header",
+                        img { class: "header-icon-img", src: "{IMG_PATH}/item/jlq.gif" }
+                        span { "帖子徽章" }
+                    }
+                    div { class: "portal-card-body", ..vec![badge_body] }
                 }
             }
         }

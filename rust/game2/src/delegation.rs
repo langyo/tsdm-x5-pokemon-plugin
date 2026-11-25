@@ -175,6 +175,16 @@ fn dispatch_click(state: &AppState, target: u64) {
         crate::request_remount();
         return;
     }
+    // 帖子徽章：刷新 / 隐藏切换（首页右侧控制区）。
+    if find_with_attr(target, "data-pm-badge-refresh").is_some() {
+        crate::home::apply_badge(state, None);
+        return;
+    }
+    if let Some((_, v)) = find_with_attr(target, "data-pm-badge-toggle") {
+        let hide = v == "1";
+        crate::home::apply_badge(state, Some(hide));
+        return;
+    }
     // 顶部导航：页面切换
     if let Some((_, v)) = find_with_attr(target, "data-pm-nav") {
         let route = match v.as_str() {

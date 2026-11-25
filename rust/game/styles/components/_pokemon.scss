@@ -2874,3 +2874,41 @@
     min-width: 0;
   }
 }
+
+// ===== 帖子徽章控制区（首页右栏，tairitsu 版顶替旧版侧栏的两个徽章按钮）=====
+// 注意：.admin-btn 的基础样式定义在 .trainer-profile .trainer-info 之下（旧版
+// 侧栏教练面板），首页右栏不在那个上下文里，所以这里给完整样式而不是复用。
+.badge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+  margin-top: $spacing-sm;
+
+  .admin-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: $spacing-xs $spacing-md;
+    border: 1px solid $color-primary;
+    border-radius: $radius-sm;
+    background: $color-white;
+    color: $color-primary-dark;
+    font-family: $font-family-title;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:hover:not(:disabled):not(.disabled) {
+      background: $color-primary-lighter;
+    }
+
+    &:disabled,
+    &.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}

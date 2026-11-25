@@ -1579,3 +1579,33 @@ pub fn get_battle_log(battle_id: u64, on_done: Box<dyn FnOnce(BattleLogResult)>)
         ),
     );
 }
+
+// ===========================================================================
+// 帖子徽章（刷新 / 隐藏），对齐 Dioxus 版 sidebar 的 refresh_forum_badge
+// ===========================================================================
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct BadgeStatus {
+    #[serde(default)]
+    pub hidden: bool,
+}
+
+/// 刷新帖子侧栏徽章；`hide=true` 清空徽章数据（隐藏宠物）。
+pub fn refresh_forum_badge(hide: bool, on_done: Box<dyn FnOnce(Result<BadgeStatus, String>)>) {
+    request(
+        "user",
+        "refresh_badge",
+        Some(serde_json::json!({ "hide": hide }).to_string()),
+        Box::new(|result: Result<BadgeStatus, String>| on_done(result)),
+    );
+}
+
+/// 查询徽章当前是否隐藏。
+pub fn badge_status(on_done: Box<dyn FnOnce(Result<BadgeStatus, String>)>) {
+    request(
+        "user",
+        "badge_status",
+        None,
+        Box::new(|result: Result<BadgeStatus, String>| on_done(result)),
+    );
+}

@@ -59,6 +59,12 @@ pub struct AppState {
     // ---- 页脚“关于本项目”弹窗 ----
     pub show_about: ReactiveSignal<bool>,
 
+    // ---- 帖子徽章（首页右侧控制区）----
+    /// None = 尚未查询；Some(Err) = 查询失败。
+    pub badge_hidden: ReactiveSignal<Option<Result<bool, String>>>,
+    /// 正在请求（按钮禁用，防重复提交）。
+    pub badge_busy: ReactiveSignal<bool>,
+
     // ---- 首页 ----
     /// 话题+新闻合并列表。None = 加载中；Some(Err) = 失败。
     pub topics: ReactiveSignal<Option<Result<Vec<TopicItem>, String>>>,
@@ -93,6 +99,8 @@ impl AppState {
             welcome_error: use_signal(|| None),
             welcome_success: use_signal(|| false),
             show_about: use_signal(|| false),
+            badge_hidden: use_signal(|| None),
+            badge_busy: use_signal(|| false),
             topics: use_signal(|| None),
             online: use_signal(|| None),
             shop: ShopState::new(),
