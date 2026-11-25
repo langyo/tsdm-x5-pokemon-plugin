@@ -184,8 +184,16 @@ def cargo_build(skip: bool) -> Path:
 
 def jco_transpile(wasm: Path) -> None:
     wrapper = OUT / "component-wrapper"
-    if wrapper.exists():
-        shutil.rmtree(wrapper)
+    # component-wrapper/ 是多个组件共用的目录：admin2 / capprobe 也放在这里，
+    # 且后台默认就走 admin2。整目录 rmtree 会连带删掉它们的产物（构建完
+    # game2 后台就 404），所以只清理本次要重写的 _game2* 与 interfaces/。
+    wrapper.mkdir(parents=True, exist_ok=True)
+    for stale in wrapper.glob("_game2*"):
+        if stale.is_file():
+            stale.unlink()
+    interfaces = wrapper / "interfaces"
+    if interfaces.exists():
+        shutil.rmtree(interfaces)
     # Windows 下 CreateProcess 需要 npx.cmd 完整名（shutil.which 按 PATHEXT 解析）。
     npx = shutil.which("npx") or "npx.cmd"
     # 固定参数列表：npx --yes @bytecodealliance/jco transpile <wasm> -o <dir>
