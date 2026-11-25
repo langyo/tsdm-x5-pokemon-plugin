@@ -462,7 +462,7 @@ fn FilterPopover(state: Box<ShopState>) -> VNode {
                 input {
                     class: "shop-filter-input",
                     r#type: "search",
-                    placeholder: "输入名称后回车",
+                    placeholder: "输入名称，动态匹配",
                     value: keyword,
                     autocomplete: "off",
                     "data-pm-filter-input": "1",

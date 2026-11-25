@@ -50,6 +50,8 @@ pub struct AppState {
     pub route: ReactiveSignal<Route>,
     /// 新玩家（is_new_player 或 total_pokemons==0）时先看欢迎页。
     pub needs_welcome: ReactiveSignal<bool>,
+    /// 管理员（决定是否显示「后台管理」入口）。
+    pub is_admin: ReactiveSignal<bool>,
 
     // ---- 欢迎页 ----
     pub welcome_initializing: ReactiveSignal<bool>,
@@ -95,6 +97,7 @@ impl AppState {
             component_id: std::cell::Cell::new(0),
             route: use_signal(|| Route::Welcome),
             needs_welcome: use_signal(|| true),
+            is_admin: use_signal(|| false),
             welcome_initializing: use_signal(|| false),
             welcome_error: use_signal(|| None),
             welcome_success: use_signal(|| false),

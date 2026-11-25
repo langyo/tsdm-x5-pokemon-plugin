@@ -646,7 +646,7 @@ fn adventure_map_view(
                         h4 { "品质门槛" }
                         p { class: "quality-gate-text",
                             span { class: badge_cls, "{quality_name}" }
-                            " 出战宠物品质需达到该档位（由六项个体值总和判定）"
+                            " 出战宠物品质需达到 {quality_name}（由六项个体值总和判定）"
                         }
                     }
                 }

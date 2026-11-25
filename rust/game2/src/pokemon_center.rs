@@ -103,11 +103,12 @@ pub fn heal_all(state: &AppState) {
     }
     center.healing.inner().set(true);
     crate::request_remount();
-    heal_sequence(state.clone(), targets, 0, 0);
+    heal_sequence(state.clone(), targets, 0, 0, 0);
 }
 
 /// 递归串行治疗：每只完成后继续下一只（回调链，替代 async 循环）。
-fn heal_sequence(state: AppState, ids: Vec<u64>, idx: usize, healed: u32) {
+/// `cost` 累计总花费，与 Dioxus 版「共花费 N 金币」的提示对齐。
+fn heal_sequence(state: AppState, ids: Vec<u64>, idx: usize, healed: u32, cost: i64) {
     if idx >= ids.len() {
         let center = state.center.clone();
         center.healing.inner().set(false);
@@ -115,7 +116,7 @@ fn heal_sequence(state: AppState, ids: Vec<u64>, idx: usize, healed: u32) {
             crate::state::center_show_toast_silent(
                 &center,
                 ToastKind::Success,
-                format!("已治疗 {healed} 只宠物"),
+                format!("已治疗 {healed} 只宠物，共花费 {cost} 金币"),
             );
         }
         crate::request_remount();
@@ -134,8 +135,11 @@ fn heal_sequence(state: AppState, ids: Vec<u64>, idx: usize, healed: u32) {
         id,
         false,
         Box::new(move |result| {
-            let healed_next = if result.is_ok() { healed + 1 } else { healed };
-            heal_sequence(next_state, ids, idx + 1, healed_next);
+            let (healed_next, cost_next) = match result {
+                Ok(outcome) => (healed + 1, cost + outcome.cost),
+                Err(_) => (healed, cost),
+            };
+            heal_sequence(next_state, ids, idx + 1, healed_next, cost_next);
         }),
     );
 }

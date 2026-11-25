@@ -60,6 +60,26 @@ pub fn install(app: &WitElement, state: &AppState) {
         );
     }
 
+    // ---- input：商店名称筛选即时匹配（对齐 Dioxus 版「动态匹配」） ----
+    // change 只在失焦/回车时触发，比旧版手感差一截；这里补一条 input 通道，
+    // 只处理商店筛选，其他输入框仍走 change，避免每敲一字就重载列表。
+    {
+        let st = state.clone();
+        platform.add_event_listener(
+            app,
+            "input",
+            Box::new(move |e| {
+                let Some(ev) = e.as_any().downcast_ref::<tairitsu_vdom::ChangeEvent>() else {
+                    return;
+                };
+                let Some(target) = ev.target else { return };
+                if attr_of(target, "data-pm-filter-input").is_some() {
+                    crate::shop::reload_from_filter(&st.shop, &ev.value);
+                }
+            }),
+        );
+    }
+
     // ---- change：搜索输入（回车提交；背包搜索同样走 change） ----
     {
         let st = state.clone();

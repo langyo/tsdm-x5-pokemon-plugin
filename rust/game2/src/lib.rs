@@ -239,6 +239,20 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
         "nav-link"
     };
     let img_logo = "source/plugin/pokemon/images/item/jlq.gif";
+    // 管理员专用「后台管理」入口（对齐 Dioxus 版侧栏；后台默认已是 tairitsu 版）。
+    let admin_link = if state.is_admin.get() {
+        rsx! {
+            a {
+                class: "nav-link admin-entry",
+                href: "plugin.php?id=pokemon:game&index=admin",
+                target: "_blank",
+                rel: "noopener",
+                "后台管理"
+            }
+        }
+    } else {
+        tairitsu_vdom::VNode::empty()
+    };
     // 页脚常驻；“关于本项目”弹窗按状态挂载（结构与类名对齐 Dioxus 版）。
     let footer_node = footer::Footer(Default::default());
     let about_node = if state.show_about.get() {
@@ -267,6 +281,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                         button { class: mypm_cls, "data-pm-nav": "my-pokemon", "我的宠物" }
                         button { class: storage_cls, "data-pm-nav": "storage", "仓库" }
                         button { class: adventure_cls, "data-pm-nav": "adventure", "冒险" }
+                        ..vec![admin_link]
                     }
                 }
             }
@@ -324,9 +339,10 @@ pub fn run_app() -> Result<()> {
     {
         let state = state.clone();
         api::profile(Box::new(move |result| match result {
-            Ok(needs_welcome) => {
-                state.needs_welcome.inner().set(needs_welcome);
-                let route = if needs_welcome {
+            Ok(summary) => {
+                state.needs_welcome.inner().set(summary.needs_welcome);
+                state.is_admin.inner().set(summary.is_admin);
+                let route = if summary.needs_welcome {
                     app_state::Route::Welcome
                 } else {
                     app_state::Route::Home

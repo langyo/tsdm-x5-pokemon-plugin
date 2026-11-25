@@ -454,17 +454,30 @@ struct ProfileDto {
     is_new_player: bool,
     #[serde(default)]
     total_pokemons: Option<u64>,
+    /// 管理员可见「后台管理」入口（对齐 Dioxus 版侧栏）。
+    #[serde(default)]
+    is_admin: bool,
+}
+
+/// 启动时需要的资料摘要：是否进欢迎页 + 是否管理员。
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ProfileSummary {
+    pub needs_welcome: bool,
+    pub is_admin: bool,
 }
 
 /// 拉取用户资料并判定欢迎页条件（对齐 Dioxus 版 Layout：
 /// is_new_player 或 total_pokemons==0 → Welcome，否则 Home）。
-pub fn profile(on_done: Box<dyn FnOnce(Result<bool, String>)>) {
+pub fn profile(on_done: Box<dyn FnOnce(Result<ProfileSummary, String>)>) {
     request(
         "user",
         "profile",
         None,
         Box::new(|result: Result<ProfileDto, String>| {
-            on_done(result.map(|dto| dto.is_new_player || dto.total_pokemons.unwrap_or(0) == 0))
+            on_done(result.map(|dto| ProfileSummary {
+                needs_welcome: dto.is_new_player || dto.total_pokemons.unwrap_or(0) == 0,
+                is_admin: dto.is_admin,
+            }))
         }),
     );
 }
