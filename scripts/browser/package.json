@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test": "node battle-actions.cjs && node storage-inventory.cjs && node player-actions.cjs && node admin-actions.cjs && node admin-effects.cjs",
+    "smoke:tairitsu": "node tairitsu-smoke.cjs && node tairitsu-smoke.cjs firefox && node tairitsu-smoke.cjs webkit",
     "test:battle": "node battle-actions.cjs",
     "test:inventory": "node storage-inventory.cjs",
     "test:player": "node player-actions.cjs",

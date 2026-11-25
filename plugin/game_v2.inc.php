@@ -2,10 +2,10 @@
 /**
  * tairitsu + hikari 版游戏页（迁移目标实现）。
  *
- * 与 game.inc.php（Dioxus 版）并存：两套前端各自独立加载、互不影响，
- * 用于迁移期间的逐页行为对照。入口选择见 pokemon.inc.php：
- *   plugin.php?id=pokemon:game        → Dioxus 版（存量实现）
- *   plugin.php?id=pokemon:game&ui=v2  → 本文件（tairitsu 版）
+ * 本文件是游戏页的默认实现（tairitsu + hikari）。Dioxus 旧版保留在
+ * game.inc.php，通过逃生参数 &ui=v1 访问，回滚零成本：
+ *   plugin.php?id=pokemon:game        → 本文件（tairitsu 版，默认）
+ *   plugin.php?id=pokemon:game&ui=v1  → Dioxus 旧版（game.inc.php）
  *
  * 构建产物见 scripts/publish/build_tairitsu_poc.py 与
  * docs/refactor-tairitsu-hikari-research.md。
@@ -65,8 +65,8 @@ $game_css_ver = time();
 
 <div class="pm-ui-switch">
   <span>界面版本：</span>
-  <a href="plugin.php?id=pokemon:game">Dioxus（存量）</a>
-  <span class="current">tairitsu（迁移中）</span>
+  <span class="current">tairitsu（默认）</span>
+  <a href="plugin.php?id=pokemon:game&ui=v1">Dioxus（旧版）</a>
 </div>
 
 <div id="main">

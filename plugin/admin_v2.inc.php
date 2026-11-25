@@ -1,10 +1,11 @@
 <?php
 /**
- * tairitsu + hikari 版管理后台（迁移目标实现，切片 1：壳 + 全局配置）。
+ * tairitsu + hikari 版管理后台（默认实现，全量移植完成）。
  *
- * 与 admincp.inc.php（Dioxus 版）并存：
- *   plugin.php?id=pokemon:game&index=admin        → Dioxus 版（存量实现）
- *   plugin.php?id=pokemon:game&index=admin&ui=v2  → 本文件（tairitsu 版）
+ * 本文件是后台的默认入口；Dioxus 旧版保留在 admincp.inc.php，
+ * 通过逃生参数 &ui=v1 访问：
+ *   plugin.php?id=pokemon:game&index=admin          → 本文件（tairitsu 版，默认）
+ *   plugin.php?id=pokemon:game&index=admin&ui=v1    → Dioxus 旧版（admincp.inc.php）
  *
  * 权限门禁与 admincp.inc.php 同源（管理员/宠物管理员）。
  * 构建产物见 scripts/publish/build_tairitsu_admin.py。
@@ -38,7 +39,7 @@ include template('common/header');
 <div id="pt" class="bm cl">
 <div class="z">
 <a href="./" class="nvhm" title="首页"><?php echo $_G['setting']['bbname']; ?></a><em>&raquo;</em>
-<a href="plugin.php?id=pokemon:game&index=admin&ui=v2">宠物管理（tairitsu）</a>
+<a href="plugin.php?id=pokemon:game&index=admin">宠物管理</a>
 </div>
 </div>
 
@@ -170,8 +171,8 @@ include template('common/header');
 
 <div class="pm-ui-switch">
   <span>界面版本：</span>
-  <a href="plugin.php?id=pokemon:game&index=admin">Dioxus（存量）</a>
-  <span class="current">tairitsu（迁移中）</span>
+  <span class="current">tairitsu（默认）</span>
+  <a href="plugin.php?id=pokemon:game&index=admin&ui=v1">Dioxus（旧版）</a>
 </div>
 
 <div id="main">
