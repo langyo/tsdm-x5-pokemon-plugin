@@ -55,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'get_wild_pokemons_for_map',
         'add_pokemon_to_map',
         'remove_pokemon_from_map',
+        'get_pokemon_types_by_ids',
     ];
     $parts = explode('::', $action);
     $target = $parts[1] ?? '';

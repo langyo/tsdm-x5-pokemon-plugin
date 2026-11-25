@@ -19,14 +19,15 @@ $entity_map = [
 function admin_dispatch($action, $params) {
     global $entity_map;
 
-    // 无 op::entity 前缀的直连动作（地图野生宠物管理，前端按动作名直接调用）
+    // 无 op::entity 前缀的直连动作（地图野生宠物管理、按 ID 批量取宠物种族，前端按动作名直接调用）
     $direct_actions = [
         "get_wild_pokemons_for_map",
         "add_pokemon_to_map",
         "remove_pokemon_from_map",
+        "get_pokemon_types_by_ids",
     ];
     if (in_array($action, $direct_actions, true)) {
-        require_once __DIR__ . "/routes/map_data.php";
+        // 路由文件已由顶部 routes.php 统一加载，这里直接分发
         switch ($action) {
             case "get_wild_pokemons_for_map":
                 $result = get_wild_pokemons_for_map(intval($params["map_id"] ?? 0));
@@ -38,6 +39,14 @@ function admin_dispatch($action, $params) {
             case "remove_pokemon_from_map":
                 remove_pokemon_from_map(intval($params["map_id"] ?? 0), intval($params["pokemon_type_id"] ?? 0));
                 $result = [];
+                break;
+            case "get_pokemon_types_by_ids":
+                // 前端 fetch() 把所有参数序列化成字符串，ids 是 JSON 数组文本
+                $ids = $params["ids"] ?? "[]";
+                if (is_string($ids)) {
+                    $ids = json_decode($ids, true);
+                }
+                $result = get_pokemon_types_by_ids(is_array($ids) ? $ids : []);
                 break;
         }
         echo json_encode(["success"=>true,"data"=>$result], JSON_UNESCAPED_UNICODE);
