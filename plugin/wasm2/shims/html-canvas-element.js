@@ -1,4 +1,4 @@
 // shim for tairitsu-browser:full/html-canvas-element
-import { INTERFACES } from '../glue/platform/index.js?v=1795587361';
+import { INTERFACES } from '../glue/platform/index.js?v=1795588139';
 const obj = INTERFACES['@tairitsu-glue/html-canvas-element'];
 export const getContext = obj.getContext;
