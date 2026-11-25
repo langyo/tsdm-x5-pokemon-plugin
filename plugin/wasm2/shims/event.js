@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/event
-import { INTERFACES } from '../glue/events/index.js?v=1795597176';
+import { INTERFACES } from '../glue/events/index.js?v=1795599693';
 const obj = INTERFACES['@tairitsu-glue/event'];
 export const getCurrentTarget = obj.getCurrentTarget;
 export const getTarget = obj.getTarget;

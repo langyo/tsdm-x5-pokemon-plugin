@@ -1281,6 +1281,8 @@ fn stats_panel(
     let show_state = d.state != 1;
     let state_cls = format!("state-label state-{}", d.state_class);
     let state_text = d.state_text.clone();
+    // 状态影响说明（旧版是 hover tooltip，这里用 title 呈现同一份数据）。
+    let state_detail = crate::pet_state::describe(d.state);
 
     let hp_pct = if d.max_hp > 0 {
         ((d.hp.max(0) as f64) / (d.max_hp as f64) * 100.0) as u32
@@ -1412,7 +1414,7 @@ fn stats_panel(
     };
 
     let state_block = if show_state {
-        rsx! { span { class: state_cls, "{state_text}" } }
+        rsx! { span { class: state_cls, title: state_detail, "{state_text}" } }
     } else {
         VNode::empty()
     };

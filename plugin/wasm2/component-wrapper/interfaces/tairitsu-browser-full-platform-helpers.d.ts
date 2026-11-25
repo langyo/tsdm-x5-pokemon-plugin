@@ -6,3 +6,4 @@ export function clearInterval(id: number): void;
 export function requestAnimationFrame(callbackId: bigint): number;
 export function cancelAnimationFrame(id: number): void;
 export function fetchPromise(url: string, options: string | undefined): bigint;
+export function copyToClipboard(text: string): boolean;

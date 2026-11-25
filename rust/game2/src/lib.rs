@@ -24,6 +24,8 @@ pub mod my_pokemon;
 pub mod pokemon_center;
 #[cfg(target_family = "wasm")]
 pub mod pokemon_storage;
+/// 宠物状态说明表（纯数据 + 单测，可在 host 上测）。
+pub mod pet_state;
 pub mod quality;
 #[cfg(target_family = "wasm")]
 pub mod shop;
