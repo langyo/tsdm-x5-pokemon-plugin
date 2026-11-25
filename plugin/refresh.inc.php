@@ -9,6 +9,14 @@ if (!$uid) {
     showmessage('错误: 没有登录');
 }
 
+// 该路由会改写 common_member_field_forum.pokemon，必须挡住跨站伪造：
+// 旧版 pokemon_index.htm 的 GET 链接已在 a88bf91 随 pokemon_system 一并删除，
+// 现行前端改用带 formhash 的 refresh_badge JSON 接口。
+require_once __DIR__ . '/security.php';
+if (!pm_formhash_ok()) {
+    showmessage('formhash 校验失败，请刷新页面后重试');
+}
+
 $hide = !empty($_GET['hide']);
 
 DB::update('common_member_field_forum', [

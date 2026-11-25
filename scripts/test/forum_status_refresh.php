@@ -6,6 +6,12 @@ if (($argv[1] ?? '') === '--worker') {
     set_error_handler(function ($severity, $message) { throw new RuntimeException($message); });
     $_G = ['uid' => $case['uid'] ?? 7];
     $_GET = $case['query'] ?? [];
+    // security.php 依赖 Discuz 的 formhash()。除显式验证门禁的用例外，
+    // 统一补上合法值，让既有断言继续覆盖业务分支。
+    function formhash() { return 'valid-formhash'; }
+    if (empty($case['omit_formhash'])) {
+        $_GET += ['formhash' => 'valid-formhash'];
+    }
     function showmessage($message, $url = '', $values = [], $options = [])
     {
         echo json_encode(['message' => $message, 'options' => $options,
@@ -122,5 +128,16 @@ foreach ([[], ['hide' => '1']] as $query) {
         fn($r) => $r['message'] === '错误: 没有登录' && $preserved($r) && $r['reads'] === 0,
         'Guests cannot read or update a badge');
 }
+// CSRF：缺少或错误的 formhash 必须在读写宠物表之前拒绝。
+foreach ([['hide' => '0'], ['hide' => '1']] as $query) {
+    check_refresh(['omit_formhash' => true, 'query' => $query],
+        fn($r) => $r['message'] === 'formhash 校验失败，请刷新页面后重试'
+            && $preserved($r) && $r['reads'] === 0,
+        'Missing formhash is rejected before any read or write');
+}
+check_refresh(['omit_formhash' => true, 'query' => ['hide' => '0', 'formhash' => 'wrong-hash']],
+    fn($r) => $r['message'] === 'formhash 校验失败，请刷新页面后重试'
+        && $preserved($r) && $r['reads'] === 0,
+    'Mismatched formhash is rejected before any read or write');
 echo "Forum status refresh regressions: $passed passed, $failed failed", PHP_EOL;
 exit($failed ? 1 : 0);
