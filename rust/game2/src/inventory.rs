@@ -368,10 +368,10 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
         let title = format!("选择宝可梦 - {item_name}");
         rsx! {
             div { class: "modal-overlay", "data-pm-inv-modal-close": "1",
-                div { class: "modal-content",
+                div { class: "modal-container",
                     div { class: "modal-header",
                         h3 { "{title}" }
-                        button { class: "modal-close", "data-pm-inv-modal-close": "1", "×" }
+                        button { class: "modal-close-btn", "data-pm-inv-modal-close": "1", "×" }
                     }
                     div { class: "modal-body", ..vec![pokemon_body] }
                 }

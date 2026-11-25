@@ -111,6 +111,11 @@
       gap: $spacing-md;
       cursor: pointer;
       text-decoration: none;
+      // tairitsu 版把它渲染成 <button>（Dioxus 版是 <a>）：清掉按钮默认的
+      // 底色、边框和内边距，两版的版面才会一致。
+      border: 0;
+      background: transparent;
+      padding: 0;
     }
 
     .logo-mascot {
@@ -142,6 +147,10 @@
     gap: $spacing-2xl;
 
     .nav-link {
+      // 导航项是 <button>：显式清掉浏览器默认的底色和边框。否则白字会压在
+      // 浅灰的系统按钮底色上，几乎不可读。
+      border: 0;
+      background: transparent;
       color: $color-white;
       text-decoration: none;
       padding: $spacing-sm $spacing-lg;

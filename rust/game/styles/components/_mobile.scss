@@ -34,13 +34,17 @@
         }
       }
 
+      // 按每行四项自动换行，而不是写死四列的网格：导航项数量由前端决定
+      // （Dioxus 版 4 项、tairitsu 版 7 项），换行后各行仍等分铺满。
       .header-nav {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        display: flex;
+        flex-wrap: wrap;
         gap: 0;
         width: 100%;
 
         .nav-link {
+          flex: 1 1 25%;
+          min-width: 0;
           display: flex;
           align-items: center;
           justify-content: center;

@@ -659,6 +659,9 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
     let title_text = pet.name.clone();
     let type_1 = pet.type_1.clone();
     let type_2 = pet.type_2.clone().unwrap_or_default();
+    // 属性标签沿用彩色类型徽章（.badge.badge-type-*），与 Dioxus 版一致。
+    let type_1_cls = format!("badge badge-type-{type_1}");
+    let type_2_cls = format!("badge badge-type-{type_2}");
 
     let pet_id_attr = pet.id.to_string();
     let tile_idx_attr = idx.to_string();
@@ -681,9 +684,9 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
             }
             div { class: "shop-tile-name", title: title_text, "{name}" }
             div { class: "shop-tile-meta",
-                span { class: "pet-type-1", "{type_1}" }
+                span { class: type_1_cls, "{type_1}" }
                 if has_type2 {
-                    span { class: "pet-type-2", "{type_2}" }
+                    span { class: type_2_cls, "{type_2}" }
                 }
             }
             div { class: "shop-tile-foot",
@@ -738,14 +741,17 @@ fn PetTooltip(
     let title_text = pet.name.clone();
     let type_1 = pet.type_1.clone();
     let type_2 = pet.type_2.clone().unwrap_or_default();
+    // 属性标签沿用彩色类型徽章（.badge.badge-type-*），与 Dioxus 版一致。
+    let type_1_cls = format!("badge badge-type-{type_1}");
+    let type_2_cls = format!("badge badge-type-{type_2}");
     rsx! {
         div { class: "shop-tile-tooltip",
             style: style,
             div { class: "tile-tooltip-header",
                 span { class: "tile-tooltip-name", "{name}" }
-                span { class: "pet-type-1", "{type_1}" }
+                span { class: type_1_cls, "{type_1}" }
                 if has_type2 {
-                    span { class: "pet-type-2", "{type_2}" }
+                    span { class: type_2_cls, "{type_2}" }
                 }
             }
             div { class: "tile-tooltip-stats pet-stats-grid",

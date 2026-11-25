@@ -526,7 +526,7 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
             };
             rsx! {
                 div { class: "modal-overlay",
-                    div { class: "modal-content",
+                    div { class: "modal-container",
                         div { class: "modal-header",
                             h3 { "确认战斗状态" }
                         }
@@ -708,10 +708,10 @@ fn adventure_map_view(
             };
             rsx! {
                 div { class: "modal-overlay", "data-pm-bt-map-close": "1",
-                    div { class: "modal-content",
+                    div { class: "modal-container",
                         div { class: "modal-header",
                             h3 { "{title}" }
-                            button { class: "modal-close", "data-pm-bt-map-close": "1", "×" }
+                            button { class: "modal-close-btn", "data-pm-bt-map-close": "1", "×" }
                         }
                         div { class: "modal-body modal-map-details",
                             div { class: "map-detail-header",
@@ -1253,10 +1253,10 @@ fn battle_scene(
             }
             rsx! {
                 div { class: "modal-overlay", "data-pm-bt-select-cancel": "1",
-                    div { class: "modal-content",
+                    div { class: "modal-container",
                         div { class: "modal-header",
                             h3 { "{title}" }
-                            button { class: "modal-close", "data-pm-bt-select-cancel": "1", "×" }
+                            button { class: "modal-close-btn", "data-pm-bt-select-cancel": "1", "×" }
                         }
                         div { class: "modal-body skill-selection-modal",
                             p { class: "skill-selection-hint", "请选择要恢复PP的技能：" }
@@ -1293,10 +1293,10 @@ fn battle_scene(
         };
         rsx! {
             div { class: "modal-overlay", "data-pm-bt-log-close": "1",
-                div { class: "modal-content",
+                div { class: "modal-container",
                     div { class: "modal-header",
                         h3 { "战报" }
-                        button { class: "modal-close", "data-pm-bt-log-close": "1", "×" }
+                        button { class: "modal-close-btn", "data-pm-bt-log-close": "1", "×" }
                     }
                     div { class: "modal-body battle-log-body", ..vec![body] }
                 }
@@ -1477,7 +1477,7 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
 
     rsx! {
         div { class: "modal-overlay",
-            div { class: "modal-content",
+            div { class: "modal-container",
                 div { class: "modal-header", h3 { "{title}" } }
                 div { class: "modal-body battle-result-section",
                     div { class: result_cls,
@@ -1564,7 +1564,7 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
 
     rsx! {
         div { class: "modal-overlay",
-            div { class: "modal-content",
+            div { class: "modal-container",
                 div { class: "modal-header", h3 { "选择替换宠物" } }
                 div { class: "modal-body faint-replace-modal",
                     p { class: "faint-message", "{message}" }
@@ -1592,10 +1592,10 @@ fn switch_modal(st: &AppState, loading: bool) -> VNode {
     let _ = st;
     rsx! {
         div { class: "modal-overlay", "data-pm-bt-switch-cancel": "1",
-            div { class: "modal-content",
+            div { class: "modal-container",
                 div { class: "modal-header",
                     h3 { "切换上场宠物" }
-                    button { class: "modal-close", "data-pm-bt-switch-cancel": "1", "×" }
+                    button { class: "modal-close-btn", "data-pm-bt-switch-cancel": "1", "×" }
                 }
                 div { class: "modal-body switch-pokemon-modal",
                     p { class: "switch-pokemon-warning", "切换宠物可能会让当前上场宠物再受到一次攻击！" }

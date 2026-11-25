@@ -662,12 +662,12 @@ fn slot_card(
         if in_storage {
             let bag_btn = if bag_full {
                 rsx! {
-                    button { class: "slot-action-btn disabled", disabled: true, "背包已满（6/6）" }
+                    button { class: "popup-menu-item disabled", disabled: true, "背包已满（6/6）" }
                 }
             } else {
                 rsx! {
                     button {
-                        class: "slot-action-btn",
+                        class: "popup-menu-item",
                         "data-pm-st-to-bag": id_attr.clone(),
                         "放入背包"
                     }
@@ -676,12 +676,12 @@ fn slot_card(
             actions.push(bag_btn);
             let release_btn = if cannot_release {
                 rsx! {
-                    button { class: "slot-action-btn danger disabled", disabled: true, "放生" }
+                    button { class: "popup-menu-item danger disabled", disabled: true, "放生" }
                 }
             } else {
                 rsx! {
                     button {
-                        class: "slot-action-btn danger",
+                        class: "popup-menu-item danger",
                         "data-pm-st-release": id_attr.clone(),
                         "放生"
                     }
@@ -692,7 +692,7 @@ fn slot_card(
             if pm.site != 1 {
                 let first_btn = rsx! {
                     button {
-                        class: "slot-action-btn",
+                        class: "popup-menu-item",
                         "data-pm-st-first": id_attr.clone(),
                         "设为首位"
                     }
@@ -701,7 +701,7 @@ fn slot_card(
             }
             let store_btn = rsx! {
                 button {
-                    class: "slot-action-btn",
+                    class: "popup-menu-item",
                     "data-pm-st-to-storage": id_attr.clone(),
                     "放入仓库"
                 }
@@ -709,7 +709,7 @@ fn slot_card(
             actions.push(store_btn);
         }
         rsx! {
-            div { class: "slot-actions",
+            div { class: "popup-menu slot-actions",
                 for i in 0..actions.len() {
                     ..vec![actions[i].clone()]
                 }

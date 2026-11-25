@@ -107,6 +107,62 @@
     }
   }
 
+  // 宠物切换条：tairitsu 版没有侧栏，用它顶替旧版侧栏的宠物格子。
+  // 渲染成 <button>，必须显式清掉浏览器默认的底色和边框。
+  .pet-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: $spacing-xs;
+    width: 100%;
+    min-height: 38px;
+    padding: $spacing-xs $spacing-sm;
+    border: 1px solid $color-gray-200;
+    border-radius: $radius-md;
+    background: $color-white;
+    font-family: $font-family-title;
+    font-size: $font-size-sm;
+    text-align: left;
+    color: $color-gray-800;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    .pet-chip-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    .pet-chip-level {
+      flex-shrink: 0;
+      padding: 1px $spacing-xs;
+      border-radius: $radius-round;
+      background: $color-gray-100;
+      color: $color-gray-600;
+      font-size: $font-size-xs;
+      font-weight: 500;
+    }
+
+    &:hover {
+      border-color: $color-primary;
+      background: $color-primary-lighter;
+    }
+
+    &.active {
+      border-color: $color-primary;
+      background: $color-primary-lighter;
+      box-shadow: inset 3px 0 0 $color-primary;
+
+      .pet-chip-level {
+        background: $color-primary;
+        color: $color-white;
+      }
+    }
+  }
+
 }
 
 // ===== 分隔线 =====

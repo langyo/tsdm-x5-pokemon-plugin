@@ -1846,10 +1846,10 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
 
     rsx! {
         div { class: "modal-overlay", "data-pm-learn-close": "1",
-            div { class: "modal-content",
+            div { class: "modal-container",
                 div { class: "modal-header",
                     h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-learn-close": "1", "×" }
+                    button { class: "modal-close-btn", "data-pm-learn-close": "1", "×" }
                 }
                 div { class: "modal-body",
                     div { class: "skill-learn-content", ..vec![body] }
@@ -1936,7 +1936,7 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
         .iter()
         .map(|n| {
             let label = *n;
-            rsx! { div { class: "ev-cell ev-header", "{label}" } }
+            rsx! { div { class: "ev-cell", "{label}" } }
         })
         .collect();
 
@@ -1985,41 +1985,59 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
     let grand_text = grand.to_string();
     let added_sum: u32 = added.iter().sum();
     let added_sum_text = added_sum.to_string();
+    // 合计超出 510 时整格转红（.grand-total.invalid）。
+    let grand_cls = if valid {
+        "ev-cell ev-total grand-total"
+    } else {
+        "ev-cell ev-total grand-total invalid"
+    };
 
     rsx! {
         div { class: "modal-overlay", "data-pm-ev-close": "1",
-            div { class: "modal-content",
+            div { class: "modal-container modal-lg",
                 div { class: "modal-header",
                     h3 { "努力值计算器" }
-                    button { class: "modal-close", "data-pm-ev-close": "1", "×" }
+                    button { class: "modal-close-btn", "data-pm-ev-close": "1", "×" }
                 }
                 div { class: "modal-body",
                     div { class: "ev-calculator",
-                        div { class: "ev-row",
-                            div { class: "ev-cell ev-row-label", "属性" }
-                            for i in 0..header_cells.len() {
-                                ..vec![header_cells[i].clone()]
+                        // 表格结构与类名沿用 Dioxus 版（.ev-table > .ev-table-row > .ev-cell）：
+                        // 样式表里只有这一套规则。
+                        div { class: "ev-notice",
+                            p { "注意事项：" }
+                            ul {
+                                li { "每项努力值最高 255 点" }
+                                li { "6 项努力值总计最高 510 点" }
+                                li { "本工具仅用于计算，不会保存数据" }
                             }
                         }
-                        div { class: "ev-row",
-                            div { class: "ev-cell ev-row-label", "当前" }
-                            for i in 0..cur_cells.len() {
-                                ..vec![cur_cells[i].clone()]
+                        div { class: "ev-table",
+                            div { class: "ev-table-header",
+                                div { class: "ev-cell ev-label", "属性" }
+                                for i in 0..header_cells.len() {
+                                    ..vec![header_cells[i].clone()]
+                                }
                             }
-                        }
-                        div { class: "ev-row",
-                            div { class: "ev-cell ev-row-label", "追加" }
-                            for i in 0..add_cells.len() {
-                                ..vec![add_cells[i].clone()]
+                            div { class: "ev-table-row",
+                                div { class: "ev-cell ev-label", "当前" }
+                                for i in 0..cur_cells.len() {
+                                    ..vec![cur_cells[i].clone()]
+                                }
                             }
-                            div { class: "ev-cell ev-total", "{added_sum_text}" }
-                        }
-                        div { class: "ev-row",
-                            div { class: "ev-cell ev-row-label", "合计" }
-                            for i in 0..total_cells.len() {
-                                ..vec![total_cells[i].clone()]
+                            div { class: "ev-table-row input-row",
+                                div { class: "ev-cell ev-label", "追加" }
+                                for i in 0..add_cells.len() {
+                                    ..vec![add_cells[i].clone()]
+                                }
+                                div { class: "ev-cell ev-total", "{added_sum_text}" }
                             }
-                            div { class: "ev-cell ev-total", "{grand_text}" }
+                            div { class: "ev-table-row",
+                                div { class: "ev-cell ev-label", "合计" }
+                                for i in 0..total_cells.len() {
+                                    ..vec![total_cells[i].clone()]
+                                }
+                                div { class: grand_cls, "{grand_text}" }
+                            }
                         }
                         div { class: "ev-status",
                             span { class: status_cls, "{status_text}" }
@@ -2100,13 +2118,13 @@ fn evo_path_modal(st: &AppState) -> VNode {
 
     rsx! {
         div { class: "modal-overlay", "data-pm-evo-path-close": "1",
-            div { class: "modal-content",
+            div { class: "modal-container",
                 div { class: "modal-header",
                     h3 { "进化路径" }
-                    button { class: "modal-close", "data-pm-evo-path-close": "1", "×" }
+                    button { class: "modal-close-btn", "data-pm-evo-path-close": "1", "×" }
                 }
                 div { class: "modal-body",
-                    div { class: "evo-path-tabs",
+                    div { class: "evo-path-tab-bar",
                         button { class: fwd_cls, "data-pm-evo-path-tab": "forward", "进化路线" }
                         button { class: bwd_cls, "data-pm-evo-path-tab": "backward", "退化路线" }
                     }
@@ -2188,10 +2206,10 @@ fn evolution_modal(st: &AppState) -> VNode {
 
     rsx! {
         div { class: "modal-overlay", "data-pm-evo-modal-close": "1",
-            div { class: "modal-content",
+            div { class: "modal-container",
                 div { class: "modal-header",
                     h3 { "进化" }
-                    button { class: "modal-close", "data-pm-evo-modal-close": "1", "×" }
+                    button { class: "modal-close-btn", "data-pm-evo-modal-close": "1", "×" }
                 }
                 div { class: "modal-body", ..vec![body] }
             }
