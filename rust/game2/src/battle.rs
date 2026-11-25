@@ -393,14 +393,13 @@ pub fn open_log(state: &AppState) {
         return;
     }
     bt.show_log.inner().set(true);
-    bt.log_lines.inner().set(Vec::new());
+    bt.log_data.inner().set(None);
+    bt.log_copy_status.inner().set(String::new());
     crate::request_remount();
     crate::api::get_battle_log(
         battle_id,
         Box::new(move |result| {
-            bt.log_lines
-                .inner()
-                .set(result.unwrap_or_else(|e| vec![format!("战报加载失败：{e}")]));
+            bt.log_data.inner().set(Some(result));
             crate::request_remount();
         }),
     );
@@ -408,6 +407,31 @@ pub fn open_log(state: &AppState) {
 
 pub fn close_log(state: &AppState) {
     state.battle.show_log.inner().set(false);
+    crate::request_remount();
+}
+
+/// 复制战报 BBCode 到剪贴板（对齐 Dioxus 版 log.rs 的「复制战报」）。
+pub fn copy_log(state: &AppState) {
+    let bbcode = state
+        .battle
+        .log_data
+        .get()
+        .and_then(|r| r.ok())
+        .map(|d| d.bbcode)
+        .unwrap_or_default();
+    if bbcode.is_empty() {
+        return;
+    }
+    // tairitsu 的 platform-helpers 提供同步剪贴板写入；失败时提示手动选取。
+    let ok = tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::platform_helpers::copy_to_clipboard(&bbcode);
+    state.battle.log_copy_status.inner().set(
+        if ok {
+            "已复制战报，可贴到论坛。"
+        } else {
+            "无法自动复制，请选取上方文字后复制。"
+        }
+        .to_string(),
+    );
     crate::request_remount();
 }
 
@@ -1274,20 +1298,73 @@ fn battle_scene(
     };
 
     let log_modal = if bt.show_log.get() {
-        let lines = bt.log_lines.get();
-        let body = if lines.is_empty() {
-            rsx! { p { "正在加载战报..." } }
-        } else {
-            let mut rows: Vec<VNode> = lines
-                .iter()
-                .map(|l| {
-                    let text = l.clone();
-                    rsx! { p { "{text}" } }
-                })
-                .collect();
-            rsx! {
-                for i in 0..rows.len() {
-                    ..vec![rows[i].clone()]
+        // 对齐 Dioxus 版 log.rs：逐回合分组 + 「可贴到论坛的战报」文本框 + 复制按钮。
+        let log = bt.log_data.get();
+        let copy_status = bt.log_copy_status.get();
+        let body = match log {
+            None => rsx! { p { role: "status", "正在加载战报..." } },
+            Some(Err(e)) => {
+                let msg = format!("战报加载失败：{e}");
+                rsx! { p { role: "alert", class: "error-message", "{msg}" } }
+            }
+            Some(Ok(data)) => {
+                let bbcode = data.bbcode.clone();
+                let turns: Vec<VNode> = data
+                    .turns
+                    .iter()
+                    .map(|t| {
+                        let title = format!("第 {} 回合", t.turn);
+                        let rows: Vec<VNode> = t
+                            .lines
+                            .iter()
+                            .map(|l| {
+                                let text = l.clone();
+                                rsx! { p { "{text}" } }
+                            })
+                            .collect();
+                        rsx! {
+                            section { class: "battle-log-turn",
+                                h4 { "{title}" }
+                                for i in 0..rows.len() {
+                                    ..vec![rows[i].clone()]
+                                }
+                            }
+                        }
+                    })
+                    .collect();
+                let flat: Vec<VNode> = data
+                    .lines
+                    .iter()
+                    .map(|l| {
+                        let text = l.clone();
+                        rsx! { p { "{text}" } }
+                    })
+                    .collect();
+                let empty_notice = rsx! { p { "尚无战斗事件。" } };
+                rsx! {
+                    div { class: "battle-log-events",
+                        if data.turns.is_empty() {
+                            if data.lines.is_empty() {
+                                ..vec![empty_notice]
+                            }
+                            for i in 0..flat.len() {
+                                ..vec![flat[i].clone()]
+                            }
+                        } else {
+                            for i in 0..turns.len() {
+                                ..vec![turns[i].clone()]
+                            }
+                        }
+                    }
+                    label { "可贴到论坛的战报" }
+                    textarea { class: "battle-share-text", readonly: true, rows: "5", "{bbcode}" }
+                    button {
+                        class: "btn btn-primary",
+                        r#type: "button",
+                        "data-pm-bt-log-copy": "1",
+                        "复制战报"
+                    }
+                    p { role: "status", class: "battle-copy-status", "{copy_status}" }
                 }
             }
         };

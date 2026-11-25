@@ -185,6 +185,11 @@ fn dispatch_click(state: &AppState, target: u64) {
         crate::home::apply_badge(state, Some(hide));
         return;
     }
+    // 战报：复制到剪贴板。
+    if find_with_attr(target, "data-pm-bt-log-copy").is_some() {
+        crate::battle::copy_log(state);
+        return;
+    }
     // 顶部导航：页面切换
     if let Some((_, v)) = find_with_attr(target, "data-pm-nav") {
         let route = match v.as_str() {

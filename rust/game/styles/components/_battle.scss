@@ -17,6 +17,21 @@
 .battle-log-turn h4 { margin: 0 0 6px; }
 .battle-log-turn p { margin: 4px 0; }
 #main .battle-log-panel textarea { width: 100%; resize: vertical; user-select: text; -webkit-user-select: text; }
+// 战报复制区（tairitsu 版用 class 定位，与 Dioxus 版的 id 选择器等效）
+.battle-share-text {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid $color-gray-300;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.battle-copy-status { margin: 4px 0 0; font-size: 12px; color: $color-gray-600; }
 .battle-item-details p { line-height: 1.6; }
 .battle-item-card:focus-visible, .skill-selection-item:focus-visible { outline: 3px solid #247aba; outline-offset: 3px; }
 

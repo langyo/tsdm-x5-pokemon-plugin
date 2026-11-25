@@ -727,9 +727,11 @@ pub struct BattleState {
     pub tab: ReactiveSignal<u8>,
     /// 手动打开的换宠确认弹窗。
     pub show_switch_modal: ReactiveSignal<bool>,
-    /// 战报弹窗（lines 由拉取结果暂存）。
+    /// 战报弹窗（完整响应含逐回合分组与 bbcode）。
     pub show_log: ReactiveSignal<bool>,
-    pub log_lines: ReactiveSignal<Vec<String>>,
+    pub log_data: ReactiveSignal<Option<Result<crate::battle_types::BattleLogResponse, String>>>,
+    /// 复制战报的结果提示（空 = 尚未操作）。
+    pub log_copy_status: ReactiveSignal<String>,
     /// 上次开战的地图（结算「继续战斗」用）。
     pub last_map_id: ReactiveSignal<u64>,
     pub toast_visible: ReactiveSignal<bool>,
@@ -754,7 +756,8 @@ impl BattleState {
             tab: use_signal(|| 0u8),
             show_switch_modal: use_signal(|| false),
             show_log: use_signal(|| false),
-            log_lines: use_signal(Vec::new),
+            log_data: use_signal(|| None),
+            log_copy_status: use_signal(String::new),
             last_map_id: use_signal(|| 0u64),
             toast_visible: use_signal(|| false),
             toast_message: use_signal(String::new),

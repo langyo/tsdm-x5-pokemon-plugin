@@ -425,8 +425,24 @@ pub fn regions_from_maps(maps: &[MapInfo]) -> Vec<MapRegion> {
 }
 
 /// 战报行（battle_log 端点）。
+///
+/// 服务端同时返回 `turns`（按回合分组）与 `bbcode`（可直接贴到论坛的整段
+/// 引用块）；只解析 `lines` 会让「复制战报」与逐回合视图无法实现。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct BattleLogResponse {
+    #[serde(default)]
+    pub lines: Vec<String>,
+    #[serde(default)]
+    pub turns: Vec<BattleLogTurn>,
+    #[serde(default)]
+    pub bbcode: String,
+}
+
+/// 单个回合的战报行。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct BattleLogTurn {
+    #[serde(default)]
+    pub turn: u32,
     #[serde(default)]
     pub lines: Vec<String>,
 }

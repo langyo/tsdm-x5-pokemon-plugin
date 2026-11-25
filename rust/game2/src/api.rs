@@ -1564,8 +1564,8 @@ pub fn get_battle_balls(on_done: Box<dyn FnOnce(BattleBallsResult)>) {
     );
 }
 
-/// 战报结果别名。
-pub type BattleLogResult = Result<Vec<String>, String>;
+/// 战报结果：完整响应（含逐回合分组与可复制的 bbcode）。
+pub type BattleLogResult = Result<crate::battle_types::BattleLogResponse, String>;
 
 pub fn get_battle_log(battle_id: u64, on_done: Box<dyn FnOnce(BattleLogResult)>) {
     request(
@@ -1573,9 +1573,7 @@ pub fn get_battle_log(battle_id: u64, on_done: Box<dyn FnOnce(BattleLogResult)>)
         &format!("battle_log&battle_id={battle_id}"),
         None,
         Box::new(
-            |result: Result<crate::battle_types::BattleLogResponse, String>| {
-                on_done(result.map(|dto| dto.lines))
-            },
+            |result: Result<crate::battle_types::BattleLogResponse, String>| on_done(result),
         ),
     );
 }

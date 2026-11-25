@@ -131,9 +131,12 @@ pub fn Home(state: Box<AppState>) -> VNode {
     };
 
     // 在线玩家体
+    // 外层 .online-players 是旧版就有的包裹层（text-align:center + strong 大号
+    // 蓝字），移植时漏掉会让人数不居中、字号也不对。头像区 240px 固定高度是
+    // 为了容纳 4 行滚动，但没人时不该留一大片空白。
     let online_body = match &online {
-        None => count_p("加载中...", false),
-        Some(Err(_)) => count_p("加载失败", true),
+        None => wrap_online(count_p("加载中...", false)),
+        Some(Err(_)) => wrap_online(count_p("加载失败", true)),
         Some(Ok((total, players))) => {
             let total_str = total.to_string();
             let avatars: Vec<VNode> = players
@@ -153,14 +156,19 @@ pub fn Home(state: Box<AppState>) -> VNode {
                 })
                 .collect();
             rsx! {
-                p { class: "player-count",
-                    "当前在线 "
-                    strong { "{total_str}" }
-                    " 人"
-                }
-                div { class: "player-avatars",
-                    for i in 0..avatars.len() {
-                        ..vec![avatars[i].clone()]
+                div { class: "online-players",
+                    p { class: "player-count",
+                        "当前在线 "
+                        strong { "{total_str}" }
+                        " 人"
+                    }
+                    // 无人时不给空容器撑 240px 高度
+                    if !avatars.is_empty() {
+                        div { class: "player-avatars",
+                            for i in 0..avatars.len() {
+                                ..vec![avatars[i].clone()]
+                            }
+                        }
                     }
                 }
             }
@@ -195,21 +203,23 @@ pub fn Home(state: Box<AppState>) -> VNode {
         "admin-btn badge-toggle-btn"
     };
     let badge_body = rsx! {
-        p { class: "player-count", "{badge_state_text}" }
-        div { class: "badge-actions",
-            button {
-                class: refresh_cls,
-                r#type: "button",
-                disabled: busy,
-                "data-pm-badge-refresh": "1",
-                if busy { "刷新中..." } else { "刷新徽章" }
-            }
-            button {
-                class: toggle_cls,
-                r#type: "button",
-                disabled: busy,
-                "data-pm-badge-toggle": toggle_attr,
-                "{toggle_label}"
+        div { class: "online-players",
+            p { class: "player-count", "{badge_state_text}" }
+            div { class: "badge-actions",
+                button {
+                    class: refresh_cls,
+                    r#type: "button",
+                    disabled: busy,
+                    "data-pm-badge-refresh": "1",
+                    if busy { "刷新中..." } else { "刷新徽章" }
+                }
+                button {
+                    class: toggle_cls,
+                    r#type: "button",
+                    disabled: busy,
+                    "data-pm-badge-toggle": toggle_attr,
+                    "{toggle_label}"
+                }
             }
         }
     };
@@ -263,4 +273,13 @@ fn count_p(text: &str, is_error: bool) -> VNode {
         "player-count"
     };
     rsx! { p { class: cls, "{t}" } }
+}
+
+/// 包上旧版的 .online-players 容器（居中对齐 + 人数大字样式都挂在它下面）。
+fn wrap_online(inner: VNode) -> VNode {
+    rsx! {
+        div { class: "online-players",
+            ..vec![inner]
+        }
+    }
 }
