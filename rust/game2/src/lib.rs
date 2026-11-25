@@ -12,6 +12,8 @@ pub mod battle_types;
 #[cfg(target_family = "wasm")]
 pub mod delegation;
 #[cfg(target_family = "wasm")]
+pub mod footer;
+#[cfg(target_family = "wasm")]
 pub mod home;
 pub mod icon;
 #[cfg(target_family = "wasm")]
@@ -237,6 +239,13 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
         "nav-link"
     };
     let img_logo = "source/plugin/pokemon/images/item/jlq.gif";
+    // 页脚常驻；“关于本项目”弹窗按状态挂载（结构与类名对齐 Dioxus 版）。
+    let footer_node = footer::Footer(Default::default());
+    let about_node = if state.show_about.get() {
+        footer::about_modal()
+    } else {
+        tairitsu_vdom::VNode::empty()
+    };
 
     rsx! {
         div { class: "app-layout",
@@ -264,6 +273,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
             div { class: "app-main",
                 div { class: "app-content", ..vec![page] }
             }
+            ..vec![footer_node, about_node]
         }
     }
 }

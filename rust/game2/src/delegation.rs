@@ -164,6 +164,17 @@ pub fn install(app: &WitElement, state: &AppState) {
 }
 
 fn dispatch_click(state: &AppState, target: u64) {
+    // 页脚“关于本项目”：关闭（遮罩与关闭按钮共用同一属性）优先于打开。
+    if find_with_attr(target, "data-pm-about-close").is_some() {
+        state.show_about.set(false);
+        crate::request_remount();
+        return;
+    }
+    if find_with_attr(target, "data-pm-about").is_some() {
+        state.show_about.set(true);
+        crate::request_remount();
+        return;
+    }
     // 顶部导航：页面切换
     if let Some((_, v)) = find_with_attr(target, "data-pm-nav") {
         let route = match v.as_str() {

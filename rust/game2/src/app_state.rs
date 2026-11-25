@@ -56,6 +56,9 @@ pub struct AppState {
     pub welcome_error: ReactiveSignal<Option<String>>,
     pub welcome_success: ReactiveSignal<bool>,
 
+    // ---- 页脚“关于本项目”弹窗 ----
+    pub show_about: ReactiveSignal<bool>,
+
     // ---- 首页 ----
     /// 话题+新闻合并列表。None = 加载中；Some(Err) = 失败。
     pub topics: ReactiveSignal<Option<Result<Vec<TopicItem>, String>>>,
@@ -89,6 +92,7 @@ impl AppState {
             welcome_initializing: use_signal(|| false),
             welcome_error: use_signal(|| None),
             welcome_success: use_signal(|| false),
+            show_about: use_signal(|| false),
             topics: use_signal(|| None),
             online: use_signal(|| None),
             shop: ShopState::new(),
