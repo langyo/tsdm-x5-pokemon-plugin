@@ -12,6 +12,7 @@ if (($argv[1] ?? '') === '--worker') {
     $_GET = ['action' => $case['action'] ?? 'maps'];
     if (!empty($case['endpoint'])) $_GET['endpoint'] = $case['endpoint'];
     if (!empty($case['index'])) $_GET['index'] = $case['index'];
+    if (!empty($case['ui'])) $_GET['ui'] = $case['ui'];
     $_POST = !empty($case['admin_write']) ? ['action' => 'set::global_config', 'data' => '{"is_open":true}'] : [];
     $_SERVER['REQUEST_METHOD'] = $_POST ? 'POST' : ($case['method'] ?? 'GET');
     $_SERVER['HTTP_X_PM_FORMHASH'] = $case['token'] ?? 'test-formhash';
@@ -123,9 +124,16 @@ foreach ([0, 1] as $legacy) foreach ([0, 1] as $global) {
 check_route($r['success'] && $r['page'] === 'game', 'Named staff can open the direct game page during maintenance');
 [$r] = route_case(['entry' => 'game', 'legacy' => 1, 'global' => '0', 'uid' => 0]);
 check_route(!$r['success'] && $r['message'] === 'system_closed', 'Guests also see closure at the direct game page');
-[$r, $saved] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'admin' => true, 'admin_write' => true]);
+// 默认 admin 路由已是 tairitsu 壳（admin_v2.inc.php）：管理员维护期可渲染，
+// 非管理员被 admin_only 拦下。
+[$r] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'admin' => true]);
+check_route($r['success'] && $r['page'] === 'game', 'Default admin route renders the tairitsu shell for admins during maintenance');
+[$r] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'uid' => 0]);
+check_route(!$r['success'] && $r['message'] === 'admin_only', 'Default admin route still rejects non-admins');
+// Dioxus admincp 的维护期写配置路径经 &ui=v1 逃生参数进入。
+[$r, $saved] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'admin' => true, 'admin_write' => true, 'ui' => 'v1']);
 check_route($r['success'] && $saved['value'] === '1', 'Direct game admin route can reopen global configuration');
-[$r, $saved] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'admin_write' => true]);
+[$r, $saved] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'admin_write' => true, 'ui' => 'v1']);
 check_route(!$r['success'] && $saved === null, 'Direct game admin route still rejects ordinary players');
 [$r] = route_case(['legacy' => 1, 'global' => '1']);
 check_route($r['success'] && $r['page'] === 'game', 'Router can include the game page with shared access helpers');
