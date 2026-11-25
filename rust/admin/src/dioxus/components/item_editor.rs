@@ -11,8 +11,9 @@ use _utils::types::{
     pokemon_type::PokemonKind,
 };
 
-/// 道具图片路径前缀
-const IMG_PATH: &str = "source/plugin/pokemon/pokemon_system/images";
+/// 道具图片路径前缀（Caddy 仅放行 /source/plugin/pokemon/images/ 下的静态资产，
+/// 旧 pokemon_system/ 前缀会被 @private_source 拦成 403）
+const IMG_PATH: &str = "source/plugin/pokemon/images";
 
 /// 获取所有 PokemonKind 选项
 fn pokemon_kind_options() -> Vec<(String, String)> {

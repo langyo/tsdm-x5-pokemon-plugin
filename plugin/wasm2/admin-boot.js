@@ -9,7 +9,7 @@
   'use strict';
 
   var BUILD_ID = '1794091537';
-  var GLUE_CORE_ID = '1794091540';
+  var GLUE_CORE_ID = '1794091582';
   var BASE = '/source/plugin/pokemon/wasm2';
 
   // importmap 必须在任何 module 载入前注册，且每页只能有一个。

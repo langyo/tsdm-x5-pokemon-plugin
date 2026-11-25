@@ -20,8 +20,9 @@ use _utils::types::{
     skill_type::SkillType,
 };
 
-/// 宠物图片路径前缀
-const IMG_PATH: &str = "source/plugin/pokemon/pokemon_system/images";
+/// 宠物图片路径前缀（Caddy 仅放行 /source/plugin/pokemon/images/ 下的静态资产，
+/// 旧 pokemon_system/ 前缀会被 @private_source 拦成 403）
+const IMG_PATH: &str = "source/plugin/pokemon/images";
 
 use super::form_fields::{
     BoolField, Col, FieldWrapper, FloatField, FormSection, Row, SelectField, TextAreaField,

@@ -2929,7 +2929,7 @@ fn item_editor_modal(st: &AppState) -> VNode {
         None => VNode::empty(),
     };
     let img_name = ed.img_name.get();
-    let img_src = format!("source/plugin/pokemon/pokemon_system/images/item/{img_name}.gif");
+    let img_src = format!("source/plugin/pokemon/images/item/{img_name}.gif");
     let preview = if img_name.trim().is_empty() {
         VNode::empty()
     } else {
