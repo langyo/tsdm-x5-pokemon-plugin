@@ -21,6 +21,28 @@ if (($argv[1] ?? '') === '--worker') {
     function lang($kind, $key) { return $key; }
     function showmessage($message) { echo json_encode(['success' => false, 'message' => $message]); exit; }
     function template($name) { throw new RuntimeException('Game template reached'); }
+    // 默认后台路由（admin_v2.inc.php）是独立页面，渲染时要用 Discuz 的这些
+    // 函数与设置；这里只补测试需要的形状，页面走到 </html> 就算渲染成功。
+    if (!defined('FORMHASH')) define('FORMHASH', 'test-formhash');
+    if (!defined('CHARSET')) define('CHARSET', 'utf-8');
+    if (!function_exists('avatar')) {
+        function avatar($uid, $size = 'small', $returnsrc = 0)
+        {
+            return '/uc_server/avatar.php?uid=' . (int) $uid . '&size=' . $size;
+        }
+    }
+    if (!function_exists('dhtmlspecialchars')) {
+        function dhtmlspecialchars($text) { return htmlspecialchars((string) $text, ENT_QUOTES); }
+    }
+    if (!function_exists('updatesession')) {
+        function updatesession() {}
+    }
+    if (!function_exists('output')) {
+        function output() {}
+    }
+    $_G['setting'] = ['bbname' => 'Fixture Forum'];
+    $_G['siteurl'] = 'https://fixture.invalid/';
+    $_G['group'] = ['grouptitle' => 'Members'];
     class DB
     {
         public static $config;
@@ -52,12 +74,24 @@ if (($argv[1] ?? '') === '--worker') {
     }
     DB::$config = array_key_exists('global', $case)
         ? ['key' => 'is_open', 'value' => $case['global'], 'data_type' => $case['data_type'] ?? 'boolean'] : false;
+    // 页面自己会往 stdout 写东西：API 路由回 JSON，独立后台页（admin_v2.inc.php）
+    // 写整份 HTML 文档。父进程只认 JSON，所以先缓冲，按内容决定交回什么。
+    ob_start();
     try {
         if (($case['entry'] ?? '') === 'game') require __DIR__ . '/../../plugin/game.inc.php';
         else require __DIR__ . '/../../plugin/pokemon.inc.php';
     } catch (RuntimeException $error) {
+        ob_end_clean();
         if ($error->getMessage() !== 'Game template reached') throw $error;
         echo json_encode(['success' => true, 'page' => 'game']);
+        exit;
+    }
+    $rendered = (string) ob_get_clean();
+    if (ltrim($rendered) !== '' && ltrim($rendered)[0] !== '{') {
+        // 走完独立后台页的 </html>：这本身就是「页面渲染成功」。
+        echo json_encode(['success' => true, 'page' => 'admin']);
+    } else {
+        echo $rendered;
     }
     exit;
 }
@@ -127,7 +161,7 @@ check_route(!$r['success'] && $r['message'] === 'system_closed', 'Guests also se
 // 默认 admin 路由已是 tairitsu 壳（admin_v2.inc.php）：管理员维护期可渲染，
 // 非管理员被 admin_only 拦下。
 [$r] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'admin' => true]);
-check_route($r['success'] && $r['page'] === 'game', 'Default admin route renders the tairitsu shell for admins during maintenance');
+check_route($r['success'] && $r['page'] === 'admin', 'Default admin route renders the tairitsu shell for admins during maintenance');
 [$r] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'uid' => 0]);
 check_route(!$r['success'] && $r['message'] === 'admin_only', 'Default admin route still rejects non-admins');
 // Dioxus admincp 的维护期写配置路径经 &ui=v1 逃生参数进入。

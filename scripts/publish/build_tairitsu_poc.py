@@ -141,7 +141,12 @@ INTERFACE_MAP = {
         "addEventListener", "preventDefault", "removeEventListener",
         "stopPropagation",
     ]),
-    "html-input-element": ("html", ["getValue"]),
+    # getType/setValue/setChecked：tairitsu-web 给表单控件的 value / checked 落
+    # 实时状态时读元素类型并写属性（getValue 是读进来那条路，getChecked 供
+    # 能力探针读回复选框的实时状态）。
+    "html-input-element": ("html", [
+        "getChecked", "getType", "getValue", "setChecked", "setValue",
+    ]),
     "mouse-event": ("events", [
         "getAltKey", "getButton", "getButtons", "getClientX", "getClientY",
         "getCtrlKey", "getMetaKey", "getOffsetX", "getOffsetY", "getPageX",

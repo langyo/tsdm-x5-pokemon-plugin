@@ -3653,12 +3653,12 @@ import { insecureSeed as insecureSeed$1 } from "@bytecodealliance/preview2-shim/
 import { getPropertyValue, setProperty } from "tairitsu-browser:full/css-style-declaration";
 import { createElement, createElementNs, createTextNode, getBody } from "tairitsu-browser:full/document";
 import { add, contains, remove } from "tairitsu-browser:full/dom-token-list";
-import { getAttribute, getBoundingClientRect, getClassList, getClientHeight, getScrollHeight, getScrollTop, getTagName, removeAttribute, setAttribute, setInnerHtml, setScrollTop } from "tairitsu-browser:full/element";
+import { closest, getAttribute, getBoundingClientRect, getClassList, getClientHeight, getScrollHeight, getScrollTop, getTagName, removeAttribute, setAttribute, setInnerHtml, setScrollTop } from "tairitsu-browser:full/element";
 import { getStyle } from "tairitsu-browser:full/element-css-inline-style";
 import { getCurrentTarget, getTarget } from "tairitsu-browser:full/event";
 import { addEventListener, preventDefault, removeEventListener, stopPropagation } from "tairitsu-browser:full/event-target";
-import { getValue } from "tairitsu-browser:full/html-input-element";
-import { setHref } from "tairitsu-browser:full/location";
+import { getType, getValue, setChecked, setValue } from "tairitsu-browser:full/html-input-element";
+import { reload, setHref } from "tairitsu-browser:full/location";
 import { addListener } from "tairitsu-browser:full/media-query-list";
 import { getAltKey, getButton, getButtons, getClientX, getClientY, getCtrlKey, getMetaKey, getOffsetX, getOffsetY, getPageX, getPageY, getScreenX, getScreenY, getShiftKey } from "tairitsu-browser:full/mouse-event";
 import { appendChild, getChildNodes, getFirstChild, getNodeType, getParentElement, insertBefore, removeChild, replaceChild, setTextContent } from "tairitsu-browser:full/node";
@@ -4041,309 +4041,7 @@ const _trampoline0 = function(arg0, arg1) {
 	return toInt32(_jcoStrictNumericContext, ret);
 };
 _trampoline0.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#setTimeout";
-const _trampoline1 = function(arg0, arg1) {
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"set-interval\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "setInterval",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setInterval(BigInt.asUintN(64, BigInt(arg0)), arg1))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"set-interval\"][Instruction::Return]", {
-		funcName: "set-interval",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt32(_jcoStrictNumericContext, ret);
-};
-_trampoline1.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#setInterval";
-const _trampoline2 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"clear-timeout\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "clearTimeout",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => clearTimeout(arg0))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"clear-timeout\"][Instruction::Return]", {
-		funcName: "clear-timeout",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline2.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#clearTimeout";
-const _trampoline3 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"clear-interval\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "clearInterval",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => clearInterval(arg0))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"clear-interval\"][Instruction::Return]", {
-		funcName: "clear-interval",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline3.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#clearInterval";
-const _trampoline4 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"cancel-animation-frame\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "cancelAnimationFrame",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => cancelAnimationFrame(arg0 >>> 0))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"cancel-animation-frame\"][Instruction::Return]", {
-		funcName: "cancel-animation-frame",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline4.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#cancelAnimationFrame";
-const _trampoline5 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"request-animation-frame\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "requestAnimationFrame",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => requestAnimationFrame(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"request-animation-frame\"][Instruction::Return]", {
-		funcName: "request-animation-frame",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint32(_jcoStrictNumericContext, ret);
-};
-_trampoline5.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#requestAnimationFrame";
-const _trampoline6 = function(arg0) {
+const _trampoline1 = function(arg0) {
 	_debugLog("[iface=\"tairitsu-browser:full/element-css-inline-style@0.2.0\", function=\"get-style\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -4403,8 +4101,493 @@ const _trampoline6 = function(arg0) {
 	task.exit();
 	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline6.fnName = "tairitsu-browser:full/element-css-inline-style@0.2.0#getStyle";
-const _trampoline7 = function(arg0, arg1) {
+_trampoline1.fnName = "tairitsu-browser:full/element-css-inline-style@0.2.0#getStyle";
+const _trampoline2 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"get-child-nodes\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getChildNodes",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getChildNodes(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"get-child-nodes\"][Instruction::Return]", {
+		funcName: "get-child-nodes",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint64(_jcoStrictNumericContext, ret);
+};
+_trampoline2.fnName = "tairitsu-browser:full/node@0.2.0#getChildNodes";
+const _trampoline3 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/node-list@0.2.0\", function=\"get-length\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getLength",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getLength(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/node-list@0.2.0\", function=\"get-length\"][Instruction::Return]", {
+		funcName: "get-length",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint32(_jcoStrictNumericContext, ret);
+};
+_trampoline3.fnName = "tairitsu-browser:full/node-list@0.2.0#getLength";
+const _trampoline4 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"request-animation-frame\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "requestAnimationFrame",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => requestAnimationFrame(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"request-animation-frame\"][Instruction::Return]", {
+		funcName: "request-animation-frame",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint32(_jcoStrictNumericContext, ret);
+};
+_trampoline4.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#requestAnimationFrame";
+const _trampoline5 = function() {
+	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"get-inner-width\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getInnerWidth",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getInnerWidth())
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"get-inner-width\"][Instruction::Return]", {
+		funcName: "get-inner-width",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt32(_jcoStrictNumericContext, ret);
+};
+_trampoline5.fnName = "tairitsu-browser:full/window@0.2.0#getInnerWidth";
+const _trampoline6 = function(arg0, arg1) {
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"set-interval\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "setInterval",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setInterval(BigInt.asUintN(64, BigInt(arg0)), arg1))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"set-interval\"][Instruction::Return]", {
+		funcName: "set-interval",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt32(_jcoStrictNumericContext, ret);
+};
+_trampoline6.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#setInterval";
+const _trampoline7 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"clear-timeout\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "clearTimeout",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => clearTimeout(arg0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"clear-timeout\"][Instruction::Return]", {
+		funcName: "clear-timeout",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline7.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#clearTimeout";
+const _trampoline8 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"clear-interval\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "clearInterval",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => clearInterval(arg0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"clear-interval\"][Instruction::Return]", {
+		funcName: "clear-interval",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline8.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#clearInterval";
+const _trampoline9 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"cancel-animation-frame\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "cancelAnimationFrame",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => cancelAnimationFrame(arg0 >>> 0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/platform-helpers@0.2.0\", function=\"cancel-animation-frame\"][Instruction::Return]", {
+		funcName: "cancel-animation-frame",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline9.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#cancelAnimationFrame";
+const _trampoline10 = function(arg0, arg1) {
 	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"append-child\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -4464,8 +4647,8 @@ const _trampoline7 = function(arg0, arg1) {
 	task.exit();
 	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline7.fnName = "tairitsu-browser:full/node@0.2.0#appendChild";
-const _trampoline8 = function(arg0, arg1) {
+_trampoline10.fnName = "tairitsu-browser:full/node@0.2.0#appendChild";
+const _trampoline11 = function(arg0, arg1) {
 	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"remove-child\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -4525,8 +4708,8 @@ const _trampoline8 = function(arg0, arg1) {
 	task.exit();
 	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline8.fnName = "tairitsu-browser:full/node@0.2.0#removeChild";
-const _trampoline9 = function(arg0) {
+_trampoline11.fnName = "tairitsu-browser:full/node@0.2.0#removeChild";
+const _trampoline12 = function(arg0) {
 	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"get-node-type\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -4586,8 +4769,8 @@ const _trampoline9 = function(arg0) {
 	task.exit();
 	return toUint16(_jcoStrictNumericContext, ret);
 };
-_trampoline9.fnName = "tairitsu-browser:full/node@0.2.0#getNodeType";
-const _trampoline10 = function(arg0, arg1, arg2, arg3) {
+_trampoline12.fnName = "tairitsu-browser:full/node@0.2.0#getNodeType";
+const _trampoline13 = function(arg0, arg1, arg2, arg3) {
 	let variant0;
 	switch (arg2) {
 		case 0:
@@ -4657,8 +4840,8 @@ const _trampoline10 = function(arg0, arg1, arg2, arg3) {
 	task.exit();
 	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline10.fnName = "tairitsu-browser:full/node@0.2.0#insertBefore";
-const _trampoline11 = function(arg0, arg1, arg2) {
+_trampoline13.fnName = "tairitsu-browser:full/node@0.2.0#insertBefore";
+const _trampoline14 = function(arg0, arg1, arg2) {
 	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"replace-child\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -4718,2141 +4901,8 @@ const _trampoline11 = function(arg0, arg1, arg2) {
 	task.exit();
 	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline11.fnName = "tairitsu-browser:full/node@0.2.0#replaceChild";
-const _trampoline12 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"get-child-nodes\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getChildNodes",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getChildNodes(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"get-child-nodes\"][Instruction::Return]", {
-		funcName: "get-child-nodes",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint64(_jcoStrictNumericContext, ret);
-};
-_trampoline12.fnName = "tairitsu-browser:full/node@0.2.0#getChildNodes";
-const _trampoline13 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-x\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getDeltaX",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getDeltaX(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-x\"][Instruction::Return]", {
-		funcName: "get-delta-x",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline13.fnName = "tairitsu-browser:full/wheel-event@0.2.0#getDeltaX";
-const _trampoline14 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-y\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getDeltaY",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getDeltaY(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-y\"][Instruction::Return]", {
-		funcName: "get-delta-y",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline14.fnName = "tairitsu-browser:full/wheel-event@0.2.0#getDeltaY";
+_trampoline14.fnName = "tairitsu-browser:full/node@0.2.0#replaceChild";
 const _trampoline15 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-z\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getDeltaZ",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getDeltaZ(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-z\"][Instruction::Return]", {
-		funcName: "get-delta-z",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline15.fnName = "tairitsu-browser:full/wheel-event@0.2.0#getDeltaZ";
-const _trampoline16 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-mode\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getDeltaMode",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getDeltaMode(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-mode\"][Instruction::Return]", {
-		funcName: "get-delta-mode",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint32(_jcoStrictNumericContext, ret);
-};
-_trampoline16.fnName = "tairitsu-browser:full/wheel-event@0.2.0#getDeltaMode";
-const _trampoline17 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/node-list@0.2.0\", function=\"get-length\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getLength",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getLength(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/node-list@0.2.0\", function=\"get-length\"][Instruction::Return]", {
-		funcName: "get-length",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint32(_jcoStrictNumericContext, ret);
-};
-_trampoline17.fnName = "tairitsu-browser:full/node-list@0.2.0#getLength";
-const _trampoline18 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/event-target@0.2.0\", function=\"prevent-default\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "preventDefault",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => preventDefault(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/event-target@0.2.0\", function=\"prevent-default\"][Instruction::Return]", {
-		funcName: "prevent-default",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline18.fnName = "tairitsu-browser:full/event-target@0.2.0#preventDefault";
-const _trampoline19 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-client-x\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getClientX",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getClientX(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-client-x\"][Instruction::Return]", {
-		funcName: "get-client-x",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline19.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getClientX";
-const _trampoline20 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-client-y\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getClientY",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getClientY(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-client-y\"][Instruction::Return]", {
-		funcName: "get-client-y",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline20.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getClientY";
-const _trampoline21 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-screen-x\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getScreenX",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getScreenX(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-screen-x\"][Instruction::Return]", {
-		funcName: "get-screen-x",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline21.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getScreenX";
-const _trampoline22 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-screen-y\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getScreenY",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getScreenY(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-screen-y\"][Instruction::Return]", {
-		funcName: "get-screen-y",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline22.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getScreenY";
-const _trampoline23 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-offset-x\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getOffsetX",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getOffsetX(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-offset-x\"][Instruction::Return]", {
-		funcName: "get-offset-x",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline23.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getOffsetX";
-const _trampoline24 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-offset-y\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getOffsetY",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getOffsetY(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-offset-y\"][Instruction::Return]", {
-		funcName: "get-offset-y",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline24.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getOffsetY";
-const _trampoline25 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-page-x\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getPageX",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPageX(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-page-x\"][Instruction::Return]", {
-		funcName: "get-page-x",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline25.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getPageX";
-const _trampoline26 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-page-y\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getPageY",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPageY(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-page-y\"][Instruction::Return]", {
-		funcName: "get-page-y",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline26.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getPageY";
-const _trampoline27 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-button\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getButton",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getButton(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-button\"][Instruction::Return]", {
-		funcName: "get-button",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt16(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt16(_jcoStrictNumericContext, ret);
-};
-_trampoline27.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getButton";
-const _trampoline28 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-buttons\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getButtons",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getButtons(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-buttons\"][Instruction::Return]", {
-		funcName: "get-buttons",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint16(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint16(_jcoStrictNumericContext, ret);
-};
-_trampoline28.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getButtons";
-const _trampoline29 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-ctrl-key\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getCtrlKey",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getCtrlKey(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-ctrl-key\"][Instruction::Return]", {
-		funcName: "get-ctrl-key",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+!!ret]);
-	task.exit();
-	return +!!ret;
-};
-_trampoline29.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getCtrlKey";
-const _trampoline30 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-shift-key\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getShiftKey",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getShiftKey(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-shift-key\"][Instruction::Return]", {
-		funcName: "get-shift-key",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+!!ret]);
-	task.exit();
-	return +!!ret;
-};
-_trampoline30.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getShiftKey";
-const _trampoline31 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-alt-key\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getAltKey",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getAltKey(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-alt-key\"][Instruction::Return]", {
-		funcName: "get-alt-key",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+!!ret]);
-	task.exit();
-	return +!!ret;
-};
-_trampoline31.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getAltKey";
-const _trampoline32 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-meta-key\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getMetaKey",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getMetaKey(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-meta-key\"][Instruction::Return]", {
-		funcName: "get-meta-key",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+!!ret]);
-	task.exit();
-	return +!!ret;
-};
-_trampoline32.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getMetaKey";
-const _trampoline33 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pointer-id\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getPointerId",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPointerId(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pointer-id\"][Instruction::Return]", {
-		funcName: "get-pointer-id",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt32(_jcoStrictNumericContext, ret);
-};
-_trampoline33.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getPointerId";
-const _trampoline34 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-is-primary\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getIsPrimary",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getIsPrimary(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-is-primary\"][Instruction::Return]", {
-		funcName: "get-is-primary",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+!!ret]);
-	task.exit();
-	return +!!ret;
-};
-_trampoline34.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getIsPrimary";
-const _trampoline35 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-width\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getWidth",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getWidth(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-width\"][Instruction::Return]", {
-		funcName: "get-width",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline35.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getWidth";
-const _trampoline36 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-height\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getHeight",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getHeight(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-height\"][Instruction::Return]", {
-		funcName: "get-height",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline36.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getHeight";
-const _trampoline37 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pressure\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getPressure",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPressure(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pressure\"][Instruction::Return]", {
-		funcName: "get-pressure",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline37.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getPressure";
-const _trampoline38 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tangential-pressure\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getTangentialPressure",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTangentialPressure(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tangential-pressure\"][Instruction::Return]", {
-		funcName: "get-tangential-pressure",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline38.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getTangentialPressure";
-const _trampoline39 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tilt-x\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getTiltX",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTiltX(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tilt-x\"][Instruction::Return]", {
-		funcName: "get-tilt-x",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt32(_jcoStrictNumericContext, ret);
-};
-_trampoline39.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getTiltX";
-const _trampoline40 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tilt-y\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getTiltY",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTiltY(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tilt-y\"][Instruction::Return]", {
-		funcName: "get-tilt-y",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt32(_jcoStrictNumericContext, ret);
-};
-_trampoline40.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getTiltY";
-const _trampoline41 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-twist\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getTwist",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTwist(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-twist\"][Instruction::Return]", {
-		funcName: "get-twist",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt32(_jcoStrictNumericContext, ret);
-};
-_trampoline41.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getTwist";
-const _trampoline42 = function() {
-	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"get-inner-width\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getInnerWidth",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getInnerWidth())
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"get-inner-width\"][Instruction::Return]", {
-		funcName: "get-inner-width",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt32(_jcoStrictNumericContext, ret);
-};
-_trampoline42.fnName = "tairitsu-browser:full/window@0.2.0#getInnerWidth";
-const _trampoline43 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-scroll-top\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getScrollTop",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getScrollTop(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-scroll-top\"][Instruction::Return]", {
-		funcName: "get-scroll-top",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+ret]);
-	task.exit();
-	return +ret;
-};
-_trampoline43.fnName = "tairitsu-browser:full/element@0.2.0#getScrollTop";
-const _trampoline44 = function(arg0, arg1) {
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-scroll-top\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "setScrollTop",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setScrollTop(BigInt.asUintN(64, BigInt(arg0)), arg1))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-scroll-top\"][Instruction::Return]", {
-		funcName: "set-scroll-top",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline44.fnName = "tairitsu-browser:full/element@0.2.0#setScrollTop";
-const _trampoline45 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-scroll-height\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getScrollHeight",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getScrollHeight(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-scroll-height\"][Instruction::Return]", {
-		funcName: "get-scroll-height",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt32(_jcoStrictNumericContext, ret);
-};
-_trampoline45.fnName = "tairitsu-browser:full/element@0.2.0#getScrollHeight";
-const _trampoline46 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-client-height\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getClientHeight",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getClientHeight(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-client-height\"][Instruction::Return]", {
-		funcName: "get-client-height",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toInt32(_jcoStrictNumericContext, ret);
-};
-_trampoline46.fnName = "tairitsu-browser:full/element@0.2.0#getClientHeight";
-const _trampoline47 = function(arg0) {
 	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-class-list\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -6912,8 +4962,1104 @@ const _trampoline47 = function(arg0) {
 	task.exit();
 	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline47.fnName = "tairitsu-browser:full/element@0.2.0#getClassList";
-const _trampoline48 = function(arg0) {
+_trampoline15.fnName = "tairitsu-browser:full/element@0.2.0#getClassList";
+const _trampoline16 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-scroll-top\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getScrollTop",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getScrollTop(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-scroll-top\"][Instruction::Return]", {
+		funcName: "get-scroll-top",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline16.fnName = "tairitsu-browser:full/element@0.2.0#getScrollTop";
+const _trampoline17 = function(arg0, arg1) {
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-scroll-top\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "setScrollTop",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setScrollTop(BigInt.asUintN(64, BigInt(arg0)), arg1))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-scroll-top\"][Instruction::Return]", {
+		funcName: "set-scroll-top",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline17.fnName = "tairitsu-browser:full/element@0.2.0#setScrollTop";
+const _trampoline18 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-client-height\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getClientHeight",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getClientHeight(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-client-height\"][Instruction::Return]", {
+		funcName: "get-client-height",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt32(_jcoStrictNumericContext, ret);
+};
+_trampoline18.fnName = "tairitsu-browser:full/element@0.2.0#getClientHeight";
+const _trampoline19 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-scroll-height\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getScrollHeight",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getScrollHeight(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-scroll-height\"][Instruction::Return]", {
+		funcName: "get-scroll-height",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt32(_jcoStrictNumericContext, ret);
+};
+_trampoline19.fnName = "tairitsu-browser:full/element@0.2.0#getScrollHeight";
+const _trampoline20 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-x\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getDeltaX",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getDeltaX(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-x\"][Instruction::Return]", {
+		funcName: "get-delta-x",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline20.fnName = "tairitsu-browser:full/wheel-event@0.2.0#getDeltaX";
+const _trampoline21 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-y\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getDeltaY",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getDeltaY(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-y\"][Instruction::Return]", {
+		funcName: "get-delta-y",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline21.fnName = "tairitsu-browser:full/wheel-event@0.2.0#getDeltaY";
+const _trampoline22 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-z\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getDeltaZ",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getDeltaZ(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-z\"][Instruction::Return]", {
+		funcName: "get-delta-z",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline22.fnName = "tairitsu-browser:full/wheel-event@0.2.0#getDeltaZ";
+const _trampoline23 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-mode\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getDeltaMode",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getDeltaMode(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/wheel-event@0.2.0\", function=\"get-delta-mode\"][Instruction::Return]", {
+		funcName: "get-delta-mode",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint32(_jcoStrictNumericContext, ret);
+};
+_trampoline23.fnName = "tairitsu-browser:full/wheel-event@0.2.0#getDeltaMode";
+const _trampoline24 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-height\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getHeight",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getHeight(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-height\"][Instruction::Return]", {
+		funcName: "get-height",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline24.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getHeight";
+const _trampoline25 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tilt-x\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getTiltX",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTiltX(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tilt-x\"][Instruction::Return]", {
+		funcName: "get-tilt-x",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt32(_jcoStrictNumericContext, ret);
+};
+_trampoline25.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getTiltX";
+const _trampoline26 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tilt-y\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getTiltY",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTiltY(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tilt-y\"][Instruction::Return]", {
+		funcName: "get-tilt-y",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt32(_jcoStrictNumericContext, ret);
+};
+_trampoline26.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getTiltY";
+const _trampoline27 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pressure\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getPressure",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPressure(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pressure\"][Instruction::Return]", {
+		funcName: "get-pressure",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline27.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getPressure";
+const _trampoline28 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-is-primary\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getIsPrimary",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getIsPrimary(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-is-primary\"][Instruction::Return]", {
+		funcName: "get-is-primary",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+!!ret]);
+	task.exit();
+	return +!!ret;
+};
+_trampoline28.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getIsPrimary";
+const _trampoline29 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pointer-id\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getPointerId",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPointerId(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pointer-id\"][Instruction::Return]", {
+		funcName: "get-pointer-id",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt32(_jcoStrictNumericContext, ret);
+};
+_trampoline29.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getPointerId";
+const _trampoline30 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tangential-pressure\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getTangentialPressure",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTangentialPressure(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-tangential-pressure\"][Instruction::Return]", {
+		funcName: "get-tangential-pressure",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline30.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getTangentialPressure";
+const _trampoline31 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-twist\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getTwist",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTwist(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-twist\"][Instruction::Return]", {
+		funcName: "get-twist",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt32(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt32(_jcoStrictNumericContext, ret);
+};
+_trampoline31.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getTwist";
+const _trampoline32 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-width\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getWidth",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getWidth(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-width\"][Instruction::Return]", {
+		funcName: "get-width",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline32.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getWidth";
+const _trampoline33 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/event-target@0.2.0\", function=\"prevent-default\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "preventDefault",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => preventDefault(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/event-target@0.2.0\", function=\"prevent-default\"][Instruction::Return]", {
+		funcName: "prevent-default",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline33.fnName = "tairitsu-browser:full/event-target@0.2.0#preventDefault";
+const _trampoline34 = function(arg0) {
 	_debugLog("[iface=\"tairitsu-browser:full/event-target@0.2.0\", function=\"stop-propagation\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -6972,8 +6118,923 @@ const _trampoline48 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline48.fnName = "tairitsu-browser:full/event-target@0.2.0#stopPropagation";
-const _trampoline49 = function(arg0, arg1, arg2) {
+_trampoline34.fnName = "tairitsu-browser:full/event-target@0.2.0#stopPropagation";
+const _trampoline35 = function(arg0, arg1) {
+	var bool0 = arg1;
+	_debugLog("[iface=\"tairitsu-browser:full/html-input-element@0.2.0\", function=\"set-checked\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "setChecked",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setChecked(BigInt.asUintN(64, BigInt(arg0)), bool0 == 0 ? !1 : bool0 == 1 || throwInvalidBool()))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/html-input-element@0.2.0\", function=\"set-checked\"][Instruction::Return]", {
+		funcName: "set-checked",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline35.fnName = "tairitsu-browser:full/html-input-element@0.2.0#setChecked";
+const _trampoline36 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-client-x\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getClientX",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getClientX(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-client-x\"][Instruction::Return]", {
+		funcName: "get-client-x",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline36.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getClientX";
+const _trampoline37 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-client-y\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getClientY",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getClientY(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-client-y\"][Instruction::Return]", {
+		funcName: "get-client-y",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline37.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getClientY";
+const _trampoline38 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-screen-x\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getScreenX",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getScreenX(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-screen-x\"][Instruction::Return]", {
+		funcName: "get-screen-x",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline38.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getScreenX";
+const _trampoline39 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-screen-y\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getScreenY",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getScreenY(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-screen-y\"][Instruction::Return]", {
+		funcName: "get-screen-y",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline39.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getScreenY";
+const _trampoline40 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-offset-x\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getOffsetX",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getOffsetX(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-offset-x\"][Instruction::Return]", {
+		funcName: "get-offset-x",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline40.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getOffsetX";
+const _trampoline41 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-offset-y\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getOffsetY",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getOffsetY(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-offset-y\"][Instruction::Return]", {
+		funcName: "get-offset-y",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline41.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getOffsetY";
+const _trampoline42 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-page-x\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getPageX",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPageX(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-page-x\"][Instruction::Return]", {
+		funcName: "get-page-x",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline42.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getPageX";
+const _trampoline43 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-page-y\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getPageY",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPageY(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-page-y\"][Instruction::Return]", {
+		funcName: "get-page-y",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+ret]);
+	task.exit();
+	return +ret;
+};
+_trampoline43.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getPageY";
+const _trampoline44 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-button\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getButton",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getButton(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-button\"][Instruction::Return]", {
+		funcName: "get-button",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toInt16(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toInt16(_jcoStrictNumericContext, ret);
+};
+_trampoline44.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getButton";
+const _trampoline45 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-buttons\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getButtons",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getButtons(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-buttons\"][Instruction::Return]", {
+		funcName: "get-buttons",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint16(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint16(_jcoStrictNumericContext, ret);
+};
+_trampoline45.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getButtons";
+const _trampoline46 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-ctrl-key\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getCtrlKey",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getCtrlKey(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-ctrl-key\"][Instruction::Return]", {
+		funcName: "get-ctrl-key",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+!!ret]);
+	task.exit();
+	return +!!ret;
+};
+_trampoline46.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getCtrlKey";
+const _trampoline47 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-shift-key\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getShiftKey",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getShiftKey(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-shift-key\"][Instruction::Return]", {
+		funcName: "get-shift-key",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+!!ret]);
+	task.exit();
+	return +!!ret;
+};
+_trampoline47.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getShiftKey";
+const _trampoline48 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-alt-key\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getAltKey",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getAltKey(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-alt-key\"][Instruction::Return]", {
+		funcName: "get-alt-key",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+!!ret]);
+	task.exit();
+	return +!!ret;
+};
+_trampoline48.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getAltKey";
+const _trampoline49 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-meta-key\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getMetaKey",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getMetaKey(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/mouse-event@0.2.0\", function=\"get-meta-key\"][Instruction::Return]", {
+		funcName: "get-meta-key",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([+!!ret]);
+	task.exit();
+	return +!!ret;
+};
+_trampoline49.fnName = "tairitsu-browser:full/mouse-event@0.2.0#getMetaKey";
+const _trampoline50 = function(arg0, arg1, arg2) {
 	let variant0;
 	switch (arg1) {
 		case 0:
@@ -7042,8 +7103,68 @@ const _trampoline49 = function(arg0, arg1, arg2) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline49.fnName = "tairitsu-browser:full/media-query-list@0.2.0#addListener";
-const _trampoline56 = function(arg0) {
+_trampoline50.fnName = "tairitsu-browser:full/media-query-list@0.2.0#addListener";
+const _trampoline51 = function() {
+	_debugLog("[iface=\"tairitsu-browser:full/location@0.2.0\", function=\"reload\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "reload",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => reload())
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/location@0.2.0\", function=\"reload\"][Instruction::Return]", {
+		funcName: "reload",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline51.fnName = "tairitsu-browser:full/location@0.2.0#reload";
+const _trampoline58 = function(arg0) {
 	let variant0;
 	switch (arg0) {
 		case 0:
@@ -7118,7 +7239,7 @@ const _trampoline56 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline56.fnName = "wasi:cli/exit@0.2.12#exit";
+_trampoline58.fnName = "wasi:cli/exit@0.2.12#exit";
 const handleTable0 = [T_FLAG, 0];
 handleTable0._createdReps = new Set();
 handleTable0._componentIdx = 0;
@@ -7129,7 +7250,7 @@ STORE_TRAP.resourceTables.push({
 	captures: captureTable0
 });
 HANDLE_TABLES[0] = handleTable0;
-const _trampoline57 = function(arg0) {
+const _trampoline59 = function(arg0) {
 	var handle1 = arg0;
 	var rep2 = handleTable0[(handle1 << 1) + 1] % T_OWN;
 	var rsc0 = captureTable0.get(rep2);
@@ -7209,7 +7330,7 @@ const _trampoline57 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline57.fnName = "wasi:io/poll@0.2.12#block";
+_trampoline59.fnName = "wasi:io/poll@0.2.12#block";
 const handleTable3 = [T_FLAG, 0];
 handleTable3._createdReps = new Set();
 handleTable3._componentIdx = 0;
@@ -7220,7 +7341,7 @@ STORE_TRAP.resourceTables.push({
 	captures: captureTable3
 });
 HANDLE_TABLES[3] = handleTable3;
-const _trampoline58 = function(arg0) {
+const _trampoline60 = function(arg0) {
 	var handle1 = arg0;
 	var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
 	var rsc0 = captureTable3.get(rep2);
@@ -7308,7 +7429,7 @@ const _trampoline58 = function(arg0) {
 	task.exit();
 	return handle3;
 };
-_trampoline58.fnName = "wasi:io/streams@0.2.12#subscribe";
+_trampoline60.fnName = "wasi:io/streams@0.2.12#subscribe";
 const handleTable2 = [T_FLAG, 0];
 handleTable2._createdReps = new Set();
 handleTable2._componentIdx = 0;
@@ -7319,7 +7440,7 @@ STORE_TRAP.resourceTables.push({
 	captures: captureTable2
 });
 HANDLE_TABLES[2] = handleTable2;
-const _trampoline59 = function() {
+const _trampoline61 = function() {
 	_debugLog("[iface=\"wasi:cli/stdin@0.2.12\", function=\"get-stdin\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -7386,8 +7507,8 @@ const _trampoline59 = function() {
 	task.exit();
 	return handle0;
 };
-_trampoline59.fnName = "wasi:cli/stdin@0.2.12#getStdin";
-const _trampoline60 = function() {
+_trampoline61.fnName = "wasi:cli/stdin@0.2.12#getStdin";
+const _trampoline62 = function() {
 	_debugLog("[iface=\"wasi:cli/stdout@0.2.12\", function=\"get-stdout\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -7454,8 +7575,8 @@ const _trampoline60 = function() {
 	task.exit();
 	return handle0;
 };
-_trampoline60.fnName = "wasi:cli/stdout@0.2.12#getStdout";
-const _trampoline61 = function() {
+_trampoline62.fnName = "wasi:cli/stdout@0.2.12#getStdout";
+const _trampoline63 = function() {
 	_debugLog("[iface=\"wasi:cli/stderr@0.2.12\", function=\"get-stderr\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -7522,8 +7643,8 @@ const _trampoline61 = function() {
 	task.exit();
 	return handle0;
 };
-_trampoline61.fnName = "wasi:cli/stderr@0.2.12#getStderr";
-const _trampoline62 = function() {
+_trampoline63.fnName = "wasi:cli/stderr@0.2.12#getStderr";
+const _trampoline64 = function() {
 	_debugLog("[iface=\"wasi:clocks/monotonic-clock@0.2.12\", function=\"now\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -7583,8 +7704,8 @@ const _trampoline62 = function() {
 	task.exit();
 	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline62.fnName = "wasi:clocks/monotonic-clock@0.2.12#now";
-const _trampoline63 = function(arg0) {
+_trampoline64.fnName = "wasi:clocks/monotonic-clock@0.2.12#now";
+const _trampoline65 = function(arg0) {
 	_debugLog("[iface=\"wasi:clocks/monotonic-clock@0.2.12\", function=\"subscribe-duration\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -7651,11 +7772,11 @@ const _trampoline63 = function(arg0) {
 	task.exit();
 	return handle0;
 };
-_trampoline63.fnName = "wasi:clocks/monotonic-clock@0.2.12#subscribeDuration";
+_trampoline65.fnName = "wasi:clocks/monotonic-clock@0.2.12#subscribeDuration";
 let exports1;
 let memory0;
 let realloc0;
-const _trampoline64 = function(arg0, arg1, arg2, arg3, arg4) {
+const _trampoline66 = function(arg0, arg1, arg2, arg3, arg4) {
 	var ptr0 = arg0 >>> 0 >>> 0;
 	var len0 = arg1 >>> 0;
 	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
@@ -7732,8 +7853,8 @@ const _trampoline64 = function(arg0, arg1, arg2, arg3, arg4) {
 	task.exit();
 	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline64.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#fetchPromise";
-const _trampoline65 = function(arg0, arg1) {
+_trampoline66.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#fetchPromise";
+const _trampoline67 = function(arg0, arg1) {
 	var ptr0 = arg0 >>> 0 >>> 0;
 	var len0 = arg1 >>> 0;
 	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
@@ -7797,8 +7918,8 @@ const _trampoline65 = function(arg0, arg1) {
 	task.exit();
 	return +!!ret;
 };
-_trampoline65.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#copyToClipboard";
-const _trampoline66 = function(arg0, arg1) {
+_trampoline67.fnName = "tairitsu-browser:full/platform-helpers@0.2.0#copyToClipboard";
+const _trampoline68 = function(arg0, arg1) {
 	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"get-first-child\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -7864,8 +7985,8 @@ const _trampoline66 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline66.fnName = "tairitsu-browser:full/node@0.2.0#getFirstChild";
-const _trampoline67 = function(arg0, arg1, arg2, arg3) {
+_trampoline68.fnName = "tairitsu-browser:full/node@0.2.0#getFirstChild";
+const _trampoline69 = function(arg0, arg1, arg2, arg3) {
 	let variant1;
 	switch (arg1) {
 		case 0:
@@ -7937,8 +8058,8 @@ const _trampoline67 = function(arg0, arg1, arg2, arg3) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline67.fnName = "tairitsu-browser:full/node@0.2.0#setTextContent";
-const _trampoline68 = function(arg0, arg1) {
+_trampoline69.fnName = "tairitsu-browser:full/node@0.2.0#setTextContent";
+const _trampoline70 = function(arg0, arg1) {
 	_debugLog("[iface=\"tairitsu-browser:full/node@0.2.0\", function=\"get-parent-element\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -8004,725 +8125,8 @@ const _trampoline68 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline68.fnName = "tairitsu-browser:full/node@0.2.0#getParentElement";
-const _trampoline69 = function(arg0, arg1) {
-	_debugLog("[iface=\"tairitsu-browser:full/event@0.2.0\", function=\"get-target\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getTarget",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTarget(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	var variant0 = ret;
-	if (variant0 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg1 >>> 0) + 0, 0, !0);
-	else {
-		let e = variant0;
-		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg1 >>> 0) + 0, 1, !0);
-		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg1 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/event@0.2.0\", function=\"get-target\"][Instruction::Return]", {
-		funcName: "get-target",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline69.fnName = "tairitsu-browser:full/event@0.2.0#getTarget";
-const _trampoline70 = function(arg0, arg1) {
-	_debugLog("[iface=\"tairitsu-browser:full/event@0.2.0\", function=\"get-current-target\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getCurrentTarget",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getCurrentTarget(BigInt.asUintN(64, BigInt(arg0))))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	var variant0 = ret;
-	if (variant0 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg1 >>> 0) + 0, 0, !0);
-	else {
-		let e = variant0;
-		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg1 >>> 0) + 0, 1, !0);
-		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg1 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/event@0.2.0\", function=\"get-current-target\"][Instruction::Return]", {
-		funcName: "get-current-target",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline70.fnName = "tairitsu-browser:full/event@0.2.0#getCurrentTarget";
+_trampoline70.fnName = "tairitsu-browser:full/node@0.2.0#getParentElement";
 const _trampoline71 = function(arg0, arg1, arg2) {
-	var len1 = arg2;
-	var base1 = arg1 >>> 0 >>> 0;
-	if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-	if (base1 % 4 != 0) throw TypeError(`list pointer [${base1}] is not aligned to 4`);
-	var result1 = [];
-	for (let i = 0; i < len1; i++) {
-		let base = base1 + i * 8;
-		var ptr0 = dataView(_jcoDataViewCacheContext, memory0).getUint32(base + 0, !0) >>> 0;
-		var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32(base + 4, !0) >>> 0;
-		if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-		var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-		result1.push(result0);
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"add\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "add",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => add(BigInt.asUintN(64, BigInt(arg0)), result1))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"add\"][Instruction::Return]", {
-		funcName: "add",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline71.fnName = "tairitsu-browser:full/dom-token-list@0.2.0#add";
-const _trampoline72 = function(arg0, arg1, arg2) {
-	var len1 = arg2;
-	var base1 = arg1 >>> 0 >>> 0;
-	if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-	if (base1 % 4 != 0) throw TypeError(`list pointer [${base1}] is not aligned to 4`);
-	var result1 = [];
-	for (let i = 0; i < len1; i++) {
-		let base = base1 + i * 8;
-		var ptr0 = dataView(_jcoDataViewCacheContext, memory0).getUint32(base + 0, !0) >>> 0;
-		var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32(base + 4, !0) >>> 0;
-		if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-		var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-		result1.push(result0);
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"remove\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "remove",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => remove(BigInt.asUintN(64, BigInt(arg0)), result1))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"remove\"][Instruction::Return]", {
-		funcName: "remove",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline72.fnName = "tairitsu-browser:full/dom-token-list@0.2.0#remove";
-const _trampoline73 = function(arg0, arg1, arg2) {
-	var ptr0 = arg1 >>> 0 >>> 0;
-	var len0 = arg2 >>> 0;
-	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"contains\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "contains",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => contains(BigInt.asUintN(64, BigInt(arg0)), result0))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"contains\"][Instruction::Return]", {
-		funcName: "contains",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([+!!ret]);
-	task.exit();
-	return +!!ret;
-};
-_trampoline73.fnName = "tairitsu-browser:full/dom-token-list@0.2.0#contains";
-const _trampoline74 = function(arg0, arg1, arg2, arg3) {
-	var ptr0 = arg1 >>> 0 >>> 0;
-	var len0 = arg2 >>> 0;
-	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-	_debugLog("[iface=\"tairitsu-browser:full/non-element-parent-node@0.2.0\", function=\"get-element-by-id\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getElementById",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getElementById(BigInt.asUintN(64, BigInt(arg0)), result0))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	var variant1 = ret;
-	if (variant1 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 0, !0);
-	else {
-		let e = variant1;
-		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 1, !0);
-		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg3 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/non-element-parent-node@0.2.0\", function=\"get-element-by-id\"][Instruction::Return]", {
-		funcName: "get-element-by-id",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline74.fnName = "tairitsu-browser:full/non-element-parent-node@0.2.0#getElementById";
-const _trampoline75 = function(arg0, arg1, arg2, arg3, arg4) {
-	var ptr0 = arg0 >>> 0 >>> 0;
-	var len0 = arg1 >>> 0;
-	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-	let variant2;
-	switch (arg2) {
-		case 0:
-			variant2 = void 0;
-			break;
-		case 1:
-			var ptr1 = arg3 >>> 0 >>> 0;
-			var len1 = arg4 >>> 0;
-			if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-			variant2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-			break;
-		default: throw TypeError("invalid variant discriminant for option");
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-element\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "createElement",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => createElement(result0, variant2))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-element\"][Instruction::Return]", {
-		funcName: "create-element",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint64(_jcoStrictNumericContext, ret);
-};
-_trampoline75.fnName = "tairitsu-browser:full/document@0.2.0#createElement";
-const _trampoline76 = function(arg0, arg1) {
-	var ptr0 = arg0 >>> 0 >>> 0;
-	var len0 = arg1 >>> 0;
-	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-text-node\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "createTextNode",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => createTextNode(result0))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-text-node\"][Instruction::Return]", {
-		funcName: "create-text-node",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint64(_jcoStrictNumericContext, ret);
-};
-_trampoline76.fnName = "tairitsu-browser:full/document@0.2.0#createTextNode";
-const _trampoline77 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
-	let variant1;
-	switch (arg0) {
-		case 0:
-			variant1 = void 0;
-			break;
-		case 1:
-			var ptr0 = arg1 >>> 0 >>> 0;
-			var len0 = arg2 >>> 0;
-			if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-			variant1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-			break;
-		default: throw TypeError("invalid variant discriminant for option");
-	}
-	var ptr2 = arg3 >>> 0 >>> 0;
-	var len2 = arg4 >>> 0;
-	if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
-	let variant4;
-	switch (arg5) {
-		case 0:
-			variant4 = void 0;
-			break;
-		case 1:
-			var ptr3 = arg6 >>> 0 >>> 0;
-			var len3 = arg7 >>> 0;
-			if (ptr3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - ptr3) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-			variant4 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr3, len3));
-			break;
-		default: throw TypeError("invalid variant discriminant for option");
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-element-ns\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "createElementNs",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => createElementNs(variant1, result2, variant4))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-element-ns\"][Instruction::Return]", {
-		funcName: "create-element-ns",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint64(_jcoStrictNumericContext, ret);
-};
-_trampoline77.fnName = "tairitsu-browser:full/document@0.2.0#createElementNs";
-const _trampoline78 = function(arg0) {
-	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"get-body\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "getBody",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getBody())
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	var variant0 = ret;
-	if (variant0 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg0 >>> 0) + 0, 0, !0);
-	else {
-		let e = variant0;
-		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg0 >>> 0) + 0, 1, !0);
-		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg0 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"get-body\"][Instruction::Return]", {
-		funcName: "get-body",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline78.fnName = "tairitsu-browser:full/document@0.2.0#getBody";
-const _trampoline79 = function(arg0, arg1, arg2) {
 	_debugLog("[iface=\"tairitsu-browser:full/node-list@0.2.0\", function=\"item\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -8788,8 +8192,218 @@ const _trampoline79 = function(arg0, arg1, arg2) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline79.fnName = "tairitsu-browser:full/node-list@0.2.0#item";
-const _trampoline80 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+_trampoline71.fnName = "tairitsu-browser:full/node-list@0.2.0#item";
+const _trampoline72 = function(arg0, arg1, arg2, arg3) {
+	var ptr0 = arg1 >>> 0 >>> 0;
+	var len0 = arg2 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	_debugLog("[iface=\"tairitsu-browser:full/parent-node@0.2.0\", function=\"query-selector\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "querySelector",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => querySelector(BigInt.asUintN(64, BigInt(arg0)), result0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	var variant1 = ret;
+	if (variant1 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 0, !0);
+	else {
+		let e = variant1;
+		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 1, !0);
+		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg3 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/parent-node@0.2.0\", function=\"query-selector\"][Instruction::Return]", {
+		funcName: "query-selector",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline72.fnName = "tairitsu-browser:full/parent-node@0.2.0#querySelector";
+const _trampoline73 = function(arg0, arg1) {
+	var ptr0 = arg0 >>> 0 >>> 0;
+	var len0 = arg1 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"match-media\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "matchMedia",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => matchMedia(result0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"match-media\"][Instruction::Return]", {
+		funcName: "match-media",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint64(_jcoStrictNumericContext, ret);
+};
+_trampoline73.fnName = "tairitsu-browser:full/window@0.2.0#matchMedia";
+const _trampoline74 = function(arg0, arg1, arg2, arg3) {
+	let variant1;
+	switch (arg1) {
+		case 0:
+			variant1 = void 0;
+			break;
+		case 1:
+			var ptr0 = arg2 >>> 0 >>> 0;
+			var len0 = arg3 >>> 0;
+			if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+			variant1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+			break;
+		default: throw TypeError("invalid variant discriminant for option");
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"get-computed-style\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getComputedStyle",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getComputedStyle(BigInt.asUintN(64, BigInt(arg0)), variant1))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"get-computed-style\"][Instruction::Return]", {
+		funcName: "get-computed-style",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint64(_jcoStrictNumericContext, ret);
+};
+_trampoline74.fnName = "tairitsu-browser:full/window@0.2.0#getComputedStyle";
+const _trampoline75 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
 	var ptr0 = arg1 >>> 0 >>> 0;
 	var len0 = arg2 >>> 0;
 	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
@@ -8869,8 +8483,8 @@ const _trampoline80 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline80.fnName = "tairitsu-browser:full/css-style-declaration@0.2.0#setProperty";
-const _trampoline81 = function(arg0, arg1, arg2, arg3) {
+_trampoline75.fnName = "tairitsu-browser:full/css-style-declaration@0.2.0#setProperty";
+const _trampoline76 = function(arg0, arg1, arg2, arg3) {
 	var ptr0 = arg1 >>> 0 >>> 0;
 	var len0 = arg2 >>> 0;
 	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
@@ -8960,8 +8574,514 @@ const _trampoline81 = function(arg0, arg1, arg2, arg3) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline81.fnName = "tairitsu-browser:full/css-style-declaration@0.2.0#getPropertyValue";
+_trampoline76.fnName = "tairitsu-browser:full/css-style-declaration@0.2.0#getPropertyValue";
+const _trampoline77 = function(arg0, arg1) {
+	_debugLog("[iface=\"tairitsu-browser:full/event@0.2.0\", function=\"get-target\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getTarget",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getTarget(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	var variant0 = ret;
+	if (variant0 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg1 >>> 0) + 0, 0, !0);
+	else {
+		let e = variant0;
+		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg1 >>> 0) + 0, 1, !0);
+		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg1 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/event@0.2.0\", function=\"get-target\"][Instruction::Return]", {
+		funcName: "get-target",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline77.fnName = "tairitsu-browser:full/event@0.2.0#getTarget";
+const _trampoline78 = function(arg0, arg1) {
+	_debugLog("[iface=\"tairitsu-browser:full/event@0.2.0\", function=\"get-current-target\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getCurrentTarget",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getCurrentTarget(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	var variant0 = ret;
+	if (variant0 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg1 >>> 0) + 0, 0, !0);
+	else {
+		let e = variant0;
+		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg1 >>> 0) + 0, 1, !0);
+		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg1 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/event@0.2.0\", function=\"get-current-target\"][Instruction::Return]", {
+		funcName: "get-current-target",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline78.fnName = "tairitsu-browser:full/event@0.2.0#getCurrentTarget";
+const _trampoline79 = function(arg0, arg1, arg2, arg3) {
+	var ptr0 = arg1 >>> 0 >>> 0;
+	var len0 = arg2 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	_debugLog("[iface=\"tairitsu-browser:full/non-element-parent-node@0.2.0\", function=\"get-element-by-id\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getElementById",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getElementById(BigInt.asUintN(64, BigInt(arg0)), result0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	var variant1 = ret;
+	if (variant1 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 0, !0);
+	else {
+		let e = variant1;
+		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 1, !0);
+		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg3 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/non-element-parent-node@0.2.0\", function=\"get-element-by-id\"][Instruction::Return]", {
+		funcName: "get-element-by-id",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline79.fnName = "tairitsu-browser:full/non-element-parent-node@0.2.0#getElementById";
+const _trampoline80 = function(arg0) {
+	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"get-body\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getBody",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getBody())
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	var variant0 = ret;
+	if (variant0 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg0 >>> 0) + 0, 0, !0);
+	else {
+		let e = variant0;
+		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg0 >>> 0) + 0, 1, !0);
+		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg0 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"get-body\"][Instruction::Return]", {
+		funcName: "get-body",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline80.fnName = "tairitsu-browser:full/document@0.2.0#getBody";
+const _trampoline81 = function(arg0, arg1, arg2, arg3, arg4) {
+	var ptr0 = arg0 >>> 0 >>> 0;
+	var len0 = arg1 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	let variant2;
+	switch (arg2) {
+		case 0:
+			variant2 = void 0;
+			break;
+		case 1:
+			var ptr1 = arg3 >>> 0 >>> 0;
+			var len1 = arg4 >>> 0;
+			if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+			variant2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+			break;
+		default: throw TypeError("invalid variant discriminant for option");
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-element\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "createElement",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => createElement(result0, variant2))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-element\"][Instruction::Return]", {
+		funcName: "create-element",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint64(_jcoStrictNumericContext, ret);
+};
+_trampoline81.fnName = "tairitsu-browser:full/document@0.2.0#createElement";
 const _trampoline82 = function(arg0, arg1) {
+	var ptr0 = arg0 >>> 0 >>> 0;
+	var len0 = arg1 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-text-node\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "createTextNode",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => createTextNode(result0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-text-node\"][Instruction::Return]", {
+		funcName: "create-text-node",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint64(_jcoStrictNumericContext, ret);
+};
+_trampoline82.fnName = "tairitsu-browser:full/document@0.2.0#createTextNode";
+const _trampoline83 = function(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7) {
+	let variant1;
+	switch (arg0) {
+		case 0:
+			variant1 = void 0;
+			break;
+		case 1:
+			var ptr0 = arg1 >>> 0 >>> 0;
+			var len0 = arg2 >>> 0;
+			if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+			variant1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+			break;
+		default: throw TypeError("invalid variant discriminant for option");
+	}
+	var ptr2 = arg3 >>> 0 >>> 0;
+	var len2 = arg4 >>> 0;
+	if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
+	let variant4;
+	switch (arg5) {
+		case 0:
+			variant4 = void 0;
+			break;
+		case 1:
+			var ptr3 = arg6 >>> 0 >>> 0;
+			var len3 = arg7 >>> 0;
+			if (ptr3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - ptr3) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+			variant4 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr3, len3));
+			break;
+		default: throw TypeError("invalid variant discriminant for option");
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-element-ns\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "createElementNs",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => createElementNs(variant1, result2, variant4))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/document@0.2.0\", function=\"create-element-ns\"][Instruction::Return]", {
+		funcName: "create-element-ns",
+		paramCount: 1,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
+	task.exit();
+	return toUint64(_jcoStrictNumericContext, ret);
+};
+_trampoline83.fnName = "tairitsu-browser:full/document@0.2.0#createElementNs";
+const _trampoline84 = function(arg0, arg1) {
 	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-tag-name\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -9047,139 +9167,7 @@ const _trampoline82 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline82.fnName = "tairitsu-browser:full/element@0.2.0#getTagName";
-const _trampoline83 = function(arg0, arg1, arg2, arg3, arg4) {
-	var ptr0 = arg1 >>> 0 >>> 0;
-	var len0 = arg2 >>> 0;
-	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-	var ptr1 = arg3 >>> 0 >>> 0;
-	var len1 = arg4 >>> 0;
-	if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-attribute\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "setAttribute",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setAttribute(BigInt.asUintN(64, BigInt(arg0)), result0, result1))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-attribute\"][Instruction::Return]", {
-		funcName: "set-attribute",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline83.fnName = "tairitsu-browser:full/element@0.2.0#setAttribute";
-const _trampoline84 = function(arg0, arg1, arg2) {
-	var ptr0 = arg1 >>> 0 >>> 0;
-	var len0 = arg2 >>> 0;
-	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-inner-html\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "setInnerHtml",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setInnerHtml(BigInt.asUintN(64, BigInt(arg0)), result0))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-inner-html\"][Instruction::Return]", {
-		funcName: "set-inner-html",
-		paramCount: 0,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([ret]);
-	task.exit();
-};
-_trampoline84.fnName = "tairitsu-browser:full/element@0.2.0#setInnerHtml";
+_trampoline84.fnName = "tairitsu-browser:full/element@0.2.0#getTagName";
 const _trampoline85 = function(arg0, arg1, arg2, arg3) {
 	var ptr0 = arg1 >>> 0 >>> 0;
 	var len0 = arg2 >>> 0;
@@ -9277,7 +9265,139 @@ const _trampoline85 = function(arg0, arg1, arg2, arg3) {
 	task.exit();
 };
 _trampoline85.fnName = "tairitsu-browser:full/element@0.2.0#getAttribute";
-const _trampoline86 = function(arg0, arg1, arg2) {
+const _trampoline86 = function(arg0, arg1, arg2, arg3, arg4) {
+	var ptr0 = arg1 >>> 0 >>> 0;
+	var len0 = arg2 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	var ptr1 = arg3 >>> 0 >>> 0;
+	var len1 = arg4 >>> 0;
+	if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-attribute\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "setAttribute",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setAttribute(BigInt.asUintN(64, BigInt(arg0)), result0, result1))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-attribute\"][Instruction::Return]", {
+		funcName: "set-attribute",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline86.fnName = "tairitsu-browser:full/element@0.2.0#setAttribute";
+const _trampoline87 = function(arg0, arg1, arg2) {
+	var ptr0 = arg1 >>> 0 >>> 0;
+	var len0 = arg2 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-inner-html\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "setInnerHtml",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setInnerHtml(BigInt.asUintN(64, BigInt(arg0)), result0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"set-inner-html\"][Instruction::Return]", {
+		funcName: "set-inner-html",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline87.fnName = "tairitsu-browser:full/element@0.2.0#setInnerHtml";
+const _trampoline88 = function(arg0, arg1, arg2) {
 	var ptr0 = arg1 >>> 0 >>> 0;
 	var len0 = arg2 >>> 0;
 	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
@@ -9340,8 +9460,8 @@ const _trampoline86 = function(arg0, arg1, arg2) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline86.fnName = "tairitsu-browser:full/element@0.2.0#removeAttribute";
-const _trampoline87 = function(arg0, arg1) {
+_trampoline88.fnName = "tairitsu-browser:full/element@0.2.0#removeAttribute";
+const _trampoline89 = function(arg0, arg1) {
 	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"get-bounding-client-rect\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -9405,8 +9525,166 @@ const _trampoline87 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline87.fnName = "tairitsu-browser:full/element@0.2.0#getBoundingClientRect";
-const _trampoline88 = function(arg0, arg1, arg2, arg3, arg4) {
+_trampoline89.fnName = "tairitsu-browser:full/element@0.2.0#getBoundingClientRect";
+const _trampoline90 = function(arg0, arg1, arg2, arg3) {
+	var ptr0 = arg1 >>> 0 >>> 0;
+	var len0 = arg2 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"closest\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "closest",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => closest(BigInt.asUintN(64, BigInt(arg0)), result0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	var variant1 = ret;
+	if (variant1 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 0, !0);
+	else {
+		let e = variant1;
+		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 1, !0);
+		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg3 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/element@0.2.0\", function=\"closest\"][Instruction::Return]", {
+		funcName: "closest",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline90.fnName = "tairitsu-browser:full/element@0.2.0#closest";
+const _trampoline91 = function(arg0, arg1) {
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pointer-type\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getPointerType",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPointerType(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, ret, ((...args) => {
+		let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+		let previousMayLeave = state.mayLeave;
+		let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+		let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+		let previousStorage = thread?.storage;
+		thread && (thread.storage = [0, 0]);
+		state.mayLeave = !1;
+		let restore = () => {
+			state.mayLeave = previousMayLeave;
+			thread && (thread.storage = previousStorage);
+		};
+		let result;
+		try {
+			result = realloc0(...args);
+		} catch (err) {
+			restore();
+			throw err;
+		}
+		if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+		restore();
+		return result;
+	}), memory0);
+	var ptr0 = encodeRes.ptr;
+	var len0 = encodeRes.len;
+	dataView(_jcoDataViewCacheContext, memory0).setUint32((arg1 >>> 0) + 4, len0, !0);
+	dataView(_jcoDataViewCacheContext, memory0).setUint32((arg1 >>> 0) + 0, ptr0, !0);
+	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pointer-type\"][Instruction::Return]", {
+		funcName: "get-pointer-type",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline91.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getPointerType";
+const _trampoline92 = function(arg0, arg1, arg2, arg3, arg4) {
 	var ptr0 = arg1 >>> 0 >>> 0;
 	var len0 = arg2 >>> 0;
 	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
@@ -9516,8 +9794,8 @@ const _trampoline88 = function(arg0, arg1, arg2, arg3, arg4) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline88.fnName = "tairitsu-browser:full/event-target@0.2.0#addEventListener";
-const _trampoline89 = function(arg0, arg1, arg2) {
+_trampoline92.fnName = "tairitsu-browser:full/event-target@0.2.0#addEventListener";
+const _trampoline93 = function(arg0, arg1, arg2) {
 	_debugLog("[iface=\"tairitsu-browser:full/event-target@0.2.0\", function=\"remove-event-listener\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -9620,8 +9898,159 @@ const _trampoline89 = function(arg0, arg1, arg2) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline89.fnName = "tairitsu-browser:full/event-target@0.2.0#removeEventListener";
-const _trampoline90 = function(arg0, arg1) {
+_trampoline93.fnName = "tairitsu-browser:full/event-target@0.2.0#removeEventListener";
+const _trampoline94 = function(arg0, arg1) {
+	_debugLog("[iface=\"tairitsu-browser:full/html-input-element@0.2.0\", function=\"get-type\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "getType",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getType(BigInt.asUintN(64, BigInt(arg0))))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, ret, ((...args) => {
+		let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+		let previousMayLeave = state.mayLeave;
+		let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+		let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+		let previousStorage = thread?.storage;
+		thread && (thread.storage = [0, 0]);
+		state.mayLeave = !1;
+		let restore = () => {
+			state.mayLeave = previousMayLeave;
+			thread && (thread.storage = previousStorage);
+		};
+		let result;
+		try {
+			result = realloc0(...args);
+		} catch (err) {
+			restore();
+			throw err;
+		}
+		if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+		restore();
+		return result;
+	}), memory0);
+	var ptr0 = encodeRes.ptr;
+	var len0 = encodeRes.len;
+	dataView(_jcoDataViewCacheContext, memory0).setUint32((arg1 >>> 0) + 4, len0, !0);
+	dataView(_jcoDataViewCacheContext, memory0).setUint32((arg1 >>> 0) + 0, ptr0, !0);
+	_debugLog("[iface=\"tairitsu-browser:full/html-input-element@0.2.0\", function=\"get-type\"][Instruction::Return]", {
+		funcName: "get-type",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline94.fnName = "tairitsu-browser:full/html-input-element@0.2.0#getType";
+const _trampoline95 = function(arg0, arg1, arg2) {
+	var ptr0 = arg1 >>> 0 >>> 0;
+	var len0 = arg2 >>> 0;
+	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+	_debugLog("[iface=\"tairitsu-browser:full/html-input-element@0.2.0\", function=\"set-value\"] [Instruction::CallInterface] (sync, @ enter)");
+	let parentTask;
+	let task;
+	let threadID;
+	let subtask;
+	let createTask = () => {
+		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+			componentIdx: -1,
+			isAsync: !1,
+			entryFnName: "setValue",
+			getCallbackFn: () => null,
+			callbackFnName: null,
+			errHandling: "none",
+			callingWasmExport: !1
+		}));
+	};
+	taskCreation: {
+		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
+		if (!parentTask) {
+			createTask();
+			break taskCreation;
+		}
+		createTask();
+		subtask = parentTask.getLatestSubtask();
+		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
+		task.setParentSubtask(subtask);
+	}
+	task.enterSync();
+	let ret;
+	try {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+			componentIdx: task.componentIdx(),
+			taskID: task.id(),
+			threadID,
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => setValue(BigInt.asUintN(64, BigInt(arg0)), result0))
+		});
+	} catch (err) {
+		_debugLog("[Instruction::CallInterface] error during sync call", {
+			taskID: task.id(),
+			subtaskID: task.getParentSubtask()?.id(),
+			err
+		});
+		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+		task.setErrored(err);
+		task.reject(err);
+		task.exit();
+		throw err;
+	}
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
+	_debugLog("[iface=\"tairitsu-browser:full/html-input-element@0.2.0\", function=\"set-value\"][Instruction::Return]", {
+		funcName: "set-value",
+		paramCount: 0,
+		async: !1,
+		postReturn: !1
+	});
+	task.resolve([ret]);
+	task.exit();
+};
+_trampoline95.fnName = "tairitsu-browser:full/html-input-element@0.2.0#setValue";
+const _trampoline96 = function(arg0, arg1) {
 	_debugLog("[iface=\"tairitsu-browser:full/html-input-element@0.2.0\", function=\"get-value\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -9707,9 +10136,22 @@ const _trampoline90 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline90.fnName = "tairitsu-browser:full/html-input-element@0.2.0#getValue";
-const _trampoline91 = function(arg0, arg1) {
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pointer-type\"] [Instruction::CallInterface] (sync, @ enter)");
+_trampoline96.fnName = "tairitsu-browser:full/html-input-element@0.2.0#getValue";
+const _trampoline97 = function(arg0, arg1, arg2) {
+	var len1 = arg2;
+	var base1 = arg1 >>> 0 >>> 0;
+	if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+	if (base1 % 4 != 0) throw TypeError(`list pointer [${base1}] is not aligned to 4`);
+	var result1 = [];
+	for (let i = 0; i < len1; i++) {
+		let base = base1 + i * 8;
+		var ptr0 = dataView(_jcoDataViewCacheContext, memory0).getUint32(base + 0, !0) >>> 0;
+		var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32(base + 4, !0) >>> 0;
+		if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+		var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+		result1.push(result0);
+	}
+	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"add\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
 	let threadID;
@@ -9718,7 +10160,7 @@ const _trampoline91 = function(arg0, arg1) {
 		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
 			componentIdx: -1,
 			isAsync: !1,
-			entryFnName: "getPointerType",
+			entryFnName: "add",
 			getCallbackFn: () => null,
 			callbackFnName: null,
 			errHandling: "none",
@@ -9739,11 +10181,11 @@ const _trampoline91 = function(arg0, arg1) {
 	task.enterSync();
 	let ret;
 	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
 			componentIdx: task.componentIdx(),
 			taskID: task.id(),
 			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getPointerType(BigInt.asUintN(64, BigInt(arg0))))
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => add(BigInt.asUintN(64, BigInt(arg0)), result1))
 		});
 	} catch (err) {
 		_debugLog("[Instruction::CallInterface] error during sync call", {
@@ -9758,35 +10200,8 @@ const _trampoline91 = function(arg0, arg1) {
 		throw err;
 	}
 	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, ret, ((...args) => {
-		let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-		let previousMayLeave = state.mayLeave;
-		let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-		let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-		let previousStorage = thread?.storage;
-		thread && (thread.storage = [0, 0]);
-		state.mayLeave = !1;
-		let restore = () => {
-			state.mayLeave = previousMayLeave;
-			thread && (thread.storage = previousStorage);
-		};
-		let result;
-		try {
-			result = realloc0(...args);
-		} catch (err) {
-			restore();
-			throw err;
-		}
-		if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-		restore();
-		return result;
-	}), memory0);
-	var ptr0 = encodeRes.ptr;
-	var len0 = encodeRes.len;
-	dataView(_jcoDataViewCacheContext, memory0).setUint32((arg1 >>> 0) + 4, len0, !0);
-	dataView(_jcoDataViewCacheContext, memory0).setUint32((arg1 >>> 0) + 0, ptr0, !0);
-	_debugLog("[iface=\"tairitsu-browser:full/pointer-event@0.2.0\", function=\"get-pointer-type\"][Instruction::Return]", {
-		funcName: "get-pointer-type",
+	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"add\"][Instruction::Return]", {
+		funcName: "add",
 		paramCount: 0,
 		async: !1,
 		postReturn: !1
@@ -9794,22 +10209,22 @@ const _trampoline91 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline91.fnName = "tairitsu-browser:full/pointer-event@0.2.0#getPointerType";
-const _trampoline92 = function(arg0, arg1, arg2, arg3) {
-	let variant1;
-	switch (arg1) {
-		case 0:
-			variant1 = void 0;
-			break;
-		case 1:
-			var ptr0 = arg2 >>> 0 >>> 0;
-			var len0 = arg3 >>> 0;
-			if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-			variant1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-			break;
-		default: throw TypeError("invalid variant discriminant for option");
+_trampoline97.fnName = "tairitsu-browser:full/dom-token-list@0.2.0#add";
+const _trampoline98 = function(arg0, arg1, arg2) {
+	var len1 = arg2;
+	var base1 = arg1 >>> 0 >>> 0;
+	if (base1 < 0 || len1 < 0 || len1 > 33554431 || base1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - base1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+	if (base1 % 4 != 0) throw TypeError(`list pointer [${base1}] is not aligned to 4`);
+	var result1 = [];
+	for (let i = 0; i < len1; i++) {
+		let base = base1 + i * 8;
+		var ptr0 = dataView(_jcoDataViewCacheContext, memory0).getUint32(base + 0, !0) >>> 0;
+		var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32(base + 4, !0) >>> 0;
+		if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+		var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+		result1.push(result0);
 	}
-	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"get-computed-style\"] [Instruction::CallInterface] (sync, @ enter)");
+	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"remove\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
 	let threadID;
@@ -9818,7 +10233,7 @@ const _trampoline92 = function(arg0, arg1, arg2, arg3) {
 		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
 			componentIdx: -1,
 			isAsync: !1,
-			entryFnName: "getComputedStyle",
+			entryFnName: "remove",
 			getCallbackFn: () => null,
 			callbackFnName: null,
 			errHandling: "none",
@@ -9839,11 +10254,11 @@ const _trampoline92 = function(arg0, arg1, arg2, arg3) {
 	task.enterSync();
 	let ret;
 	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		_withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
 			componentIdx: task.componentIdx(),
 			taskID: task.id(),
 			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => getComputedStyle(BigInt.asUintN(64, BigInt(arg0)), variant1))
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => remove(BigInt.asUintN(64, BigInt(arg0)), result1))
 		});
 	} catch (err) {
 		_debugLog("[Instruction::CallInterface] error during sync call", {
@@ -9858,88 +10273,22 @@ const _trampoline92 = function(arg0, arg1, arg2, arg3) {
 		throw err;
 	}
 	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"get-computed-style\"][Instruction::Return]", {
-		funcName: "get-computed-style",
-		paramCount: 1,
+	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"remove\"][Instruction::Return]", {
+		funcName: "remove",
+		paramCount: 0,
 		async: !1,
 		postReturn: !1
 	});
-	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
+	task.resolve([ret]);
 	task.exit();
-	return toUint64(_jcoStrictNumericContext, ret);
 };
-_trampoline92.fnName = "tairitsu-browser:full/window@0.2.0#getComputedStyle";
-const _trampoline93 = function(arg0, arg1) {
-	var ptr0 = arg0 >>> 0 >>> 0;
-	var len0 = arg1 >>> 0;
-	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"match-media\"] [Instruction::CallInterface] (sync, @ enter)");
-	let parentTask;
-	let task;
-	let threadID;
-	let subtask;
-	let createTask = () => {
-		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-			componentIdx: -1,
-			isAsync: !1,
-			entryFnName: "matchMedia",
-			getCallbackFn: () => null,
-			callbackFnName: null,
-			errHandling: "none",
-			callingWasmExport: !1
-		}));
-	};
-	taskCreation: {
-		parentTask = getCurrentTask(_jcoTaskLookupContext, 0, _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0)?.taskID)?.task;
-		if (!parentTask) {
-			createTask();
-			break taskCreation;
-		}
-		createTask();
-		subtask = parentTask.getLatestSubtask();
-		if (!subtask) throw Error(`Missing subtask (in parent task [${parentTask.id()}]) for host import, has the import been lowered? (ensure asyncImports are set properly)`);
-		task.setParentSubtask(subtask);
-	}
-	task.enterSync();
-	let ret;
-	try {
-		ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-			componentIdx: task.componentIdx(),
-			taskID: task.id(),
-			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => matchMedia(result0))
-		});
-	} catch (err) {
-		_debugLog("[Instruction::CallInterface] error during sync call", {
-			taskID: task.id(),
-			subtaskID: task.getParentSubtask()?.id(),
-			err
-		});
-		getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-		task.setErrored(err);
-		task.reject(err);
-		task.exit();
-		throw err;
-	}
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	_debugLog("[iface=\"tairitsu-browser:full/window@0.2.0\", function=\"match-media\"][Instruction::Return]", {
-		funcName: "match-media",
-		paramCount: 1,
-		async: !1,
-		postReturn: !1
-	});
-	task.resolve([toUint64(_jcoStrictNumericContext, ret)]);
-	task.exit();
-	return toUint64(_jcoStrictNumericContext, ret);
-};
-_trampoline93.fnName = "tairitsu-browser:full/window@0.2.0#matchMedia";
-const _trampoline94 = function(arg0, arg1, arg2, arg3) {
+_trampoline98.fnName = "tairitsu-browser:full/dom-token-list@0.2.0#remove";
+const _trampoline99 = function(arg0, arg1, arg2) {
 	var ptr0 = arg1 >>> 0 >>> 0;
 	var len0 = arg2 >>> 0;
 	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
 	var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-	_debugLog("[iface=\"tairitsu-browser:full/parent-node@0.2.0\", function=\"query-selector\"] [Instruction::CallInterface] (sync, @ enter)");
+	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"contains\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
 	let threadID;
@@ -9948,7 +10297,7 @@ const _trampoline94 = function(arg0, arg1, arg2, arg3) {
 		({task, threadID} = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
 			componentIdx: -1,
 			isAsync: !1,
-			entryFnName: "querySelector",
+			entryFnName: "contains",
 			getCallbackFn: () => null,
 			callbackFnName: null,
 			errHandling: "none",
@@ -9973,7 +10322,7 @@ const _trampoline94 = function(arg0, arg1, arg2, arg3) {
 			componentIdx: task.componentIdx(),
 			taskID: task.id(),
 			threadID,
-			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => querySelector(BigInt.asUintN(64, BigInt(arg0)), result0))
+			fn: () => _trackHostOperation(_jcoComponentHostOperationContext, () => contains(BigInt.asUintN(64, BigInt(arg0)), result0))
 		});
 	} catch (err) {
 		_debugLog("[Instruction::CallInterface] error during sync call", {
@@ -9988,24 +10337,18 @@ const _trampoline94 = function(arg0, arg1, arg2, arg3) {
 		throw err;
 	}
 	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfInterrupted();
-	var variant1 = ret;
-	if (variant1 == null) dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 0, !0);
-	else {
-		let e = variant1;
-		dataView(_jcoDataViewCacheContext, memory0).setInt8((arg3 >>> 0) + 0, 1, !0);
-		dataView(_jcoDataViewCacheContext, memory0).setBigInt64((arg3 >>> 0) + 8, toUint64(_jcoStrictNumericContext, e), !0);
-	}
-	_debugLog("[iface=\"tairitsu-browser:full/parent-node@0.2.0\", function=\"query-selector\"][Instruction::Return]", {
-		funcName: "query-selector",
-		paramCount: 0,
+	_debugLog("[iface=\"tairitsu-browser:full/dom-token-list@0.2.0\", function=\"contains\"][Instruction::Return]", {
+		funcName: "contains",
+		paramCount: 1,
 		async: !1,
 		postReturn: !1
 	});
-	task.resolve([ret]);
+	task.resolve([+!!ret]);
 	task.exit();
+	return +!!ret;
 };
-_trampoline94.fnName = "tairitsu-browser:full/parent-node@0.2.0#querySelector";
-const _trampoline95 = function(arg0, arg1) {
+_trampoline99.fnName = "tairitsu-browser:full/dom-token-list@0.2.0#contains";
+const _trampoline100 = function(arg0, arg1) {
 	var ptr0 = arg0 >>> 0 >>> 0;
 	var len0 = arg1 >>> 0;
 	if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
@@ -10068,8 +10411,8 @@ const _trampoline95 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline95.fnName = "tairitsu-browser:full/location@0.2.0#setHref";
-const _trampoline96 = function(arg0) {
+_trampoline100.fnName = "tairitsu-browser:full/location@0.2.0#setHref";
+const _trampoline101 = function(arg0) {
 	_debugLog("[iface=\"wasi:random/insecure-seed@0.2.12\", function=\"insecure-seed\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -10131,8 +10474,8 @@ const _trampoline96 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline96.fnName = "wasi:random/insecure-seed@0.2.12#insecureSeed";
-const _trampoline97 = function(arg0, arg1, arg2) {
+_trampoline101.fnName = "wasi:random/insecure-seed@0.2.12#insecureSeed";
+const _trampoline102 = function(arg0, arg1, arg2) {
 	var len3 = arg1;
 	var base3 = arg0 >>> 0 >>> 0;
 	if (base3 < 0 || len3 < 0 || len3 > 67108863 || base3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - base3) / 4)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
@@ -10265,7 +10608,7 @@ const _trampoline97 = function(arg0, arg1, arg2) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline97.fnName = "wasi:io/poll@0.2.12#poll";
+_trampoline102.fnName = "wasi:io/poll@0.2.12#poll";
 const handleTable1 = [T_FLAG, 0];
 handleTable1._createdReps = new Set();
 handleTable1._componentIdx = 0;
@@ -10276,7 +10619,7 @@ STORE_TRAP.resourceTables.push({
 	captures: captureTable1
 });
 HANDLE_TABLES[1] = handleTable1;
-const _trampoline98 = function(arg0, arg1) {
+const _trampoline103 = function(arg0, arg1) {
 	var handle1 = arg0;
 	var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
 	var rsc0 = captureTable3.get(rep2);
@@ -10395,8 +10738,8 @@ const _trampoline98 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline98.fnName = "wasi:io/streams@0.2.12#checkWrite";
-const _trampoline99 = function(arg0, arg1, arg2, arg3) {
+_trampoline103.fnName = "wasi:io/streams@0.2.12#checkWrite";
+const _trampoline104 = function(arg0, arg1, arg2, arg3) {
 	var handle1 = arg0;
 	var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
 	var rsc0 = captureTable3.get(rep2);
@@ -10518,8 +10861,8 @@ const _trampoline99 = function(arg0, arg1, arg2, arg3) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline99.fnName = "wasi:io/streams@0.2.12#write";
-const _trampoline100 = function(arg0, arg1) {
+_trampoline104.fnName = "wasi:io/streams@0.2.12#write";
+const _trampoline105 = function(arg0, arg1) {
 	var handle1 = arg0;
 	var rep2 = handleTable3[(handle1 << 1) + 1] % T_OWN;
 	var rsc0 = captureTable3.get(rep2);
@@ -10636,8 +10979,8 @@ const _trampoline100 = function(arg0, arg1) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline100.fnName = "wasi:io/streams@0.2.12#blockingFlush";
-const _trampoline101 = function(arg0) {
+_trampoline105.fnName = "wasi:io/streams@0.2.12#blockingFlush";
+const _trampoline106 = function(arg0) {
 	_debugLog("[iface=\"wasi:cli/environment@0.2.12\", function=\"get-environment\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -10786,7 +11129,7 @@ const _trampoline101 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline101.fnName = "wasi:cli/environment@0.2.12#getEnvironment";
+_trampoline106.fnName = "wasi:cli/environment@0.2.12#getEnvironment";
 const handleTable4 = [T_FLAG, 0];
 handleTable4._createdReps = new Set();
 handleTable4._componentIdx = 0;
@@ -10797,7 +11140,7 @@ STORE_TRAP.resourceTables.push({
 	captures: captureTable4
 });
 HANDLE_TABLES[4] = handleTable4;
-const _trampoline102 = function(arg0) {
+const _trampoline107 = function(arg0) {
 	_debugLog("[iface=\"wasi:cli/terminal-stdin@0.2.12\", function=\"get-terminal-stdin\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -10870,7 +11213,7 @@ const _trampoline102 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline102.fnName = "wasi:cli/terminal-stdin@0.2.12#getTerminalStdin";
+_trampoline107.fnName = "wasi:cli/terminal-stdin@0.2.12#getTerminalStdin";
 const handleTable5 = [T_FLAG, 0];
 handleTable5._createdReps = new Set();
 handleTable5._componentIdx = 0;
@@ -10881,7 +11224,7 @@ STORE_TRAP.resourceTables.push({
 	captures: captureTable5
 });
 HANDLE_TABLES[5] = handleTable5;
-const _trampoline103 = function(arg0) {
+const _trampoline108 = function(arg0) {
 	_debugLog("[iface=\"wasi:cli/terminal-stdout@0.2.12\", function=\"get-terminal-stdout\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -10954,8 +11297,8 @@ const _trampoline103 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline103.fnName = "wasi:cli/terminal-stdout@0.2.12#getTerminalStdout";
-const _trampoline104 = function(arg0) {
+_trampoline108.fnName = "wasi:cli/terminal-stdout@0.2.12#getTerminalStdout";
+const _trampoline109 = function(arg0) {
 	_debugLog("[iface=\"wasi:cli/terminal-stderr@0.2.12\", function=\"get-terminal-stderr\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -11028,8 +11371,8 @@ const _trampoline104 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline104.fnName = "wasi:cli/terminal-stderr@0.2.12#getTerminalStderr";
-const _trampoline105 = function(arg0) {
+_trampoline109.fnName = "wasi:cli/terminal-stderr@0.2.12#getTerminalStderr";
+const _trampoline110 = function(arg0) {
 	_debugLog("[iface=\"wasi:clocks/wall-clock@0.2.12\", function=\"now\"] [Instruction::CallInterface] (sync, @ enter)");
 	let parentTask;
 	let task;
@@ -11091,7 +11434,7 @@ const _trampoline105 = function(arg0) {
 	task.resolve([ret]);
 	task.exit();
 };
-_trampoline105.fnName = "wasi:clocks/wall-clock@0.2.12#now$1";
+_trampoline110.fnName = "wasi:clocks/wall-clock@0.2.12#now$1";
 let exports2;
 let postReturn0;
 let postReturn1;
@@ -13770,7 +14113,7 @@ function getVersion() {
 		componentIdx: task.componentIdx(),
 		fn: () => {
 			try {
-				_debugLog("[iface=\"tairitsu:style/version\", function=\"get-version\"][Instruction::CallWasm] enter", {
+				_debugLog("[iface=\"tairitsu:hooks/version\", function=\"get-version\"][Instruction::CallWasm] enter", {
 					funcName: "get-version",
 					paramCount: 0,
 					async: !1,
@@ -13800,1177 +14143,6 @@ function getVersion() {
 				var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
 				if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
 				var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-				_debugLog("[iface=\"tairitsu:style/version\", function=\"get-version\"][Instruction::Return]", {
-					funcName: "get-version",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result0]);
-				let retCopy = result0;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let builderBuildStyleString;
-function buildStyleString(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "builderBuildStyleString",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var vec3 = arg0;
-				var len3 = vec3.length;
-				var result3 = ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				})(0, 0, 4, len3 * 16);
-				result3 >>>= 0;
-				if (result3 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
-				if (result3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - result3) / 16)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
-				if (result3 < 0 || len3 < 0 || len3 > 16777215 || result3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - result3) / 16)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-				for (let i = 0; i < vec3.length; i++) {
-					let e = vec3[i];
-					let base = result3 + i * 16;
-					var [tuple0_0, tuple0_1] = e;
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_0, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr1 = encodeRes.ptr;
-					var len1 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len1, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr1, !0);
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_1, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr2 = encodeRes.ptr;
-					var len2 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 12, len2, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 8, ptr2, !0);
-				}
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"build-style-string\"][Instruction::CallWasm] enter", {
-					funcName: "build-style-string",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => builderBuildStyleString(result3, len3)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr4 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len4 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr4 > memory0.buffer.byteLength || len4 > Math.floor((memory0.buffer.byteLength - ptr4) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result4 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr4, len4));
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"build-style-string\"][Instruction::Return]", {
-					funcName: "build-style-string",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result4]);
-				let retCopy = result4;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let builderCssPropertyToString;
-function cssPropertyToString(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "builderCssPropertyToString",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				}), memory0);
-				var ptr0 = encodeRes.ptr;
-				var len0 = encodeRes.len;
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-property-to-string\"][Instruction::CallWasm] enter", {
-					funcName: "css-property-to-string",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => builderCssPropertyToString(ptr0, len0)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-property-to-string\"][Instruction::Return]", {
-					funcName: "css-property-to-string",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result1]);
-				let retCopy = result1;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let builderCssLengthToString;
-function cssLengthToString(arg0, arg1) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "builderCssLengthToString",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg1, ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				}), memory0);
-				var ptr0 = encodeRes.ptr;
-				var len0 = encodeRes.len;
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-length-to-string\"][Instruction::CallWasm] enter", {
-					funcName: "css-length-to-string",
-					paramCount: 3,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => builderCssLengthToString(+arg0, ptr0, len0)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-length-to-string\"][Instruction::Return]", {
-					funcName: "css-length-to-string",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result1]);
-				let retCopy = result1;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let utilityGenerateUtilityCss;
-function generateUtilityCss(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "utilityGenerateUtilityCss",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(18);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				}), memory0);
-				var ptr0 = encodeRes.ptr;
-				var len0 = encodeRes.len;
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-utility-css\"][Instruction::CallWasm] enter", {
-					funcName: "generate-utility-css",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => utilityGenerateUtilityCss(ptr0, len0)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				let variant2;
-				switch (dataView(_jcoDataViewCacheContext, memory0).getUint8((ret >>> 0) + 0, !0)) {
-					case 0:
-						variant2 = void 0;
-						break;
-					case 1:
-						var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-						var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 8, !0) >>> 0;
-						if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-						variant2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-						break;
-					default: throw TypeError("invalid variant discriminant for option");
-				}
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-utility-css\"][Instruction::Return]", {
-					funcName: "generate-utility-css",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([variant2]);
-				let retCopy = variant2;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn2(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let utilityGenerateStylesheet;
-function generateStylesheet(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "utilityGenerateStylesheet",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var vec1 = arg0;
-				var len1 = vec1.length;
-				var result1 = ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				})(0, 0, 4, len1 * 8);
-				result1 >>>= 0;
-				if (result1 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
-				if (result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
-				if (result1 < 0 || len1 < 0 || len1 > 33554431 || result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-				for (let i = 0; i < vec1.length; i++) {
-					let e = vec1[i];
-					let base = result1 + i * 8;
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, e, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr0 = encodeRes.ptr;
-					var len0 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len0, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr0, !0);
-				}
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-stylesheet\"][Instruction::CallWasm] enter", {
-					funcName: "generate-stylesheet",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => utilityGenerateStylesheet(result1, len1)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-stylesheet\"][Instruction::Return]", {
-					funcName: "generate-stylesheet",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result2]);
-				let retCopy = result2;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let utilityParseUtilityBase;
-function parseUtilityBase(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "utilityParseUtilityBase",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				}), memory0);
-				var ptr0 = encodeRes.ptr;
-				var len0 = encodeRes.len;
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"parse-utility-base\"][Instruction::CallWasm] enter", {
-					funcName: "parse-utility-base",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => utilityParseUtilityBase(ptr0, len0)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"parse-utility-base\"][Instruction::Return]", {
-					funcName: "parse-utility-base",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result1]);
-				let retCopy = result1;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let classesBuildClasses;
-function buildClasses(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "classesBuildClasses",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var vec1 = arg0;
-				var len1 = vec1.length;
-				var result1 = ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				})(0, 0, 4, len1 * 8);
-				result1 >>>= 0;
-				if (result1 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
-				if (result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
-				if (result1 < 0 || len1 < 0 || len1 > 33554431 || result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-				for (let i = 0; i < vec1.length; i++) {
-					let e = vec1[i];
-					let base = result1 + i * 8;
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, e, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr0 = encodeRes.ptr;
-					var len0 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len0, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr0, !0);
-				}
-				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes\"][Instruction::CallWasm] enter", {
-					funcName: "build-classes",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => classesBuildClasses(result1, len1)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
-				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes\"][Instruction::Return]", {
-					funcName: "build-classes",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result2]);
-				let retCopy = result2;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let classesBuildClassesConditional;
-function buildClassesConditional(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "classesBuildClassesConditional",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var vec2 = arg0;
-				var len2 = vec2.length;
-				var result2 = ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				})(0, 0, 4, len2 * 12);
-				result2 >>>= 0;
-				if (result2 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
-				if (result2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - result2) / 12)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
-				if (result2 < 0 || len2 < 0 || len2 > 22369621 || result2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - result2) / 12)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-				for (let i = 0; i < vec2.length; i++) {
-					let e = vec2[i];
-					let base = result2 + i * 12;
-					var [tuple0_0, tuple0_1] = e;
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_0, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr1 = encodeRes.ptr;
-					var len1 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len1, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr1, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setInt8(base + 8, +!!tuple0_1, !0);
-				}
-				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes-conditional\"][Instruction::CallWasm] enter", {
-					funcName: "build-classes-conditional",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => classesBuildClassesConditional(result2, len2)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr3 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len3 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - ptr3) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result3 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr3, len3));
-				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes-conditional\"][Instruction::Return]", {
-					funcName: "build-classes-conditional",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result3]);
-				let retCopy = result3;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let versionGetVersion$1;
-function getVersion$1() {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "versionGetVersion$1",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				_debugLog("[iface=\"tairitsu:hooks/version\", function=\"get-version\"][Instruction::CallWasm] enter", {
-					funcName: "get-version",
-					paramCount: 0,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => versionGetVersion$1()
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
 				_debugLog("[iface=\"tairitsu:hooks/version\", function=\"get-version\"][Instruction::Return]", {
 					funcName: "get-version",
 					paramCount: 1,
@@ -14982,7 +14154,7 @@ function getVersion$1() {
 				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
 				cstate.mayLeave = !1;
 				try {
-					postReturn3(ret);
+					postReturn1(ret);
 				} catch (err) {
 					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
 					task.reject(err);
@@ -15018,7 +14190,7 @@ function transition(arg0, arg1) {
 	});
 	task.setCalleeIsAsync(!1);
 	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(65);
+	task.setReturnResultTypeIdx(61);
 	task.enterSync();
 	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
 	task.setReturnMemoryIdx(0);
@@ -15462,7 +14634,7 @@ function defaultAnimationConfig() {
 	});
 	task.setCalleeIsAsync(!1);
 	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(70);
+	task.setReturnResultTypeIdx(66);
 	task.enterSync();
 	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
 	task.setReturnMemoryIdx(0);
@@ -15593,7 +14765,7 @@ function resourceStatusQuery(arg0) {
 	});
 	task.setCalleeIsAsync(!1);
 	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(71);
+	task.setReturnResultTypeIdx(67);
 	task.enterSync();
 	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
 	task.setReturnMemoryIdx(0);
@@ -15663,6 +14835,1177 @@ function resourceStatusQuery(arg0) {
 				task.resolve([variant1]);
 				task.exit();
 				return variant1;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let versionGetVersion$1;
+function getVersion$1() {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "versionGetVersion$1",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				_debugLog("[iface=\"tairitsu:style/version\", function=\"get-version\"][Instruction::CallWasm] enter", {
+					funcName: "get-version",
+					paramCount: 0,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => versionGetVersion$1()
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+				_debugLog("[iface=\"tairitsu:style/version\", function=\"get-version\"][Instruction::Return]", {
+					funcName: "get-version",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result0]);
+				let retCopy = result0;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let builderBuildStyleString;
+function buildStyleString(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "builderBuildStyleString",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var vec3 = arg0;
+				var len3 = vec3.length;
+				var result3 = ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				})(0, 0, 4, len3 * 16);
+				result3 >>>= 0;
+				if (result3 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
+				if (result3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - result3) / 16)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
+				if (result3 < 0 || len3 < 0 || len3 > 16777215 || result3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - result3) / 16)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+				for (let i = 0; i < vec3.length; i++) {
+					let e = vec3[i];
+					let base = result3 + i * 16;
+					var [tuple0_0, tuple0_1] = e;
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_0, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr1 = encodeRes.ptr;
+					var len1 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len1, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr1, !0);
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_1, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr2 = encodeRes.ptr;
+					var len2 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 12, len2, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 8, ptr2, !0);
+				}
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"build-style-string\"][Instruction::CallWasm] enter", {
+					funcName: "build-style-string",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => builderBuildStyleString(result3, len3)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr4 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len4 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr4 > memory0.buffer.byteLength || len4 > Math.floor((memory0.buffer.byteLength - ptr4) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result4 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr4, len4));
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"build-style-string\"][Instruction::Return]", {
+					funcName: "build-style-string",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result4]);
+				let retCopy = result4;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let builderCssPropertyToString;
+function cssPropertyToString(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "builderCssPropertyToString",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				}), memory0);
+				var ptr0 = encodeRes.ptr;
+				var len0 = encodeRes.len;
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-property-to-string\"][Instruction::CallWasm] enter", {
+					funcName: "css-property-to-string",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => builderCssPropertyToString(ptr0, len0)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-property-to-string\"][Instruction::Return]", {
+					funcName: "css-property-to-string",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result1]);
+				let retCopy = result1;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let builderCssLengthToString;
+function cssLengthToString(arg0, arg1) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "builderCssLengthToString",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg1, ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				}), memory0);
+				var ptr0 = encodeRes.ptr;
+				var len0 = encodeRes.len;
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-length-to-string\"][Instruction::CallWasm] enter", {
+					funcName: "css-length-to-string",
+					paramCount: 3,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => builderCssLengthToString(+arg0, ptr0, len0)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-length-to-string\"][Instruction::Return]", {
+					funcName: "css-length-to-string",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result1]);
+				let retCopy = result1;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let utilityGenerateUtilityCss;
+function generateUtilityCss(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "utilityGenerateUtilityCss",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(18);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				}), memory0);
+				var ptr0 = encodeRes.ptr;
+				var len0 = encodeRes.len;
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-utility-css\"][Instruction::CallWasm] enter", {
+					funcName: "generate-utility-css",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => utilityGenerateUtilityCss(ptr0, len0)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				let variant2;
+				switch (dataView(_jcoDataViewCacheContext, memory0).getUint8((ret >>> 0) + 0, !0)) {
+					case 0:
+						variant2 = void 0;
+						break;
+					case 1:
+						var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+						var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 8, !0) >>> 0;
+						if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+						variant2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+						break;
+					default: throw TypeError("invalid variant discriminant for option");
+				}
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-utility-css\"][Instruction::Return]", {
+					funcName: "generate-utility-css",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([variant2]);
+				let retCopy = variant2;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn3(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let utilityGenerateStylesheet;
+function generateStylesheet(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "utilityGenerateStylesheet",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var vec1 = arg0;
+				var len1 = vec1.length;
+				var result1 = ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				})(0, 0, 4, len1 * 8);
+				result1 >>>= 0;
+				if (result1 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
+				if (result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
+				if (result1 < 0 || len1 < 0 || len1 > 33554431 || result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+				for (let i = 0; i < vec1.length; i++) {
+					let e = vec1[i];
+					let base = result1 + i * 8;
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, e, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr0 = encodeRes.ptr;
+					var len0 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len0, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr0, !0);
+				}
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-stylesheet\"][Instruction::CallWasm] enter", {
+					funcName: "generate-stylesheet",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => utilityGenerateStylesheet(result1, len1)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-stylesheet\"][Instruction::Return]", {
+					funcName: "generate-stylesheet",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result2]);
+				let retCopy = result2;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let utilityParseUtilityBase;
+function parseUtilityBase(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "utilityParseUtilityBase",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				}), memory0);
+				var ptr0 = encodeRes.ptr;
+				var len0 = encodeRes.len;
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"parse-utility-base\"][Instruction::CallWasm] enter", {
+					funcName: "parse-utility-base",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => utilityParseUtilityBase(ptr0, len0)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"parse-utility-base\"][Instruction::Return]", {
+					funcName: "parse-utility-base",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result1]);
+				let retCopy = result1;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let classesBuildClasses;
+function buildClasses(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "classesBuildClasses",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var vec1 = arg0;
+				var len1 = vec1.length;
+				var result1 = ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				})(0, 0, 4, len1 * 8);
+				result1 >>>= 0;
+				if (result1 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
+				if (result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
+				if (result1 < 0 || len1 < 0 || len1 > 33554431 || result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+				for (let i = 0; i < vec1.length; i++) {
+					let e = vec1[i];
+					let base = result1 + i * 8;
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, e, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr0 = encodeRes.ptr;
+					var len0 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len0, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr0, !0);
+				}
+				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes\"][Instruction::CallWasm] enter", {
+					funcName: "build-classes",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => classesBuildClasses(result1, len1)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
+				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes\"][Instruction::Return]", {
+					funcName: "build-classes",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result2]);
+				let retCopy = result2;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let classesBuildClassesConditional;
+function buildClassesConditional(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "classesBuildClassesConditional",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var vec2 = arg0;
+				var len2 = vec2.length;
+				var result2 = ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				})(0, 0, 4, len2 * 12);
+				result2 >>>= 0;
+				if (result2 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
+				if (result2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - result2) / 12)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
+				if (result2 < 0 || len2 < 0 || len2 > 22369621 || result2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - result2) / 12)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+				for (let i = 0; i < vec2.length; i++) {
+					let e = vec2[i];
+					let base = result2 + i * 12;
+					var [tuple0_0, tuple0_1] = e;
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_0, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr1 = encodeRes.ptr;
+					var len1 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len1, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr1, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setInt8(base + 8, +!!tuple0_1, !0);
+				}
+				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes-conditional\"][Instruction::CallWasm] enter", {
+					funcName: "build-classes-conditional",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => classesBuildClassesConditional(result2, len2)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr3 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len3 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - ptr3) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result3 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr3, len3));
+				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes-conditional\"][Instruction::Return]", {
+					funcName: "build-classes-conditional",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result3]);
+				let retCopy = result3;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
 			} catch (err) {
 				if (!task.isResolvedState()) {
 					task.setErrored(err);
@@ -15898,8 +16241,8 @@ let trampoline1 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline1.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatS32],
-	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -15916,8 +16259,8 @@ let trampoline2 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline2.manuallyAsync,
-	paramLiftFns: [_liftFlatS32],
-	resultLowerFns: [],
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -15934,8 +16277,8 @@ let trampoline3 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline3.manuallyAsync,
-	paramLiftFns: [_liftFlatS32],
-	resultLowerFns: [],
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatU32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -15952,8 +16295,8 @@ let trampoline4 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline4.manuallyAsync,
-	paramLiftFns: [_liftFlatU32],
-	resultLowerFns: [],
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatU32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -15970,8 +16313,8 @@ let trampoline5 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline5.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatU32.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [],
+	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -15988,8 +16331,8 @@ let trampoline6 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline6.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [_liftFlatU64, _liftFlatS32],
+	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16006,8 +16349,8 @@ let trampoline7 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline7.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatU64],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [_liftFlatS32],
+	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16024,8 +16367,8 @@ let trampoline8 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline8.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatU64],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [_liftFlatS32],
+	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16042,8 +16385,8 @@ let trampoline9 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCon
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline9.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatU16.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [_liftFlatU32],
+	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16060,6 +16403,60 @@ let trampoline10 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline10.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatU64],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: null,
+	stringEncoding: "utf8",
+	getMemoryFn: () => null,
+	getReallocFn: void 0,
+	importFn: _trampoline10
+});
+let trampoline11 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 11,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline11.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatU64],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: null,
+	stringEncoding: "utf8",
+	getMemoryFn: () => null,
+	getReallocFn: void 0,
+	importFn: _trampoline11
+});
+let trampoline12 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 12,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline12.manuallyAsync,
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatU16.bind(void 0, _jcoStrictNumericContext)],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: null,
+	stringEncoding: "utf8",
+	getMemoryFn: () => null,
+	getReallocFn: void 0,
+	importFn: _trampoline12
+});
+let trampoline13 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 13,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline13.manuallyAsync,
 	paramLiftFns: [
 		_liftFlatU64,
 		_liftFlatU64,
@@ -16097,64 +16494,6 @@ let trampoline10 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => null,
 	getReallocFn: void 0,
-	importFn: _trampoline10
-});
-let trampoline11 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 11,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline11.manuallyAsync,
-	paramLiftFns: [
-		_liftFlatU64,
-		_liftFlatU64,
-		_liftFlatU64
-	],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: null,
-	stringEncoding: "utf8",
-	getMemoryFn: () => null,
-	getReallocFn: void 0,
-	importFn: _trampoline11
-});
-let trampoline12 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 12,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline12.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: null,
-	stringEncoding: "utf8",
-	getMemoryFn: () => null,
-	getReallocFn: void 0,
-	importFn: _trampoline12
-});
-let trampoline13 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 13,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline13.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: null,
-	stringEncoding: "utf8",
-	getMemoryFn: () => null,
-	getReallocFn: void 0,
 	importFn: _trampoline13
 });
 let trampoline14 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
@@ -16162,8 +16501,12 @@ let trampoline14 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline14.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [
+		_liftFlatU64,
+		_liftFlatU64,
+		_liftFlatU64
+	],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16181,7 +16524,7 @@ let trampoline15 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline15.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16199,7 +16542,7 @@ let trampoline16 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline16.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatU32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16216,8 +16559,8 @@ let trampoline17 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline17.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatU32.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [_liftFlatU64, _liftFlatFloat64],
+	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16235,7 +16578,7 @@ let trampoline18 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline18.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [],
+	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16253,7 +16596,7 @@ let trampoline19 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline19.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16325,7 +16668,7 @@ let trampoline23 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline23.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatU32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16361,7 +16704,7 @@ let trampoline25 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline25.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16379,7 +16722,7 @@ let trampoline26 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline26.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16397,7 +16740,7 @@ let trampoline27 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline27.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatS16.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16415,7 +16758,7 @@ let trampoline28 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline28.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatU16.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16433,7 +16776,7 @@ let trampoline29 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline29.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16451,7 +16794,7 @@ let trampoline30 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline30.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16469,7 +16812,7 @@ let trampoline31 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline31.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16487,7 +16830,7 @@ let trampoline32 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline32.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16505,7 +16848,7 @@ let trampoline33 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline33.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16523,7 +16866,7 @@ let trampoline34 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline34.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16540,8 +16883,8 @@ let trampoline35 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline35.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [_liftFlatU64, _liftFlatBool],
+	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16577,7 +16920,7 @@ let trampoline37 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline37.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16595,7 +16938,7 @@ let trampoline38 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline38.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatFloat32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16613,7 +16956,7 @@ let trampoline39 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline39.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16631,7 +16974,7 @@ let trampoline40 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline40.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16649,7 +16992,7 @@ let trampoline41 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline41.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16666,8 +17009,8 @@ let trampoline42 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline42.manuallyAsync,
-	paramLiftFns: [],
-	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatFloat64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16702,8 +17045,8 @@ let trampoline44 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline44.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatFloat64],
-	resultLowerFns: [],
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatS16.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16721,7 +17064,7 @@ let trampoline45 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline45.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatU16.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16739,7 +17082,7 @@ let trampoline46 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline46.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatS32.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16757,7 +17100,7 @@ let trampoline47 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline47.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16775,7 +17118,7 @@ let trampoline48 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline48.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [],
+	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -16792,6 +17135,24 @@ let trampoline49 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline49.manuallyAsync,
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: null,
+	stringEncoding: "utf8",
+	getMemoryFn: () => null,
+	getReallocFn: void 0,
+	importFn: _trampoline49
+});
+let trampoline50 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 50,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline50.manuallyAsync,
 	paramLiftFns: [_liftFlatU64, _liftFlatOption(_jcoLiftVariantContext, {
 		caseMetas: [[
 			"none",
@@ -16825,9 +17186,27 @@ let trampoline49 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => null,
 	getReallocFn: void 0,
-	importFn: _trampoline49
+	importFn: _trampoline50
 });
-function trampoline50(handle) {
+let trampoline51 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 51,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline51.manuallyAsync,
+	paramLiftFns: [],
+	resultLowerFns: [],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: null,
+	stringEncoding: "utf8",
+	getMemoryFn: () => null,
+	getReallocFn: void 0,
+	importFn: _trampoline51
+});
+function trampoline52(handle) {
 	let handleEntry = rscTableRemove(_jcoResourceRemoveContext, handleTable1, handle);
 	if (handleEntry.own) {
 		let rsc = captureTable1.get(handleEntry.rep);
@@ -16838,7 +17217,7 @@ function trampoline50(handle) {
 		} else Error$1[symbolCabiDispose] && Error$1[symbolCabiDispose](handleEntry.rep);
 	}
 }
-function trampoline51(handle) {
+function trampoline53(handle) {
 	let handleEntry = rscTableRemove(_jcoResourceRemoveContext, handleTable0, handle);
 	if (handleEntry.own) {
 		let rsc = captureTable0.get(handleEntry.rep);
@@ -16849,7 +17228,7 @@ function trampoline51(handle) {
 		} else Pollable[symbolCabiDispose] && Pollable[symbolCabiDispose](handleEntry.rep);
 	}
 }
-function trampoline52(handle) {
+function trampoline54(handle) {
 	let handleEntry = rscTableRemove(_jcoResourceRemoveContext, handleTable2, handle);
 	if (handleEntry.own) {
 		let rsc = captureTable2.get(handleEntry.rep);
@@ -16860,7 +17239,7 @@ function trampoline52(handle) {
 		} else InputStream[symbolCabiDispose] && InputStream[symbolCabiDispose](handleEntry.rep);
 	}
 }
-function trampoline53(handle) {
+function trampoline55(handle) {
 	let handleEntry = rscTableRemove(_jcoResourceRemoveContext, handleTable3, handle);
 	if (handleEntry.own) {
 		let rsc = captureTable3.get(handleEntry.rep);
@@ -16871,7 +17250,7 @@ function trampoline53(handle) {
 		} else OutputStream[symbolCabiDispose] && OutputStream[symbolCabiDispose](handleEntry.rep);
 	}
 }
-function trampoline54(handle) {
+function trampoline56(handle) {
 	let handleEntry = rscTableRemove(_jcoResourceRemoveContext, handleTable4, handle);
 	if (handleEntry.own) {
 		let rsc = captureTable4.get(handleEntry.rep);
@@ -16882,7 +17261,7 @@ function trampoline54(handle) {
 		} else TerminalInput[symbolCabiDispose] && TerminalInput[symbolCabiDispose](handleEntry.rep);
 	}
 }
-function trampoline55(handle) {
+function trampoline57(handle) {
 	let handleEntry = rscTableRemove(_jcoResourceRemoveContext, handleTable5, handle);
 	if (handleEntry.own) {
 		let rsc = captureTable5.get(handleEntry.rep);
@@ -16893,11 +17272,11 @@ function trampoline55(handle) {
 		} else TerminalOutput[symbolCabiDispose] && TerminalOutput[symbolCabiDispose](handleEntry.rep);
 	}
 }
-let trampoline56 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 56,
+let trampoline58 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 58,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline56.manuallyAsync,
+	isManualAsync: _trampoline58.manuallyAsync,
 	paramLiftFns: [_liftFlatResult(_jcoLiftVariantContext, {
 		caseMetas: [[
 			"ok",
@@ -16930,13 +17309,13 @@ let trampoline56 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => null,
 	getReallocFn: void 0,
-	importFn: _trampoline56
+	importFn: _trampoline58
 });
-let trampoline57 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 57,
+let trampoline59 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 59,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline57.manuallyAsync,
+	isManualAsync: _trampoline59.manuallyAsync,
 	paramLiftFns: [_liftFlatBorrow.bind(null, 0)],
 	resultLowerFns: [],
 	hasResultPointer: !1,
@@ -16948,13 +17327,13 @@ let trampoline57 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => null,
 	getReallocFn: void 0,
-	importFn: _trampoline57
+	importFn: _trampoline59
 });
-let trampoline58 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 58,
+let trampoline60 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 60,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline58.manuallyAsync,
+	isManualAsync: _trampoline60.manuallyAsync,
 	paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
 	resultLowerFns: [_lowerFlatOwn(_jcoStrictNumericContext, {
 		componentIdx: 0,
@@ -16979,13 +17358,13 @@ let trampoline58 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => null,
 	getReallocFn: void 0,
-	importFn: _trampoline58
+	importFn: _trampoline60
 });
-let trampoline59 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 59,
+let trampoline61 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 61,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline59.manuallyAsync,
+	isManualAsync: _trampoline61.manuallyAsync,
 	paramLiftFns: [],
 	resultLowerFns: [_lowerFlatOwn(_jcoStrictNumericContext, {
 		componentIdx: 0,
@@ -17010,68 +17389,6 @@ let trampoline59 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => null,
 	getReallocFn: void 0,
-	importFn: _trampoline59
-});
-let trampoline60 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 60,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline60.manuallyAsync,
-	paramLiftFns: [],
-	resultLowerFns: [_lowerFlatOwn(_jcoStrictNumericContext, {
-		componentIdx: 0,
-		tableIdx: 3,
-		lowerFn: function lowerImportedOwnedHost_OutputStream(obj) {
-			if (!(obj instanceof OutputStream)) throw TypeError("Resource error: Not a valid \"OutputStream\" resource.");
-			let handle = obj[symbolRscHandle];
-			if (!handle) {
-				let rep = (obj[symbolRscRep] ?? ++captureCnt3) >>> 0;
-				captureTable3.set(rep, obj);
-				handle = rscTableCreateOwn(HANDLE_INDEX_SPACES, handleTable3, rep);
-			}
-			return handle;
-		}
-	})],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: null,
-	stringEncoding: "utf8",
-	getMemoryFn: () => null,
-	getReallocFn: void 0,
-	importFn: _trampoline60
-});
-let trampoline61 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 61,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline61.manuallyAsync,
-	paramLiftFns: [],
-	resultLowerFns: [_lowerFlatOwn(_jcoStrictNumericContext, {
-		componentIdx: 0,
-		tableIdx: 3,
-		lowerFn: function lowerImportedOwnedHost_OutputStream(obj) {
-			if (!(obj instanceof OutputStream)) throw TypeError("Resource error: Not a valid \"OutputStream\" resource.");
-			let handle = obj[symbolRscHandle];
-			if (!handle) {
-				let rep = (obj[symbolRscRep] ?? ++captureCnt3) >>> 0;
-				captureTable3.set(rep, obj);
-				handle = rscTableCreateOwn(HANDLE_INDEX_SPACES, handleTable3, rep);
-			}
-			return handle;
-		}
-	})],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: null,
-	stringEncoding: "utf8",
-	getMemoryFn: () => null,
-	getReallocFn: void 0,
 	importFn: _trampoline61
 });
 let trampoline62 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
@@ -17080,7 +17397,20 @@ let trampoline62 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	isAsync: !1,
 	isManualAsync: _trampoline62.manuallyAsync,
 	paramLiftFns: [],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	resultLowerFns: [_lowerFlatOwn(_jcoStrictNumericContext, {
+		componentIdx: 0,
+		tableIdx: 3,
+		lowerFn: function lowerImportedOwnedHost_OutputStream(obj) {
+			if (!(obj instanceof OutputStream)) throw TypeError("Resource error: Not a valid \"OutputStream\" resource.");
+			let handle = obj[symbolRscHandle];
+			if (!handle) {
+				let rep = (obj[symbolRscRep] ?? ++captureCnt3) >>> 0;
+				captureTable3.set(rep, obj);
+				handle = rscTableCreateOwn(HANDLE_INDEX_SPACES, handleTable3, rep);
+			}
+			return handle;
+		}
+	})],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -17097,6 +17427,55 @@ let trampoline63 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline63.manuallyAsync,
+	paramLiftFns: [],
+	resultLowerFns: [_lowerFlatOwn(_jcoStrictNumericContext, {
+		componentIdx: 0,
+		tableIdx: 3,
+		lowerFn: function lowerImportedOwnedHost_OutputStream(obj) {
+			if (!(obj instanceof OutputStream)) throw TypeError("Resource error: Not a valid \"OutputStream\" resource.");
+			let handle = obj[symbolRscHandle];
+			if (!handle) {
+				let rep = (obj[symbolRscRep] ?? ++captureCnt3) >>> 0;
+				captureTable3.set(rep, obj);
+				handle = rscTableCreateOwn(HANDLE_INDEX_SPACES, handleTable3, rep);
+			}
+			return handle;
+		}
+	})],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: null,
+	stringEncoding: "utf8",
+	getMemoryFn: () => null,
+	getReallocFn: void 0,
+	importFn: _trampoline63
+});
+let trampoline64 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 64,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline64.manuallyAsync,
+	paramLiftFns: [],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: null,
+	stringEncoding: "utf8",
+	getMemoryFn: () => null,
+	getReallocFn: void 0,
+	importFn: _trampoline64
+});
+let trampoline65 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 65,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline65.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
 	resultLowerFns: [_lowerFlatOwn(_jcoStrictNumericContext, {
 		componentIdx: 0,
@@ -17121,13 +17500,13 @@ let trampoline63 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => null,
 	getReallocFn: void 0,
-	importFn: _trampoline63
+	importFn: _trampoline65
 });
-let trampoline64 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 64,
+let trampoline66 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 66,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline64.manuallyAsync,
+	isManualAsync: _trampoline66.manuallyAsync,
 	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext), _liftFlatOption(_jcoLiftVariantContext, {
 		caseMetas: [[
 			"none",
@@ -17161,61 +17540,6 @@ let trampoline64 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline64
-});
-let trampoline65 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 65,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline65.manuallyAsync,
-	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
-	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
-	importFn: _trampoline65
-});
-let trampoline66 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 66,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline66.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
-		caseMetas: [[
-			"none",
-			null,
-			0,
-			0,
-			0
-		], [
-			"some",
-			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
-			8,
-			8,
-			1
-		]],
-		variantSize32: 16,
-		variantAlign32: 8,
-		variantPayloadOffset32: 8,
-		variantFlatCount: 2,
-		payloadMaybeNull: !1
-	})],
-	hasResultPointer: !0,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
 	importFn: _trampoline66
 });
 let trampoline67 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
@@ -17223,30 +17547,8 @@ let trampoline67 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline67.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatOption(_jcoLiftVariantContext, {
-		caseMetas: [[
-			"none",
-			null,
-			0,
-			0,
-			0,
-			[]
-		], [
-			"some",
-			_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
-			8,
-			4,
-			2,
-			["i32", "i32"]
-		]],
-		variantSize32: 12,
-		variantAlign32: 4,
-		variantPayloadOffset32: 4,
-		variantFlatCount: 3,
-		variantPayloadFlatTypes: ["i32", "i32"],
-		payloadMaybeNull: !1
-	})],
-	resultLowerFns: [],
+	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -17300,28 +17602,31 @@ let trampoline69 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline69.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
+	paramLiftFns: [_liftFlatU64, _liftFlatOption(_jcoLiftVariantContext, {
 		caseMetas: [[
 			"none",
 			null,
 			0,
 			0,
-			0
+			0,
+			[]
 		], [
 			"some",
-			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
+			_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
 			8,
-			8,
-			1
+			4,
+			2,
+			["i32", "i32"]
 		]],
-		variantSize32: 16,
-		variantAlign32: 8,
-		variantPayloadOffset32: 8,
-		variantFlatCount: 2,
+		variantSize32: 12,
+		variantAlign32: 4,
+		variantPayloadOffset32: 4,
+		variantFlatCount: 3,
+		variantPayloadFlatTypes: ["i32", "i32"],
 		payloadMaybeNull: !1
 	})],
-	hasResultPointer: !0,
+	resultLowerFns: [],
+	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
 	getPostReturnFn: () => null,
@@ -17374,14 +17679,28 @@ let trampoline71 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline71.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatList(_jcoLiftListContext, {
-		elemLiftFn: _liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
-		elemAlign32: 4,
-		elemSize32: 8,
-		typedArray: void 0
+	paramLiftFns: [_liftFlatU64, _liftFlatU32],
+	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
+		caseMetas: [[
+			"none",
+			null,
+			0,
+			0,
+			0
+		], [
+			"some",
+			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
+			8,
+			8,
+			1
+		]],
+		variantSize32: 16,
+		variantAlign32: 8,
+		variantPayloadOffset32: 8,
+		variantFlatCount: 2,
+		payloadMaybeNull: !1
 	})],
-	resultLowerFns: [],
-	hasResultPointer: !1,
+	hasResultPointer: !0,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
 	getPostReturnFn: () => null,
@@ -17397,47 +17716,6 @@ let trampoline72 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline72.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatList(_jcoLiftListContext, {
-		elemLiftFn: _liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
-		elemAlign32: 4,
-		elemSize32: 8,
-		typedArray: void 0
-	})],
-	resultLowerFns: [],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
-	importFn: _trampoline72
-});
-let trampoline73 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 73,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline73.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
-	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
-	importFn: _trampoline73
-});
-let trampoline74 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 74,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline74.manuallyAsync,
 	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
 	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
 		caseMetas: [[
@@ -17468,6 +17746,64 @@ let trampoline74 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
+	importFn: _trampoline72
+});
+let trampoline73 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 73,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline73.manuallyAsync,
+	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline73
+});
+let trampoline74 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 74,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline74.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatOption(_jcoLiftVariantContext, {
+		caseMetas: [[
+			"none",
+			null,
+			0,
+			0,
+			0,
+			[]
+		], [
+			"some",
+			_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
+			8,
+			4,
+			2,
+			["i32", "i32"]
+		]],
+		variantSize32: 12,
+		variantAlign32: 4,
+		variantPayloadOffset32: 4,
+		variantFlatCount: 3,
+		variantPayloadFlatTypes: ["i32", "i32"],
+		payloadMaybeNull: !1
+	})],
+	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
 	importFn: _trampoline74
 });
 let trampoline75 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
@@ -17475,6 +17811,217 @@ let trampoline75 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline75.manuallyAsync,
+	paramLiftFns: [
+		_liftFlatU64,
+		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
+		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
+		_liftFlatOption(_jcoLiftVariantContext, {
+			caseMetas: [[
+				"none",
+				null,
+				0,
+				0,
+				0,
+				[]
+			], [
+				"some",
+				_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
+				8,
+				4,
+				2,
+				["i32", "i32"]
+			]],
+			variantSize32: 12,
+			variantAlign32: 4,
+			variantPayloadOffset32: 4,
+			variantFlatCount: 3,
+			variantPayloadFlatTypes: ["i32", "i32"],
+			payloadMaybeNull: !1
+		})
+	],
+	resultLowerFns: [],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline75
+});
+let trampoline76 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 76,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline76.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [_lowerFlatStringAny.bind(void 0, _jcoLowerStringContext)],
+	hasResultPointer: !0,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: () => realloc0,
+	importFn: _trampoline76
+});
+let trampoline77 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 77,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline77.manuallyAsync,
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
+		caseMetas: [[
+			"none",
+			null,
+			0,
+			0,
+			0
+		], [
+			"some",
+			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
+			8,
+			8,
+			1
+		]],
+		variantSize32: 16,
+		variantAlign32: 8,
+		variantPayloadOffset32: 8,
+		variantFlatCount: 2,
+		payloadMaybeNull: !1
+	})],
+	hasResultPointer: !0,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline77
+});
+let trampoline78 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 78,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline78.manuallyAsync,
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
+		caseMetas: [[
+			"none",
+			null,
+			0,
+			0,
+			0
+		], [
+			"some",
+			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
+			8,
+			8,
+			1
+		]],
+		variantSize32: 16,
+		variantAlign32: 8,
+		variantPayloadOffset32: 8,
+		variantFlatCount: 2,
+		payloadMaybeNull: !1
+	})],
+	hasResultPointer: !0,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline78
+});
+let trampoline79 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 79,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline79.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
+		caseMetas: [[
+			"none",
+			null,
+			0,
+			0,
+			0
+		], [
+			"some",
+			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
+			8,
+			8,
+			1
+		]],
+		variantSize32: 16,
+		variantAlign32: 8,
+		variantPayloadOffset32: 8,
+		variantFlatCount: 2,
+		payloadMaybeNull: !1
+	})],
+	hasResultPointer: !0,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline79
+});
+let trampoline80 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 80,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline80.manuallyAsync,
+	paramLiftFns: [],
+	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
+		caseMetas: [[
+			"none",
+			null,
+			0,
+			0,
+			0
+		], [
+			"some",
+			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
+			8,
+			8,
+			1
+		]],
+		variantSize32: 16,
+		variantAlign32: 8,
+		variantPayloadOffset32: 8,
+		variantFlatCount: 2,
+		payloadMaybeNull: !1
+	})],
+	hasResultPointer: !0,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline80
+});
+let trampoline81 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 81,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline81.manuallyAsync,
 	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext), _liftFlatOption(_jcoLiftVariantContext, {
 		caseMetas: [[
 			"none",
@@ -17508,13 +18055,13 @@ let trampoline75 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline75
+	importFn: _trampoline81
 });
-let trampoline76 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 76,
+let trampoline82 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 82,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline76.manuallyAsync,
+	isManualAsync: _trampoline82.manuallyAsync,
 	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
 	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
 	hasResultPointer: !1,
@@ -17526,13 +18073,13 @@ let trampoline76 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline76
+	importFn: _trampoline82
 });
-let trampoline77 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 77,
+let trampoline83 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 83,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline77.manuallyAsync,
+	isManualAsync: _trampoline83.manuallyAsync,
 	paramLiftFns: [
 		_liftFlatOption(_jcoLiftVariantContext, {
 			caseMetas: [[
@@ -17592,150 +18139,13 @@ let trampoline77 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline77
+	importFn: _trampoline83
 });
-let trampoline78 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 78,
+let trampoline84 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 84,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline78.manuallyAsync,
-	paramLiftFns: [],
-	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
-		caseMetas: [[
-			"none",
-			null,
-			0,
-			0,
-			0
-		], [
-			"some",
-			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
-			8,
-			8,
-			1
-		]],
-		variantSize32: 16,
-		variantAlign32: 8,
-		variantPayloadOffset32: 8,
-		variantFlatCount: 2,
-		payloadMaybeNull: !1
-	})],
-	hasResultPointer: !0,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
-	importFn: _trampoline78
-});
-let trampoline79 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 79,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline79.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatU32],
-	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
-		caseMetas: [[
-			"none",
-			null,
-			0,
-			0,
-			0
-		], [
-			"some",
-			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
-			8,
-			8,
-			1
-		]],
-		variantSize32: 16,
-		variantAlign32: 8,
-		variantPayloadOffset32: 8,
-		variantFlatCount: 2,
-		payloadMaybeNull: !1
-	})],
-	hasResultPointer: !0,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
-	importFn: _trampoline79
-});
-let trampoline80 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 80,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline80.manuallyAsync,
-	paramLiftFns: [
-		_liftFlatU64,
-		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
-		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
-		_liftFlatOption(_jcoLiftVariantContext, {
-			caseMetas: [[
-				"none",
-				null,
-				0,
-				0,
-				0,
-				[]
-			], [
-				"some",
-				_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
-				8,
-				4,
-				2,
-				["i32", "i32"]
-			]],
-			variantSize32: 12,
-			variantAlign32: 4,
-			variantPayloadOffset32: 4,
-			variantFlatCount: 3,
-			variantPayloadFlatTypes: ["i32", "i32"],
-			payloadMaybeNull: !1
-		})
-	],
-	resultLowerFns: [],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
-	importFn: _trampoline80
-});
-let trampoline81 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 81,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline81.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
-	resultLowerFns: [_lowerFlatStringAny.bind(void 0, _jcoLowerStringContext)],
-	hasResultPointer: !0,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: () => realloc0,
-	importFn: _trampoline81
-});
-let trampoline82 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 82,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline82.manuallyAsync,
+	isManualAsync: _trampoline84.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
 	resultLowerFns: [_lowerFlatStringAny.bind(void 0, _jcoLowerStringContext)],
 	hasResultPointer: !0,
@@ -17747,46 +18157,6 @@ let trampoline82 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: () => realloc0,
-	importFn: _trampoline82
-});
-let trampoline83 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 83,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline83.manuallyAsync,
-	paramLiftFns: [
-		_liftFlatU64,
-		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
-		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)
-	],
-	resultLowerFns: [],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
-	importFn: _trampoline83
-});
-let trampoline84 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 84,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline84.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
-	resultLowerFns: [],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
 	importFn: _trampoline84
 });
 let trampoline85 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
@@ -17831,7 +18201,11 @@ let trampoline86 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline86.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	paramLiftFns: [
+		_liftFlatU64,
+		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
+		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)
+	],
 	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
@@ -17849,6 +18223,42 @@ let trampoline87 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline87.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline87
+});
+let trampoline88 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 88,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline88.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline88
+});
+let trampoline89 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 89,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline89.manuallyAsync,
 	paramLiftFns: [_liftFlatU64],
 	resultLowerFns: [_lowerFlatRecord({
 		fieldMetas: [
@@ -17889,13 +18299,68 @@ let trampoline87 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline87
+	importFn: _trampoline89
 });
-let trampoline88 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 88,
+let trampoline90 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 90,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline88.manuallyAsync,
+	isManualAsync: _trampoline90.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
+		caseMetas: [[
+			"none",
+			null,
+			0,
+			0,
+			0
+		], [
+			"some",
+			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
+			8,
+			8,
+			1
+		]],
+		variantSize32: 16,
+		variantAlign32: 8,
+		variantPayloadOffset32: 8,
+		variantFlatCount: 2,
+		payloadMaybeNull: !1
+	})],
+	hasResultPointer: !0,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline90
+});
+let trampoline91 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 91,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline91.manuallyAsync,
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatStringAny.bind(void 0, _jcoLowerStringContext)],
+	hasResultPointer: !0,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: () => realloc0,
+	importFn: _trampoline91
+});
+let trampoline92 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 92,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline92.manuallyAsync,
 	paramLiftFns: [
 		_liftFlatU64,
 		_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
@@ -17929,13 +18394,13 @@ let trampoline88 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: () => realloc0,
-	importFn: _trampoline88
+	importFn: _trampoline92
 });
-let trampoline89 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 89,
+let trampoline93 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 93,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline89.manuallyAsync,
+	isManualAsync: _trampoline93.manuallyAsync,
 	paramLiftFns: [_liftFlatU64, _liftFlatU64],
 	resultLowerFns: [_lowerFlatResult(_jcoStrictNumericContext, {
 		caseMetas: [[
@@ -17965,100 +18430,6 @@ let trampoline89 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: () => realloc0,
-	importFn: _trampoline89
-});
-let trampoline90 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 90,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline90.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatStringAny.bind(void 0, _jcoLowerStringContext)],
-	hasResultPointer: !0,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: () => realloc0,
-	importFn: _trampoline90
-});
-let trampoline91 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 91,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline91.manuallyAsync,
-	paramLiftFns: [_liftFlatU64],
-	resultLowerFns: [_lowerFlatStringAny.bind(void 0, _jcoLowerStringContext)],
-	hasResultPointer: !0,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: () => realloc0,
-	importFn: _trampoline91
-});
-let trampoline92 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 92,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline92.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatOption(_jcoLiftVariantContext, {
-		caseMetas: [[
-			"none",
-			null,
-			0,
-			0,
-			0,
-			[]
-		], [
-			"some",
-			_liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
-			8,
-			4,
-			2,
-			["i32", "i32"]
-		]],
-		variantSize32: 12,
-		variantAlign32: 4,
-		variantPayloadOffset32: 4,
-		variantFlatCount: 3,
-		variantPayloadFlatTypes: ["i32", "i32"],
-		payloadMaybeNull: !1
-	})],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
-	importFn: _trampoline92
-});
-let trampoline93 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 93,
-	componentIdx: 0,
-	isAsync: !1,
-	isManualAsync: _trampoline93.manuallyAsync,
-	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
-	resultLowerFns: [_lowerFlatU64.bind(void 0, _jcoStrictNumericContext)],
-	hasResultPointer: !1,
-	funcTypeIsAsync: !1,
-	getCallbackFn: () => null,
-	getPostReturnFn: () => null,
-	isCancellable: !1,
-	memoryIdx: 0,
-	stringEncoding: "utf8",
-	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
 	importFn: _trampoline93
 });
 let trampoline94 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
@@ -18066,27 +18437,8 @@ let trampoline94 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline94.manuallyAsync,
-	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
-	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
-		caseMetas: [[
-			"none",
-			null,
-			0,
-			0,
-			0
-		], [
-			"some",
-			_lowerFlatU64.bind(void 0, _jcoStrictNumericContext),
-			8,
-			8,
-			1
-		]],
-		variantSize32: 16,
-		variantAlign32: 8,
-		variantPayloadOffset32: 8,
-		variantFlatCount: 2,
-		payloadMaybeNull: !1
-	})],
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatStringAny.bind(void 0, _jcoLowerStringContext)],
 	hasResultPointer: !0,
 	funcTypeIsAsync: !1,
 	getCallbackFn: () => null,
@@ -18095,7 +18447,7 @@ let trampoline94 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	memoryIdx: 0,
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
-	getReallocFn: void 0,
+	getReallocFn: () => realloc0,
 	importFn: _trampoline94
 });
 let trampoline95 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
@@ -18103,7 +18455,7 @@ let trampoline95 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline95.manuallyAsync,
-	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
 	resultLowerFns: [],
 	hasResultPointer: !1,
 	funcTypeIsAsync: !1,
@@ -18121,6 +18473,106 @@ let trampoline96 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	componentIdx: 0,
 	isAsync: !1,
 	isManualAsync: _trampoline96.manuallyAsync,
+	paramLiftFns: [_liftFlatU64],
+	resultLowerFns: [_lowerFlatStringAny.bind(void 0, _jcoLowerStringContext)],
+	hasResultPointer: !0,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: () => realloc0,
+	importFn: _trampoline96
+});
+let trampoline97 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 97,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline97.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatList(_jcoLiftListContext, {
+		elemLiftFn: _liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
+		elemAlign32: 4,
+		elemSize32: 8,
+		typedArray: void 0
+	})],
+	resultLowerFns: [],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline97
+});
+let trampoline98 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 98,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline98.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatList(_jcoLiftListContext, {
+		elemLiftFn: _liftFlatStringAny.bind(void 0, _jcoLiftStringContext),
+		elemAlign32: 4,
+		elemSize32: 8,
+		typedArray: void 0
+	})],
+	resultLowerFns: [],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline98
+});
+let trampoline99 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 99,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline99.manuallyAsync,
+	paramLiftFns: [_liftFlatU64, _liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [_lowerFlatBool.bind(void 0, _jcoStrictNumericContext)],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline99
+});
+let trampoline100 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 100,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline100.manuallyAsync,
+	paramLiftFns: [_liftFlatStringAny.bind(void 0, _jcoLiftStringContext)],
+	resultLowerFns: [],
+	hasResultPointer: !1,
+	funcTypeIsAsync: !1,
+	getCallbackFn: () => null,
+	getPostReturnFn: () => null,
+	isCancellable: !1,
+	memoryIdx: 0,
+	stringEncoding: "utf8",
+	getMemoryFn: () => memory0,
+	getReallocFn: void 0,
+	importFn: _trampoline100
+});
+let trampoline101 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 101,
+	componentIdx: 0,
+	isAsync: !1,
+	isManualAsync: _trampoline101.manuallyAsync,
 	paramLiftFns: [],
 	resultLowerFns: [_lowerFlatTuple({
 		elemLowerMetas: [[
@@ -18144,13 +18596,13 @@ let trampoline96 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline96
+	importFn: _trampoline101
 });
-let trampoline97 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 97,
+let trampoline102 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 102,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline97.manuallyAsync,
+	isManualAsync: _trampoline102.manuallyAsync,
 	paramLiftFns: [_liftFlatList(_jcoLiftListContext, {
 		elemLiftFn: _liftFlatBorrow.bind(null, 0),
 		elemAlign32: 4,
@@ -18172,13 +18624,13 @@ let trampoline97 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: () => realloc0,
-	importFn: _trampoline97
+	importFn: _trampoline102
 });
-let trampoline98 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 98,
+let trampoline103 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 103,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline98.manuallyAsync,
+	isManualAsync: _trampoline103.manuallyAsync,
 	paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
 	resultLowerFns: [_lowerFlatResult(_jcoStrictNumericContext, {
 		caseMetas: [[
@@ -18239,13 +18691,13 @@ let trampoline98 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline98
+	importFn: _trampoline103
 });
-let trampoline99 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 99,
+let trampoline104 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 104,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline99.manuallyAsync,
+	isManualAsync: _trampoline104.manuallyAsync,
 	paramLiftFns: [_liftFlatBorrow.bind(null, 3), _liftFlatList(_jcoLiftListContext, {
 		elemLiftFn: _liftFlatU8,
 		elemAlign32: 1,
@@ -18311,13 +18763,13 @@ let trampoline99 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportCo
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline99
+	importFn: _trampoline104
 });
-let trampoline100 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 100,
+let trampoline105 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 105,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline100.manuallyAsync,
+	isManualAsync: _trampoline105.manuallyAsync,
 	paramLiftFns: [_liftFlatBorrow.bind(null, 3)],
 	resultLowerFns: [_lowerFlatResult(_jcoStrictNumericContext, {
 		caseMetas: [[
@@ -18378,13 +18830,13 @@ let trampoline100 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportC
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline100
+	importFn: _trampoline105
 });
-let trampoline101 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 101,
+let trampoline106 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 106,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline101.manuallyAsync,
+	isManualAsync: _trampoline106.manuallyAsync,
 	paramLiftFns: [],
 	resultLowerFns: [_lowerFlatList(_jcoLowerListContext, {
 		elemLowerFn: _lowerFlatTuple({
@@ -18413,13 +18865,13 @@ let trampoline101 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportC
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: () => realloc0,
-	importFn: _trampoline101
+	importFn: _trampoline106
 });
-let trampoline102 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 102,
+let trampoline107 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 107,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline102.manuallyAsync,
+	isManualAsync: _trampoline107.manuallyAsync,
 	paramLiftFns: [],
 	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
 		caseMetas: [[
@@ -18463,13 +18915,13 @@ let trampoline102 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportC
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline102
+	importFn: _trampoline107
 });
-let trampoline103 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 103,
+let trampoline108 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 108,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline103.manuallyAsync,
+	isManualAsync: _trampoline108.manuallyAsync,
 	paramLiftFns: [],
 	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
 		caseMetas: [[
@@ -18513,13 +18965,13 @@ let trampoline103 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportC
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline103
+	importFn: _trampoline108
 });
-let trampoline104 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 104,
+let trampoline109 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 109,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline104.manuallyAsync,
+	isManualAsync: _trampoline109.manuallyAsync,
 	paramLiftFns: [],
 	resultLowerFns: [_lowerFlatOption(_jcoStrictNumericContext, {
 		caseMetas: [[
@@ -18563,13 +19015,13 @@ let trampoline104 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportC
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline104
+	importFn: _trampoline109
 });
-let trampoline105 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
-	trampolineIdx: 105,
+let trampoline110 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportContext, {
+	trampolineIdx: 110,
 	componentIdx: 0,
 	isAsync: !1,
-	isManualAsync: _trampoline105.manuallyAsync,
+	isManualAsync: _trampoline110.manuallyAsync,
 	paramLiftFns: [],
 	resultLowerFns: [_lowerFlatRecord({
 		fieldMetas: [[
@@ -18595,15 +19047,15 @@ let trampoline105 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportC
 	stringEncoding: "utf8",
 	getMemoryFn: () => memory0,
 	getReallocFn: void 0,
-	importFn: _trampoline105
+	importFn: _trampoline110
 });
 await (() => {
 	let gen = (function* _initGenerator() {
-		let module0 = fetchCompile(_jcoFetchCompileContext, new URL("./_admin2.core.wasm?v=1795706821", import.meta.url));
+		let module0 = fetchCompile(_jcoFetchCompileContext, new URL("./_admin2.core.wasm?v=1795722996", import.meta.url));
 		Promise.resolve(module0).catch(() => {});
-		let module1 = base64Compile(_jcoBase64CompileContext, "AGFzbQEAAAABjAEUYAV/f39/fwF+YAJ/fwF/YAJ+fwBgBH5/f38AYAN+f38AYAN+f38Bf2AEfn9/fwBgAn9/AX5gCH9/f39/f39/AX5gAX8AYAN+f38AYAh+f39/f39/fwBgBX5/f39/AGAFfn9/f38AYAN+fn8AYAR+f39/AX5gAn9/AGADf39/AGACf38AYAR/f39/AAMrKgABAgMCAgIEBAUGAAcICQoLBgIMBAYEAg0OAgIPBwYQCRESExIJCQkJCQQFAXABKioH1AErATAAAAExAAEBMgACATMAAwE0AAQBNQAFATYABgE3AAcBOAAIATkACQIxMAAKAjExAAsCMTIADAIxMwANAjE0AA4CMTUADwIxNgAQAjE3ABECMTgAEgIxOQATAjIwABQCMjEAFQIyMgAWAjIzABcCMjQAGAIyNQAZAjI2ABoCMjcAGwIyOAAcAjI5AB0CMzAAHgIzMQAfAjMyACACMzMAIQIzNAAiAjM1ACMCMzYAJAIzNwAlAjM4ACYCMzkAJwI0MAAoAjQxACkIJGltcG9ydHMBAArHBCoRACAAIAEgAiADIARBABEAAAsLACAAIAFBAREBAAsLACAAIAFBAhECAAsPACAAIAEgAiADQQMRAwALCwAgACABQQQRAgALCwAgACABQQURAgALCwAgACABQQYRAgALDQAgACABIAJBBxEEAAsNACAAIAEgAkEIEQQACw0AIAAgASACQQkRBQALDwAgACABIAIgA0EKEQYACxEAIAAgASACIAMgBEELEQAACwsAIAAgAUEMEQcACxcAIAAgASACIAMgBCAFIAYgB0ENEQgACwkAIABBDhEJAAsNACAAIAEgAkEPEQoACxcAIAAgASACIAMgBCAFIAYgB0EQEQsACw8AIAAgASACIANBEREGAAsLACAAIAFBEhECAAsRACAAIAEgAiADIARBExEMAAsNACAAIAEgAkEUEQQACw8AIAAgASACIANBFREGAAsNACAAIAEgAkEWEQQACwsAIAAgAUEXEQIACxEAIAAgASACIAMgBEEYEQ0ACw0AIAAgASACQRkRDgALCwAgACABQRoRAgALCwAgACABQRsRAgALDwAgACABIAIgA0EcEQ8ACwsAIAAgAUEdEQcACw8AIAAgASACIANBHhEGAAsLACAAIAFBHxEQAAsJACAAQSARCQALDQAgACABIAJBIRERAAsLACAAIAFBIhESAAsPACAAIAEgAiADQSMREwALCwAgACABQSQREgALCQAgAEElEQkACwkAIABBJhEJAAsJACAAQScRCQALCQAgAEEoEQkACwkAIABBKREJAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI1NC4w");
+		let module1 = base64Compile(_jcoBase64CompileContext, "AGFzbQEAAAABjAEUYAV/f39/fwF+YAJ/fwF/YAJ+fwBgBH5/f38AYAN+f38AYAR+f39/AGACf38BfmAEfn9/fwF+YAh+f39/f39/fwBgAX8AYAh/f39/f39/fwF+YAV+f39/fwBgA35/fwBgBX5/f39/AGADfn5/AGADfn9/AX9gAn9/AGADf39/AGACf38AYAR/f39/AAMuLQABAgMCBAUGBwgFAgIFCQAGCgIFCwwMAgUCDQ4CDAIMDA8QCRESExIJCQkJCQQFAXABLS0H4wEuATAAAAExAAEBMgACATMAAwE0AAQBNQAFATYABgE3AAcBOAAIATkACQIxMAAKAjExAAsCMTIADAIxMwANAjE0AA4CMTUADwIxNgAQAjE3ABECMTgAEgIxOQATAjIwABQCMjEAFQIyMgAWAjIzABcCMjQAGAIyNQAZAjI2ABoCMjcAGwIyOAAcAjI5AB0CMzAAHgIzMQAfAjMyACACMzMAIQIzNAAiAjM1ACMCMzYAJAIzNwAlAjM4ACYCMzkAJwI0MAAoAjQxACkCNDIAKgI0MwArAjQ0ACwIJGltcG9ydHMBAArxBC0RACAAIAEgAiADIARBABEAAAsLACAAIAFBAREBAAsLACAAIAFBAhECAAsPACAAIAEgAiADQQMRAwALCwAgACABQQQRAgALDQAgACABIAJBBREEAAsPACAAIAEgAiADQQYRBQALCwAgACABQQcRBgALDwAgACABIAIgA0EIEQcACxcAIAAgASACIAMgBCAFIAYgB0EJEQgACw8AIAAgASACIANBChEFAAsLACAAIAFBCxECAAsLACAAIAFBDBECAAsPACAAIAEgAiADQQ0RBQALCQAgAEEOEQkACxEAIAAgASACIAMgBEEPEQAACwsAIAAgAUEQEQYACxcAIAAgASACIAMgBCAFIAYgB0EREQoACwsAIAAgAUESEQIACw8AIAAgASACIANBExEFAAsRACAAIAEgAiADIARBFBELAAsNACAAIAEgAkEVEQwACw0AIAAgASACQRYRDAALCwAgACABQRcRAgALDwAgACABIAIgA0EYEQUACwsAIAAgAUEZEQIACxEAIAAgASACIAMgBEEaEQ0ACw0AIAAgASACQRsRDgALCwAgACABQRwRAgALDQAgACABIAJBHREMAAsLACAAIAFBHhECAAsNACAAIAEgAkEfEQwACw0AIAAgASACQSARDAALDQAgACABIAJBIREPAAsLACAAIAFBIhEQAAsJACAAQSMRCQALDQAgACABIAJBJBERAAsLACAAIAFBJRESAAsPACAAIAEgAiADQSYREwALCwAgACABQScREgALCQAgAEEoEQkACwkAIABBKREJAAsJACAAQSoRCQALCQAgAEErEQkACwkAIABBLBEJAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI1NC4w");
 		Promise.resolve(module1).catch(() => {});
-		let module2 = base64Compile(_jcoBase64CompileContext, "AGFzbQEAAAABjAEUYAV/f39/fwF+YAJ/fwF/YAJ+fwBgBH5/f38AYAN+f38AYAN+f38Bf2AEfn9/fwBgAn9/AX5gCH9/f39/f39/AX5gAX8AYAN+f38AYAh+f39/f39/fwBgBX5/f39/AGAFfn9/f38AYAN+fn8AYAR+f39/AX5gAn9/AGADf39/AGACf38AYAR/f39/AAKCAisAATAAAAABMQABAAEyAAIAATMAAwABNAACAAE1AAIAATYAAgABNwAEAAE4AAQAATkABQACMTAABgACMTEAAAACMTIABwACMTMACAACMTQACQACMTUACgACMTYACwACMTcABgACMTgAAgACMTkADAACMjAABAACMjEABgACMjIABAACMjMAAgACMjQADQACMjUADgACMjYAAgACMjcAAgACMjgADwACMjkABwACMzAABgACMzEAEAACMzIACQACMzMAEQACMzQAEgACMzUAEwACMzYAEgACMzcACQACMzgACQACMzkACQACNDAACQACNDEACQAIJGltcG9ydHMBcAEqKgkwAQBBAAsqAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpAC8JcHJvZHVjZXJzAQxwcm9jZXNzZWQtYnkBDXdpdC1jb21wb25lbnQHMC4yNTQuMA");
+		let module2 = base64Compile(_jcoBase64CompileContext, "AGFzbQEAAAABjAEUYAV/f39/fwF+YAJ/fwF/YAJ+fwBgBH5/f38AYAN+f38AYAR+f39/AGACf38BfmAEfn9/fwF+YAh+f39/f39/fwBgAX8AYAh/f39/f39/fwF+YAV+f39/fwBgA35/fwBgBX5/f39/AGADfn5/AGADfn9/AX9gAn9/AGADf39/AGACf38AYAR/f39/AAKUAi4AATAAAAABMQABAAEyAAIAATMAAwABNAACAAE1AAQAATYABQABNwAGAAE4AAcAATkACAACMTAABQACMTEAAgACMTIAAgACMTMABQACMTQACQACMTUAAAACMTYABgACMTcACgACMTgAAgACMTkABQACMjAACwACMjEADAACMjIADAACMjMAAgACMjQABQACMjUAAgACMjYADQACMjcADgACMjgAAgACMjkADAACMzAAAgACMzEADAACMzIADAACMzMADwACMzQAEAACMzUACQACMzYAEQACMzcAEgACMzgAEwACMzkAEgACNDAACQACNDEACQACNDIACQACNDMACQACNDQACQAIJGltcG9ydHMBcAEtLQkzAQBBAAstAAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissAC8JcHJvZHVjZXJzAQxwcm9jZXNzZWQtYnkBDXdpdC1jb21wb25lbnQHMC4yNTQuMA");
 		Promise.resolve(module2).catch(() => {});
 		let instanceFlags0 = new WebAssembly.Global({
 			value: "i32",
@@ -18613,143 +19065,152 @@ await (() => {
 		({exports: exports0} = yield instantiateCore(WebAssembly, yield module1));
 		({exports: exports1} = yield instantiateCore(WebAssembly, yield module0, {
 			"tairitsu-browser:full/css-style-declaration@0.2.0": {
-				"get-property-value": Object.assign(exports0[17], { _jcoMaySuspend: !1 }),
-				"set-property": Object.assign(exports0[16], { _jcoMaySuspend: !1 })
+				"get-property-value": Object.assign(exports0[10], { _jcoMaySuspend: !1 }),
+				"set-property": Object.assign(exports0[9], { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/document@0.2.0": {
-				"create-element": Object.assign(exports0[11], { _jcoMaySuspend: !1 }),
-				"create-element-ns": Object.assign(exports0[13], { _jcoMaySuspend: !1 }),
-				"create-text-node": Object.assign(exports0[12], { _jcoMaySuspend: !1 }),
+				"create-element": Object.assign(exports0[15], { _jcoMaySuspend: !1 }),
+				"create-element-ns": Object.assign(exports0[17], { _jcoMaySuspend: !1 }),
+				"create-text-node": Object.assign(exports0[16], { _jcoMaySuspend: !1 }),
 				"get-body": Object.assign(exports0[14], { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/dom-token-list@0.2.0": {
-				add: Object.assign(exports0[7], { _jcoMaySuspend: !1 }),
-				contains: Object.assign(exports0[9], { _jcoMaySuspend: !1 }),
-				remove: Object.assign(exports0[8], { _jcoMaySuspend: !1 })
+				add: Object.assign(exports0[31], { _jcoMaySuspend: !1 }),
+				contains: Object.assign(exports0[33], { _jcoMaySuspend: !1 }),
+				remove: Object.assign(exports0[32], { _jcoMaySuspend: !1 })
 			},
-			"tairitsu-browser:full/element-css-inline-style@0.2.0": { "get-style": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline6, !1), { _jcoMaySuspend: !1 }) },
+			"tairitsu-browser:full/element-css-inline-style@0.2.0": { "get-style": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline1, !1), { _jcoMaySuspend: !1 }) },
 			"tairitsu-browser:full/element@0.2.0": {
-				"get-attribute": Object.assign(exports0[21], { _jcoMaySuspend: !1 }),
+				closest: Object.assign(exports0[24], { _jcoMaySuspend: !1 }),
+				"get-attribute": Object.assign(exports0[19], { _jcoMaySuspend: !1 }),
 				"get-bounding-client-rect": Object.assign(exports0[23], { _jcoMaySuspend: !1 }),
-				"get-class-list": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline47, !1), { _jcoMaySuspend: !1 }),
-				"get-client-height": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline46, !1), { _jcoMaySuspend: !1 }),
-				"get-scroll-height": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline45, !1), { _jcoMaySuspend: !1 }),
-				"get-scroll-top": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline43, !1), { _jcoMaySuspend: !1 }),
+				"get-class-list": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline15, !1), { _jcoMaySuspend: !1 }),
+				"get-client-height": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline18, !1), { _jcoMaySuspend: !1 }),
+				"get-scroll-height": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline19, !1), { _jcoMaySuspend: !1 }),
+				"get-scroll-top": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline16, !1), { _jcoMaySuspend: !1 }),
 				"get-tag-name": Object.assign(exports0[18], { _jcoMaySuspend: !1 }),
 				"remove-attribute": Object.assign(exports0[22], { _jcoMaySuspend: !1 }),
-				"set-attribute": Object.assign(exports0[19], { _jcoMaySuspend: !1 }),
-				"set-inner-html": Object.assign(exports0[20], { _jcoMaySuspend: !1 }),
-				"set-scroll-top": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline44, !1), { _jcoMaySuspend: !1 })
+				"set-attribute": Object.assign(exports0[20], { _jcoMaySuspend: !1 }),
+				"set-inner-html": Object.assign(exports0[21], { _jcoMaySuspend: !1 }),
+				"set-scroll-top": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline17, !1), { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/event-target@0.2.0": {
-				"add-event-listener": Object.assign(exports0[24], { _jcoMaySuspend: !1 }),
-				"prevent-default": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline18, !1), { _jcoMaySuspend: !1 }),
-				"remove-event-listener": Object.assign(exports0[25], { _jcoMaySuspend: !1 }),
-				"stop-propagation": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline48, !1), { _jcoMaySuspend: !1 })
+				"add-event-listener": Object.assign(exports0[26], { _jcoMaySuspend: !1 }),
+				"prevent-default": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline33, !1), { _jcoMaySuspend: !1 }),
+				"remove-event-listener": Object.assign(exports0[27], { _jcoMaySuspend: !1 }),
+				"stop-propagation": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline34, !1), { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/event@0.2.0": {
-				"get-current-target": Object.assign(exports0[6], { _jcoMaySuspend: !1 }),
-				"get-target": Object.assign(exports0[5], { _jcoMaySuspend: !1 })
+				"get-current-target": Object.assign(exports0[12], { _jcoMaySuspend: !1 }),
+				"get-target": Object.assign(exports0[11], { _jcoMaySuspend: !1 })
 			},
-			"tairitsu-browser:full/html-input-element@0.2.0": { "get-value": Object.assign(exports0[26], { _jcoMaySuspend: !1 }) },
-			"tairitsu-browser:full/location@0.2.0": { "set-href": Object.assign(exports0[31], { _jcoMaySuspend: !1 }) },
-			"tairitsu-browser:full/media-query-list@0.2.0": { "add-listener": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline49, !1), { _jcoMaySuspend: !1 }) },
+			"tairitsu-browser:full/html-input-element@0.2.0": {
+				"get-type": Object.assign(exports0[28], { _jcoMaySuspend: !1 }),
+				"get-value": Object.assign(exports0[30], { _jcoMaySuspend: !1 }),
+				"set-checked": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline35, !1), { _jcoMaySuspend: !1 }),
+				"set-value": Object.assign(exports0[29], { _jcoMaySuspend: !1 })
+			},
+			"tairitsu-browser:full/location@0.2.0": {
+				reload: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline51, !1), { _jcoMaySuspend: !1 }),
+				"set-href": Object.assign(exports0[34], { _jcoMaySuspend: !1 })
+			},
+			"tairitsu-browser:full/media-query-list@0.2.0": { "add-listener": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline50, !1), { _jcoMaySuspend: !1 }) },
 			"tairitsu-browser:full/mouse-event@0.2.0": {
-				"get-alt-key": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline31, !1), { _jcoMaySuspend: !1 }),
-				"get-button": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline27, !1), { _jcoMaySuspend: !1 }),
-				"get-buttons": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline28, !1), { _jcoMaySuspend: !1 }),
-				"get-client-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline19, !1), { _jcoMaySuspend: !1 }),
-				"get-client-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline20, !1), { _jcoMaySuspend: !1 }),
-				"get-ctrl-key": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline29, !1), { _jcoMaySuspend: !1 }),
-				"get-meta-key": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline32, !1), { _jcoMaySuspend: !1 }),
-				"get-offset-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline23, !1), { _jcoMaySuspend: !1 }),
-				"get-offset-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline24, !1), { _jcoMaySuspend: !1 }),
-				"get-page-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline25, !1), { _jcoMaySuspend: !1 }),
-				"get-page-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline26, !1), { _jcoMaySuspend: !1 }),
-				"get-screen-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline21, !1), { _jcoMaySuspend: !1 }),
-				"get-screen-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline22, !1), { _jcoMaySuspend: !1 }),
-				"get-shift-key": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline30, !1), { _jcoMaySuspend: !1 })
+				"get-alt-key": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline48, !1), { _jcoMaySuspend: !1 }),
+				"get-button": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline44, !1), { _jcoMaySuspend: !1 }),
+				"get-buttons": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline45, !1), { _jcoMaySuspend: !1 }),
+				"get-client-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline36, !1), { _jcoMaySuspend: !1 }),
+				"get-client-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline37, !1), { _jcoMaySuspend: !1 }),
+				"get-ctrl-key": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline46, !1), { _jcoMaySuspend: !1 }),
+				"get-meta-key": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline49, !1), { _jcoMaySuspend: !1 }),
+				"get-offset-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline40, !1), { _jcoMaySuspend: !1 }),
+				"get-offset-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline41, !1), { _jcoMaySuspend: !1 }),
+				"get-page-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline42, !1), { _jcoMaySuspend: !1 }),
+				"get-page-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline43, !1), { _jcoMaySuspend: !1 }),
+				"get-screen-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline38, !1), { _jcoMaySuspend: !1 }),
+				"get-screen-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline39, !1), { _jcoMaySuspend: !1 }),
+				"get-shift-key": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline47, !1), { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/node-list@0.2.0": {
-				"get-length": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline17, !1), { _jcoMaySuspend: !1 }),
-				item: Object.assign(exports0[15], { _jcoMaySuspend: !1 })
+				"get-length": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline3, !1), { _jcoMaySuspend: !1 }),
+				item: Object.assign(exports0[5], { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/node@0.2.0": {
-				"append-child": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline7, !1), { _jcoMaySuspend: !1 }),
-				"get-child-nodes": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline12, !1), { _jcoMaySuspend: !1 }),
+				"append-child": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline10, !1), { _jcoMaySuspend: !1 }),
+				"get-child-nodes": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline2, !1), { _jcoMaySuspend: !1 }),
 				"get-first-child": Object.assign(exports0[2], { _jcoMaySuspend: !1 }),
-				"get-node-type": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline9, !1), { _jcoMaySuspend: !1 }),
+				"get-node-type": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline12, !1), { _jcoMaySuspend: !1 }),
 				"get-parent-element": Object.assign(exports0[4], { _jcoMaySuspend: !1 }),
-				"insert-before": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline10, !1), { _jcoMaySuspend: !1 }),
-				"remove-child": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline8, !1), { _jcoMaySuspend: !1 }),
-				"replace-child": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline11, !1), { _jcoMaySuspend: !1 }),
+				"insert-before": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline13, !1), { _jcoMaySuspend: !1 }),
+				"remove-child": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline11, !1), { _jcoMaySuspend: !1 }),
+				"replace-child": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline14, !1), { _jcoMaySuspend: !1 }),
 				"set-text-content": Object.assign(exports0[3], { _jcoMaySuspend: !1 })
 			},
-			"tairitsu-browser:full/non-element-parent-node@0.2.0": { "get-element-by-id": Object.assign(exports0[10], { _jcoMaySuspend: !1 }) },
-			"tairitsu-browser:full/parent-node@0.2.0": { "query-selector": Object.assign(exports0[30], { _jcoMaySuspend: !1 }) },
+			"tairitsu-browser:full/non-element-parent-node@0.2.0": { "get-element-by-id": Object.assign(exports0[13], { _jcoMaySuspend: !1 }) },
+			"tairitsu-browser:full/parent-node@0.2.0": { "query-selector": Object.assign(exports0[6], { _jcoMaySuspend: !1 }) },
 			"tairitsu-browser:full/platform-helpers@0.2.0": {
-				"cancel-animation-frame": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline4, !1), { _jcoMaySuspend: !1 }),
-				"clear-interval": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline3, !1), { _jcoMaySuspend: !1 }),
-				"clear-timeout": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline2, !1), { _jcoMaySuspend: !1 }),
+				"cancel-animation-frame": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline9, !1), { _jcoMaySuspend: !1 }),
+				"clear-interval": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline8, !1), { _jcoMaySuspend: !1 }),
+				"clear-timeout": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline7, !1), { _jcoMaySuspend: !1 }),
 				"copy-to-clipboard": Object.assign(exports0[1], { _jcoMaySuspend: !1 }),
 				"fetch-promise": Object.assign(exports0[0], { _jcoMaySuspend: !1 }),
-				"request-animation-frame": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline5, !1), { _jcoMaySuspend: !1 }),
-				"set-interval": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline1, !1), { _jcoMaySuspend: !1 }),
+				"request-animation-frame": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline4, !1), { _jcoMaySuspend: !1 }),
+				"set-interval": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline6, !1), { _jcoMaySuspend: !1 }),
 				"set-timeout": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline0, !1), { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/pointer-event@0.2.0": {
-				"get-height": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline36, !1), { _jcoMaySuspend: !1 }),
-				"get-is-primary": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline34, !1), { _jcoMaySuspend: !1 }),
-				"get-pointer-id": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline33, !1), { _jcoMaySuspend: !1 }),
-				"get-pointer-type": Object.assign(exports0[27], { _jcoMaySuspend: !1 }),
-				"get-pressure": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline37, !1), { _jcoMaySuspend: !1 }),
-				"get-tangential-pressure": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline38, !1), { _jcoMaySuspend: !1 }),
-				"get-tilt-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline39, !1), { _jcoMaySuspend: !1 }),
-				"get-tilt-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline40, !1), { _jcoMaySuspend: !1 }),
-				"get-twist": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline41, !1), { _jcoMaySuspend: !1 }),
-				"get-width": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline35, !1), { _jcoMaySuspend: !1 })
+				"get-height": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline24, !1), { _jcoMaySuspend: !1 }),
+				"get-is-primary": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline28, !1), { _jcoMaySuspend: !1 }),
+				"get-pointer-id": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline29, !1), { _jcoMaySuspend: !1 }),
+				"get-pointer-type": Object.assign(exports0[25], { _jcoMaySuspend: !1 }),
+				"get-pressure": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline27, !1), { _jcoMaySuspend: !1 }),
+				"get-tangential-pressure": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline30, !1), { _jcoMaySuspend: !1 }),
+				"get-tilt-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline25, !1), { _jcoMaySuspend: !1 }),
+				"get-tilt-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline26, !1), { _jcoMaySuspend: !1 }),
+				"get-twist": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline31, !1), { _jcoMaySuspend: !1 }),
+				"get-width": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline32, !1), { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/wheel-event@0.2.0": {
-				"get-delta-mode": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline16, !1), { _jcoMaySuspend: !1 }),
-				"get-delta-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline13, !1), { _jcoMaySuspend: !1 }),
-				"get-delta-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline14, !1), { _jcoMaySuspend: !1 }),
-				"get-delta-z": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline15, !1), { _jcoMaySuspend: !1 })
+				"get-delta-mode": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline23, !1), { _jcoMaySuspend: !1 }),
+				"get-delta-x": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline20, !1), { _jcoMaySuspend: !1 }),
+				"get-delta-y": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline21, !1), { _jcoMaySuspend: !1 }),
+				"get-delta-z": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline22, !1), { _jcoMaySuspend: !1 })
 			},
 			"tairitsu-browser:full/window@0.2.0": {
-				"get-computed-style": Object.assign(exports0[28], { _jcoMaySuspend: !1 }),
-				"get-inner-width": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline42, !1), { _jcoMaySuspend: !1 }),
-				"match-media": Object.assign(exports0[29], { _jcoMaySuspend: !1 })
+				"get-computed-style": Object.assign(exports0[8], { _jcoMaySuspend: !1 }),
+				"get-inner-width": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline5, !1), { _jcoMaySuspend: !1 }),
+				"match-media": Object.assign(exports0[7], { _jcoMaySuspend: !1 })
 			},
-			"wasi:cli/environment@0.2.0": { "get-environment": Object.assign(exports0[37], { _jcoMaySuspend: !1 }) },
-			"wasi:cli/exit@0.2.0": { exit: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline56, !1), { _jcoMaySuspend: !1 }) },
-			"wasi:cli/stderr@0.2.0": { "get-stderr": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline61, !1), { _jcoMaySuspend: !1 }) },
-			"wasi:cli/stdin@0.2.0": { "get-stdin": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline59, !1), { _jcoMaySuspend: !1 }) },
-			"wasi:cli/stdout@0.2.0": { "get-stdout": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline60, !1), { _jcoMaySuspend: !1 }) },
-			"wasi:cli/terminal-input@0.2.0": { "[resource-drop]terminal-input": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline54), !0), { _jcoMaySuspend: !1 }) },
-			"wasi:cli/terminal-output@0.2.0": { "[resource-drop]terminal-output": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline55), !0), { _jcoMaySuspend: !1 }) },
-			"wasi:cli/terminal-stderr@0.2.0": { "get-terminal-stderr": Object.assign(exports0[40], { _jcoMaySuspend: !1 }) },
-			"wasi:cli/terminal-stdin@0.2.0": { "get-terminal-stdin": Object.assign(exports0[38], { _jcoMaySuspend: !1 }) },
-			"wasi:cli/terminal-stdout@0.2.0": { "get-terminal-stdout": Object.assign(exports0[39], { _jcoMaySuspend: !1 }) },
+			"wasi:cli/environment@0.2.0": { "get-environment": Object.assign(exports0[40], { _jcoMaySuspend: !1 }) },
+			"wasi:cli/exit@0.2.0": { exit: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline58, !1), { _jcoMaySuspend: !1 }) },
+			"wasi:cli/stderr@0.2.0": { "get-stderr": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline63, !1), { _jcoMaySuspend: !1 }) },
+			"wasi:cli/stdin@0.2.0": { "get-stdin": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline61, !1), { _jcoMaySuspend: !1 }) },
+			"wasi:cli/stdout@0.2.0": { "get-stdout": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline62, !1), { _jcoMaySuspend: !1 }) },
+			"wasi:cli/terminal-input@0.2.0": { "[resource-drop]terminal-input": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline56), !0), { _jcoMaySuspend: !1 }) },
+			"wasi:cli/terminal-output@0.2.0": { "[resource-drop]terminal-output": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline57), !0), { _jcoMaySuspend: !1 }) },
+			"wasi:cli/terminal-stderr@0.2.0": { "get-terminal-stderr": Object.assign(exports0[43], { _jcoMaySuspend: !1 }) },
+			"wasi:cli/terminal-stdin@0.2.0": { "get-terminal-stdin": Object.assign(exports0[41], { _jcoMaySuspend: !1 }) },
+			"wasi:cli/terminal-stdout@0.2.0": { "get-terminal-stdout": Object.assign(exports0[42], { _jcoMaySuspend: !1 }) },
 			"wasi:clocks/monotonic-clock@0.2.0": {
-				now: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline62, !1), { _jcoMaySuspend: !1 }),
-				"subscribe-duration": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline63, !1), { _jcoMaySuspend: !1 })
+				now: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline64, !1), { _jcoMaySuspend: !1 }),
+				"subscribe-duration": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline65, !1), { _jcoMaySuspend: !1 })
 			},
-			"wasi:clocks/wall-clock@0.2.0": { now: Object.assign(exports0[41], { _jcoMaySuspend: !1 }) },
-			"wasi:io/error@0.2.0": { "[resource-drop]error": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline50), !0), { _jcoMaySuspend: !1 }) },
+			"wasi:clocks/wall-clock@0.2.0": { now: Object.assign(exports0[44], { _jcoMaySuspend: !1 }) },
+			"wasi:io/error@0.2.0": { "[resource-drop]error": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline52), !0), { _jcoMaySuspend: !1 }) },
 			"wasi:io/poll@0.2.0": {
-				"[method]pollable.block": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline57, !1), { _jcoMaySuspend: !1 }),
-				"[resource-drop]pollable": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline51), !0), { _jcoMaySuspend: !1 }),
-				poll: Object.assign(exports0[33], { _jcoMaySuspend: !1 })
+				"[method]pollable.block": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline59, !1), { _jcoMaySuspend: !1 }),
+				"[resource-drop]pollable": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline53), !0), { _jcoMaySuspend: !1 }),
+				poll: Object.assign(exports0[36], { _jcoMaySuspend: !1 })
 			},
 			"wasi:io/streams@0.2.0": {
-				"[method]output-stream.blocking-flush": Object.assign(exports0[36], { _jcoMaySuspend: !1 }),
-				"[method]output-stream.check-write": Object.assign(exports0[34], { _jcoMaySuspend: !1 }),
-				"[method]output-stream.subscribe": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline58, !1), { _jcoMaySuspend: !1 }),
-				"[method]output-stream.write": Object.assign(exports0[35], { _jcoMaySuspend: !1 }),
-				"[resource-drop]input-stream": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline52), !0), { _jcoMaySuspend: !1 }),
-				"[resource-drop]output-stream": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline53), !0), { _jcoMaySuspend: !1 })
+				"[method]output-stream.blocking-flush": Object.assign(exports0[39], { _jcoMaySuspend: !1 }),
+				"[method]output-stream.check-write": Object.assign(exports0[37], { _jcoMaySuspend: !1 }),
+				"[method]output-stream.subscribe": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline60, !1), { _jcoMaySuspend: !1 }),
+				"[method]output-stream.write": Object.assign(exports0[38], { _jcoMaySuspend: !1 }),
+				"[resource-drop]input-stream": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline54), !0), { _jcoMaySuspend: !1 }),
+				"[resource-drop]output-stream": Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, _guardMayLeave(_jcoComponentMayLeaveContext, 0, trampoline55), !0), { _jcoMaySuspend: !1 })
 			},
-			"wasi:random/insecure-seed@0.2.12": { "insecure-seed": Object.assign(exports0[32], { _jcoMaySuspend: !1 }) }
+			"wasi:random/insecure-seed@0.2.12": { "insecure-seed": Object.assign(exports0[35], { _jcoMaySuspend: !1 }) }
 		}));
 		memory0 = exports1.memory;
 		realloc0 = (oldPtr, oldSize, align, newSize) => exports1.cabi_realloc(oldPtr, oldSize, align, newSize) >>> 0;
@@ -18758,48 +19219,51 @@ await (() => {
 		} catch {}
 		({exports: exports2} = yield instantiateCore(WebAssembly, yield module2, { "": {
 			$imports: exports0.$imports,
-			0: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline64, !1), { _jcoMaySuspend: !1 }),
-			1: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline65, !1), { _jcoMaySuspend: !1 }),
-			10: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline74, !1), { _jcoMaySuspend: !1 }),
-			11: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline75, !1), { _jcoMaySuspend: !1 }),
-			12: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline76, !1), { _jcoMaySuspend: !1 }),
-			13: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline77, !1), { _jcoMaySuspend: !1 }),
-			14: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline78, !1), { _jcoMaySuspend: !1 }),
-			15: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline79, !1), { _jcoMaySuspend: !1 }),
-			16: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline80, !1), { _jcoMaySuspend: !1 }),
-			17: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline81, !1), { _jcoMaySuspend: !1 }),
-			18: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline82, !1), { _jcoMaySuspend: !1 }),
-			19: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline83, !1), { _jcoMaySuspend: !1 }),
-			2: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline66, !1), { _jcoMaySuspend: !1 }),
-			20: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline84, !1), { _jcoMaySuspend: !1 }),
-			21: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline85, !1), { _jcoMaySuspend: !1 }),
-			22: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline86, !1), { _jcoMaySuspend: !1 }),
-			23: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline87, !1), { _jcoMaySuspend: !1 }),
-			24: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline88, !1), { _jcoMaySuspend: !1 }),
-			25: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline89, !1), { _jcoMaySuspend: !1 }),
-			26: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline90, !1), { _jcoMaySuspend: !1 }),
-			27: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline91, !1), { _jcoMaySuspend: !1 }),
-			28: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline92, !1), { _jcoMaySuspend: !1 }),
-			29: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline93, !1), { _jcoMaySuspend: !1 }),
-			3: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline67, !1), { _jcoMaySuspend: !1 }),
-			30: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline94, !1), { _jcoMaySuspend: !1 }),
-			31: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline95, !1), { _jcoMaySuspend: !1 }),
-			32: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline96, !1), { _jcoMaySuspend: !1 }),
-			33: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline97, !1), { _jcoMaySuspend: !1 }),
-			34: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline98, !1), { _jcoMaySuspend: !1 }),
-			35: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline99, !1), { _jcoMaySuspend: !1 }),
-			36: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline100, !1), { _jcoMaySuspend: !1 }),
-			37: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline101, !1), { _jcoMaySuspend: !1 }),
-			38: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline102, !1), { _jcoMaySuspend: !1 }),
-			39: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline103, !1), { _jcoMaySuspend: !1 }),
-			4: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline68, !1), { _jcoMaySuspend: !1 }),
-			40: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline104, !1), { _jcoMaySuspend: !1 }),
-			41: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline105, !1), { _jcoMaySuspend: !1 }),
-			5: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline69, !1), { _jcoMaySuspend: !1 }),
-			6: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline70, !1), { _jcoMaySuspend: !1 }),
-			7: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline71, !1), { _jcoMaySuspend: !1 }),
-			8: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline72, !1), { _jcoMaySuspend: !1 }),
-			9: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline73, !1), { _jcoMaySuspend: !1 })
+			0: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline66, !1), { _jcoMaySuspend: !1 }),
+			1: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline67, !1), { _jcoMaySuspend: !1 }),
+			10: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline76, !1), { _jcoMaySuspend: !1 }),
+			11: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline77, !1), { _jcoMaySuspend: !1 }),
+			12: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline78, !1), { _jcoMaySuspend: !1 }),
+			13: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline79, !1), { _jcoMaySuspend: !1 }),
+			14: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline80, !1), { _jcoMaySuspend: !1 }),
+			15: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline81, !1), { _jcoMaySuspend: !1 }),
+			16: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline82, !1), { _jcoMaySuspend: !1 }),
+			17: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline83, !1), { _jcoMaySuspend: !1 }),
+			18: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline84, !1), { _jcoMaySuspend: !1 }),
+			19: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline85, !1), { _jcoMaySuspend: !1 }),
+			2: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline68, !1), { _jcoMaySuspend: !1 }),
+			20: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline86, !1), { _jcoMaySuspend: !1 }),
+			21: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline87, !1), { _jcoMaySuspend: !1 }),
+			22: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline88, !1), { _jcoMaySuspend: !1 }),
+			23: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline89, !1), { _jcoMaySuspend: !1 }),
+			24: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline90, !1), { _jcoMaySuspend: !1 }),
+			25: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline91, !1), { _jcoMaySuspend: !1 }),
+			26: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline92, !1), { _jcoMaySuspend: !1 }),
+			27: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline93, !1), { _jcoMaySuspend: !1 }),
+			28: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline94, !1), { _jcoMaySuspend: !1 }),
+			29: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline95, !1), { _jcoMaySuspend: !1 }),
+			3: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline69, !1), { _jcoMaySuspend: !1 }),
+			30: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline96, !1), { _jcoMaySuspend: !1 }),
+			31: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline97, !1), { _jcoMaySuspend: !1 }),
+			32: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline98, !1), { _jcoMaySuspend: !1 }),
+			33: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline99, !1), { _jcoMaySuspend: !1 }),
+			34: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline100, !1), { _jcoMaySuspend: !1 }),
+			35: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline101, !1), { _jcoMaySuspend: !1 }),
+			36: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline102, !1), { _jcoMaySuspend: !1 }),
+			37: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline103, !1), { _jcoMaySuspend: !1 }),
+			38: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline104, !1), { _jcoMaySuspend: !1 }),
+			39: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline105, !1), { _jcoMaySuspend: !1 }),
+			4: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline70, !1), { _jcoMaySuspend: !1 }),
+			40: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline106, !1), { _jcoMaySuspend: !1 }),
+			41: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline107, !1), { _jcoMaySuspend: !1 }),
+			42: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline108, !1), { _jcoMaySuspend: !1 }),
+			43: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline109, !1), { _jcoMaySuspend: !1 }),
+			44: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline110, !1), { _jcoMaySuspend: !1 }),
+			5: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline71, !1), { _jcoMaySuspend: !1 }),
+			6: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline72, !1), { _jcoMaySuspend: !1 }),
+			7: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline73, !1), { _jcoMaySuspend: !1 }),
+			8: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline74, !1), { _jcoMaySuspend: !1 }),
+			9: Object.assign(_guardTrap(_jcoComponentRecordTrapContext, 0, trampoline75, !1), { _jcoMaySuspend: !1 })
 		} }));
 		postReturn0 = exports1["cabi_post_tairitsu-browser:full/lifecycle@0.2.0#start"];
 		try {
@@ -18807,23 +19271,23 @@ await (() => {
 		} catch {
 			exports1["cabi_post_tairitsu-browser:full/lifecycle@0.2.0#start"];
 		}
-		postReturn1 = exports1["cabi_post_tairitsu:style/builder#build-style-string"];
+		postReturn1 = exports1["cabi_post_tairitsu:hooks/version#get-version"];
+		try {
+			WebAssembly.promising(exports1["cabi_post_tairitsu:hooks/version#get-version"]);
+		} catch {
+			exports1["cabi_post_tairitsu:hooks/version#get-version"];
+		}
+		postReturn2 = exports1["cabi_post_tairitsu:style/builder#build-style-string"];
 		try {
 			WebAssembly.promising(exports1["cabi_post_tairitsu:style/builder#build-style-string"]);
 		} catch {
 			exports1["cabi_post_tairitsu:style/builder#build-style-string"];
 		}
-		postReturn2 = exports1["cabi_post_tairitsu:style/utility#generate-utility-css"];
+		postReturn3 = exports1["cabi_post_tairitsu:style/utility#generate-utility-css"];
 		try {
 			WebAssembly.promising(exports1["cabi_post_tairitsu:style/utility#generate-utility-css"]);
 		} catch {
 			exports1["cabi_post_tairitsu:style/utility#generate-utility-css"];
-		}
-		postReturn3 = exports1["cabi_post_tairitsu:hooks/version#get-version"];
-		try {
-			WebAssembly.promising(exports1["cabi_post_tairitsu:hooks/version#get-version"]);
-		} catch {
-			exports1["cabi_post_tairitsu:hooks/version#get-version"];
 		}
 		postReturn4 = exports1["cabi_post_tairitsu:vdom/svg#sanitize-svg"];
 		try {
@@ -18858,7 +19322,14 @@ await (() => {
 		webSocketCallbacks020OnWebSocketMessage = exports1["tairitsu-browser:full/web-socket-callbacks@0.2.0#on-web-socket-message"];
 		webSocketCallbacks020OnWebSocketClose = exports1["tairitsu-browser:full/web-socket-callbacks@0.2.0#on-web-socket-close"];
 		webSocketCallbacks020OnWebSocketError = exports1["tairitsu-browser:full/web-socket-callbacks@0.2.0#on-web-socket-error"];
-		versionGetVersion = exports1["tairitsu:style/version#get-version"];
+		versionGetVersion = exports1["tairitsu:hooks/version#get-version"];
+		stateMachineTransition = exports1["tairitsu:hooks/state-machine#transition"];
+		stateMachineIsInteractive = exports1["tairitsu:hooks/state-machine#is-interactive"];
+		animationTypesEvaluateEasing = exports1["tairitsu:hooks/animation-types#evaluate-easing"];
+		animationTypesLerpF32 = exports1["tairitsu:hooks/animation-types#lerp-f32"];
+		animationBuilderDefaultAnimationConfig = exports1["tairitsu:hooks/animation-builder#default-animation-config"];
+		asyncResourceResourceStatusQuery = exports1["tairitsu:hooks/async-resource#resource-status-query"];
+		versionGetVersion$1 = exports1["tairitsu:style/version#get-version"];
 		builderBuildStyleString = exports1["tairitsu:style/builder#build-style-string"];
 		builderCssPropertyToString = exports1["tairitsu:style/builder#css-property-to-string"];
 		builderCssLengthToString = exports1["tairitsu:style/builder#css-length-to-string"];
@@ -18867,13 +19338,6 @@ await (() => {
 		utilityParseUtilityBase = exports1["tairitsu:style/utility#parse-utility-base"];
 		classesBuildClasses = exports1["tairitsu:style/classes#build-classes"];
 		classesBuildClassesConditional = exports1["tairitsu:style/classes#build-classes-conditional"];
-		versionGetVersion$1 = exports1["tairitsu:hooks/version#get-version"];
-		stateMachineTransition = exports1["tairitsu:hooks/state-machine#transition"];
-		stateMachineIsInteractive = exports1["tairitsu:hooks/state-machine#is-interactive"];
-		animationTypesEvaluateEasing = exports1["tairitsu:hooks/animation-types#evaluate-easing"];
-		animationTypesLerpF32 = exports1["tairitsu:hooks/animation-types#lerp-f32"];
-		animationBuilderDefaultAnimationConfig = exports1["tairitsu:hooks/animation-builder#default-animation-config"];
-		asyncResourceResourceStatusQuery = exports1["tairitsu:hooks/async-resource#resource-status-query"];
 		versionGetVersion$2 = exports1["tairitsu:vdom/version#get-version"];
 		svgSanitizeSvg = exports1["tairitsu:vdom/svg#sanitize-svg"];
 	})();
@@ -18954,7 +19418,7 @@ const stateMachine = {
 	isInteractive,
 	transition
 };
-const version = { getVersion: getVersion$1 };
+const version = { getVersion };
 const builder = {
 	buildStyleString,
 	cssLengthToString,
@@ -18969,7 +19433,7 @@ const utility = {
 	generateUtilityCss,
 	parseUtilityBase
 };
-const version$1 = { getVersion };
+const version$1 = { getVersion: getVersion$1 };
 const svg = { sanitizeSvg };
 const version$2 = { getVersion: getVersion$2 };
 export { animationBuilder, animationCallbacks020 as animationCallbacks, animationTypes, asyncResource, builder, classes, eventCallbacks020 as eventCallbacks, fileReaderCallbacks020 as fileReaderCallbacks, geolocationCallbacks020 as geolocationCallbacks, idbCallbacks020 as idbCallbacks, lifecycle020 as lifecycle, mediaQueryListCallbacks020 as mediaQueryListCallbacks, mutationObserverCallbacks020 as mutationObserverCallbacks, promiseCallbacks020 as promiseCallbacks, resizeObserverCallbacks020 as resizeObserverCallbacks, scrollCallbacks020 as scrollCallbacks, stateMachine, svg, timerCallbacks020 as timerCallbacks, utility, version, videoFrameCallbacks020 as videoFrameCallbacks, webSocketCallbacks020 as webSocketCallbacks, windowResizeCallbacks020 as windowResizeCallbacks, animationCallbacks020 as "tairitsu-browser:full/animation-callbacks@0.2.0", eventCallbacks020 as "tairitsu-browser:full/event-callbacks@0.2.0", fileReaderCallbacks020 as "tairitsu-browser:full/file-reader-callbacks@0.2.0", geolocationCallbacks020 as "tairitsu-browser:full/geolocation-callbacks@0.2.0", idbCallbacks020 as "tairitsu-browser:full/idb-callbacks@0.2.0", lifecycle020 as "tairitsu-browser:full/lifecycle@0.2.0", mediaQueryListCallbacks020 as "tairitsu-browser:full/media-query-list-callbacks@0.2.0", mutationObserverCallbacks020 as "tairitsu-browser:full/mutation-observer-callbacks@0.2.0", promiseCallbacks020 as "tairitsu-browser:full/promise-callbacks@0.2.0", resizeObserverCallbacks020 as "tairitsu-browser:full/resize-observer-callbacks@0.2.0", scrollCallbacks020 as "tairitsu-browser:full/scroll-callbacks@0.2.0", timerCallbacks020 as "tairitsu-browser:full/timer-callbacks@0.2.0", videoFrameCallbacks020 as "tairitsu-browser:full/video-frame-callbacks@0.2.0", webSocketCallbacks020 as "tairitsu-browser:full/web-socket-callbacks@0.2.0", windowResizeCallbacks020 as "tairitsu-browser:full/window-resize-callbacks@0.2.0", animationBuilder as "tairitsu:hooks/animation-builder", animationTypes as "tairitsu:hooks/animation-types", asyncResource as "tairitsu:hooks/async-resource", stateMachine as "tairitsu:hooks/state-machine", version as "tairitsu:hooks/version", builder as "tairitsu:style/builder", classes as "tairitsu:style/classes", utility as "tairitsu:style/utility", version$1 as "tairitsu:style/version", svg as "tairitsu:vdom/svg", version$2 as "tairitsu:vdom/version" };
