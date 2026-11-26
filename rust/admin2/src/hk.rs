@@ -363,13 +363,14 @@ pub fn dom_value(selector: &str) -> Option<String> {
 pub fn text_field(
     st: &AppState,
     set: Setter,
-    key: &'static str,
-    field: &'static str,
+    key: &str,
+    field: &str,
     label: &str,
     value: String,
     input_type: &'static str,
 ) -> VNode {
     let field_state = st.clone();
+    let field_name = field.to_string();
     let selector = format!("#{INPUT_ID_PREFIX}{key}");
     Input(InputProps {
         id: Some(format!("{INPUT_ID_PREFIX}{key}")),
@@ -380,7 +381,7 @@ pub fn text_field(
         oninput: Some(EventHandler::new(move |_inserted: String| {
             // 找不到输入框时保持原状态，别把空值写回去冲掉用户敲的字。
             if let Some(text) = dom_value(&selector) {
-                set(&field_state, field, &text);
+                set(&field_state, &field_name, &text);
             }
         })),
         ..Default::default()
@@ -393,20 +394,21 @@ pub fn text_field(
 pub fn textarea_field(
     st: &AppState,
     set: Setter,
-    key: &'static str,
-    field: &'static str,
+    key: &str,
+    field: &str,
     label: &str,
     value: String,
     rows: u32,
 ) -> VNode {
     let field_state = st.clone();
+    let field_name = field.to_string();
     let selector = format!("[data-hk-field=\"{key}\"] textarea");
     let area = Textarea(TextareaProps {
         model_value: value,
         rows,
         oninput: Some(EventHandler::new(move |_inserted: String| {
             if let Some(text) = dom_value(&selector) {
-                set(&field_state, field, &text);
+                set(&field_state, &field_name, &text);
             }
         })),
         ..Default::default()

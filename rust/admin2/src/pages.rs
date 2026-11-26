@@ -184,7 +184,7 @@ fn load_more_list(spec: crate::state::EntitySpec, ls: &crate::state::ListState) 
 /// 应用筛选：任一输入非空即发 filter；全空回到全量列表。
 fn apply_list_filters(
     spec: crate::state::EntitySpec,
-    state: &AppState,
+    _state: &AppState,
     ls: &crate::state::ListState,
 ) {
     if ls.busy.get() {
@@ -1018,6 +1018,28 @@ const STAT_KEYS: [&str; 6] = [
     "speed",
 ];
 const STAT_LABELS: [&str; 6] = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
+
+/// 宠物实例编辑器里个体 / 努力 / 装备三组数字字段的 DOM 键。
+///
+/// 这些格子在循环里生成，`hk::text_field` 的键是 `&'static str`，所以按
+/// 下标列成表；状态里的字段名仍是 `stat:i` / `base:i` / `armor:i`。
+const STAT_FIELD_KEYS: [&str; 6] = [
+    "ipe-stat-0",
+    "ipe-stat-1",
+    "ipe-stat-2",
+    "ipe-stat-3",
+    "ipe-stat-4",
+    "ipe-stat-5",
+];
+const BASE_FIELD_KEYS: [&str; 6] = [
+    "ipe-base-0",
+    "ipe-base-1",
+    "ipe-base-2",
+    "ipe-base-3",
+    "ipe-base-4",
+    "ipe-base-5",
+];
+const ARMOR_FIELD_KEYS: [&str; 4] = ["ipe-armor-0", "ipe-armor-1", "ipe-armor-2", "ipe-armor-3"];
 
 /// 打开新增弹窗（默认骨架）。
 pub fn open_pokemon_new(state: &AppState) {
@@ -3057,16 +3079,18 @@ fn map_editor_modal(st: &AppState) -> VNode {
         let mut chips: Vec<VNode> = Vec::new();
         for (pid, name) in ed.wild.get().into_iter() {
             let label = format!("{name} #{pid}");
-            let attr = pid.to_string();
+            let remove_state = st.clone();
+            let remove = crate::hk::button(
+                "×",
+                ButtonVariant::Ghost,
+                ButtonSize::Xs,
+                ed.wild_loading.get(),
+                move || wild_remove(&remove_state, pid),
+            );
             chips.push(rsx! {
                 span { class: "adm-wild-chip",
                     "{label}"
-                    button {
-                        class: "adm-wild-chip-x",
-                        disabled: ed.wild_loading.get(),
-                        "data-pm-adm-mp-wild-del": attr,
-                        "×"
-                    }
+                    ..vec![remove]
                 }
             });
         }
@@ -3086,15 +3110,14 @@ fn map_editor_modal(st: &AppState) -> VNode {
         let mut result_chips: Vec<VNode> = Vec::new();
         for (pid, name) in ed.wild_results.get().into_iter() {
             let label = format!("{name} #{pid}");
-            let attr = pid.to_string();
-            result_chips.push(rsx! {
-                button {
-                    class: "admin-btn adm-grant-result",
-                    disabled: ed.wild_searching.get(),
-                    "data-pm-adm-mp-wild-pick": attr,
-                    "{label}"
-                }
-            });
+            let pick_state = st.clone();
+            result_chips.push(crate::hk::button(
+                label.as_str(),
+                ButtonVariant::Secondary,
+                ButtonSize::Sm,
+                ed.wild_searching.get(),
+                move || wild_add(&pick_state, pid),
+            ));
         }
         let search_block = if ed.wild_searching.get() {
             rsx! { p { class: "adm-editor-hint", "搜索中..." } }
@@ -4118,6 +4141,15 @@ fn evolution_editor_modal(st: &AppState) -> VNode {
 /// 同一套阶梯：E 0-9 ... SS 170-185、SS+ 恰好 186）。
 const GRANT_QUALITY_THRESHOLDS: [u64; 8] = [0, 10, 70, 100, 120, 150, 170, 186];
 const GRANT_QUALITY_GRADES: [&str; 8] = ["E", "D", "C", "B", "A", "S", "SS", "SS+"];
+/// 发放向导里六项个体值的 DOM 键（循环生成，键需 `'static`）。
+const GRANT_IV_FIELD_KEYS: [&str; 6] = [
+    "grant-iv-0",
+    "grant-iv-1",
+    "grant-iv-2",
+    "grant-iv-3",
+    "grant-iv-4",
+    "grant-iv-5",
+];
 const GRANT_IV_TOTAL_MAX: u64 = 186;
 
 /// 伪随机数：没有导入 crypto 接口（glue 未提供该域），用时钟低位做种子。
@@ -4214,6 +4246,12 @@ pub fn set_grant_query(state: &AppState, query: &str) {
     let g = state.grant.clone();
     g.query.inner().set(query.to_string());
     crate::request_remount();
+}
+
+/// `hk::text_field` 的 `Setter` 形状适配：搜索框的字段名由它自己定，
+/// 忽略传进来的键。
+fn set_grant_query_field(state: &AppState, _key: &str, value: &str) {
+    set_grant_query(state, value);
 }
 
 /// 按名称搜类型（宠物类型 / 物品类型）。
@@ -4520,20 +4558,19 @@ fn grant_modal(st: &AppState) -> VNode {
     let step1 = {
         let mut result_rows: Vec<VNode> = Vec::new();
         for (rid, rname) in g.results.get().into_iter() {
-            let rid_text = rid.to_string();
-            let cls = if picked == Some(rid) {
-                "admin-btn admin-btn--primary adm-grant-result"
+            let variant = if picked == Some(rid) {
+                ButtonVariant::Primary
             } else {
-                "admin-btn adm-grant-result"
+                ButtonVariant::Secondary
             };
-            result_rows.push(rsx! {
-                button {
-                    class: cls,
-                    disabled: saving,
-                    "data-pm-adm-grant-pick": rid_text,
-                    "{rname}"
-                }
-            });
+            let pick_state = st.clone();
+            result_rows.push(crate::hk::button(
+                rname.as_str(),
+                variant,
+                ButtonSize::Sm,
+                saving,
+                move || pick_grant_type(&pick_state, rid),
+            ));
         }
         let results_block = if searching {
             rsx! { p { class: "adm-editor-hint", "搜索中..." } }
@@ -4549,25 +4586,26 @@ fn grant_modal(st: &AppState) -> VNode {
                 }
             }
         };
+        let query_field = crate::hk::text_field(
+            st,
+            set_grant_query_field,
+            "grant-query",
+            "query",
+            "名称（包含）",
+            query,
+            "text",
+        );
+        let search_state = st.clone();
+        let search_btn = crate::hk::button(
+            if searching { "搜索中..." } else { "搜索" },
+            ButtonVariant::Secondary,
+            ButtonSize::Sm,
+            saving || searching,
+            move || search_grant_types(&search_state),
+        );
         let step1_parts: Vec<VNode> = vec![
             rsx! {
-                div { class: "adm-editor-grid",
-                    label { class: "adm-editor-field",
-                        span { "名称（包含）" }
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "text",
-                            value: query,
-                            "data-pm-adm-grantf": "query"
-                        }
-                    }
-                    button {
-                        class: "admin-btn adm-editor-toggle",
-                        disabled: saving || searching,
-                        "data-pm-adm-grant-search": "1",
-                        "搜索"
-                    }
-                }
+                div { class: "adm-editor-grid", ..vec![query_field, search_btn] }
             },
             results_block,
         ];
@@ -4580,41 +4618,33 @@ fn grant_modal(st: &AppState) -> VNode {
 
     // 第二步：物品只要数量；宠物要一整套属性
     let step2 = if is_item {
+        let count_field = crate::hk::text_field(
+            st,
+            set_grant_field,
+            "grant-item-count",
+            "item_count",
+            "数量（1-32767）",
+            g.item_count.get(),
+            "number",
+        );
         rsx! {
-            div { class: "adm-editor-grid",
-                label { class: "adm-editor-field",
-                    span { "数量（1-32767）" }
-                    input {
-                        class: "adm-filter-input",
-                        r#type: "number",
-                        min: "1",
-                        max: "32767",
-                        value: g.item_count.get(),
-                        "data-pm-adm-grantf": "item_count"
-                    }
-                }
-            }
+            div { class: "adm-editor-grid", ..vec![count_field] }
         }
     } else {
         let d = g.poke.get();
         let mut iv_inputs: Vec<VNode> = Vec::new();
         for i in 0..6 {
             let label = STAT_LABELS[i];
-            let attr = format!("iv:{i}");
             let v = d.ivs[i].clone();
-            iv_inputs.push(rsx! {
-                label { class: "adm-editor-field",
-                    span { "{label}" }
-                    input {
-                        class: "adm-filter-input",
-                        r#type: "number",
-                        min: "0",
-                        max: "31",
-                        value: v,
-                        "data-pm-adm-grantf": attr
-                    }
-                }
-            });
+            iv_inputs.push(crate::hk::text_field(
+                st,
+                set_grant_field,
+                GRANT_IV_FIELD_KEYS[i],
+                &format!("iv:{i}"),
+                label,
+                v,
+                "number",
+            ));
         }
         let iv_block = if d.iv_mode == "manual" {
             rsx! {
@@ -4629,159 +4659,143 @@ fn grant_modal(st: &AppState) -> VNode {
             VNode::empty()
         };
         let quality_block = if d.iv_mode == "quality" {
-            let mut opts: Vec<VNode> = Vec::new();
-            for (i, grade) in GRANT_QUALITY_GRADES.iter().enumerate() {
-                let code = (i + 1).to_string();
-                let selected = d.iv_quality == code;
-                let label = *grade;
-                opts.push(rsx! {
-                    option { value: code, selected: selected, "{label}" }
-                });
-            }
-            rsx! {
-                label { class: "adm-editor-field",
-                    span { "品质档位（结果落在该档内）" }
-                    select {
-                        class: "adm-filter-input",
-                        "data-pm-adm-grantf": "iv_quality",
-                        for i in 0..opts.len() {
-                            ..vec![opts[i].clone()]
-                        }
-                    }
-                }
-            }
+            let grades: Vec<(String, String)> = GRANT_QUALITY_GRADES
+                .iter()
+                .enumerate()
+                .map(|(i, grade)| ((i + 1).to_string(), grade.to_string()))
+                .collect();
+            crate::hk::select_field(
+                st,
+                set_grant_field,
+                "grant-iv-quality",
+                "iv_quality",
+                "品质档位（结果落在该档内）",
+                grades,
+                d.iv_quality.clone(),
+            )
         } else {
             VNode::empty()
         };
-        let mut mode_opts: Vec<VNode> = Vec::new();
-        for (code, label) in [
+        let mode_opts: Vec<(String, String)> = [
             ("random", "随机 0-31（同野怪捕捉）"),
             ("quality", "按品质档位随机"),
             ("manual", "手动指定六项"),
-        ] {
-            let selected = d.iv_mode == code;
-            mode_opts.push(rsx! {
-                option { value: code, selected: selected, "{label}" }
-            });
-        }
-        let mut site_opts: Vec<VNode> = Vec::new();
-        for (code, label) in [
+        ]
+        .iter()
+        .map(|(code, label)| (code.to_string(), label.to_string()))
+        .collect();
+        let site_opts: Vec<(String, String)> = [
             ("store", "仓库"),
             ("bag", "背包"),
             ("header", "跟随玩家"),
-        ] {
-            let selected = d.site == code;
-            site_opts.push(rsx! {
-                option { value: code, selected: selected, "{label}" }
-            });
-        }
-        let mut sex_opts: Vec<VNode> = Vec::new();
-        for (code, label) in [("unknown", "未知"), ("male", "雄性"), ("female", "雌性")] {
-            let selected = d.sex == code;
-            sex_opts.push(rsx! {
-                option { value: code, selected: selected, "{label}" }
-            });
-        }
-        let shiny_label = if d.is_shiny { "闪光：是" } else { "闪光：否" };
-        let shiny_cls = if d.is_shiny {
-            "admin-btn admin-btn--primary adm-editor-toggle"
-        } else {
-            "admin-btn adm-editor-toggle"
-        };
+        ]
+        .iter()
+        .map(|(code, label)| (code.to_string(), label.to_string()))
+        .collect();
+        let sex_opts: Vec<(String, String)> = [
+            ("unknown", "未知"),
+            ("male", "雄性"),
+            ("female", "雌性"),
+        ]
+        .iter()
+        .map(|(code, label)| (code.to_string(), label.to_string()))
+        .collect();
+        let shiny_state = st.clone();
+        let shiny_btn = crate::hk::button(
+            if d.is_shiny { "闪光：是" } else { "闪光：否" },
+            if d.is_shiny {
+                ButtonVariant::Primary
+            } else {
+                ButtonVariant::Secondary
+            },
+            ButtonSize::Sm,
+            saving,
+            move || toggle_grant_shiny(&shiny_state),
+        );
+        let mut step2_fields: Vec<VNode> = vec![
+            crate::hk::text_field(
+                st,
+                set_grant_field,
+                "grant-name",
+                "name",
+                "昵称（留空用类型名）",
+                d.name.clone(),
+                "text",
+            ),
+            crate::hk::text_field(
+                st,
+                set_grant_field,
+                "grant-level",
+                "level",
+                "等级（1-100）",
+                d.level.clone(),
+                "number",
+            ),
+            crate::hk::select_field(
+                st,
+                set_grant_field,
+                "grant-site",
+                "site",
+                "位置",
+                site_opts,
+                d.site.clone(),
+            ),
+            crate::hk::select_field(
+                st,
+                set_grant_field,
+                "grant-sex",
+                "sex",
+                "性别",
+                sex_opts,
+                d.sex.clone(),
+            ),
+            crate::hk::text_field(
+                st,
+                set_grant_field,
+                "grant-intimacy",
+                "intimacy",
+                "亲密度（0-100）",
+                d.intimacy.clone(),
+                "number",
+            ),
+            shiny_btn,
+            crate::hk::select_field(
+                st,
+                set_grant_field,
+                "grant-iv-mode",
+                "iv_mode",
+                "个体值模式",
+                mode_opts,
+                d.iv_mode.clone(),
+            ),
+            quality_block,
+        ];
         let step2_parts: Vec<VNode> = vec![
             rsx! {
-                div { class: "adm-editor-grid",
-                    label { class: "adm-editor-field",
-                        span { "昵称（留空用类型名）" }
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "text",
-                            value: d.name.clone(),
-                            "data-pm-adm-grantf": "name"
-                        }
-                    }
-                    label { class: "adm-editor-field",
-                        span { "等级（1-100）" }
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "number",
-                            min: "1",
-                            max: "100",
-                            value: d.level.clone(),
-                            "data-pm-adm-grantf": "level"
-                        }
-                    }
-                    label { class: "adm-editor-field",
-                        span { "位置" }
-                        select {
-                            class: "adm-filter-input",
-                            "data-pm-adm-grantf": "site",
-                            for i in 0..site_opts.len() {
-                                ..vec![site_opts[i].clone()]
-                            }
-                        }
-                    }
-                    label { class: "adm-editor-field",
-                        span { "性别" }
-                        select {
-                            class: "adm-filter-input",
-                            "data-pm-adm-grantf": "sex",
-                            for i in 0..sex_opts.len() {
-                                ..vec![sex_opts[i].clone()]
-                            }
-                        }
-                    }
-                    label { class: "adm-editor-field",
-                        span { "亲密度（0-100）" }
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "number",
-                            min: "0",
-                            max: "100",
-                            value: d.intimacy.clone(),
-                            "data-pm-adm-grantf": "intimacy"
-                        }
-                    }
-                    button {
-                        class: shiny_cls,
-                        disabled: saving,
-                        "data-pm-adm-grant-shiny": "1",
-                        "{shiny_label}"
-                    }
-                    label { class: "adm-editor-field",
-                        span { "个体值模式" }
-                        select {
-                            class: "adm-filter-input",
-                            "data-pm-adm-grantf": "iv_mode",
-                            for i in 0..mode_opts.len() {
-                                ..vec![mode_opts[i].clone()]
-                            }
-                        }
-                    }
-                    ..vec![quality_block]
-                }
+                div { class: "adm-editor-grid", ..step2_fields }
             },
             iv_block,
         ];
         rsx! {
-            for i in 0..step2_parts.len() {
-                ..vec![step2_parts[i].clone()]
-            }
+            div { ..step2_parts }
         }
     };
 
     let picked_bar = match picked {
         Some(id) => {
             let text = format!("已选：#{id} {picked_name}");
+            let reselect_state = st.clone();
+            let reselect = crate::hk::button(
+                "重新选择",
+                ButtonVariant::Secondary,
+                ButtonSize::Xs,
+                saving,
+                move || grant_go_step(&reselect_state, 1),
+            );
             rsx! {
                 div { class: "adm-grant-picked",
                     span { class: "adm-editor-hint", "{text}" }
-                    button {
-                        class: "admin-btn",
-                        disabled: saving,
-                        "data-pm-adm-grant-step": "1",
-                        "重新选择"
-                    }
+                    ..vec![reselect]
                 }
             }
         }
@@ -6507,6 +6521,14 @@ pub fn submit_instance_delete(state: &AppState) {
     );
 }
 
+/// 下钻弹窗里宠物 / 物品两段各自的「刷新」。
+fn refresh_button(st: &AppState, which: &'static str, loading: bool) -> VNode {
+    let refresh_state = st.clone();
+    crate::hk::button("刷新", ButtonVariant::Secondary, ButtonSize::Xs, loading, move || {
+        refresh_drill(&refresh_state, which)
+    })
+}
+
 /// 下钻弹窗 + 两个实例编辑器 + 删除确认（三个弹窗互斥层级：编辑器/确认在
 /// 下钻之上，由委托顺序保证内部按钮优先于各自遮罩）。
 fn user_drill_modal(st: &AppState) -> VNode {
@@ -6532,8 +6554,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
             continue;
         }
         let id = json_u64(row, "id").to_string();
-        let id_for_edit = id.clone();
-        let del_attr = format!("pm:{}", id);
+        let id_for_delete = json_u64(row, "id");
         let type_id = json_u64(row, "type_id");
         let species = dr
             .pm_catalog
@@ -6545,6 +6566,20 @@ fn user_drill_modal(st: &AppState) -> VNode {
         let name = json_str(row, "name");
         let level = json_u64(row, "level").to_string();
         let site_text = pm_site_name(&site).to_string();
+        let edit_state = st.clone();
+        let del_state = st.clone();
+        let actions: Vec<VNode> = vec![
+            crate::hk::button(
+                "编辑",
+                ButtonVariant::Secondary,
+                ButtonSize::Xs,
+                loading,
+                move || open_pm_instance_edit(&edit_state, id_for_delete),
+            ),
+            crate::hk::button("放生", ButtonVariant::Ghost, ButtonSize::Xs, loading, move || {
+                open_instance_delete(&del_state, "pm", id_for_delete)
+            }),
+        ];
         pm_trs.push(rsx! {
             tr {
                 td { "{id}" }
@@ -6553,20 +6588,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                 td { "{level}" }
                 td { "{site_text}" }
                 td {
-                    div { class: "adm-row-actions",
-                        button {
-                            class: "admin-btn adm-row-edit",
-                            disabled: loading,
-                            "data-pm-adm-ipe-edit": id_for_edit,
-                            "编辑"
-                        }
-                        button {
-                            class: "admin-btn adm-row-del",
-                            disabled: loading,
-                            "data-pm-adm-idel": del_attr,
-                            "放生"
-                        }
-                    }
+                    div { class: "adm-row-actions", ..actions }
                 }
             }
         });
@@ -6589,29 +6611,29 @@ fn user_drill_modal(st: &AppState) -> VNode {
             continue;
         }
         let id = json_u64(row, "id").to_string();
-        let id_for_edit = id.clone();
-        let del_attr = format!("item:{}", id);
+        let id_for_delete = json_u64(row, "id");
         let count = json_u64(row, "count").to_string();
+        let edit_state = st.clone();
+        let del_state = st.clone();
+        let actions: Vec<VNode> = vec![
+            crate::hk::button(
+                "编辑",
+                ButtonVariant::Secondary,
+                ButtonSize::Xs,
+                loading,
+                move || open_item_instance_edit(&edit_state, id_for_delete),
+            ),
+            crate::hk::button("删除", ButtonVariant::Ghost, ButtonSize::Xs, loading, move || {
+                open_instance_delete(&del_state, "item", id_for_delete)
+            }),
+        ];
         item_trs.push(rsx! {
             tr {
                 td { "{id}" }
                 td { "{name}" }
                 td { "{count}" }
                 td {
-                    div { class: "adm-row-actions",
-                        button {
-                            class: "admin-btn adm-row-edit",
-                            disabled: loading,
-                            "data-pm-adm-iie-edit": id_for_edit,
-                            "编辑"
-                        }
-                        button {
-                            class: "admin-btn adm-row-del",
-                            disabled: loading,
-                            "data-pm-adm-idel": del_attr,
-                            "删除"
-                        }
-                    }
+                    div { class: "adm-row-actions", ..actions }
                 }
             }
         });
@@ -6671,37 +6693,28 @@ fn user_drill_modal(st: &AppState) -> VNode {
         Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
         None => VNode::empty(),
     };
-    let pm_tab_btn = |code: &str, label: &str, active: &str| -> VNode {
-        let cls = if active == code {
-            "admin-btn admin-btn--primary adm-tab-btn"
+    let tab_button = |kind: &'static str,
+                      code: String,
+                      label: &str,
+                      active: &str,
+                      st: &AppState|
+     -> VNode {
+        let variant = if active == code.as_str() {
+            ButtonVariant::Primary
         } else {
-            "admin-btn adm-tab-btn"
+            ButtonVariant::Ghost
         };
-        let attr = format!("pm:{}", code);
-        rsx! {
-            button {
-                class: cls,
-                disabled: loading,
-                "data-pm-adm-drill-tab": attr,
-                "{label}"
-            }
-        }
+        let tab_state = st.clone();
+        let tab_code = code.clone();
+        crate::hk::button(label, variant, ButtonSize::Xs, loading, move || {
+            set_drill_tab(&tab_state, kind, &tab_code)
+        })
+    };
+    let pm_tab_btn = |code: &str, label: &str, active: &str| -> VNode {
+        tab_button("pm", code.to_string(), label, active, st)
     };
     let item_tab_btn = |code: &str, label: &str, active: &str| -> VNode {
-        let cls = if active == code {
-            "admin-btn admin-btn--primary adm-tab-btn"
-        } else {
-            "admin-btn adm-tab-btn"
-        };
-        let attr = format!("item:{}", code);
-        rsx! {
-            button {
-                class: cls,
-                disabled: loading,
-                "data-pm-adm-drill-tab": attr,
-                "{label}"
-            }
-        }
+        tab_button("item", code.to_string(), label, active, st)
     };
 
     // -- 宠物实例编辑器 --
@@ -6715,11 +6728,6 @@ fn user_drill_modal(st: &AppState) -> VNode {
             let title = format!("编辑宠物 #{}（种族 #{}）", ed.editing_id.get().unwrap_or(0), ed.type_id.get());
             let save_label = if saving { "保存中..." } else { "保存" };
             let shiny_label = if ed.is_shiny.get() { "闪光：是" } else { "闪光：否" };
-            let shiny_cls = if ed.is_shiny.get() {
-                "admin-btn admin-btn--primary adm-editor-toggle"
-            } else {
-                "admin-btn adm-editor-toggle"
-            };
             let site = ed.site.get();
             let sex = ed.sex.get();
             let status = ed.status.get();
@@ -6727,87 +6735,166 @@ fn user_drill_modal(st: &AppState) -> VNode {
             let base = ed.base.get();
             let armor = ed.armor.get();
 
-            fn sel(opts: &[(&str, &str)], current: &str) -> Vec<VNode> {
+            fn pairs(opts: &[(&str, &str)]) -> Vec<(String, String)> {
                 opts.iter()
-                    .map(|(code, label)| {
-                        let selected: bool = *code == current;
-                        let code: &str = code;
-                        let label: &str = label;
-                        rsx! {
-                            option { value: code, selected: selected, "{label}" }
-                        }
-                    })
+                    .map(|(code, label)| (code.to_string(), label.to_string()))
                     .collect()
             }
-            let site_opts = sel(
-                &[
-                    ("header", "跟随"),
-                    ("bag", "背包"),
-                    ("store", "仓库"),
-                    ("hospital", "医院"),
-                ],
-                &site,
-            );
-            let sex_opts = sel(
-                &[("male", "雄性"), ("female", "雌性"), ("unknown", "未知")],
-                &sex,
-            );
-            let status_opts = sel(&PM_STATUS_OPTIONS, &status);
+            let site_opts = pairs(&[
+                ("header", "跟随"),
+                ("bag", "背包"),
+                ("store", "仓库"),
+                ("hospital", "医院"),
+            ]);
+            let sex_opts = pairs(&[("male", "雄性"), ("female", "雌性"), ("unknown", "未知")]);
+            let status_opts = pairs(&PM_STATUS_OPTIONS);
 
             let mut stat_inputs: Vec<VNode> = Vec::new();
             let mut base_inputs: Vec<VNode> = Vec::new();
             for i in 0..6 {
                 let sl = STAT_LABELS[i];
                 let sv = stat[i].clone();
-                let sa = format!("stat:{i}");
-                stat_inputs.push(rsx! {
-                    label { class: "adm-editor-field",
-                        span { "个体 {sl}" }
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "number",
-                            value: sv,
-                            "data-pm-adm-ipef": sa
-                        }
-                    }
-                });
+                let sa: &'static str = STAT_FIELD_KEYS[i];
+                stat_inputs.push(crate::hk::text_field(
+                    st,
+                    set_pm_instance_field,
+                    sa,
+                    &format!("stat:{i}"),
+                    &format!("个体 {sl}"),
+                    sv,
+                    "number",
+                ));
                 let bv = base[i].clone();
-                let ba = format!("base:{i}");
-                base_inputs.push(rsx! {
-                    label { class: "adm-editor-field",
-                        span { "努力 {sl}" }
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "number",
-                            value: bv,
-                            "data-pm-adm-ipef": ba
-                        }
-                    }
-                });
+                let ba: &'static str = BASE_FIELD_KEYS[i];
+                base_inputs.push(crate::hk::text_field(
+                    st,
+                    set_pm_instance_field,
+                    ba,
+                    &format!("base:{i}"),
+                    &format!("努力 {sl}"),
+                    bv,
+                    "number",
+                ));
             }
             let mut armor_inputs: Vec<VNode> = Vec::new();
             for i in 0..4 {
                 let label = format!("装备槽 {}", i + 1);
                 let av = armor[i].clone();
-                let aa = format!("armor:{i}");
-                armor_inputs.push(rsx! {
-                    label { class: "adm-editor-field",
-                        span { "{label}" }
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "number",
-                            value: av,
-                            "data-pm-adm-ipef": aa
-                        }
-                    }
-                });
+                let aa: &'static str = ARMOR_FIELD_KEYS[i];
+                armor_inputs.push(crate::hk::text_field(
+                    st,
+                    set_pm_instance_field,
+                    aa,
+                    &format!("armor:{i}"),
+                    &label,
+                    av,
+                    "number",
+                ));
             }
+
+            let mut name_fields: Vec<VNode> = vec![
+                crate::hk::text_field(
+                    st,
+                    set_pm_instance_field,
+                    "ipe-name",
+                    "name",
+                    "昵称",
+                    ed.name.get(),
+                    "text",
+                ),
+                crate::hk::select_field(
+                    st,
+                    set_pm_instance_field,
+                    "ipe-site",
+                    "site",
+                    "位置",
+                    site_opts,
+                    site,
+                ),
+                crate::hk::select_field(
+                    st,
+                    set_pm_instance_field,
+                    "ipe-sex",
+                    "sex",
+                    "性别",
+                    sex_opts,
+                    sex,
+                ),
+                crate::hk::select_field(
+                    st,
+                    set_pm_instance_field,
+                    "ipe-status",
+                    "status",
+                    "状态",
+                    status_opts,
+                    status,
+                ),
+            ];
+            let shiny_state = st.clone();
+            let shiny_variant = if ed.is_shiny.get() {
+                ButtonVariant::Primary
+            } else {
+                ButtonVariant::Secondary
+            };
+            name_fields.push(crate::hk::button(
+                shiny_label,
+                shiny_variant,
+                ButtonSize::Sm,
+                saving,
+                move || toggle_pm_instance_shiny(&shiny_state),
+            ));
+            name_fields.extend([
+                crate::hk::text_field(
+                    st,
+                    set_pm_instance_field,
+                    "ipe-level",
+                    "level",
+                    "等级",
+                    ed.level.get(),
+                    "number",
+                ),
+                crate::hk::text_field(
+                    st,
+                    set_pm_instance_field,
+                    "ipe-experience",
+                    "experience",
+                    "经验",
+                    ed.experience.get(),
+                    "number",
+                ),
+                crate::hk::text_field(
+                    st,
+                    set_pm_instance_field,
+                    "ipe-intimacy",
+                    "intimacy",
+                    "亲密度",
+                    ed.intimacy.get(),
+                    "number",
+                ),
+                crate::hk::text_field(
+                    st,
+                    set_pm_instance_field,
+                    "ipe-ball",
+                    "using_ball_id",
+                    "精灵球 ID",
+                    ed.using_ball_id.get(),
+                    "number",
+                ),
+            ]);
 
             let err_block = match err {
                 Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
                 None => VNode::empty(),
             };
-
+            let abilities_area = crate::hk::textarea_field(
+                st,
+                set_pm_instance_field,
+                "ipe-skills",
+                "skills",
+                "技能 JSON（[{type_id, count}]，服务端逐条校验）",
+                ed.skills_json.get(),
+                4,
+            );
             let close_state = st.clone();
             let cancel_state = st.clone();
             let save_state = st.clone();
@@ -6819,6 +6906,17 @@ fn user_drill_modal(st: &AppState) -> VNode {
                 submit_pm_instance_editor(&save_state)
             })
             .disabled(saving);
+            let body: Vec<VNode> = vec![
+                rsx! { div { class: "adm-editor-grid", ..name_fields } },
+                rsx! { div { class: "adm-editor-section-title", "个体值" } },
+                rsx! { div { class: "adm-editor-grid", ..stat_inputs } },
+                rsx! { div { class: "adm-editor-section-title", "努力值" } },
+                rsx! { div { class: "adm-editor-grid", ..base_inputs } },
+                rsx! { div { class: "adm-editor-section-title", "装备槽（0 = 空）" } },
+                rsx! { div { class: "adm-editor-grid", ..armor_inputs } },
+                abilities_area,
+                err_block,
+            ];
             crate::hk::modal(
                 &title,
                 "lg",
@@ -6827,118 +6925,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                     div {
                         class: "adm-editor-body",
                         "data-test-adm-ipe-modal": "1",
-                            div { class: "adm-editor-grid",
-                                label { class: "adm-editor-field",
-                                    span { "昵称" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "text",
-                                        value: ed.name.get(),
-                                        "data-pm-adm-ipef": "name"
-                                    }
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "位置" }
-                                    select {
-                                        class: "adm-filter-input",
-                                        "data-pm-adm-ipef": "site",
-                                        for i in 0..site_opts.len() {
-                                            ..vec![site_opts[i].clone()]
-                                        }
-                                    }
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "性别" }
-                                    select {
-                                        class: "adm-filter-input",
-                                        "data-pm-adm-ipef": "sex",
-                                        for i in 0..sex_opts.len() {
-                                            ..vec![sex_opts[i].clone()]
-                                        }
-                                    }
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "状态" }
-                                    select {
-                                        class: "adm-filter-input",
-                                        "data-pm-adm-ipef": "status",
-                                        for i in 0..status_opts.len() {
-                                            ..vec![status_opts[i].clone()]
-                                        }
-                                    }
-                                }
-                                button {
-                                    class: shiny_cls,
-                                    disabled: saving,
-                                    "data-pm-adm-ipe-shiny": "1",
-                                    "{shiny_label}"
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "等级" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "number",
-                                        min: "1",
-                                        value: ed.level.get(),
-                                        "data-pm-adm-ipef": "level"
-                                    }
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "经验" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "number",
-                                        value: ed.experience.get(),
-                                        "data-pm-adm-ipef": "experience"
-                                    }
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "亲密度" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "number",
-                                        value: ed.intimacy.get(),
-                                        "data-pm-adm-ipef": "intimacy"
-                                    }
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "精灵球 ID" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "number",
-                                        value: ed.using_ball_id.get(),
-                                        "data-pm-adm-ipef": "using_ball_id"
-                                    }
-                                }
-                            }
-                            div { class: "adm-editor-section-title", "个体值" }
-                            div { class: "adm-editor-grid",
-                                for i in 0..stat_inputs.len() {
-                                    ..vec![stat_inputs[i].clone()]
-                                }
-                            }
-                            div { class: "adm-editor-section-title", "努力值" }
-                            div { class: "adm-editor-grid",
-                                for i in 0..base_inputs.len() {
-                                    ..vec![base_inputs[i].clone()]
-                                }
-                            }
-                            div { class: "adm-editor-section-title", "装备槽（0 = 空）" }
-                            div { class: "adm-editor-grid",
-                                for i in 0..armor_inputs.len() {
-                                    ..vec![armor_inputs[i].clone()]
-                                }
-                            }
-                            label { class: "adm-editor-field adm-editor-wide",
-                                span { "技能 JSON（[{type_id, count}]，服务端逐条校验）" }
-                                textarea {
-                                    class: "adm-editor-textarea",
-                                    rows: 4,
-                                    "data-pm-adm-ipef": "skills",
-                                    "{ed.skills_json.get()}"
-                                }
-                            }
-                            ..vec![err_block]
+                        ..body
                     }
                 },
                 vec![cancel, save],
@@ -6971,6 +6958,24 @@ fn user_drill_modal(st: &AppState) -> VNode {
                 submit_item_instance_editor(&save_state)
             })
             .disabled(saving);
+            let type_field = crate::hk::text_field(
+                st,
+                set_item_instance_field,
+                "iie-type",
+                "type_id",
+                "物品类型 ID",
+                ed.type_id.get(),
+                "number",
+            );
+            let count_field = crate::hk::text_field(
+                st,
+                set_item_instance_field,
+                "iie-count",
+                "count",
+                "数量（1-32767）",
+                ed.count.get(),
+                "number",
+            );
             crate::hk::modal(
                 &title,
                 "md",
@@ -6979,30 +6984,12 @@ fn user_drill_modal(st: &AppState) -> VNode {
                     div {
                         class: "adm-editor-body",
                         "data-test-adm-iie-modal": "1",
-                            div { class: "adm-editor-grid",
-                                label { class: "adm-editor-field",
-                                    span { "物品类型 ID" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "number",
-                                        min: "1",
-                                        value: ed.type_id.get(),
-                                        "data-pm-adm-iief": "type_id"
-                                    }
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "数量（1-32767）" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "number",
-                                        min: "1",
-                                        max: "32767",
-                                        value: ed.count.get(),
-                                        "data-pm-adm-iief": "count"
-                                    }
-                                }
-                            }
-                            ..vec![err_block]
+                        ..vec![
+                            rsx! {
+                                div { class: "adm-editor-grid", ..vec![type_field, count_field] }
+                            },
+                            err_block,
+                        ]
                     }
                 },
                 vec![cancel, save],
@@ -7082,35 +7069,40 @@ fn user_drill_modal(st: &AppState) -> VNode {
         ];
         let mut inputs: Vec<VNode> = Vec::new();
         for (key, label, value) in fields {
-            inputs.push(rsx! {
-                label { class: "adm-editor-field",
-                    span { "{label}" }
-                    input {
-                        class: "adm-filter-input",
-                        r#type: "number",
-                        value: value,
-                        "data-pm-adm-umf": key
-                    }
-                }
-            });
+            inputs.push(crate::hk::text_field(
+                st,
+                set_user_meta_field,
+                match key {
+                    "money" => "um-money",
+                    "experience" => "um-experience",
+                    "strength" => "um-strength",
+                    "win_count" => "um-win-count",
+                    "lose_count" => "um-lose-count",
+                    "total_battles" => "um-total-battles",
+                    "str" => "um-str",
+                    "boxnum" => "um-boxnum",
+                    "allure" => "um-allure",
+                    _ => "um-capture",
+                },
+                key,
+                label,
+                value,
+                "number",
+            ));
         }
-        rsx! {
-            div { class: "adm-cfg-section",
-                div { class: "adm-editor-section-title", "用户信息" }
-                div { class: "adm-editor-grid",
-                    for i in 0..inputs.len() {
-                        ..vec![inputs[i].clone()]
-                    }
-                }
-                ..vec![err_block]
-                button {
-                    class: "admin-btn admin-btn--primary adm-cfg-add",
-                    disabled: saving,
-                    "data-pm-adm-um-save": "1",
-                    "{save_label}"
-                }
-            }
-        }
+        let save_state = st.clone();
+        let save = crate::hk::button(
+            save_label,
+            ButtonVariant::Primary,
+            ButtonSize::Sm,
+            saving,
+            move || submit_user_meta(&save_state),
+        );
+        let body: Vec<VNode> = vec![
+            rsx! { div { class: "adm-editor-grid", ..inputs } },
+            err_block,
+        ];
+        crate::hk::section_card("用户信息", vec![save], body)
     };
 
     let close_action_state = st.clone();
@@ -7132,12 +7124,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                     div { class: "adm-editor-section-title",
                         if loading { "宠物（加载中...）" } else { "宠物" }
                         ..vec![pm_tab_btn("all", "全部", &pm_tab), pm_tab_btn("bag", "背包", &pm_tab), pm_tab_btn("store", "仓库", &pm_tab)]
-                        button {
-                            class: "admin-btn adm-tab-btn",
-                            disabled: loading,
-                            "data-pm-adm-drill-refresh": "pm",
-                            "刷新"
-                        }
+                        {refresh_button(st, "pm", loading)}
                     }
                     ..vec![pm_table]
                     div { class: "adm-editor-section-title",
@@ -7150,12 +7137,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                             item_tab_btn("armor", "装备", &item_tab),
                             item_tab_btn("special", "特殊", &item_tab),
                         ]
-                        button {
-                            class: "admin-btn adm-tab-btn",
-                            disabled: loading,
-                            "data-pm-adm-drill-refresh": "item",
-                            "刷新"
-                        }
+                        {refresh_button(st, "item", loading)}
                     }
                     ..vec![item_table]
             }

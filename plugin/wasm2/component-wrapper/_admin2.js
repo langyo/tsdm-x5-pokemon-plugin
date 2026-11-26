@@ -14113,7 +14113,7 @@ function getVersion() {
 		componentIdx: task.componentIdx(),
 		fn: () => {
 			try {
-				_debugLog("[iface=\"tairitsu:style/version\", function=\"get-version\"][Instruction::CallWasm] enter", {
+				_debugLog("[iface=\"tairitsu:hooks/version\", function=\"get-version\"][Instruction::CallWasm] enter", {
 					funcName: "get-version",
 					paramCount: 0,
 					async: !1,
@@ -14143,1177 +14143,6 @@ function getVersion() {
 				var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
 				if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
 				var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
-				_debugLog("[iface=\"tairitsu:style/version\", function=\"get-version\"][Instruction::Return]", {
-					funcName: "get-version",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result0]);
-				let retCopy = result0;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let builderBuildStyleString;
-function buildStyleString(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "builderBuildStyleString",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var vec3 = arg0;
-				var len3 = vec3.length;
-				var result3 = ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				})(0, 0, 4, len3 * 16);
-				result3 >>>= 0;
-				if (result3 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
-				if (result3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - result3) / 16)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
-				if (result3 < 0 || len3 < 0 || len3 > 16777215 || result3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - result3) / 16)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-				for (let i = 0; i < vec3.length; i++) {
-					let e = vec3[i];
-					let base = result3 + i * 16;
-					var [tuple0_0, tuple0_1] = e;
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_0, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr1 = encodeRes.ptr;
-					var len1 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len1, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr1, !0);
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_1, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr2 = encodeRes.ptr;
-					var len2 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 12, len2, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 8, ptr2, !0);
-				}
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"build-style-string\"][Instruction::CallWasm] enter", {
-					funcName: "build-style-string",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => builderBuildStyleString(result3, len3)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr4 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len4 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr4 > memory0.buffer.byteLength || len4 > Math.floor((memory0.buffer.byteLength - ptr4) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result4 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr4, len4));
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"build-style-string\"][Instruction::Return]", {
-					funcName: "build-style-string",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result4]);
-				let retCopy = result4;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let builderCssPropertyToString;
-function cssPropertyToString(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "builderCssPropertyToString",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				}), memory0);
-				var ptr0 = encodeRes.ptr;
-				var len0 = encodeRes.len;
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-property-to-string\"][Instruction::CallWasm] enter", {
-					funcName: "css-property-to-string",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => builderCssPropertyToString(ptr0, len0)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-property-to-string\"][Instruction::Return]", {
-					funcName: "css-property-to-string",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result1]);
-				let retCopy = result1;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let builderCssLengthToString;
-function cssLengthToString(arg0, arg1) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "builderCssLengthToString",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg1, ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				}), memory0);
-				var ptr0 = encodeRes.ptr;
-				var len0 = encodeRes.len;
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-length-to-string\"][Instruction::CallWasm] enter", {
-					funcName: "css-length-to-string",
-					paramCount: 3,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => builderCssLengthToString(+arg0, ptr0, len0)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-length-to-string\"][Instruction::Return]", {
-					funcName: "css-length-to-string",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result1]);
-				let retCopy = result1;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let utilityGenerateUtilityCss;
-function generateUtilityCss(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "utilityGenerateUtilityCss",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(18);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				}), memory0);
-				var ptr0 = encodeRes.ptr;
-				var len0 = encodeRes.len;
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-utility-css\"][Instruction::CallWasm] enter", {
-					funcName: "generate-utility-css",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => utilityGenerateUtilityCss(ptr0, len0)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				let variant2;
-				switch (dataView(_jcoDataViewCacheContext, memory0).getUint8((ret >>> 0) + 0, !0)) {
-					case 0:
-						variant2 = void 0;
-						break;
-					case 1:
-						var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-						var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 8, !0) >>> 0;
-						if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-						variant2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-						break;
-					default: throw TypeError("invalid variant discriminant for option");
-				}
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-utility-css\"][Instruction::Return]", {
-					funcName: "generate-utility-css",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([variant2]);
-				let retCopy = variant2;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn2(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let utilityGenerateStylesheet;
-function generateStylesheet(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "utilityGenerateStylesheet",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var vec1 = arg0;
-				var len1 = vec1.length;
-				var result1 = ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				})(0, 0, 4, len1 * 8);
-				result1 >>>= 0;
-				if (result1 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
-				if (result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
-				if (result1 < 0 || len1 < 0 || len1 > 33554431 || result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-				for (let i = 0; i < vec1.length; i++) {
-					let e = vec1[i];
-					let base = result1 + i * 8;
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, e, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr0 = encodeRes.ptr;
-					var len0 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len0, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr0, !0);
-				}
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-stylesheet\"][Instruction::CallWasm] enter", {
-					funcName: "generate-stylesheet",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => utilityGenerateStylesheet(result1, len1)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-stylesheet\"][Instruction::Return]", {
-					funcName: "generate-stylesheet",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result2]);
-				let retCopy = result2;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let utilityParseUtilityBase;
-function parseUtilityBase(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "utilityParseUtilityBase",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				}), memory0);
-				var ptr0 = encodeRes.ptr;
-				var len0 = encodeRes.len;
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"parse-utility-base\"][Instruction::CallWasm] enter", {
-					funcName: "parse-utility-base",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => utilityParseUtilityBase(ptr0, len0)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
-				_debugLog("[iface=\"tairitsu:style/utility\", function=\"parse-utility-base\"][Instruction::Return]", {
-					funcName: "parse-utility-base",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result1]);
-				let retCopy = result1;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let classesBuildClasses;
-function buildClasses(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "classesBuildClasses",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var vec1 = arg0;
-				var len1 = vec1.length;
-				var result1 = ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				})(0, 0, 4, len1 * 8);
-				result1 >>>= 0;
-				if (result1 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
-				if (result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
-				if (result1 < 0 || len1 < 0 || len1 > 33554431 || result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-				for (let i = 0; i < vec1.length; i++) {
-					let e = vec1[i];
-					let base = result1 + i * 8;
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, e, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr0 = encodeRes.ptr;
-					var len0 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len0, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr0, !0);
-				}
-				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes\"][Instruction::CallWasm] enter", {
-					funcName: "build-classes",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => classesBuildClasses(result1, len1)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
-				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes\"][Instruction::Return]", {
-					funcName: "build-classes",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result2]);
-				let retCopy = result2;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let classesBuildClassesConditional;
-function buildClassesConditional(arg0) {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "classesBuildClassesConditional",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				var vec2 = arg0;
-				var len2 = vec2.length;
-				var result2 = ((...args) => {
-					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-					let previousMayLeave = state.mayLeave;
-					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-					let previousStorage = thread?.storage;
-					thread && (thread.storage = [0, 0]);
-					state.mayLeave = !1;
-					let restore = () => {
-						state.mayLeave = previousMayLeave;
-						thread && (thread.storage = previousStorage);
-					};
-					let result;
-					try {
-						result = realloc0(...args);
-					} catch (err) {
-						restore();
-						throw err;
-					}
-					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-					restore();
-					return result;
-				})(0, 0, 4, len2 * 12);
-				result2 >>>= 0;
-				if (result2 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
-				if (result2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - result2) / 12)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
-				if (result2 < 0 || len2 < 0 || len2 > 22369621 || result2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - result2) / 12)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
-				for (let i = 0; i < vec2.length; i++) {
-					let e = vec2[i];
-					let base = result2 + i * 12;
-					var [tuple0_0, tuple0_1] = e;
-					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_0, ((...args) => {
-						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-						let previousMayLeave = state.mayLeave;
-						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
-						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
-						let previousStorage = thread?.storage;
-						thread && (thread.storage = [0, 0]);
-						state.mayLeave = !1;
-						let restore = () => {
-							state.mayLeave = previousMayLeave;
-							thread && (thread.storage = previousStorage);
-						};
-						let result;
-						try {
-							result = realloc0(...args);
-						} catch (err) {
-							restore();
-							throw err;
-						}
-						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
-						restore();
-						return result;
-					}), memory0);
-					var ptr1 = encodeRes.ptr;
-					var len1 = encodeRes.len;
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len1, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr1, !0);
-					dataView(_jcoDataViewCacheContext, memory0).setInt8(base + 8, +!!tuple0_1, !0);
-				}
-				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes-conditional\"][Instruction::CallWasm] enter", {
-					funcName: "build-classes-conditional",
-					paramCount: 2,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => classesBuildClassesConditional(result2, len2)
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr3 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len3 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - ptr3) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result3 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr3, len3));
-				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes-conditional\"][Instruction::Return]", {
-					funcName: "build-classes-conditional",
-					paramCount: 1,
-					async: !1,
-					postReturn: !0
-				});
-				task.resolve([result3]);
-				let retCopy = result3;
-				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
-				cstate.mayLeave = !1;
-				try {
-					postReturn1(ret);
-				} catch (err) {
-					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
-					task.reject(err);
-					throw err;
-				}
-				cstate.mayLeave = !0;
-				task.exit();
-				return retCopy;
-			} catch (err) {
-				if (!task.isResolvedState()) {
-					task.setErrored(err);
-					task.reject(err);
-				}
-				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
-				throw err;
-			}
-		}
-	});
-}
-let versionGetVersion$1;
-function getVersion$1() {
-	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
-	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
-		componentIdx: 0,
-		isAsync: !1,
-		isManualAsync: !1,
-		preserveFutureResult: !1,
-		entryFnName: "versionGetVersion$1",
-		getCallbackFn: () => null,
-		callbackFnName: null,
-		errHandling: "none",
-		callingWasmExport: !0
-	});
-	task.setCalleeIsAsync(!1);
-	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(10);
-	task.enterSync();
-	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
-	task.setReturnMemoryIdx(0);
-	task.setReturnMemory(memory0);
-	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-		taskID: task.id(),
-		threadID,
-		componentIdx: task.componentIdx(),
-		fn: () => {
-			try {
-				_debugLog("[iface=\"tairitsu:hooks/version\", function=\"get-version\"][Instruction::CallWasm] enter", {
-					funcName: "get-version",
-					paramCount: 0,
-					async: !1,
-					postReturn: !0
-				});
-				let ret;
-				try {
-					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
-						taskID: task.id(),
-						threadID,
-						componentIdx: task.componentIdx(),
-						fn: () => versionGetVersion$1()
-					});
-				} catch (err) {
-					_debugLog("[Instruction::CallWasm] error during sync call", {
-						taskID: task.id(),
-						err
-					});
-					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
-					task.setErrored(err);
-					task.reject(err);
-					task.exit();
-					throw err;
-				}
-				task.endFirstSlice();
-				var ptr0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
-				var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
-				if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
-				var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
 				_debugLog("[iface=\"tairitsu:hooks/version\", function=\"get-version\"][Instruction::Return]", {
 					funcName: "get-version",
 					paramCount: 1,
@@ -15325,7 +14154,7 @@ function getVersion$1() {
 				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
 				cstate.mayLeave = !1;
 				try {
-					postReturn3(ret);
+					postReturn1(ret);
 				} catch (err) {
 					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
 					task.reject(err);
@@ -15361,7 +14190,7 @@ function transition(arg0, arg1) {
 	});
 	task.setCalleeIsAsync(!1);
 	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(65);
+	task.setReturnResultTypeIdx(61);
 	task.enterSync();
 	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
 	task.setReturnMemoryIdx(0);
@@ -15805,7 +14634,7 @@ function defaultAnimationConfig() {
 	});
 	task.setCalleeIsAsync(!1);
 	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(70);
+	task.setReturnResultTypeIdx(66);
 	task.enterSync();
 	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
 	task.setReturnMemoryIdx(0);
@@ -15936,7 +14765,7 @@ function resourceStatusQuery(arg0) {
 	});
 	task.setCalleeIsAsync(!1);
 	task.setFuncTypeIsAsync(!1);
-	task.setReturnResultTypeIdx(71);
+	task.setReturnResultTypeIdx(67);
 	task.enterSync();
 	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
 	task.setReturnMemoryIdx(0);
@@ -16006,6 +14835,1177 @@ function resourceStatusQuery(arg0) {
 				task.resolve([variant1]);
 				task.exit();
 				return variant1;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let versionGetVersion$1;
+function getVersion$1() {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "versionGetVersion$1",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				_debugLog("[iface=\"tairitsu:style/version\", function=\"get-version\"][Instruction::CallWasm] enter", {
+					funcName: "get-version",
+					paramCount: 0,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => versionGetVersion$1()
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len0 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr0 > memory0.buffer.byteLength || len0 > Math.floor((memory0.buffer.byteLength - ptr0) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result0 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr0, len0));
+				_debugLog("[iface=\"tairitsu:style/version\", function=\"get-version\"][Instruction::Return]", {
+					funcName: "get-version",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result0]);
+				let retCopy = result0;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let builderBuildStyleString;
+function buildStyleString(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "builderBuildStyleString",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var vec3 = arg0;
+				var len3 = vec3.length;
+				var result3 = ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				})(0, 0, 4, len3 * 16);
+				result3 >>>= 0;
+				if (result3 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
+				if (result3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - result3) / 16)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
+				if (result3 < 0 || len3 < 0 || len3 > 16777215 || result3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - result3) / 16)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+				for (let i = 0; i < vec3.length; i++) {
+					let e = vec3[i];
+					let base = result3 + i * 16;
+					var [tuple0_0, tuple0_1] = e;
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_0, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr1 = encodeRes.ptr;
+					var len1 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len1, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr1, !0);
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_1, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr2 = encodeRes.ptr;
+					var len2 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 12, len2, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 8, ptr2, !0);
+				}
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"build-style-string\"][Instruction::CallWasm] enter", {
+					funcName: "build-style-string",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => builderBuildStyleString(result3, len3)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr4 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len4 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr4 > memory0.buffer.byteLength || len4 > Math.floor((memory0.buffer.byteLength - ptr4) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result4 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr4, len4));
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"build-style-string\"][Instruction::Return]", {
+					funcName: "build-style-string",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result4]);
+				let retCopy = result4;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let builderCssPropertyToString;
+function cssPropertyToString(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "builderCssPropertyToString",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				}), memory0);
+				var ptr0 = encodeRes.ptr;
+				var len0 = encodeRes.len;
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-property-to-string\"][Instruction::CallWasm] enter", {
+					funcName: "css-property-to-string",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => builderCssPropertyToString(ptr0, len0)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-property-to-string\"][Instruction::Return]", {
+					funcName: "css-property-to-string",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result1]);
+				let retCopy = result1;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let builderCssLengthToString;
+function cssLengthToString(arg0, arg1) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "builderCssLengthToString",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg1, ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				}), memory0);
+				var ptr0 = encodeRes.ptr;
+				var len0 = encodeRes.len;
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-length-to-string\"][Instruction::CallWasm] enter", {
+					funcName: "css-length-to-string",
+					paramCount: 3,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => builderCssLengthToString(+arg0, ptr0, len0)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+				_debugLog("[iface=\"tairitsu:style/builder\", function=\"css-length-to-string\"][Instruction::Return]", {
+					funcName: "css-length-to-string",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result1]);
+				let retCopy = result1;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let utilityGenerateUtilityCss;
+function generateUtilityCss(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "utilityGenerateUtilityCss",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(18);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				}), memory0);
+				var ptr0 = encodeRes.ptr;
+				var len0 = encodeRes.len;
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-utility-css\"][Instruction::CallWasm] enter", {
+					funcName: "generate-utility-css",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => utilityGenerateUtilityCss(ptr0, len0)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				let variant2;
+				switch (dataView(_jcoDataViewCacheContext, memory0).getUint8((ret >>> 0) + 0, !0)) {
+					case 0:
+						variant2 = void 0;
+						break;
+					case 1:
+						var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+						var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 8, !0) >>> 0;
+						if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+						variant2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+						break;
+					default: throw TypeError("invalid variant discriminant for option");
+				}
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-utility-css\"][Instruction::Return]", {
+					funcName: "generate-utility-css",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([variant2]);
+				let retCopy = variant2;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn3(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let utilityGenerateStylesheet;
+function generateStylesheet(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "utilityGenerateStylesheet",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var vec1 = arg0;
+				var len1 = vec1.length;
+				var result1 = ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				})(0, 0, 4, len1 * 8);
+				result1 >>>= 0;
+				if (result1 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
+				if (result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
+				if (result1 < 0 || len1 < 0 || len1 > 33554431 || result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+				for (let i = 0; i < vec1.length; i++) {
+					let e = vec1[i];
+					let base = result1 + i * 8;
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, e, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr0 = encodeRes.ptr;
+					var len0 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len0, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr0, !0);
+				}
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-stylesheet\"][Instruction::CallWasm] enter", {
+					funcName: "generate-stylesheet",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => utilityGenerateStylesheet(result1, len1)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"generate-stylesheet\"][Instruction::Return]", {
+					funcName: "generate-stylesheet",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result2]);
+				let retCopy = result2;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let utilityParseUtilityBase;
+function parseUtilityBase(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "utilityParseUtilityBase",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, arg0, ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				}), memory0);
+				var ptr0 = encodeRes.ptr;
+				var len0 = encodeRes.len;
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"parse-utility-base\"][Instruction::CallWasm] enter", {
+					funcName: "parse-utility-base",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => utilityParseUtilityBase(ptr0, len0)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len1 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - ptr1) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result1 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr1, len1));
+				_debugLog("[iface=\"tairitsu:style/utility\", function=\"parse-utility-base\"][Instruction::Return]", {
+					funcName: "parse-utility-base",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result1]);
+				let retCopy = result1;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let classesBuildClasses;
+function buildClasses(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "classesBuildClasses",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var vec1 = arg0;
+				var len1 = vec1.length;
+				var result1 = ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				})(0, 0, 4, len1 * 8);
+				result1 >>>= 0;
+				if (result1 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
+				if (result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
+				if (result1 < 0 || len1 < 0 || len1 > 33554431 || result1 > memory0.buffer.byteLength || len1 > Math.floor((memory0.buffer.byteLength - result1) / 8)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+				for (let i = 0; i < vec1.length; i++) {
+					let e = vec1[i];
+					let base = result1 + i * 8;
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, e, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr0 = encodeRes.ptr;
+					var len0 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len0, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr0, !0);
+				}
+				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes\"][Instruction::CallWasm] enter", {
+					funcName: "build-classes",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => classesBuildClasses(result1, len1)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len2 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - ptr2) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result2 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr2, len2));
+				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes\"][Instruction::Return]", {
+					funcName: "build-classes",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result2]);
+				let retCopy = result2;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
+			} catch (err) {
+				if (!task.isResolvedState()) {
+					task.setErrored(err);
+					task.reject(err);
+				}
+				task.isExited() || task.exit({ skipExclusiveLockCheck: !0 });
+				throw err;
+			}
+		}
+	});
+}
+let classesBuildClassesConditional;
+function buildClassesConditional(arg0) {
+	getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).throwIfTrapped();
+	let { task, threadID } = createNewCurrentImplicitThread(_jcoTaskCreateContext, {
+		componentIdx: 0,
+		isAsync: !1,
+		isManualAsync: !1,
+		preserveFutureResult: !1,
+		entryFnName: "classesBuildClassesConditional",
+		getCallbackFn: () => null,
+		callbackFnName: null,
+		errHandling: "none",
+		callingWasmExport: !0
+	});
+	task.setCalleeIsAsync(!1);
+	task.setFuncTypeIsAsync(!1);
+	task.setReturnResultTypeIdx(10);
+	task.enterSync();
+	CURRENT_TASK_MAY_BLOCK.value = +!!task.mayBlock();
+	task.setReturnMemoryIdx(0);
+	task.setReturnMemory(memory0);
+	return _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+		taskID: task.id(),
+		threadID,
+		componentIdx: task.componentIdx(),
+		fn: () => {
+			try {
+				var vec2 = arg0;
+				var len2 = vec2.length;
+				var result2 = ((...args) => {
+					let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+					let previousMayLeave = state.mayLeave;
+					let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+					let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+					let previousStorage = thread?.storage;
+					thread && (thread.storage = [0, 0]);
+					state.mayLeave = !1;
+					let restore = () => {
+						state.mayLeave = previousMayLeave;
+						thread && (thread.storage = previousStorage);
+					};
+					let result;
+					try {
+						result = realloc0(...args);
+					} catch (err) {
+						restore();
+						throw err;
+					}
+					if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+					restore();
+					return result;
+				})(0, 0, 4, len2 * 12);
+				result2 >>>= 0;
+				if (result2 % 4 != 0) throw new WebAssemblyRuntimeError("realloc return: result not aligned");
+				if (result2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - result2) / 12)) throw new WebAssemblyRuntimeError("realloc return: beyond end of memory");
+				if (result2 < 0 || len2 < 0 || len2 > 22369621 || result2 > memory0.buffer.byteLength || len2 > Math.floor((memory0.buffer.byteLength - result2) / 12)) throw new WebAssemblyRuntimeError("wasm trap: out of bounds memory access");
+				for (let i = 0; i < vec2.length; i++) {
+					let e = vec2[i];
+					let base = result2 + i * 12;
+					var [tuple0_0, tuple0_1] = e;
+					var encodeRes = _utf8AllocateAndEncode(TEXT_ENCODER_UTF8, tuple0_0, ((...args) => {
+						let state = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+						let previousMayLeave = state.mayLeave;
+						let meta = _getGlobalCurrentThreadMeta(CURRENT_TASK_META, 0);
+						let thread = meta && getCurrentThread(_jcoThreadLookupContext, meta.componentIdx, meta.threadID, meta.taskID)?.thread;
+						let previousStorage = thread?.storage;
+						thread && (thread.storage = [0, 0]);
+						state.mayLeave = !1;
+						let restore = () => {
+							state.mayLeave = previousMayLeave;
+							thread && (thread.storage = previousStorage);
+						};
+						let result;
+						try {
+							result = realloc0(...args);
+						} catch (err) {
+							restore();
+							throw err;
+						}
+						if (result && typeof result.then == "function") return Promise.resolve(result).finally(restore);
+						restore();
+						return result;
+					}), memory0);
+					var ptr1 = encodeRes.ptr;
+					var len1 = encodeRes.len;
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 4, len1, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setUint32(base + 0, ptr1, !0);
+					dataView(_jcoDataViewCacheContext, memory0).setInt8(base + 8, +!!tuple0_1, !0);
+				}
+				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes-conditional\"][Instruction::CallWasm] enter", {
+					funcName: "build-classes-conditional",
+					paramCount: 2,
+					async: !1,
+					postReturn: !0
+				});
+				let ret;
+				try {
+					ret = _withGlobalCurrentThreadMeta(CURRENT_TASK_META, {
+						taskID: task.id(),
+						threadID,
+						componentIdx: task.componentIdx(),
+						fn: () => classesBuildClassesConditional(result2, len2)
+					});
+				} catch (err) {
+					_debugLog("[Instruction::CallWasm] error during sync call", {
+						taskID: task.id(),
+						err
+					});
+					getOrCreateAsyncState(_jcoComponentStateLookupContext, 0).markTrapped(err);
+					task.setErrored(err);
+					task.reject(err);
+					task.exit();
+					throw err;
+				}
+				task.endFirstSlice();
+				var ptr3 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 0, !0) >>> 0;
+				var len3 = dataView(_jcoDataViewCacheContext, memory0).getUint32((ret >>> 0) + 4, !0) >>> 0;
+				if (ptr3 > memory0.buffer.byteLength || len3 > Math.floor((memory0.buffer.byteLength - ptr3) / 1)) throw new WebAssemblyRuntimeError("string pointer/length out of bounds of memory");
+				var result3 = _decodeUtf8(WebAssemblyRuntimeError, TEXT_DECODER_UTF8, new Uint8Array(memory0.buffer, ptr3, len3));
+				_debugLog("[iface=\"tairitsu:style/classes\", function=\"build-classes-conditional\"][Instruction::Return]", {
+					funcName: "build-classes-conditional",
+					paramCount: 1,
+					async: !1,
+					postReturn: !0
+				});
+				task.resolve([result3]);
+				let retCopy = result3;
+				let cstate = getOrCreateAsyncState(_jcoComponentStateLookupContext, 0);
+				cstate.mayLeave = !1;
+				try {
+					postReturn2(ret);
+				} catch (err) {
+					err = _postReturnTrap(_jcoComponentPostReturnTrapContext, 0, err);
+					task.reject(err);
+					throw err;
+				}
+				cstate.mayLeave = !0;
+				task.exit();
+				return retCopy;
 			} catch (err) {
 				if (!task.isResolvedState()) {
 					task.setErrored(err);
@@ -19051,7 +19051,7 @@ let trampoline110 = _lowerImportBackwardsCompat.bind(null, _jcoTaskCompatImportC
 });
 await (() => {
 	let gen = (function* _initGenerator() {
-		let module0 = fetchCompile(_jcoFetchCompileContext, new URL("./_admin2.core.wasm?v=1795721316", import.meta.url));
+		let module0 = fetchCompile(_jcoFetchCompileContext, new URL("./_admin2.core.wasm?v=1795722996", import.meta.url));
 		Promise.resolve(module0).catch(() => {});
 		let module1 = base64Compile(_jcoBase64CompileContext, "AGFzbQEAAAABjAEUYAV/f39/fwF+YAJ/fwF/YAJ+fwBgBH5/f38AYAN+f38AYAR+f39/AGACf38BfmAEfn9/fwF+YAh+f39/f39/fwBgAX8AYAh/f39/f39/fwF+YAV+f39/fwBgA35/fwBgBX5/f39/AGADfn5/AGADfn9/AX9gAn9/AGADf39/AGACf38AYAR/f39/AAMuLQABAgMCBAUGBwgFAgIFCQAGCgIFCwwMAgUCDQ4CDAIMDA8QCRESExIJCQkJCQQFAXABLS0H4wEuATAAAAExAAEBMgACATMAAwE0AAQBNQAFATYABgE3AAcBOAAIATkACQIxMAAKAjExAAsCMTIADAIxMwANAjE0AA4CMTUADwIxNgAQAjE3ABECMTgAEgIxOQATAjIwABQCMjEAFQIyMgAWAjIzABcCMjQAGAIyNQAZAjI2ABoCMjcAGwIyOAAcAjI5AB0CMzAAHgIzMQAfAjMyACACMzMAIQIzNAAiAjM1ACMCMzYAJAIzNwAlAjM4ACYCMzkAJwI0MAAoAjQxACkCNDIAKgI0MwArAjQ0ACwIJGltcG9ydHMBAArxBC0RACAAIAEgAiADIARBABEAAAsLACAAIAFBAREBAAsLACAAIAFBAhECAAsPACAAIAEgAiADQQMRAwALCwAgACABQQQRAgALDQAgACABIAJBBREEAAsPACAAIAEgAiADQQYRBQALCwAgACABQQcRBgALDwAgACABIAIgA0EIEQcACxcAIAAgASACIAMgBCAFIAYgB0EJEQgACw8AIAAgASACIANBChEFAAsLACAAIAFBCxECAAsLACAAIAFBDBECAAsPACAAIAEgAiADQQ0RBQALCQAgAEEOEQkACxEAIAAgASACIAMgBEEPEQAACwsAIAAgAUEQEQYACxcAIAAgASACIAMgBCAFIAYgB0EREQoACwsAIAAgAUESEQIACw8AIAAgASACIANBExEFAAsRACAAIAEgAiADIARBFBELAAsNACAAIAEgAkEVEQwACw0AIAAgASACQRYRDAALCwAgACABQRcRAgALDwAgACABIAIgA0EYEQUACwsAIAAgAUEZEQIACxEAIAAgASACIAMgBEEaEQ0ACw0AIAAgASACQRsRDgALCwAgACABQRwRAgALDQAgACABIAJBHREMAAsLACAAIAFBHhECAAsNACAAIAEgAkEfEQwACw0AIAAgASACQSARDAALDQAgACABIAJBIREPAAsLACAAIAFBIhEQAAsJACAAQSMRCQALDQAgACABIAJBJBERAAsLACAAIAFBJRESAAsPACAAIAEgAiADQSYREwALCwAgACABQScREgALCQAgAEEoEQkACwkAIABBKREJAAsJACAAQSoRCQALCQAgAEErEQkACwkAIABBLBEJAAsALwlwcm9kdWNlcnMBDHByb2Nlc3NlZC1ieQENd2l0LWNvbXBvbmVudAcwLjI1NC4w");
 		Promise.resolve(module1).catch(() => {});
@@ -19271,23 +19271,23 @@ await (() => {
 		} catch {
 			exports1["cabi_post_tairitsu-browser:full/lifecycle@0.2.0#start"];
 		}
-		postReturn1 = exports1["cabi_post_tairitsu:style/builder#build-style-string"];
+		postReturn1 = exports1["cabi_post_tairitsu:hooks/version#get-version"];
+		try {
+			WebAssembly.promising(exports1["cabi_post_tairitsu:hooks/version#get-version"]);
+		} catch {
+			exports1["cabi_post_tairitsu:hooks/version#get-version"];
+		}
+		postReturn2 = exports1["cabi_post_tairitsu:style/builder#build-style-string"];
 		try {
 			WebAssembly.promising(exports1["cabi_post_tairitsu:style/builder#build-style-string"]);
 		} catch {
 			exports1["cabi_post_tairitsu:style/builder#build-style-string"];
 		}
-		postReturn2 = exports1["cabi_post_tairitsu:style/utility#generate-utility-css"];
+		postReturn3 = exports1["cabi_post_tairitsu:style/utility#generate-utility-css"];
 		try {
 			WebAssembly.promising(exports1["cabi_post_tairitsu:style/utility#generate-utility-css"]);
 		} catch {
 			exports1["cabi_post_tairitsu:style/utility#generate-utility-css"];
-		}
-		postReturn3 = exports1["cabi_post_tairitsu:hooks/version#get-version"];
-		try {
-			WebAssembly.promising(exports1["cabi_post_tairitsu:hooks/version#get-version"]);
-		} catch {
-			exports1["cabi_post_tairitsu:hooks/version#get-version"];
 		}
 		postReturn4 = exports1["cabi_post_tairitsu:vdom/svg#sanitize-svg"];
 		try {
@@ -19322,7 +19322,14 @@ await (() => {
 		webSocketCallbacks020OnWebSocketMessage = exports1["tairitsu-browser:full/web-socket-callbacks@0.2.0#on-web-socket-message"];
 		webSocketCallbacks020OnWebSocketClose = exports1["tairitsu-browser:full/web-socket-callbacks@0.2.0#on-web-socket-close"];
 		webSocketCallbacks020OnWebSocketError = exports1["tairitsu-browser:full/web-socket-callbacks@0.2.0#on-web-socket-error"];
-		versionGetVersion = exports1["tairitsu:style/version#get-version"];
+		versionGetVersion = exports1["tairitsu:hooks/version#get-version"];
+		stateMachineTransition = exports1["tairitsu:hooks/state-machine#transition"];
+		stateMachineIsInteractive = exports1["tairitsu:hooks/state-machine#is-interactive"];
+		animationTypesEvaluateEasing = exports1["tairitsu:hooks/animation-types#evaluate-easing"];
+		animationTypesLerpF32 = exports1["tairitsu:hooks/animation-types#lerp-f32"];
+		animationBuilderDefaultAnimationConfig = exports1["tairitsu:hooks/animation-builder#default-animation-config"];
+		asyncResourceResourceStatusQuery = exports1["tairitsu:hooks/async-resource#resource-status-query"];
+		versionGetVersion$1 = exports1["tairitsu:style/version#get-version"];
 		builderBuildStyleString = exports1["tairitsu:style/builder#build-style-string"];
 		builderCssPropertyToString = exports1["tairitsu:style/builder#css-property-to-string"];
 		builderCssLengthToString = exports1["tairitsu:style/builder#css-length-to-string"];
@@ -19331,13 +19338,6 @@ await (() => {
 		utilityParseUtilityBase = exports1["tairitsu:style/utility#parse-utility-base"];
 		classesBuildClasses = exports1["tairitsu:style/classes#build-classes"];
 		classesBuildClassesConditional = exports1["tairitsu:style/classes#build-classes-conditional"];
-		versionGetVersion$1 = exports1["tairitsu:hooks/version#get-version"];
-		stateMachineTransition = exports1["tairitsu:hooks/state-machine#transition"];
-		stateMachineIsInteractive = exports1["tairitsu:hooks/state-machine#is-interactive"];
-		animationTypesEvaluateEasing = exports1["tairitsu:hooks/animation-types#evaluate-easing"];
-		animationTypesLerpF32 = exports1["tairitsu:hooks/animation-types#lerp-f32"];
-		animationBuilderDefaultAnimationConfig = exports1["tairitsu:hooks/animation-builder#default-animation-config"];
-		asyncResourceResourceStatusQuery = exports1["tairitsu:hooks/async-resource#resource-status-query"];
 		versionGetVersion$2 = exports1["tairitsu:vdom/version#get-version"];
 		svgSanitizeSvg = exports1["tairitsu:vdom/svg#sanitize-svg"];
 	})();
@@ -19418,7 +19418,7 @@ const stateMachine = {
 	isInteractive,
 	transition
 };
-const version = { getVersion: getVersion$1 };
+const version = { getVersion };
 const builder = {
 	buildStyleString,
 	cssLengthToString,
@@ -19433,7 +19433,7 @@ const utility = {
 	generateUtilityCss,
 	parseUtilityBase
 };
-const version$1 = { getVersion };
+const version$1 = { getVersion: getVersion$1 };
 const svg = { sanitizeSvg };
 const version$2 = { getVersion: getVersion$2 };
 export { animationBuilder, animationCallbacks020 as animationCallbacks, animationTypes, asyncResource, builder, classes, eventCallbacks020 as eventCallbacks, fileReaderCallbacks020 as fileReaderCallbacks, geolocationCallbacks020 as geolocationCallbacks, idbCallbacks020 as idbCallbacks, lifecycle020 as lifecycle, mediaQueryListCallbacks020 as mediaQueryListCallbacks, mutationObserverCallbacks020 as mutationObserverCallbacks, promiseCallbacks020 as promiseCallbacks, resizeObserverCallbacks020 as resizeObserverCallbacks, scrollCallbacks020 as scrollCallbacks, stateMachine, svg, timerCallbacks020 as timerCallbacks, utility, version, videoFrameCallbacks020 as videoFrameCallbacks, webSocketCallbacks020 as webSocketCallbacks, windowResizeCallbacks020 as windowResizeCallbacks, animationCallbacks020 as "tairitsu-browser:full/animation-callbacks@0.2.0", eventCallbacks020 as "tairitsu-browser:full/event-callbacks@0.2.0", fileReaderCallbacks020 as "tairitsu-browser:full/file-reader-callbacks@0.2.0", geolocationCallbacks020 as "tairitsu-browser:full/geolocation-callbacks@0.2.0", idbCallbacks020 as "tairitsu-browser:full/idb-callbacks@0.2.0", lifecycle020 as "tairitsu-browser:full/lifecycle@0.2.0", mediaQueryListCallbacks020 as "tairitsu-browser:full/media-query-list-callbacks@0.2.0", mutationObserverCallbacks020 as "tairitsu-browser:full/mutation-observer-callbacks@0.2.0", promiseCallbacks020 as "tairitsu-browser:full/promise-callbacks@0.2.0", resizeObserverCallbacks020 as "tairitsu-browser:full/resize-observer-callbacks@0.2.0", scrollCallbacks020 as "tairitsu-browser:full/scroll-callbacks@0.2.0", timerCallbacks020 as "tairitsu-browser:full/timer-callbacks@0.2.0", videoFrameCallbacks020 as "tairitsu-browser:full/video-frame-callbacks@0.2.0", webSocketCallbacks020 as "tairitsu-browser:full/web-socket-callbacks@0.2.0", windowResizeCallbacks020 as "tairitsu-browser:full/window-resize-callbacks@0.2.0", animationBuilder as "tairitsu:hooks/animation-builder", animationTypes as "tairitsu:hooks/animation-types", asyncResource as "tairitsu:hooks/async-resource", stateMachine as "tairitsu:hooks/state-machine", version as "tairitsu:hooks/version", builder as "tairitsu:style/builder", classes as "tairitsu:style/classes", utility as "tairitsu:style/utility", version$1 as "tairitsu:style/version", svg as "tairitsu:vdom/svg", version$2 as "tairitsu:vdom/version" };

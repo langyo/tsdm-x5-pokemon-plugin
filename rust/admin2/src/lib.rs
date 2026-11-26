@@ -17,8 +17,6 @@
 #[cfg(target_family = "wasm")]
 pub mod api;
 pub mod app_state;
-#[cfg(target_family = "wasm")]
-pub mod delegation;
 /// 七张数据列表页共用的页面壳。
 #[cfg(target_family = "wasm")]
 pub mod list_page;
@@ -297,7 +295,6 @@ fn run_app() -> Result<()> {
     watch_viewport(&state);
 
     let state_for_render = state.clone();
-    let state_for_delegation = state.clone();
     tairitsu_vdom::runtime::update_render_function(component_id, move || {
         pages::render_route(&state_for_render)
     });
@@ -319,12 +316,6 @@ fn run_app() -> Result<()> {
     // set_*_callback 用同语义版本覆盖，仅叠加管线仪表。
     tairitsu_web::init_runtime(root_element.clone());
     PATCH_ROOT.with(|r| *r.borrow_mut() = Some(root_element));
-
-    {
-        use tairitsu_vdom::platform::DomOps;
-        let app = WitElement::from_raw(get_element_by_id(0, "app").expect("#app not found"));
-        delegation::install(&app, &state_for_delegation);
-    }
 
     tairitsu_vdom::runtime::set_schedule_callback(Box::new(|callback: Box<dyn FnOnce()>| {
         bump_dbg("data-dbg-sched");
