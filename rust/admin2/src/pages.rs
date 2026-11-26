@@ -1,7 +1,11 @@
 //! 后台页面：壳（侧边导航 + 忙指示 + Toast）与全局配置页。
 
+use hikari_components::prelude::MdiIcon;
+use hikari_components::{
+    ButtonVariant, ConfirmDialog, ConfirmDialogProps, ConfirmVariant, Input, InputProps,
+};
 use tairitsu_macros::{component, rsx};
-use tairitsu_vdom::VNode;
+use tairitsu_vdom::{EventHandler, VNode};
 
 use crate::app_state::AppState;
 use crate::state::{AdminRoute, ToastKind};
@@ -334,6 +338,8 @@ pub fn switch_route(state: &AppState, route: AdminRoute) {
         return;
     }
     state.route.inner().set(route);
+    // 行操作菜单只属于它弹出的那张表，换页即收。
+    state.row_menu.inner().set(None);
     crate::request_remount();
     ensure_loaded(state);
 }
@@ -378,12 +384,18 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         }
     };
 
-    // 壳、导航、提示全归 hikari 标准件（见 shell.rs）；删除确认是跨页的
-    // 浮层，挂在壳的 overlays 槽，各页自己的编辑器仍由页面渲染。
+    // 壳、导航、提示全归 hikari 标准件（见 shell.rs）。挂在壳的 overlays 槽的
+    // 是跨页浮层：删除确认与表格的行操作菜单；各页自己的编辑器仍由页面渲染。
+    let row_actions = st
+        .row_menu
+        .get()
+        .map(|menu| row_actions(&st, &menu.key))
+        .unwrap_or_default();
+    let row_menu = crate::list_page::row_menu_overlay(&st, row_actions);
     crate::shell::render(
         &st,
         content,
-        vec![delete_confirm_modal(&st)],
+        vec![delete_confirm_modal(&st), row_menu],
     )
 }
 
@@ -520,20 +532,87 @@ fn json_bool(v: &serde_json::Value, key: &str) -> bool {
     v.get(key).and_then(|x| x.as_bool()).unwrap_or(false)
 }
 
+/// 行主键：七张表的都是 `id`。
+fn row_id(item: &serde_json::Value) -> String {
+    json_u64(item, "id").to_string()
+}
+
+/// 「编辑 / 删除」两个行操作（六张数据表共用）。
+fn edit_delete(
+    st: &AppState,
+    page: &'static str,
+    id: &str,
+    open_edit: fn(&AppState, u64),
+) -> Vec<crate::hk::HkAction> {
+    let edit_state = st.clone();
+    let del_state = st.clone();
+    let edit_id: u64 = id.parse().unwrap_or(0);
+    let del_id: u64 = id.parse().unwrap_or(0);
+    vec![
+        crate::hk::HkAction::new("编辑", ButtonVariant::Secondary, move || {
+            open_edit(&edit_state, edit_id)
+        })
+        .icon(MdiIcon::Pencil),
+        crate::hk::HkAction::new("删除", ButtonVariant::Danger, move || {
+            open_delete_confirm(&del_state, page, del_id)
+        }),
+    ]
+}
+
+/// 用户行的三个操作：给宠物 / 给物品 / 管理（用户明细）。
+fn user_actions(st: &AppState, id: &str) -> Vec<crate::hk::HkAction> {
+    let uid: u64 = id.parse().unwrap_or(0);
+    let poke_state = st.clone();
+    let item_state = st.clone();
+    let drill_state = st.clone();
+    vec![
+        crate::hk::HkAction::new("给宠物", ButtonVariant::Secondary, move || {
+            open_grant(&poke_state, uid, "pokemon")
+        })
+        .icon(MdiIcon::CubeOutline),
+        crate::hk::HkAction::new("给物品", ButtonVariant::Secondary, move || {
+            open_grant(&item_state, uid, "item")
+        })
+        .icon(MdiIcon::Package),
+        crate::hk::HkAction::new("管理", ButtonVariant::Primary, move || {
+            open_drill(&drill_state, uid)
+        })
+        .icon(MdiIcon::Account),
+    ]
+}
+
+/// 某张表某一行的操作（行操作菜单的内容）。`route` 决定是哪张表。
+pub fn route_row_actions(st: &AppState, route: AdminRoute, id: &str) -> Vec<crate::hk::HkAction> {
+    match route {
+        AdminRoute::PokemonData => edit_delete(st, "pk", id, open_pokemon_edit),
+        AdminRoute::ItemData => edit_delete(st, "it", id, open_item_edit),
+        AdminRoute::MapData => edit_delete(st, "mp", id, open_map_edit),
+        AdminRoute::EvolutionData => edit_delete(st, "ev", id, open_evolution_edit),
+        AdminRoute::SkillType => edit_delete(st, "sk", id, open_skill_edit),
+        AdminRoute::EffectData => edit_delete(st, "ef", id, open_effect_edit),
+        AdminRoute::UserData => user_actions(st, id),
+        _ => Vec::new(),
+    }
+}
+
+/// 当前行操作菜单的内容（壳按当前页分发）。
+pub fn row_actions(st: &AppState, id: &str) -> Vec<crate::hk::HkAction> {
+    route_row_actions(st, st.route.get(), id)
+}
+
 /// 宠物数据页：行渲染进公共壳（见 `list_page::entity_list_page`）。
 fn pokemon_data_page(st: &AppState) -> VNode {
-    let spec = crate::state::POKEMON_SPEC;
     let shape = crate::list_page::TableShape {
-        columns: &["ID", "名称", "属性", "售价", "六维", "操作"],
-        row: Box::new(pokemon_row),
+        columns: &["ID", "名称", "属性", "售价", "六维"],
+        key: Box::new(row_id),
+        cells: Box::new(pokemon_cells),
+        actions: Box::new(|st, id| route_row_actions(st, AdminRoute::PokemonData, id)),
     };
-    let editor_state = st.clone();
-    let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || {
-        open_pokemon_new(&editor_state);
-    });
+    let new_state = st.clone();
+    let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_pokemon_new(&new_state));
     let page = crate::list_page::entity_list_page(
         st,
-        spec,
+        crate::state::POKEMON_SPEC,
         &st.pokemon,
         "pk",
         &shape,
@@ -546,9 +625,9 @@ fn pokemon_data_page(st: &AppState) -> VNode {
     }
 }
 
-/// 宠物行：ID / 名称(+神兽标) / 属性 / 售价 / 六维 / 操作。
-fn pokemon_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
-    let id = json_u64(item, "id").to_string();
+/// 宠物行：ID / 名称（神兽带标记）/ 属性 / 售价 / 六维。
+fn pokemon_cells(item: &serde_json::Value) -> Vec<String> {
+    let id = row_id(item);
     let name = json_str(item, "name");
     let kinds: Vec<&str> = item
         .get("kind")
@@ -560,16 +639,15 @@ fn pokemon_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
     } else {
         kinds.iter().map(|k| kind_name(k)).collect::<Vec<_>>().join("/")
     };
-    let is_selling = json_bool(item, "is_selling");
-    let cost_text = if is_selling {
+    let cost_text = if json_bool(item, "is_selling") {
         json_u64(item, "cost").to_string()
     } else {
         "不可出售".to_string()
     };
-    let legendary_tag = if json_bool(item, "is_legendary") {
-        rsx! { span { class: "adm-pk-legendary", "神兽" } }
+    let name_text = if json_bool(item, "is_legendary") {
+        format!("{name}（神兽）")
     } else {
-        VNode::empty()
+        name
     };
     let stat = item.get("initial_statistic").cloned().unwrap_or_default();
     let sv = |key: &str, alias: &str| -> u64 {
@@ -592,51 +670,27 @@ fn pokemon_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
         sv("special_defense", "spdef"),
         sv("speed", "spd"),
     );
-    // 行操作：编辑 / 删除，都走原生事件（把页面状态与行 id 捕获进闭包）。
-    let edit_state = st.clone();
-    let del_state = st.clone();
-    let id_for_edit = id.clone();
-    let id_for_del = id.clone();
-    let edit_id: u64 = id.parse().unwrap_or(0);
-    let del_id: u64 = id.parse().unwrap_or(0);
-    vec![
-        rsx! { td { "{id}" } },
-        rsx! { td { "{name}" ..vec![legendary_tag] } },
-        rsx! { td { "{kind_text}" } },
-        rsx! { td { "{cost_text}" } },
-        rsx! { td { class: "adm-pk-stats", "{stats_text}" } },
-        rsx! {
-            td {
-                div { class: "adm-row-actions",
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-pk-edit": id_for_edit,
-                        onclick: move |_| open_pokemon_edit(&edit_state, edit_id),
-                        "编辑"
-                    }
-                    button {
-                        class: "admin-btn adm-row-del",
-                        "data-test-adm-del": id_for_del,
-                        onclick: move |_| open_delete_confirm(&del_state, "pk", del_id),
-                        "删除"
-                    }
-                }
-            }
-        },
-    ]
+    vec![id, name_text, kind_text, cost_text, stats_text]
 }
 
-/// 物品数据页（切片 3）：复用列表页模板 + 泛型动作/属性（it 页键）。
 /// 物品数据页：行渲染进公共壳。
 fn item_data_page(st: &AppState) -> VNode {
-    let spec = crate::state::ITEM_SPEC;
     let shape = crate::list_page::TableShape {
-        columns: &["ID", "名称", "类型", "价格", "出售", "描述", "操作"],
-        row: Box::new(item_row),
+        columns: &["ID", "名称", "类型", "价格", "出售", "描述"],
+        key: Box::new(row_id),
+        cells: Box::new(item_cells),
+        actions: Box::new(|st, id| route_row_actions(st, AdminRoute::ItemData, id)),
     };
     let new_state = st.clone();
     let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_item_new(&new_state));
-    let page = crate::list_page::entity_list_page(st, spec, &st.item, "it", &shape, Some(on_new));
+    let page = crate::list_page::entity_list_page(
+        st,
+        crate::state::ITEM_SPEC,
+        &st.item,
+        "it",
+        &shape,
+        Some(on_new),
+    );
     rsx! {
         div {
             ..vec![page, item_editor_modal(st)]
@@ -644,9 +698,9 @@ fn item_data_page(st: &AppState) -> VNode {
     }
 }
 
-/// 物品行：ID / 名称 / 类型标签 / 价格 / 可出售 / 描述 / 操作。
-fn item_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
-    let id = json_u64(item, "id").to_string();
+/// 物品行：ID / 名称 / 类型标签 / 价格 / 可出售 / 描述。
+fn item_cells(item: &serde_json::Value) -> Vec<String> {
+    let id = row_id(item);
     let name = json_str(item, "name");
     // tag: {"drug":null} / {"ball":5} / {"evolution":3} / {"armor":…} / {"special":"…"}
     let tag_label = item
@@ -672,38 +726,7 @@ fn item_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
     } else {
         desc
     };
-    let edit_state = st.clone();
-    let del_state = st.clone();
-    let id_for_edit = id.clone();
-    let id_for_del = id.clone();
-    let edit_id: u64 = id.parse().unwrap_or(0);
-    let del_id: u64 = id.parse().unwrap_or(0);
-    vec![
-        rsx! { td { "{id}" } },
-        rsx! { td { "{name}" } },
-        rsx! { td { "{tag_label}" } },
-        rsx! { td { "{price}" } },
-        rsx! { td { "{selling}" } },
-        rsx! { td { class: "adm-pk-stats", "{desc_short}" } },
-        rsx! {
-            td {
-                div { class: "adm-row-actions",
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-it-edit": id_for_edit,
-                        onclick: move |_| open_item_edit(&edit_state, edit_id),
-                        "编辑"
-                    }
-                    button {
-                        class: "admin-btn adm-row-del",
-                        "data-test-adm-del": id_for_del,
-                        onclick: move |_| open_delete_confirm(&del_state, "it", del_id),
-                        "删除"
-                    }
-                }
-            }
-        },
-    ]
+    vec![id, name, tag_label, price, selling.to_string(), desc_short]
 }
 
 /// 地形单字符 → 中文名（载荷 area_type 为 "l"/"g"/… 单字符）。
@@ -728,17 +751,24 @@ fn area_name(code: &str) -> &'static str {
     }
 }
 
-/// 地图数据页（切片 4）：列表页模板 + 泛型动作/属性（mp 页键）。
 /// 地图数据页：行渲染进公共壳。
 fn map_data_page(st: &AppState) -> VNode {
-    let spec = crate::state::MAP_SPEC;
     let shape = crate::list_page::TableShape {
-        columns: &["ID", "名称", "地形", "状态", "等级范围", "模式", "品质门槛", "操作"],
-        row: Box::new(map_row),
+        columns: &["ID", "名称", "地形", "状态", "等级范围", "模式", "品质门槛"],
+        key: Box::new(row_id),
+        cells: Box::new(map_cells),
+        actions: Box::new(|st, id| route_row_actions(st, AdminRoute::MapData, id)),
     };
     let new_state = st.clone();
     let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_map_new(&new_state));
-    let page = crate::list_page::entity_list_page(st, spec, &st.map, "mp", &shape, Some(on_new));
+    let page = crate::list_page::entity_list_page(
+        st,
+        crate::state::MAP_SPEC,
+        &st.map,
+        "mp",
+        &shape,
+        Some(on_new),
+    );
     rsx! {
         div {
             ..vec![page, map_editor_modal(st)]
@@ -746,9 +776,9 @@ fn map_data_page(st: &AppState) -> VNode {
     }
 }
 
-/// 地图行：ID / 名称 / 地形 / 状态 / 等级范围 / 模式 / 品质门槛 / 操作。
-fn map_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
-    let id = json_u64(item, "id").to_string();
+/// 地图行：ID / 名称 / 地形 / 状态 / 等级范围 / 模式 / 品质门槛。
+fn map_cells(item: &serde_json::Value) -> Vec<String> {
+    let id = row_id(item);
     let name = json_str(item, "name");
     let area = area_name(&json_str(item, "area_type")).to_string();
     let enabled_text = if json_bool(item, "is_enabled") { "启用" } else { "停用" };
@@ -764,48 +794,32 @@ fn map_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
         "hybrid" => "混合".to_string(),
         _ => "？".to_string(),
     };
-    let edit_state = st.clone();
-    let del_state = st.clone();
-    let id_for_edit = id.clone();
-    let id_for_del = id.clone();
-    let edit_id: u64 = id.parse().unwrap_or(0);
-    let del_id: u64 = id.parse().unwrap_or(0);
     vec![
-        rsx! { td { "{id}" } },
-        rsx! { td { "{name}" } },
-        rsx! { td { "{area}" } },
-        rsx! { td { "{enabled_text}" } },
-        rsx! { td { "{range_text}" } },
-        rsx! { td { "{mode_label}" } },
-        rsx! { td { "{quality_text}" } },
-        rsx! {
-            td {
-                div { class: "adm-row-actions",
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-mp-edit": id_for_edit,
-                        onclick: move |_| open_map_edit(&edit_state, edit_id),
-                        "编辑"
-                    }
-                    button {
-                        class: "admin-btn adm-row-del",
-                        "data-test-adm-del": id_for_del,
-                        onclick: move |_| open_delete_confirm(&del_state, "mp", del_id),
-                        "删除"
-                    }
-                }
-            }
-        },
+        id,
+        name,
+        area,
+        enabled_text.to_string(),
+        range_text,
+        mode_label,
+        quality_text,
     ]
 }
-/// 用户数据页：行渲染进公共壳。
+/// 用户数据页：行渲染进公共壳（用户不从这里新建，所以没有「新增」）。
 fn user_data_page(st: &AppState) -> VNode {
-    let spec = crate::state::USER_SPEC;
     let shape = crate::list_page::TableShape {
-        columns: &["UID", "用户名", "胜", "输", "金钱", "经验", "宠物", "物品", "操作"],
-        row: Box::new(user_row),
+        columns: &["UID", "用户名", "胜", "输", "金钱", "经验", "宠物", "物品"],
+        key: Box::new(row_id),
+        cells: Box::new(user_cells),
+        actions: Box::new(|st, id| route_row_actions(st, AdminRoute::UserData, id)),
     };
-    let page = crate::list_page::entity_list_page(st, spec, &st.user, "us", &shape, None);
+    let page = crate::list_page::entity_list_page(
+        st,
+        crate::state::USER_SPEC,
+        &st.user,
+        "us",
+        &shape,
+        None,
+    );
     rsx! {
         div {
             ..vec![page, grant_modal(st), user_drill_modal(st)]
@@ -813,9 +827,9 @@ fn user_data_page(st: &AppState) -> VNode {
     }
 }
 
-/// 用户行：UID / 用户名 / 胜 / 输 / 金钱 / 经验 / 宠物数 / 物品数 / 操作。
-fn user_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
-    let id = json_u64(item, "id").to_string();
+/// 用户行：UID / 用户名 / 胜 / 输 / 金钱 / 经验 / 宠物数 / 物品数。
+fn user_cells(item: &serde_json::Value) -> Vec<String> {
+    let id = row_id(item);
     let name = json_str(item, "name");
     let win = json_u64(item, "win_count").to_string();
     let lose = json_u64(item, "lose_count").to_string();
@@ -828,60 +842,35 @@ fn user_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
             .unwrap_or(0)
             .to_string()
     };
-    let pm_count = list_len("pokemon_list");
-    let item_count = list_len("item_list");
-    let poke_state = st.clone();
-    let item_state = st.clone();
-    let drill_state = st.clone();
-    let uid = id.clone();
-    let uid_for_drill = id.clone();
-    let parsed: u64 = uid.parse().unwrap_or(0);
     vec![
-        rsx! { td { "{id}" } },
-        rsx! { td { "{name}" } },
-        rsx! { td { "{win}" } },
-        rsx! { td { "{lose}" } },
-        rsx! { td { "{money}" } },
-        rsx! { td { "{exp}" } },
-        rsx! { td { "{pm_count}" } },
-        rsx! { td { "{item_count}" } },
-        rsx! {
-            td {
-                div { class: "adm-row-actions",
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-grant-poke": uid,
-                        onclick: move |_| open_grant(&poke_state, parsed, "pokemon"),
-                        "给宠物"
-                    }
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-grant-item": uid_for_drill.clone(),
-                        onclick: move |_| open_grant(&item_state, parsed, "item"),
-                        "给物品"
-                    }
-                    button {
-                        class: "admin-btn",
-                        "data-test-adm-drill": uid_for_drill,
-                        onclick: move |_| open_drill(&drill_state, parsed),
-                        "管理"
-                    }
-                }
-            }
-        },
+        id,
+        name,
+        win,
+        lose,
+        money,
+        exp,
+        list_len("pokemon_list"),
+        list_len("item_list"),
     ]
 }
 /// 进化链数据页：name 槽位=进化来源、a 槽位=进化目标。
 fn evolution_data_page(st: &AppState) -> VNode {
-    let spec = crate::state::EVOLUTION_SPEC;
     let shape = crate::list_page::TableShape {
-        columns: &["ID", "进化来源", "进化目标", "条件", "道具", "优先级", "操作"],
-        row: Box::new(evolution_row),
+        columns: &["ID", "进化来源", "进化目标", "条件", "道具", "优先级"],
+        key: Box::new(row_id),
+        cells: Box::new(evolution_cells),
+        actions: Box::new(|st, id| route_row_actions(st, AdminRoute::EvolutionData, id)),
     };
     let new_state = st.clone();
     let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_evolution_new(&new_state));
-    let page =
-        crate::list_page::entity_list_page(st, spec, &st.evolution, "ev", &shape, Some(on_new));
+    let page = crate::list_page::entity_list_page(
+        st,
+        crate::state::EVOLUTION_SPEC,
+        &st.evolution,
+        "ev",
+        &shape,
+        Some(on_new),
+    );
     rsx! {
         div {
             ..vec![page, evolution_editor_modal(st)]
@@ -889,9 +878,9 @@ fn evolution_data_page(st: &AppState) -> VNode {
     }
 }
 
-/// 进化链行：ID / 来源 / 目标 / 条件 / 道具 / 优先级 / 操作。
-fn evolution_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
-    let id = json_u64(item, "id").to_string();
+/// 进化链行：ID / 来源 / 目标 / 条件 / 道具 / 优先级。
+fn evolution_cells(item: &serde_json::Value) -> Vec<String> {
+    let id = row_id(item);
     // 历史数据存在 from_id/to_id 为 0 的孤儿行，名字为空——显示占位符。
     let source = {
         let s = json_str(item, "source_name");
@@ -913,51 +902,27 @@ fn evolution_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
     let priority = json_u64(item, "priority").to_string();
     let item_name = json_str(item, "item_name");
     let item_hint = if item_name.is_empty() { "—".to_string() } else { item_name };
-    let edit_state = st.clone();
-    let del_state = st.clone();
-    let id_for_edit = id.clone();
-    let id_for_del = id.clone();
-    let edit_id: u64 = id.parse().unwrap_or(0);
-    let del_id: u64 = id.parse().unwrap_or(0);
-    vec![
-        rsx! { td { "{id}" } },
-        rsx! { td { "{source}" } },
-        rsx! { td { "{target}" } },
-        rsx! { td { class: "adm-pk-stats", "{condition}" } },
-        rsx! { td { "{item_hint}" } },
-        rsx! { td { "{priority}" } },
-        rsx! {
-            td {
-                div { class: "adm-row-actions",
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-ev-edit": id_for_edit,
-                        onclick: move |_| open_evolution_edit(&edit_state, edit_id),
-                        "编辑"
-                    }
-                    button {
-                        class: "admin-btn adm-row-del",
-                        "data-test-adm-del": id_for_del,
-                        onclick: move |_| open_delete_confirm(&del_state, "ev", del_id),
-                        "删除"
-                    }
-                }
-            }
-        },
-    ]
+    vec![id, source, target, condition, item_hint, priority]
 }
 
-/// 技能数据页（切片 7a）：列表页模板 + 泛型动作/属性（sk 页键）。
 /// 技能数据页：行渲染进公共壳。
 fn skill_data_page(st: &AppState) -> VNode {
-    let spec = crate::state::SKILL_SPEC;
     let shape = crate::list_page::TableShape {
-        columns: &["ID", "名称", "描述", "等级限制", "次数", "可学种族数", "操作"],
-        row: Box::new(skill_row),
+        columns: &["ID", "名称", "描述", "等级限制", "次数", "可学种族数"],
+        key: Box::new(row_id),
+        cells: Box::new(skill_cells),
+        actions: Box::new(|st, id| route_row_actions(st, AdminRoute::SkillType, id)),
     };
     let new_state = st.clone();
     let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_skill_new(&new_state));
-    let page = crate::list_page::entity_list_page(st, spec, &st.skill, "sk", &shape, Some(on_new));
+    let page = crate::list_page::entity_list_page(
+        st,
+        crate::state::SKILL_SPEC,
+        &st.skill,
+        "sk",
+        &shape,
+        Some(on_new),
+    );
     rsx! {
         div {
             ..vec![page, skill_editor_modal(st)]
@@ -965,9 +930,9 @@ fn skill_data_page(st: &AppState) -> VNode {
     }
 }
 
-/// 技能行：ID / 名称 / 描述 / 等级限制 / 次数 / 可学种族数 / 操作。
-fn skill_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
-    let id = json_u64(item, "id").to_string();
+/// 技能行：ID / 名称 / 描述 / 等级限制 / 次数 / 可学种族数。
+fn skill_cells(item: &serde_json::Value) -> Vec<String> {
+    let id = row_id(item);
     let name = json_str(item, "name");
     let desc = json_str(item, "description");
     let desc_short = if desc.chars().count() > 18 {
@@ -985,51 +950,27 @@ fn skill_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
         .map(|a| a.len())
         .unwrap_or(0)
         .to_string();
-    let edit_state = st.clone();
-    let del_state = st.clone();
-    let id_for_edit = id.clone();
-    let id_for_del = id.clone();
-    let edit_id: u64 = id.parse().unwrap_or(0);
-    let del_id: u64 = id.parse().unwrap_or(0);
-    vec![
-        rsx! { td { "{id}" } },
-        rsx! { td { "{name}" } },
-        rsx! { td { class: "adm-pk-stats", "{desc_short}" } },
-        rsx! { td { "{level}" } },
-        rsx! { td { "{uses}" } },
-        rsx! { td { "{species_count}" } },
-        rsx! {
-            td {
-                div { class: "adm-row-actions",
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-sk-edit": id_for_edit,
-                        onclick: move |_| open_skill_edit(&edit_state, edit_id),
-                        "编辑"
-                    }
-                    button {
-                        class: "admin-btn adm-row-del",
-                        "data-test-adm-del": id_for_del,
-                        onclick: move |_| open_delete_confirm(&del_state, "sk", del_id),
-                        "删除"
-                    }
-                }
-            }
-        },
-    ]
+    vec![id, name, desc_short, level, uses, species_count]
 }
 
-/// 效果数据页（切片 7b）：服务端无 filter 端点，只 list/count + 分页。
 /// 效果数据页：服务端无 filter 端点，只 list/count + 分页。
 fn effect_data_page(st: &AppState) -> VNode {
-    let spec = crate::state::EFFECT_SPEC;
     let shape = crate::list_page::TableShape {
-        columns: &["ID", "效果码", "类型", "钩子", "版本", "描述", "操作"],
-        row: Box::new(effect_row),
+        columns: &["ID", "效果码", "类型", "钩子", "版本", "描述"],
+        key: Box::new(row_id),
+        cells: Box::new(effect_cells),
+        actions: Box::new(|st, id| route_row_actions(st, AdminRoute::EffectData, id)),
     };
     let new_state = st.clone();
     let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_effect_new(&new_state));
-    let page = crate::list_page::entity_list_page(st, spec, &st.effect, "ef", &shape, Some(on_new));
+    let page = crate::list_page::entity_list_page(
+        st,
+        crate::state::EFFECT_SPEC,
+        &st.effect,
+        "ef",
+        &shape,
+        Some(on_new),
+    );
     rsx! {
         div {
             ..vec![page, effect_editor_modal(st)]
@@ -1037,9 +978,9 @@ fn effect_data_page(st: &AppState) -> VNode {
     }
 }
 
-/// 效果行：ID / 效果码 / 类型 / 钩子 / 版本 / 描述 / 操作。
-fn effect_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
-    let id = json_u64(item, "id").to_string();
+/// 效果行：ID / 效果码 / 类型 / 钩子 / 版本 / 描述。
+fn effect_cells(item: &serde_json::Value) -> Vec<String> {
+    let id = row_id(item);
     let code = json_str(item, "code");
     let kind = json_str(item, "kind");
     let version = json_u64(item, "version").to_string();
@@ -1055,38 +996,7 @@ fn effect_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
     } else {
         desc
     };
-    let edit_state = st.clone();
-    let del_state = st.clone();
-    let id_for_edit = id.clone();
-    let id_for_del = id.clone();
-    let edit_id: u64 = id.parse().unwrap_or(0);
-    let del_id: u64 = id.parse().unwrap_or(0);
-    vec![
-        rsx! { td { "{id}" } },
-        rsx! { td { "{code}" } },
-        rsx! { td { "{kind}" } },
-        rsx! { td { class: "adm-pk-stats", "{hooks}" } },
-        rsx! { td { "{version}" } },
-        rsx! { td { class: "adm-pk-stats", "{desc_short}" } },
-        rsx! {
-            td {
-                div { class: "adm-row-actions",
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-efx-edit": id_for_edit,
-                        onclick: move |_| open_effect_edit(&edit_state, edit_id),
-                        "编辑"
-                    }
-                    button {
-                        class: "admin-btn adm-row-del",
-                        "data-test-adm-del": id_for_del,
-                        onclick: move |_| open_delete_confirm(&del_state, "ef", del_id),
-                        "删除"
-                    }
-                }
-            }
-        },
-    ]
+    vec![id, code, kind, hooks, version, desc_short]
 }
 
 // ---------------------------------------------------------------------------
@@ -1496,7 +1406,6 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
 
     // 各处理器各持一份状态句柄（闭包要求 'static）。
     let overlay_close_state = st.clone();
-    let x_close_state = st.clone();
     let cancel_close_state = st.clone();
     let save_state = st.clone();
     let toggle_selling_state = st.clone();
@@ -1508,33 +1417,22 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
     let ta_desc_state = st.clone();
     let ta_extra_state = st.clone();
 
-    rsx! {
-        div {
-            class: "modal-overlay",
-            "data-test-adm-pk-overlay": "1",
-            // 只认「直接点在遮罩上」：容器内的点击冒泡上来时 target 是子元素，
-            // 据此区分，弹窗容器就不必再挂处理器。
-            // （给容器挂 stopPropagation 是等价的另一种写法：tairitsu 的行为与
-            // DOM 一致，只拦更外层，不吞子元素自己的处理器——capprobe 的
-            // stopPropagation 用例已验证，早先「会连按钮一起吞掉」的判断是误报。）
-            onclick: move |e: tairitsu_vdom::MouseEvent| {
-                if e.target == e.current_target {
-                    close_pokemon_editor(&overlay_close_state);
-                }
-            },
+    let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+        close_pokemon_editor(&cancel_close_state)
+    })
+    .disabled(saving);
+    let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+        submit_pokemon_editor(&save_state)
+    })
+    .disabled(saving);
+    crate::hk::modal(
+        &title,
+        "lg",
+        move || close_pokemon_editor(&overlay_close_state),
+        rsx! {
             div {
-                class: "adm-editor-modal",
+                class: "adm-editor-body",
                 "data-test-adm-pk-modal": "1",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button {
-                        class: "modal-close",
-                        "data-test-adm-pk-close": "1",
-                        onclick: move |_| close_pokemon_editor(&x_close_state),
-                        "×"
-                    }
-                }
-                div { class: "modal-body adm-editor-body",
                     div { class: "adm-editor-grid",
                         label { class: "adm-editor-field",
                             span { "名称" }
@@ -1637,26 +1535,10 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                         }
                     }
                     ..vec![err_block]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: saving,
-                        "data-test-adm-pk-close": "1",
-                        onclick: move |_| close_pokemon_editor(&cancel_close_state),
-                        "取消"
-                    }
-                    button {
-                        class: "admin-btn admin-btn--primary",
-                        disabled: saving,
-                        "data-test-adm-pk-save": "1",
-                        onclick: move |_| submit_pokemon_editor(&save_state),
-                        "{save_label}"
-                    }
-                }
             }
-        }
-    }
+        },
+        vec![cancel, save],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -2062,7 +1944,6 @@ fn item_editor_modal(st: &AppState) -> VNode {
 
     // 各处理器各持一份状态句柄（闭包要求 'static）。
     let overlay_state = st.clone();
-    let x_state = st.clone();
     let cancel_state = st.clone();
     let save_state = st.clone();
     let toggle_state = st.clone();
@@ -2074,26 +1955,22 @@ fn item_editor_modal(st: &AppState) -> VNode {
     let itf_state_5 = st.clone();
     let itf_kind_state = st.clone();
 
-    rsx! {
-        div {
-            class: "modal-overlay",
-            "data-test-adm-it-overlay": "1",
-            onclick: move |e: tairitsu_vdom::MouseEvent| {
-                if e.target == e.current_target {
-                    close_item_editor(&overlay_state);
-                }
-            },
-            div { class: "adm-editor-modal",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button {
-                        class: "modal-close",
-                        "data-test-adm-it-close": "1",
-                        onclick: move |_| close_item_editor(&x_state),
-                        "×"
-                    }
-                }
-                div { class: "modal-body adm-editor-body",
+    let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+        close_item_editor(&cancel_state)
+    })
+    .disabled(saving);
+    let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+        submit_item_editor(&save_state)
+    })
+    .disabled(saving);
+    crate::hk::modal(
+        &title,
+        "lg",
+        move || close_item_editor(&overlay_state),
+        rsx! {
+            div {
+                class: "adm-editor-body",
+                "data-test-adm-it-modal": "1",
                     div { class: "adm-editor-grid",
                         label { class: "adm-editor-field",
                             span { "名称" }
@@ -2200,26 +2077,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                         }
                     }
                     ..vec![preview, err_block]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: saving,
-                        "data-test-adm-it-close": "1",
-                        onclick: move |_| close_item_editor(&cancel_state),
-                        "取消"
-                    }
-                    button {
-                        class: "admin-btn admin-btn--primary",
-                        disabled: saving,
-                        "data-test-adm-it-save": "1",
-                        onclick: move |_| submit_item_editor(&save_state),
-                        "{save_label}"
-                    }
-                }
             }
-        }
-    }
+        },
+        vec![cancel, save],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -2873,7 +2734,6 @@ fn map_editor_modal(st: &AppState) -> VNode {
     let mp_cancel_state = st.clone();
     let mp_save_state = st.clone();
     let boss_overlay_state = st.clone();
-    let boss_x_state = st.clone();
     let boss_cancel_state = st.clone();
     let boss_save_state = st.clone();
     let boss_search_state = st.clone();
@@ -3090,26 +2950,20 @@ fn map_editor_modal(st: &AppState) -> VNode {
                 Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
                 None => VNode::empty(),
             };
-            rsx! {
-                div {
-                    class: "modal-overlay adm-boss-overlay",
-                    "data-test-adm-boss-overlay": "1",
-                    onclick: move |e: tairitsu_vdom::MouseEvent| {
-                        if e.target == e.current_target {
-                            close_boss_modal(&boss_overlay_state);
-                        }
-                    },
-                    div { class: "adm-editor-modal adm-boss-modal",
-                        div { class: "modal-header",
-                            h3 { "{title}" }
-                            button {
-                                class: "modal-close",
-                                "data-test-adm-mp-boss-cancel": "1",
-                                onclick: move |_| close_boss_modal(&boss_x_state),
-                                "×"
-                            }
-                        }
-                        div { class: "modal-body adm-editor-body",
+            let boss_cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+                close_boss_modal(&boss_cancel_state)
+            });
+            let boss_save = crate::hk::HkAction::new("保存", ButtonVariant::Primary, move || {
+                boss_save(&boss_save_state)
+            });
+            crate::hk::modal(
+                &title,
+                "md",
+                move || close_boss_modal(&boss_overlay_state),
+                rsx! {
+                    div {
+                        class: "adm-editor-body",
+                        "data-test-adm-boss-modal": "1",
                             div { class: "adm-editor-grid",
                                 input {
                                     class: "adm-filter-input",
@@ -3168,24 +3022,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                                 }
                             }
                             ..vec![boss_err_block]
-                            div { class: "adm-editor-actions",
-                                button {
-                                    class: "admin-btn admin-btn--primary",
-                                    "data-test-adm-mp-boss-save": "1",
-                                    onclick: move |_| boss_save(&boss_save_state),
-                                    "保存"
-                                }
-                                button {
-                                    class: "admin-btn",
-                                    "data-test-adm-mp-boss-cancel": "2",
-                                    onclick: move |_| close_boss_modal(&boss_cancel_state),
-                                    "取消"
-                                }
-                            }
-                        }
                     }
-                }
-            }
+                },
+                vec![boss_cancel, boss_save],
+            )
         } else {
             VNode::empty()
         };
@@ -3301,19 +3141,22 @@ fn map_editor_modal(st: &AppState) -> VNode {
         None => VNode::empty(),
     };
 
-    rsx! {
-        div { class: "modal-overlay", "data-pm-adm-mp-overlay": "1",
-            div { class: "adm-editor-modal",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button {
-                        class: "modal-close",
-                        "data-test-adm-mp-close": "1",
-                        onclick: move |_| close_map_editor(&mp_x_state),
-                        "×"
-                    }
-                }
-                div { class: "modal-body adm-editor-body",
+    let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+        close_map_editor(&mp_cancel_state)
+    })
+    .disabled(saving);
+    let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+        submit_map_editor(&mp_save_state)
+    })
+    .disabled(saving);
+    crate::hk::modal(
+        &title,
+        "lg",
+        move || close_map_editor(&mp_x_state),
+        rsx! {
+            div {
+                class: "adm-editor-body",
+                "data-test-adm-mp-modal": "1",
                     div { class: "adm-editor-grid",
                         label { class: "adm-editor-field",
                             span { "名称" }
@@ -3409,26 +3252,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                         }
                     }
                     ..vec![wild_section, err_block]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: saving,
-                        "data-test-adm-mp-close": "1",
-                        onclick: move |_| close_map_editor(&mp_cancel_state),
-                        "取消"
-                    }
-                    button {
-                        class: "admin-btn admin-btn--primary",
-                        disabled: saving,
-                        "data-test-adm-mp-save": "1",
-                        onclick: move |_| submit_map_editor(&mp_save_state),
-                        "{save_label}"
-                    }
-                }
             }
-        }
-    }
+        },
+        vec![cancel, save],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -3880,14 +3707,25 @@ fn skill_editor_modal(st: &AppState) -> VNode {
         None => VNode::empty(),
     };
 
-    rsx! {
-        div { class: "modal-overlay", "data-pm-adm-sk-overlay": "1",
-            div { class: "adm-editor-modal",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-sk-close": "1", "×" }
-                }
-                div { class: "modal-body adm-editor-body",
+    let close_state = st.clone();
+    let cancel_state = st.clone();
+    let save_state = st.clone();
+    let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+        close_skill_editor(&cancel_state)
+    })
+    .disabled(saving);
+    let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+        submit_skill_editor(&save_state)
+    })
+    .disabled(saving);
+    crate::hk::modal(
+        &title,
+        "lg",
+        move || close_skill_editor(&close_state),
+        rsx! {
+            div {
+                class: "adm-editor-body",
+                "data-test-adm-sk-modal": "1",
                     div { class: "adm-editor-grid",
                         label { class: "adm-editor-field",
                             span { "名称" }
@@ -3974,24 +3812,10 @@ fn skill_editor_modal(st: &AppState) -> VNode {
                         ..vec![skill_species_block(&ed)]
                     }
                     ..vec![err_block]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: saving,
-                        "data-pm-adm-sk-close": "1",
-                        "取消"
-                    }
-                    button {
-                        class: "admin-btn admin-btn--primary",
-                        disabled: saving,
-                        "data-pm-adm-sk-save": "1",
-                        "{save_label}"
-                    }
-                }
             }
-        }
-    }
+        },
+        vec![cancel, save],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -4265,14 +4089,25 @@ fn evolution_editor_modal(st: &AppState) -> VNode {
         None => VNode::empty(),
     };
 
-    rsx! {
-        div { class: "modal-overlay", "data-pm-adm-ev-overlay": "1",
-            div { class: "adm-editor-modal",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-ev-close": "1", "×" }
-                }
-                div { class: "modal-body adm-editor-body",
+    let close_state = st.clone();
+    let cancel_state = st.clone();
+    let save_state = st.clone();
+    let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+        close_evolution_editor(&cancel_state)
+    })
+    .disabled(saving);
+    let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+        submit_evolution_editor(&save_state)
+    })
+    .disabled(saving);
+    crate::hk::modal(
+        &title,
+        "lg",
+        move || close_evolution_editor(&close_state),
+        rsx! {
+            div {
+                class: "adm-editor-body",
+                "data-test-adm-ev-modal": "1",
                     div { class: "adm-editor-grid",
                         label { class: "adm-editor-field",
                             span { "进化来源（宠物 ID）" }
@@ -4324,24 +4159,10 @@ fn evolution_editor_modal(st: &AppState) -> VNode {
                         }
                     }
                     ..vec![err_block]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: saving,
-                        "data-pm-adm-ev-close": "1",
-                        "取消"
-                    }
-                    button {
-                        class: "admin-btn admin-btn--primary",
-                        disabled: saving,
-                        "data-pm-adm-ev-save": "1",
-                        "{save_label}"
-                    }
-                }
             }
-        }
-    }
+        },
+        vec![cancel, save],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -5033,24 +4854,18 @@ fn grant_modal(st: &AppState) -> VNode {
         }
     };
 
+    let next_state = st.clone();
+    let submit_state = st.clone();
     let next_btn = if step == 1 {
-        rsx! {
-            button {
-                class: "admin-btn admin-btn--primary",
-                disabled: saving,
-                "data-pm-adm-grant-step": "2",
-                "下一步"
-            }
-        }
+        crate::hk::HkAction::new("下一步", ButtonVariant::Primary, move || {
+            grant_go_step(&next_state, 2)
+        })
+        .disabled(saving)
     } else {
-        rsx! {
-            button {
-                class: "admin-btn admin-btn--primary",
-                disabled: saving,
-                "data-pm-adm-grant-submit": "1",
-                "{save_label}"
-            }
-        }
+        crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+            submit_grant(&submit_state)
+        })
+        .disabled(saving)
     };
 
     let err_block = match err {
@@ -5063,29 +4878,26 @@ fn grant_modal(st: &AppState) -> VNode {
         format!("第 2 步 / 共 2 步：设置发放内容")
     };
 
-    rsx! {
-        div { class: "modal-overlay", "data-pm-adm-grant-overlay": "1",
-            div { class: "adm-editor-modal",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-grant-close": "1", "×" }
-                }
-                div { class: "modal-body adm-editor-body",
+    let close_state = st.clone();
+    let cancel_state = st.clone();
+    let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+        close_grant(&cancel_state)
+    })
+    .disabled(saving);
+    crate::hk::modal(
+        &title,
+        "lg",
+        move || close_grant(&close_state),
+        rsx! {
+            div {
+                class: "adm-editor-body",
+                "data-test-adm-grant-modal": "1",
                     p { class: "adm-editor-hint", "{step_hint}" }
                     ..vec![body, err_block]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: saving,
-                        "data-pm-adm-grant-close": "1",
-                        "取消"
-                    }
-                    ..vec![next_btn]
-                }
             }
-        }
-    }
+        },
+        vec![cancel, next_btn],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -5623,75 +5435,42 @@ fn config_form_body(st: &AppState) -> VNode {
             None => "新增公告".to_string(),
         };
         let overlay_close = st.clone();
-        let x_close = st.clone();
         let cancel_close = st.clone();
         let save_ann = st.clone();
         let title_field = st.clone();
         let url_field = st.clone();
-        rsx! {
-            div {
-                class: "modal-overlay",
-                "data-test-adm-ann-overlay": "1",
-                onclick: move |e: tairitsu_vdom::MouseEvent| {
-                    if e.target == e.current_target {
-                        close_announcement(&overlay_close);
-                    }
-                },
-                div { class: "adm-editor-modal adm-editor-modal--narrow",
-                    div { class: "modal-header",
-                        h3 { "{title}" }
-                        button {
-                            class: "modal-close",
-                            "data-test-adm-ann-close": "1",
-                            onclick: move |_| close_announcement(&x_close),
-                            "×"
-                        }
-                    }
-                    div { class: "modal-body adm-editor-body",
-                        div { class: "adm-editor-grid",
-                            label { class: "adm-editor-field",
-                                span { "标题" }
-                                input {
-                                    class: "adm-filter-input",
-                                    r#type: "text",
-                                    value: cf.ann_title.get(),
-                                    "data-test-adm-annf": "title",
-                                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                        set_announcement_field(&title_field, "title", &e.value);
-                                    }
-                                }
-                            }
-                            label { class: "adm-editor-field",
-                                span { "链接（可空）" }
-                                input {
-                                    class: "adm-filter-input",
-                                    r#type: "text",
-                                    value: cf.ann_url.get(),
-                                    "data-test-adm-annf": "url",
-                                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                        set_announcement_field(&url_field, "url", &e.value);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    div { class: "adm-editor-footer",
-                        button {
-                            class: "admin-btn",
-                            "data-test-adm-ann-close": "1",
-                            onclick: move |_| close_announcement(&cancel_close),
-                            "取消"
-                        }
-                        button {
-                            class: "admin-btn admin-btn--primary",
-                            "data-test-adm-ann-save": "1",
-                            onclick: move |_| save_announcement(&save_ann),
-                            "确定"
-                        }
-                    }
-                }
-            }
-        }
+        let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+            close_announcement(&cancel_close)
+        });
+        let save = crate::hk::HkAction::new("确定", ButtonVariant::Primary, move || {
+            save_announcement(&save_ann)
+        });
+        let title_input = Input(InputProps {
+            label: Some("标题".to_string()),
+            model_value: cf.ann_title.get(),
+            oninput: Some(EventHandler::new(move |text: String| {
+                set_announcement_field(&title_field, "title", &text);
+            })),
+            ..Default::default()
+        });
+        let url_input = Input(InputProps {
+            label: Some("链接（可空）".to_string()),
+            model_value: cf.ann_url.get(),
+            oninput: Some(EventHandler::new(move |text: String| {
+                set_announcement_field(&url_field, "url", &text);
+            })),
+            ..Default::default()
+        });
+        let fields: Vec<VNode> = vec![title_input, url_input];
+        crate::hk::modal(
+            &title,
+            "sm",
+            move || close_announcement(&overlay_close),
+            rsx! {
+                div { class: "adm-editor-grid", ..fields }
+            },
+            vec![cancel, save],
+        )
     } else {
         VNode::empty()
     };
@@ -5864,42 +5643,33 @@ fn delete_confirm_modal(st: &AppState) -> VNode {
         format!("{label}（#{id_text}）")
     };
     let busy = d.busy.get();
-    let err = d.err.get();
     let title = format!("删除{}", entity_title);
     let confirm_label = if busy { "删除中..." } else { "确认删除" };
-    let del_message = format!("确定要删除 {display} 吗？此操作不可撤销。");
-    let err_block = match err {
-        Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
-        None => VNode::empty(),
+    let question = format!("确定要删除 {display} 吗？此操作不可撤销。");
+    // 失败原因接在确认文案后面：hikari 的 ConfirmDialog 只有一段 message。
+    let message = match d.err.get() {
+        Some(e) => format!("{question}\n删除失败：{e}"),
+        None => question,
     };
-    rsx! {
-        div { class: "modal-overlay", "data-pm-adm-del-overlay": "1",
-            div { class: "adm-editor-modal adm-editor-modal--narrow",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-del-cancel": "1", "×" }
-                }
-                div { class: "modal-body adm-editor-body",
-                    p { "{del_message}" }
-                    ..vec![err_block]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: busy,
-                        "data-pm-adm-del-cancel": "1",
-                        "取消"
-                    }
-                    button {
-                        class: "admin-btn admin-btn--danger",
-                        disabled: busy,
-                        "data-pm-adm-del-ok": "1",
-                        "{confirm_label}"
-                    }
-                }
-            }
-        }
-    }
+    let cancel_state = st.clone();
+    let confirm_state = st.clone();
+    ConfirmDialog(ConfirmDialogProps {
+        open: true,
+        title,
+        message,
+        confirm_label: confirm_label.to_string(),
+        confirm_variant: ConfirmVariant::Danger,
+        cancel_label: "取消".to_string(),
+        loading: busy,
+        // 取消按钮、右上角 ×、点遮罩、Esc 在 hikari 里都汇到 on_cancel。
+        on_cancel: Some(EventHandler::new(move |_event: tairitsu_vdom::MouseEvent| {
+            close_delete_confirm(&cancel_state)
+        })),
+        on_confirm: Some(EventHandler::new(move |_event: tairitsu_vdom::MouseEvent| {
+            submit_delete(&confirm_state)
+        })),
+        ..Default::default()
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -6095,14 +5865,25 @@ fn effect_editor_modal(st: &AppState) -> VNode {
         None => VNode::empty(),
     };
 
-    rsx! {
-        div { class: "modal-overlay", "data-pm-adm-efx-overlay": "1",
-            div { class: "adm-editor-modal",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-efx-close": "1", "×" }
-                }
-                div { class: "modal-body adm-editor-body",
+    let close_state = st.clone();
+    let cancel_state = st.clone();
+    let save_state = st.clone();
+    let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+        close_effect_editor(&cancel_state)
+    })
+    .disabled(saving);
+    let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+        submit_effect_editor(&save_state)
+    })
+    .disabled(saving);
+    crate::hk::modal(
+        &title,
+        "lg",
+        move || close_effect_editor(&close_state),
+        rsx! {
+            div {
+                class: "adm-editor-body",
+                "data-test-adm-efx-modal": "1",
                     div { class: "adm-editor-grid",
                         label { class: "adm-editor-field",
                             span { "效果码（唯一标识）" }
@@ -6162,24 +5943,10 @@ fn effect_editor_modal(st: &AppState) -> VNode {
                         }
                     }
                     ..vec![err_block]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: saving,
-                        "data-pm-adm-efx-close": "1",
-                        "取消"
-                    }
-                    button {
-                        class: "admin-btn admin-btn--primary",
-                        disabled: saving,
-                        "data-pm-adm-efx-save": "1",
-                        "{save_label}"
-                    }
-                }
             }
-        }
-    }
+        },
+        vec![cancel, save],
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -7143,14 +6910,25 @@ fn user_drill_modal(st: &AppState) -> VNode {
                 None => VNode::empty(),
             };
 
-            rsx! {
-                div { class: "modal-overlay", "data-pm-adm-ipe-overlay": "1",
-                    div { class: "adm-editor-modal",
-                        div { class: "modal-header",
-                            h3 { "{title}" }
-                            button { class: "modal-close", "data-pm-adm-ipe-close": "1", "×" }
-                        }
-                        div { class: "modal-body adm-editor-body",
+            let close_state = st.clone();
+            let cancel_state = st.clone();
+            let save_state = st.clone();
+            let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+                close_pm_instance_editor(&cancel_state)
+            })
+            .disabled(saving);
+            let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+                submit_pm_instance_editor(&save_state)
+            })
+            .disabled(saving);
+            crate::hk::modal(
+                &title,
+                "lg",
+                move || close_pm_instance_editor(&close_state),
+                rsx! {
+                    div {
+                        class: "adm-editor-body",
+                        "data-test-adm-ipe-modal": "1",
                             div { class: "adm-editor-grid",
                                 label { class: "adm-editor-field",
                                     span { "昵称" }
@@ -7263,24 +7041,10 @@ fn user_drill_modal(st: &AppState) -> VNode {
                                 }
                             }
                             ..vec![err_block]
-                        }
-                        div { class: "adm-editor-footer",
-                            button {
-                                class: "admin-btn",
-                                disabled: saving,
-                                "data-pm-adm-ipe-close": "1",
-                                "取消"
-                            }
-                            button {
-                                class: "admin-btn admin-btn--primary",
-                                disabled: saving,
-                                "data-pm-adm-ipe-save": "1",
-                                "{save_label}"
-                            }
-                        }
                     }
-                }
-            }
+                },
+                vec![cancel, save],
+            )
         }
     };
 
@@ -7298,14 +7062,25 @@ fn user_drill_modal(st: &AppState) -> VNode {
                 Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
                 None => VNode::empty(),
             };
-            rsx! {
-                div { class: "modal-overlay", "data-pm-adm-iie-overlay": "1",
-                    div { class: "adm-editor-modal adm-editor-modal--narrow",
-                        div { class: "modal-header",
-                            h3 { "{title}" }
-                            button { class: "modal-close", "data-pm-adm-iie-close": "1", "×" }
-                        }
-                        div { class: "modal-body adm-editor-body",
+            let close_state = st.clone();
+            let cancel_state = st.clone();
+            let save_state = st.clone();
+            let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+                close_item_instance_editor(&cancel_state)
+            })
+            .disabled(saving);
+            let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
+                submit_item_instance_editor(&save_state)
+            })
+            .disabled(saving);
+            crate::hk::modal(
+                &title,
+                "md",
+                move || close_item_instance_editor(&close_state),
+                rsx! {
+                    div {
+                        class: "adm-editor-body",
+                        "data-test-adm-iie-modal": "1",
                             div { class: "adm-editor-grid",
                                 label { class: "adm-editor-field",
                                     span { "物品类型 ID" }
@@ -7330,24 +7105,10 @@ fn user_drill_modal(st: &AppState) -> VNode {
                                 }
                             }
                             ..vec![err_block]
-                        }
-                        div { class: "adm-editor-footer",
-                            button {
-                                class: "admin-btn",
-                                disabled: saving,
-                                "data-pm-adm-iie-close": "1",
-                                "取消"
-                            }
-                            button {
-                                class: "admin-btn admin-btn--primary",
-                                disabled: saving,
-                                "data-pm-adm-iie-save": "1",
-                                "{save_label}"
-                            }
-                        }
                     }
-                }
-            }
+                },
+                vec![cancel, save],
+            )
         }
     };
 
@@ -7357,7 +7118,6 @@ fn user_drill_modal(st: &AppState) -> VNode {
             VNode::empty()
         } else {
             let busy = dr.del_busy.get();
-            let err = dr.del_err.get();
             let kind = dr.del_kind.get();
             let noun = if kind == "pm" { "宠物" } else { "物品" };
             let title = format!("删除{}", noun);
@@ -7373,38 +7133,30 @@ fn user_drill_modal(st: &AppState) -> VNode {
             let extra = if kind == "pm" { "（放生有护栏：最后一只、战斗中的首位都会被服务端拒绝）" } else { "" };
             let message = format!("确定要删除 {display} 吗？{extra}");
             let confirm_label = if busy { "删除中..." } else { "确认删除" };
-            let err_block = match err {
-                Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
-                None => VNode::empty(),
+            // 失败原因接在确认文案后面：hikari 的 ConfirmDialog 只有一段 message。
+            let message = match dr.del_err.get() {
+                Some(e) => format!("{message}\n删除失败：{e}"),
+                None => message,
             };
-            rsx! {
-                div { class: "modal-overlay", "data-pm-adm-idel-overlay": "1",
-                    div { class: "adm-editor-modal adm-editor-modal--narrow",
-                        div { class: "modal-header",
-                            h3 { "{title}" }
-                            button { class: "modal-close", "data-pm-adm-idel-cancel": "1", "×" }
-                        }
-                        div { class: "modal-body adm-editor-body",
-                            p { "{message}" }
-                            ..vec![err_block]
-                        }
-                        div { class: "adm-editor-footer",
-                            button {
-                                class: "admin-btn",
-                                disabled: busy,
-                                "data-pm-adm-idel-cancel": "1",
-                                "取消"
-                            }
-                            button {
-                                class: "admin-btn admin-btn--danger",
-                                disabled: busy,
-                                "data-pm-adm-idel-ok": "1",
-                                "{confirm_label}"
-                            }
-                        }
-                    }
-                }
-            }
+            let cancel_state = st.clone();
+            let confirm_state = st.clone();
+            ConfirmDialog(ConfirmDialogProps {
+                open: true,
+                title,
+                message,
+                confirm_label: confirm_label.to_string(),
+                confirm_variant: ConfirmVariant::Danger,
+                cancel_label: "取消".to_string(),
+                loading: busy,
+                // 取消按钮、右上角 ×、点遮罩、Esc 在 hikari 里都汇到 on_cancel。
+                on_cancel: Some(EventHandler::new(move |_event: tairitsu_vdom::MouseEvent| {
+                    close_instance_delete(&cancel_state)
+                })),
+                on_confirm: Some(EventHandler::new(move |_event: tairitsu_vdom::MouseEvent| {
+                    submit_instance_delete(&confirm_state)
+                })),
+                ..Default::default()
+            })
         }
     };
 
@@ -7463,14 +7215,21 @@ fn user_drill_modal(st: &AppState) -> VNode {
         }
     };
 
-    rsx! {
-        div { class: "modal-overlay", "data-pm-adm-drill-overlay": "1",
-            div { class: "adm-editor-modal",
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-drill-close": "1", "×" }
-                }
-                div { class: "modal-body adm-editor-body",
+    let close_action_state = st.clone();
+    let close_overlay_state = st.clone();
+    let close_action =
+        crate::hk::HkAction::new("关闭", ButtonVariant::Secondary, move || {
+            close_drill(&close_action_state)
+        })
+        .disabled(loading);
+    let drill = crate::hk::modal(
+        &title,
+        "lg",
+        move || close_drill(&close_overlay_state),
+        rsx! {
+            div {
+                class: "adm-editor-body",
+                "data-test-adm-drill-modal": "1",
                     ..vec![err_bar, meta_editor]
                     div { class: "adm-editor-section-title",
                         if loading { "宠物（加载中...）" } else { "宠物" }
@@ -7501,17 +7260,11 @@ fn user_drill_modal(st: &AppState) -> VNode {
                         }
                     }
                     ..vec![item_table]
-                }
-                div { class: "adm-editor-footer",
-                    button {
-                        class: "admin-btn",
-                        disabled: loading,
-                        "data-pm-adm-drill-close": "1",
-                        "关闭"
-                    }
-                }
             }
-            ..vec![pm_editor, item_editor, del_confirm]
-        }
+        },
+        vec![close_action],
+    );
+    rsx! {
+        div { ..vec![drill, pm_editor, item_editor, del_confirm] }
     }
 }

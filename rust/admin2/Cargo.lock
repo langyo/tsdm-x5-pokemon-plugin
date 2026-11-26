@@ -1806,12 +1806,12 @@ dependencies = [
 [[package]]
 name = "tairitsu-browser-worlds"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
+source = "git+https://github.com/celestia-island/tairitsu?rev=16e9e03c#16e9e03c9eaa2f067da9a423dc3569762efdab1e"
 
 [[package]]
 name = "tairitsu-hooks"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
+source = "git+https://github.com/celestia-island/tairitsu?rev=16e9e03c#16e9e03c9eaa2f067da9a423dc3569762efdab1e"
 dependencies = [
  "anyhow",
  "tairitsu-vdom",
@@ -1822,7 +1822,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-macros"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
+source = "git+https://github.com/celestia-island/tairitsu?rev=16e9e03c#16e9e03c9eaa2f067da9a423dc3569762efdab1e"
 dependencies = [
  "grass",
  "hex",
@@ -1838,7 +1838,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-style"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
+source = "git+https://github.com/celestia-island/tairitsu?rev=16e9e03c#16e9e03c9eaa2f067da9a423dc3569762efdab1e"
 dependencies = [
  "pest",
  "pest_derive",
@@ -1852,7 +1852,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-vdom"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
+source = "git+https://github.com/celestia-island/tairitsu?rev=16e9e03c#16e9e03c9eaa2f067da9a423dc3569762efdab1e"
 dependencies = [
  "tracing",
  "wit-bindgen",
@@ -1861,7 +1861,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-web"
 version = "0.5.26"
-source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
+source = "git+https://github.com/celestia-island/tairitsu?rev=16e9e03c#16e9e03c9eaa2f067da9a423dc3569762efdab1e"
 dependencies = [
  "anyhow",
  "serde",

@@ -27,6 +27,9 @@ pub mod pages;
 /// hikari 标准件搭的外壳（AdminShell / AdminHeader / NavSidebar / 状态栏 / Toast）。
 #[cfg(target_family = "wasm")]
 pub mod shell;
+/// hikari 标准件的宿主适配层（受控组件的样板收在这里）。
+#[cfg(target_family = "wasm")]
+pub mod hk;
 pub mod state;
 
 #[cfg(target_family = "wasm")]
@@ -217,6 +220,59 @@ fn watch_viewport(state: &app_state::AppState) {
     );
 }
 
+/// 一批补丁的签名（管线仪表，写在 `#app[data-dbg-sig]`）：递归统计每种补丁的
+/// 条数，属性补丁按属性名单列。排查「状态已变、DOM 没跟上」时，先看这一批
+/// 里到底有没有那条补丁，再看 `data-patch-error`（落地失败的原因）。
+#[cfg(target_family = "wasm")]
+fn patch_signature(
+    patches: &[tairitsu_vdom::Patch],
+    out: &mut std::collections::BTreeMap<String, u64>,
+) {
+    use tairitsu_vdom::Patch;
+    for patch in patches {
+        match patch {
+            Patch::UpdateChild { patches, .. } => {
+                *out.entry("UpdateChild".to_string()).or_default() += 1;
+                patch_signature(patches, out);
+            }
+            Patch::UpdateAttribute { name, .. }
+            | Patch::AddAttribute { name, .. }
+            | Patch::RemoveAttribute { name } => {
+                let key = format!("{}:{name}", patch_variant(patch));
+                *out.entry(key).or_default() += 1;
+            }
+            other => {
+                let key = patch_variant(other).to_string();
+                *out.entry(key).or_default() += 1;
+            }
+        }
+    }
+}
+
+/// 补丁的变体名（`Patch` 未 derive Debug）。
+#[cfg(target_family = "wasm")]
+fn patch_variant(p: &tairitsu_vdom::Patch) -> &'static str {
+    use tairitsu_vdom::Patch;
+    match p {
+        Patch::CreateNode { .. } => "CreateNode",
+        Patch::ReplaceNode { .. } => "ReplaceNode",
+        Patch::RemoveNode => "RemoveNode",
+        Patch::UpdateText { .. } => "UpdateText",
+        Patch::UpdateAttribute { .. } => "UpdateAttribute",
+        Patch::AddAttribute { .. } => "AddAttribute",
+        Patch::RemoveAttribute { .. } => "RemoveAttribute",
+        Patch::UpdateStyle { .. } => "UpdateStyle",
+        Patch::UpdateClass { .. } => "UpdateClass",
+        Patch::InsertChild { .. } => "InsertChild",
+        Patch::RemoveChild { .. } => "RemoveChild",
+        Patch::UpdateChild { .. } => "UpdateChild",
+        Patch::AddEvent { .. } => "AddEvent",
+        Patch::UpdateEvent { .. } => "UpdateEvent",
+        Patch::RemoveEvent { .. } => "RemoveEvent",
+        _ => "Other",
+    }
+}
+
 #[cfg(target_family = "wasm")]
 fn run_app() -> Result<()> {
     std::panic::set_hook(Box::new(|info| {
@@ -309,6 +365,9 @@ fn run_app() -> Result<()> {
                 dbg_attr("data-dbg-p0", &s);
                 push_patch_log(s);
             }
+            let mut signature = std::collections::BTreeMap::new();
+            patch_signature(&patches, &mut signature);
+            dbg_attr("data-dbg-sig", &format!("{signature:?}"));
             let root = PATCH_ROOT.with(|r| r.borrow().clone());
             if let Some(root) = root {
                 if let Ok(platform) = WitPlatform::new() {
@@ -316,7 +375,9 @@ fn run_app() -> Result<()> {
                         component_id,
                         || {
                             if let Err(e) = platform.apply_patches(&root, &patches) {
-                                eprintln!("[admin2] apply_patches failed: {e:?}");
+                                let msg: String = format!("{e:?}").chars().take(400).collect();
+                                dbg_attr("data-patch-error", &msg);
+                                eprintln!("[admin2] apply_patches failed: {msg}");
                             }
                         },
                     );

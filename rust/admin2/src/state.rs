@@ -1133,12 +1133,21 @@ impl std::fmt::Debug for ShellState {
     }
 }
 
+/// 表格「管理」列的行操作菜单：哪一行（主键）+ 触发按钮的视口矩形。
+/// 菜单由宿主渲染（hikari 的表格只发出「哪一行要管理」，不自带菜单）。
+#[derive(Clone, PartialEq)]
+pub struct RowMenu {
+    pub key: String,
+    pub anchor: MenuAnchor,
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
     pub component_id: std::cell::Cell<u32>,
     pub route: ReactiveSignal<AdminRoute>,
     pub shell: ShellState,
+    pub row_menu: ReactiveSignal<Option<RowMenu>>,
     pub config: GlobalConfigState,
     pub pokemon: ListState,
     pub item: ListState,
@@ -1165,6 +1174,7 @@ impl AppState {
             component_id: std::cell::Cell::new(0),
             route: use_signal(|| AdminRoute::GlobalConfig),
             shell: ShellState::new(boot),
+            row_menu: use_signal(|| None),
             config: GlobalConfigState::new(),
             pokemon: ListState::new(),
             item: ListState::new(),

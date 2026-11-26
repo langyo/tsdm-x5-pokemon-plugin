@@ -1,4 +1,4 @@
 // shim for tairitsu-browser:full/non-element-parent-node
-import { INTERFACES } from '../glue/dom/index.js?v=1795696746';
+import { INTERFACES } from '../glue/dom/index.js?v=1795706925';
 const obj = INTERFACES['@tairitsu-glue/non-element-parent-node'];
 export const getElementById = obj.getElementById;

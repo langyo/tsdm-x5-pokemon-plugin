@@ -204,6 +204,7 @@ fn identity_block(state: &AppState) -> VNode {
     let avatar = boot.avatar.clone();
     let failed = state.shell.avatar_failed.get();
     let show_img = !avatar.is_empty() && !failed;
+    let initial = admin_header_avatar_initial(&name);
     let badge = if group.is_empty() {
         VNode::empty()
     } else {
@@ -220,7 +221,7 @@ fn identity_block(state: &AppState) -> VNode {
                 if show_img {
                     img { class: "s-user-avatar-img", src: avatar, alt: "" }
                 } else {
-                    span { class: "s-user-avatar", {admin_header_avatar_initial(&name)} }
+                    span { class: "s-user-avatar", "{initial}" }
                 }
             }
             div { class: "s-user-header-body",
@@ -237,7 +238,7 @@ fn user_panel(state: &AppState) -> VNode {
     let identity = identity_block(state);
     rsx! {
         div { class: "admin-drawer-user",
-            div { class: "hk-menu-slot hk-menu-slot--head", {identity} }
+            div { class: "hk-menu-slot hk-menu-slot--head", ..vec![identity] }
             div { class: "hk-menu-level", "role": "menu", ..rows }
         }
     }
@@ -257,18 +258,7 @@ fn open_drawer(shell: &ShellState) {
 /// 锚点由宿主给（`AdminHeaderProps::menu_anchor`），没有锚点就只能贴在
 /// 头部左缘。
 fn measure_avatar_anchor() -> Option<MenuAnchor> {
-    use tairitsu_vdom::platform::{DomOps, LayoutOps};
-    let platform = tairitsu_web::WitPlatform::new().ok()?;
-    let app = crate::element_handle("app")?;
-    let app = tairitsu_web::WitElement::from_raw(app);
-    let button = platform.query_selector_on(&app, ".s-admin-header-avatar")?;
-    let rect = platform.get_bounding_client_rect(&button);
-    Some(MenuAnchor {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-    })
+    crate::hk::measure(".s-admin-header-avatar")
 }
 
 fn set_menu_open(shell: &ShellState, open: bool) {

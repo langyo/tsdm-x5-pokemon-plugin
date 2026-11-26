@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/media-query-list
-import { INTERFACES } from '../glue/html/index.js?v=1795696746';
+import { INTERFACES } from '../glue/html/index.js?v=1795706925';
 const obj = INTERFACES['@tairitsu-glue/media-query-list'];
 export const addListener = obj.addListener;
 export const getMatches = obj.getMatches;

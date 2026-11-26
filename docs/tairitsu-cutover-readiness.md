@@ -106,20 +106,22 @@ Dioxus 旧版挂 `&ui=v1`；两版页顶的版本对照条同步反转。
    信号，iOS Safari 真机（内存受限环境）仍建议手动抽测一次
 1. **构建产物就绪**：`plugin/wasm2/` 由 `build_tairitsu_admin.py` /
    `build_tairitsu_poc.py` / `build_tairitsu_cap.py`（能力探针）产出，
-   vendored glue 与组件同源，锁定在 tairitsu master `e0dc3981`（含上游
+   vendored glue 与组件同源，锁定在 tairitsu master `16e9e03c`（含上游
    #124/#126/#127/#128 的修复，以及本仓库提交的 #162 SVG 命名空间、
    #163 `store!` 宏、#164 `InputEvent.value`、#166 glue 的 `location`
-   接口全量）。后台页自 b5f4c74 起是独立页面（不套论坛版式），外壳用
-   hikari 0.55.497 的 AdminShell / AdminHeader / NavSidebar 标准件，
-   样式由 `build_tairitsu_admin.py` 的 `compile_hikari_css()` 按 Vue
-   规范组合编译。
+   接口全量、#167 补丁落地顺序——带 key 的子节点交换「先删后插」不再
+   把刚插入的节点删掉，列表页不会再卡在加载态）。后台页自 b5f4c74 起
+   是独立页面（不套论坛版式），外壳与七张列表页、全部弹窗用 hikari
+   0.55.497 的 AdminShell / AdminHeader / NavSidebar / AdminTablePage /
+   Modal / ConfirmDialog 标准件，样式由 `build_tairitsu_admin.py` 的
+   `compile_hikari_css()` 按 Vue 规范组合编译。
 
 ## 六、风险与长期项
 
 | 风险 | 等级 | 处置 |
 | --- | --- | --- |
 | ~~整树重挂在超大列表上的上限~~ | 已消除 | diff/patch 管线（§10.1.5）：1126 行弹窗 51/24ms |
-| 上游 tairitsu 锁定 git rev `e0dc3981`（vendored） | 低 | 无运行时依赖上游发版；升级=显式重跑 vendor 流程并同步三份 `Cargo.toml` 的 rev |
+| 上游 tairitsu 锁定 git rev `16e9e03c`（vendored） | 低 | 无运行时依赖上游发版；升级=显式重跑 vendor 流程并同步三份 `Cargo.toml` 的 rev |
 | ~~diff 基线与活 DOM 无对账~~ | 已消除 | reconcile 守卫（#128）：子数漂移自动发现 + 原位修复，实测注入漂移可自愈 |
 | 效果编辑器 hooks/params 为 JSON 文本框 | 低 | 服务端严格校验兜底，错误原因透出到弹窗 |
 | Discuz 论坛主题对 `#app` 容器的样式干扰 | 低 | 现双前端已同壳运行多月，未见冲突 |

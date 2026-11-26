@@ -68,6 +68,33 @@ html {
   .s-glass-header .hk-select-popout {
     background: rgb(var(--color-surface));
   }
+  // 行操作菜单（表格「管理」列触发）：铺在整个视口之上、菜单之下。
+  .admin-menu-backdrop.admin-row-menu-backdrop {
+    z-index: 9990;
+  }
+  .admin-row-menu {
+    z-index: 9991;
+  }
+
+  // ---- 列表页（hikari AdminTablePage）的宿主侧补充 ----
+  // 筛选区与「加载更多」：hikari 的表格页把这两块的排布留给宿主。
+  .adm-filter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+
+    // hikari 的 Input 默认撑满所在行；筛选栏里几个输入框并排，各占一档。
+    .hk-input-wrapper {
+      flex: 0 1 200px;
+      min-width: 140px;
+    }
+  }
+  .adm-list-page .adm-load-more {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+  }
   // 状态栏左右两区块里的本站内容。
   .admin-status-brand {
     font-size: 12px;
