@@ -68,12 +68,32 @@ html {
   .s-glass-header .hk-select-popout {
     background: rgb(var(--color-surface));
   }
+  // 移动端抽屉同理：hikari 的 AdminHeader 镜像把抽屉原地渲染在壳的正文层里
+  // （Vue 版传送到页面根的 overlay root），层级是 auto，于是垫在固定状态栏
+  // （z-index: --hk-z-toolbar）之下——抽屉底部的「退出登录」被状态栏盖住。
+  // 这里把抽屉的遮罩与面板抬到状态栏之上、弹窗（z ≥ 1000）之下。
+  .hk-drawer-overlay {
+    z-index: calc(var(--hk-z-toolbar, 50) + 1);
+  }
+  .hk-drawer-panel {
+    z-index: calc(var(--hk-z-toolbar, 50) + 2);
+  }
   // 行操作菜单（表格「管理」列触发）：铺在整个视口之上、菜单之下。
   .admin-menu-backdrop.admin-row-menu-backdrop {
     z-index: 9990;
   }
   .admin-row-menu {
     z-index: 9991;
+  }
+  // hikari Select 的弹出面板与宿主铺的「点外部关闭」遮罩：遮罩压住弹窗里的
+  // 其余内容，面板压住遮罩。
+  .admin-select-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+  }
+  .admin-select .hk-select-popout-host {
+    z-index: 12001;
   }
 
   // ---- 列表页（hikari AdminTablePage）的宿主侧补充 ----
@@ -126,16 +146,16 @@ html {
     padding: 8px 0;
   }
 
-  // ---- 页面联动状态 ----
-  .admin-busy { font-size: 12px; color: #e67e22; }
-  .admin-dirty { font-size: 12px; color: #c0392b; }
+  // ---- 页面联动状态（颜色走主题 token，暗色模式才看得清） ----
+  .admin-busy { font-size: 12px; color: rgb(var(--color-warning)); }
+  .admin-dirty { font-size: 12px; color: rgb(var(--color-error)); }
   .admin-main > section { padding: 20px; }
   .admin-page-header h2 { margin: 0 0 16px; font-size: 18px; color: #333; }
   .admin-card { background: #fff; border: 1px solid #e8e8e8; border-radius: 8px; padding: 16px; }
   .admin-placeholder p { color: #666; font-size: 14px; }
   .admin-placeholder-hint { font-size: 12px; color: #999; margin-top: 8px; }
-  .admin-loading { color: #666; padding: 32px; text-align: center; }
-  .admin-error p { color: #c0392b; margin-bottom: 12px; }
+  .admin-loading { color: rgb(var(--color-text-secondary)); padding: 32px; text-align: center; }
+  .admin-error p { color: rgb(var(--color-error)); margin-bottom: 12px; }
 
   // ---- 按钮 ----
   .admin-btn {
@@ -326,7 +346,7 @@ html {
     flex-direction: column;
     gap: 4px;
     font-size: 12px;
-    color: #666;
+    color: rgb(var(--color-text-secondary));
 
     .adm-filter-input { width: 100%; box-sizing: border-box; }
   }
@@ -342,7 +362,7 @@ html {
     margin: 16px 0 8px;
     font-size: 13px;
     font-weight: 600;
-    color: #333;
+    color: rgb(var(--color-text));
     display: flex;
     align-items: center;
   }
@@ -358,15 +378,15 @@ html {
     &:focus { outline: none; border-color: #5cb8e6; }
   }
   .adm-editor-toggle { align-self: flex-end; }
-  .adm-editor-error { color: #c0392b; font-size: 12px; margin: 12px 0 0; }
+  .adm-editor-error { color: rgb(var(--color-error)); font-size: 12px; margin: 12px 0 0; }
   .adm-editor-footer {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
     padding: 12px 18px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid rgb(var(--color-border) / 12%);
   }
-  .adm-editor-hint { font-size: 12px; color: #999; align-self: center; margin: 0; }
+  .adm-editor-hint { font-size: 12px; color: rgb(var(--color-text-tertiary)); align-self: center; margin: 0; }
   .adm-editor-sprite {
     display: block;
     width: 48px;
@@ -382,22 +402,22 @@ html {
   .adm-grant-result { padding: 4px 10px; font-size: 12px; }
   .adm-grant-picked { display: flex; align-items: center; gap: 10px; margin: 4px 0 12px; }
 
-  // ---- 野怪 chip ----
+  // ---- chip（种族 / 野怪）：主色淡底，配色沿用 hikari Tag 的 info 写法 ----
   .adm-wild-chip {
     display: inline-flex;
     align-items: center;
     gap: 4px;
     padding: 3px 8px;
-    background: #f0f7ff;
-    border: 1px solid #cfe4f7;
+    background: color-mix(in srgb, rgb(var(--color-primary)) 10%, transparent);
+    border: 1px solid color-mix(in srgb, rgb(var(--color-primary)) 30%, transparent);
     border-radius: 12px;
     font-size: 12px;
-    color: #2a6496;
+    color: rgb(var(--color-primary));
   }
   .adm-wild-chip-x {
     border: none;
     background: none;
-    color: #c0392b;
+    color: rgb(var(--color-error));
     cursor: pointer;
     font-size: 13px;
     padding: 0 2px;

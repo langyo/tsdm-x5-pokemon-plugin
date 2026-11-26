@@ -2,7 +2,7 @@
 
 use hikari_components::prelude::MdiIcon;
 use hikari_components::{
-    ButtonVariant, ConfirmDialog, ConfirmDialogProps, ConfirmVariant, Input, InputProps,
+    ButtonSize, ButtonVariant, ConfirmDialog, ConfirmDialogProps, ConfirmVariant, Input, InputProps,
 };
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::{EventHandler, VNode};
@@ -392,10 +392,33 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         .map(|menu| row_actions(&st, &menu.key))
         .unwrap_or_default();
     let row_menu = crate::list_page::row_menu_overlay(&st, row_actions);
-    crate::shell::render(
-        &st,
-        content,
-        vec![delete_confirm_modal(&st), row_menu],
+    let mut overlays: Vec<VNode> = vec![delete_confirm_modal(&st), row_menu];
+    // 登录失效：接口回的是 Discuz 的提示页，之后哪个页面都加载不出来，给一条
+    // 回去重新登录的路。
+    if crate::api::session_lost() {
+        overlays.push(relogin_modal());
+    }
+    crate::shell::render(&st, content, overlays)
+}
+
+/// 「登录已过期」：罩住整个后台，只留「重新登录」一个去处（关不掉——关掉之后
+/// 是一个什么都加载不出来的页面）。重新登录就是重新载入本页：未登录时 PHP
+/// 入口会先给出论坛的登录提示。
+fn relogin_modal() -> VNode {
+    crate::hk::modal(
+        "登录已过期",
+        "sm",
+        || {},
+        rsx! {
+            p { "登录状态已失效，或当前账号没有后台权限。请重新登录后再试。" }
+        },
+        vec![crate::hk::HkAction::new(
+            "重新登录",
+            ButtonVariant::Primary,
+            || {
+                tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::location::reload();
+            },
+        )],
     )
 }
 
@@ -3476,29 +3499,30 @@ pub fn skill_species_remove(state: &AppState, id: u64) {
 }
 
 /// 技能编辑器的可学种族 chip 区（已选 chips + 搜索行 + 结果行）。
-fn skill_species_block(ed: &crate::state::SkillEditorState) -> VNode {
-    let mut chips: Vec<VNode> = Vec::new();
+fn skill_species_block(st: &AppState) -> VNode {
+    let ed = st.skill_editor.clone();
     let ids: Vec<u64> = ed
         .available
         .get()
         .split([',', '，', ' ', '\n'])
         .filter_map(|t| t.trim().parse::<u64>().ok())
         .collect();
+    let mut chips: Vec<VNode> = Vec::new();
     for id in ids.iter() {
         let names = ed.species_names.get();
         let label = match names.get(id) {
             Some(n) => format!("{n} #{id}"),
             None => format!("#{id}"),
         };
-        let attr = id.to_string();
+        let remove_state = st.clone();
+        let remove_id = *id;
+        let remove = crate::hk::button("×", ButtonVariant::Ghost, ButtonSize::Xs, false, move || {
+            skill_species_remove(&remove_state, remove_id)
+        });
         chips.push(rsx! {
             span { class: "adm-wild-chip",
                 "{label}"
-                button {
-                    class: "adm-wild-chip-x",
-                    "data-pm-adm-sk-sp-del": attr,
-                    "×"
-                }
+                ..vec![remove]
             }
         });
     }
@@ -3506,59 +3530,53 @@ fn skill_species_block(ed: &crate::state::SkillEditorState) -> VNode {
         rsx! { p { class: "adm-editor-hint", "暂无可学种族，搜索后点选添加。" } }
     } else {
         rsx! {
-            div { class: "adm-grant-results",
-                for i in 0..chips.len() {
-                    ..vec![chips[i].clone()]
-                }
-            }
+            div { class: "adm-grant-results", ..chips }
         }
     };
+    let searching = ed.species_searching.get();
     let mut result_chips: Vec<VNode> = Vec::new();
     for (pid, name) in ed.species_results.get().into_iter() {
         let label = format!("{name} #{pid}");
-        let attr = format!("{pid}:{name}");
-        result_chips.push(rsx! {
-            button {
-                class: "admin-btn adm-grant-result",
-                disabled: ed.species_searching.get(),
-                "data-pm-adm-sk-sp-pick": attr,
-                "{label}"
-            }
-        });
+        let pick_state = st.clone();
+        let pick = crate::hk::button(
+            label.as_str(),
+            ButtonVariant::Secondary,
+            ButtonSize::Sm,
+            searching,
+            move || skill_species_pick(&pick_state, pid, &name),
+        );
+        result_chips.push(pick);
     }
-    let search_block = if ed.species_searching.get() {
+    let search_block = if searching {
         rsx! { p { class: "adm-editor-hint", "搜索中..." } }
     } else if result_chips.is_empty() {
         VNode::empty()
     } else {
         rsx! {
-            div { class: "adm-grant-results",
-                for i in 0..result_chips.len() {
-                    ..vec![result_chips[i].clone()]
-                }
-            }
+            div { class: "adm-grant-results", ..result_chips }
         }
     };
+    let search_state = st.clone();
+    let search = crate::hk::button("搜索", ButtonVariant::Secondary, ButtonSize::Sm, searching, move || {
+        skill_species_search(&search_state)
+    });
+    let query = crate::hk::text_field(
+        st,
+        set_skill_editor_field,
+        "sk-species-query",
+        "species_query",
+        "",
+        ed.species_query.get(),
+        "text",
+    );
+    let row: Vec<VNode> = vec![query, search];
+    let row = rsx! {
+        div { class: "adm-editor-grid", ..row }
+    };
+    let mut kids: Vec<VNode> = vec![chips_block, row, search_block];
+    kids.retain(|node| !matches!(node, VNode::Text(text) if text.text.is_empty()));
     rsx! {
-        div { class: "adm-species-picker",
-            ..vec![chips_block]
-            div { class: "adm-editor-grid",
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "按名称搜索物种（包含）",
-                    value: ed.species_query.get(),
-                    "data-pm-adm-skf": "species_query"
-                }
-                button {
-                    class: "admin-btn adm-editor-toggle",
-                    disabled: ed.species_searching.get(),
-                    "data-pm-adm-sk-sp-search": "1",
-                    "搜索"
-                }
-            }
-            ..vec![search_block]
-        }
+        div { class: "adm-species-picker", ..kids }
     }
 }
 
@@ -3691,16 +3709,10 @@ fn skill_editor_modal(st: &AppState) -> VNode {
     let category = ed.category.get();
     let save_label = if saving { "保存中..." } else { "保存" };
 
-    let mut cat_options: Vec<VNode> = Vec::new();
-    for (code, label) in SKILL_CATEGORIES {
-        cat_options.push(rsx! {
-            option {
-                value: code,
-                selected: code == category,
-                "{label}"
-            }
-        });
-    }
+    let cat_options: Vec<(String, String)> = SKILL_CATEGORIES
+        .iter()
+        .map(|(code, label)| ((*code).to_string(), (*label).to_string()))
+        .collect();
 
     let err_block = match err {
         Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
@@ -3718,6 +3730,55 @@ fn skill_editor_modal(st: &AppState) -> VNode {
         submit_skill_editor(&save_state)
     })
     .disabled(saving);
+    let set = set_skill_editor_field;
+    let top: Vec<VNode> = vec![
+        crate::hk::text_field(st, set, "sk-name", "name", "名称", ed.name.get(), "text"),
+        crate::hk::select_field(st, set, "sk-category", "category", "类别", cat_options, category),
+        crate::hk::text_field(st, set, "sk-element", "element", "属性（中文，如 火）", ed.element.get(), "text"),
+        crate::hk::text_field(st, set, "sk-power", "power", "威力", ed.power.get(), "number"),
+        crate::hk::text_field(
+            st,
+            set,
+            "sk-min-level",
+            "min_level_limit",
+            "等级限制",
+            ed.min_level_limit.get(),
+            "number",
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "sk-use-times",
+            "use_times_limit",
+            "可用次数",
+            ed.use_times_limit.get(),
+            "number",
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "sk-effect-id",
+            "effect_id",
+            "效果模板 ID（0 = 不绑定）",
+            ed.effect_id.get(),
+            "number",
+        ),
+    ];
+    let grid = rsx! {
+        div { class: "adm-editor-grid", ..top }
+    };
+    let description = crate::hk::textarea_field(st, set, "sk-description", "description", "描述", ed.description.get(), 2);
+    // 可学种族 chip 选择器（UX 对等 B：搜索 + chip 列表 + 移除，
+    // 对齐 Dioxus；available 串仍是存储与提交形态）。
+    let species = skill_species_block(st);
+    let species_box = rsx! {
+        div { class: "adm-editor-field adm-editor-wide",
+            div { class: "adm-editor-section-title", "可学种族" }
+            ..vec![species]
+        }
+    };
+    let mut body: Vec<VNode> = vec![grid, description, species_box];
+    body.push(err_block);
     crate::hk::modal(
         &title,
         "lg",
@@ -3726,92 +3787,7 @@ fn skill_editor_modal(st: &AppState) -> VNode {
             div {
                 class: "adm-editor-body",
                 "data-test-adm-sk-modal": "1",
-                    div { class: "adm-editor-grid",
-                        label { class: "adm-editor-field",
-                            span { "名称" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.name.get(),
-                                "data-pm-adm-skf": "name"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "类别" }
-                            select {
-                                class: "adm-filter-input",
-                                "data-pm-adm-skf": "category",
-                                for i in 0..cat_options.len() {
-                                    ..vec![cat_options[i].clone()]
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "属性（中文，如 火）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.element.get(),
-                                "data-pm-adm-skf": "element"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "威力" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "0",
-                                value: ed.power.get(),
-                                "data-pm-adm-skf": "power"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "等级限制" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "0",
-                                value: ed.min_level_limit.get(),
-                                "data-pm-adm-skf": "min_level_limit"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "可用次数" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "0",
-                                value: ed.use_times_limit.get(),
-                                "data-pm-adm-skf": "use_times_limit"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "效果模板 ID（0 = 不绑定）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "0",
-                                value: ed.effect_id.get(),
-                                "data-pm-adm-skf": "effect_id"
-                            }
-                        }
-                    }
-                    label { class: "adm-editor-field adm-editor-wide",
-                        span { "描述" }
-                        textarea {
-                            class: "adm-editor-textarea",
-                            rows: 2,
-                            "data-pm-adm-skf": "description",
-                            "{ed.description.get()}"
-                        }
-                    }
-                    // 可学种族 chip 选择器（UX 对等 B：搜索 + chip 列表 + 移除，
-                    // 对齐 Dioxus；available 串仍是存储与提交形态）。
-                    div { class: "adm-editor-field adm-editor-wide",
-                        div { class: "adm-editor-section-title", "可学种族" }
-                        ..vec![skill_species_block(&ed)]
-                    }
-                    ..vec![err_block]
+                ..body
             }
         },
         vec![cancel, save],
@@ -4068,17 +4044,12 @@ fn evolution_editor_modal(st: &AppState) -> VNode {
     let cond_kind = ed.cond_kind.get();
     let save_label = if saving { "保存中..." } else { "保存" };
 
-    let mut kind_options: Vec<VNode> = Vec::new();
-    for (code, label, _, _) in EVO_COND_KINDS {
-        kind_options.push(rsx! {
-            option {
-                value: code,
-                selected: code == cond_kind,
-                "{label}"
-            }
-        });
-    }
-    let placeholder = EVO_COND_KINDS
+    let kind_options: Vec<(String, String)> = EVO_COND_KINDS
+        .iter()
+        .map(|(code, label, _, _)| ((*code).to_string(), (*label).to_string()))
+        .collect();
+    // 条件值那一格的标签随条件类型变（每种条件各有一句提示）。
+    let cond_label = EVO_COND_KINDS
         .iter()
         .find(|(c, _, _, _)| *c == cond_kind)
         .map(|(_, _, hint, _)| *hint)
@@ -4100,6 +4071,46 @@ fn evolution_editor_modal(st: &AppState) -> VNode {
         submit_evolution_editor(&save_state)
     })
     .disabled(saving);
+    let set = set_evolution_editor_field;
+    let fields: Vec<VNode> = vec![
+        crate::hk::text_field(
+            st,
+            set,
+            "ev-source-id",
+            "source_id",
+            "进化来源（宠物 ID）",
+            ed.source_id.get(),
+            "number",
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "ev-target-id",
+            "target_id",
+            "进化目标（宠物 ID）",
+            ed.target_id.get(),
+            "number",
+        ),
+        crate::hk::text_field(st, set, "ev-priority", "priority", "优先级", ed.priority.get(), "number"),
+        crate::hk::select_field(
+            st,
+            set,
+            "ev-cond-kind",
+            "cond_kind",
+            "条件类型",
+            kind_options,
+            cond_kind,
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "ev-cond-value",
+            "cond_value",
+            cond_label,
+            ed.cond_value.get(),
+            "text",
+        ),
+    ];
     crate::hk::modal(
         &title,
         "lg",
@@ -4108,57 +4119,8 @@ fn evolution_editor_modal(st: &AppState) -> VNode {
             div {
                 class: "adm-editor-body",
                 "data-test-adm-ev-modal": "1",
-                    div { class: "adm-editor-grid",
-                        label { class: "adm-editor-field",
-                            span { "进化来源（宠物 ID）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "1",
-                                value: ed.source_id.get(),
-                                "data-pm-adm-evf": "source_id"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "进化目标（宠物 ID）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "1",
-                                value: ed.target_id.get(),
-                                "data-pm-adm-evf": "target_id"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "优先级" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                value: ed.priority.get(),
-                                "data-pm-adm-evf": "priority"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "条件类型" }
-                            select {
-                                class: "adm-filter-input",
-                                "data-pm-adm-evf": "cond_kind",
-                                for i in 0..kind_options.len() {
-                                    ..vec![kind_options[i].clone()]
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "{placeholder}" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.cond_value.get(),
-                                "data-pm-adm-evf": "cond_value"
-                            }
-                        }
-                    }
-                    ..vec![err_block]
+                div { class: "adm-editor-grid", ..fields }
+                ..vec![err_block]
             }
         },
         vec![cancel, save],
@@ -5853,12 +5815,10 @@ fn effect_editor_modal(st: &AppState) -> VNode {
     let kind = ed.kind.get();
     let save_label = if saving { "保存中..." } else { "保存" };
 
-    let mut kind_opts: Vec<VNode> = Vec::new();
-    for (code, label) in EFFECT_KIND_OPTIONS {
-        kind_opts.push(rsx! {
-            option { value: code, selected: code == kind, "{label}" }
-        });
-    }
+    let kind_opts: Vec<(String, String)> = EFFECT_KIND_OPTIONS
+        .iter()
+        .map(|(code, label)| ((*code).to_string(), (*label).to_string()))
+        .collect();
 
     let err_block = match err {
         Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
@@ -5876,6 +5836,39 @@ fn effect_editor_modal(st: &AppState) -> VNode {
         submit_effect_editor(&save_state)
     })
     .disabled(saving);
+    let set = set_effect_editor_field;
+    let top: Vec<VNode> = vec![
+        crate::hk::text_field(st, set, "efx-code", "code", "效果码（唯一标识）", ed.code.get(), "text"),
+        crate::hk::select_field(st, set, "efx-kind", "kind", "类型", kind_opts, kind),
+        crate::hk::text_field(st, set, "efx-version", "version", "版本（≥1）", ed.version.get(), "number"),
+    ];
+    let wide: Vec<VNode> = vec![
+        crate::hk::textarea_field(st, set, "efx-description", "description", "描述", ed.description.get(), 2),
+        crate::hk::textarea_field(
+            st,
+            set,
+            "efx-hooks",
+            "hooks",
+            "钩子 JSON（非空数组，如 on_before_move / on_hit / on_after_move / on_turn_end …）",
+            ed.hooks_json.get(),
+            4,
+        ),
+        crate::hk::textarea_field(
+            st,
+            set,
+            "efx-params",
+            "params",
+            "参数 JSON（对象，必须含非空 code 键 = 核心效果码）",
+            ed.params_json.get(),
+            8,
+        ),
+    ];
+    let grid = rsx! {
+        div { class: "adm-editor-grid", ..top }
+    };
+    let mut body: Vec<VNode> = vec![grid];
+    body.extend(wide);
+    body.push(err_block);
     crate::hk::modal(
         &title,
         "lg",
@@ -5884,65 +5877,7 @@ fn effect_editor_modal(st: &AppState) -> VNode {
             div {
                 class: "adm-editor-body",
                 "data-test-adm-efx-modal": "1",
-                    div { class: "adm-editor-grid",
-                        label { class: "adm-editor-field",
-                            span { "效果码（唯一标识）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.code.get(),
-                                "data-pm-adm-efx-f": "code"
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "类型" }
-                            select {
-                                class: "adm-filter-input",
-                                "data-pm-adm-efx-f": "kind",
-                                for i in 0..kind_opts.len() {
-                                    ..vec![kind_opts[i].clone()]
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "版本（≥1）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "1",
-                                value: ed.version.get(),
-                                "data-pm-adm-efx-f": "version"
-                            }
-                        }
-                    }
-                    label { class: "adm-editor-field adm-editor-wide",
-                        span { "描述" }
-                        textarea {
-                            class: "adm-editor-textarea",
-                            rows: 2,
-                            "data-pm-adm-efx-f": "description",
-                            "{ed.description.get()}"
-                        }
-                    }
-                    label { class: "adm-editor-field adm-editor-wide",
-                        span { "钩子 JSON（非空数组，如 on_before_move / on_hit / on_after_move / on_turn_end …）" }
-                        textarea {
-                            class: "adm-editor-textarea",
-                            rows: 4,
-                            "data-pm-adm-efx-f": "hooks",
-                            "{ed.hooks_json.get()}"
-                        }
-                    }
-                    label { class: "adm-editor-field adm-editor-wide",
-                        span { "参数 JSON（对象，必须含非空 code 键 = 核心效果码）" }
-                        textarea {
-                            class: "adm-editor-textarea",
-                            rows: 8,
-                            "data-pm-adm-efx-f": "params",
-                            "{ed.params_json.get()}"
-                        }
-                    }
-                    ..vec![err_block]
+                ..body
             }
         },
         vec![cancel, save],

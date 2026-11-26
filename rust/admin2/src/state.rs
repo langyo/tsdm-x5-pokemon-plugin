@@ -1148,6 +1148,9 @@ pub struct AppState {
     pub route: ReactiveSignal<AdminRoute>,
     pub shell: ShellState,
     pub row_menu: ReactiveSignal<Option<RowMenu>>,
+    /// 当前打开的下拉（hikari Select）：是哪一个字段 + 触发钮的视口矩形。
+    /// 一次只开一个，与行操作菜单同一套锚点记录。
+    pub select_ui: ReactiveSignal<Option<RowMenu>>,
     pub config: GlobalConfigState,
     pub pokemon: ListState,
     pub item: ListState,
@@ -1175,6 +1178,7 @@ impl AppState {
             route: use_signal(|| AdminRoute::GlobalConfig),
             shell: ShellState::new(boot),
             row_menu: use_signal(|| None),
+            select_ui: use_signal(|| None),
             config: GlobalConfigState::new(),
             pokemon: ListState::new(),
             item: ListState::new(),

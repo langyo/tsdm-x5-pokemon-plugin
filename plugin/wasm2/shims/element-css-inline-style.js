@@ -1,4 +1,4 @@
 // shim for tairitsu-browser:full/element-css-inline-style
-import { INTERFACES } from '../glue/css/index.js?v=1795706925';
+import { INTERFACES } from '../glue/css/index.js?v=1795715499';
 const obj = INTERFACES['@tairitsu-glue/element-css-inline-style'];
 export const getStyle = obj.getStyle;

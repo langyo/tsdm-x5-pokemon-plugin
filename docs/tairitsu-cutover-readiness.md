@@ -112,8 +112,8 @@ Dioxus 旧版挂 `&ui=v1`；两版页顶的版本对照条同步反转。
    接口全量、#167 补丁落地顺序——带 key 的子节点交换「先删后插」不再
    把刚插入的节点删掉，列表页不会再卡在加载态）。后台页自 b5f4c74 起
    是独立页面（不套论坛版式），外壳与七张列表页、全部弹窗用 hikari
-   0.55.497 的 AdminShell / AdminHeader / NavSidebar / AdminTablePage /
-   Modal / ConfirmDialog 标准件，样式由 `build_tairitsu_admin.py` 的
+   0.55.497 的 AdminShell / `AdminHeader` / NavSidebar / `AdminTablePage` /
+   Modal / `ConfirmDialog` 标准件，样式由 `build_tairitsu_admin.py` 的
    `compile_hikari_css()` 按 Vue 规范组合编译。
 
 ## 六、风险与长期项

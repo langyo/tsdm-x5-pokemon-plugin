@@ -61,14 +61,18 @@ fn filter_input(
 ) -> VNode {
     let ls_input = ls.clone();
     let enter = on_enter;
+    let selector = format!("#{id}");
     Input(InputProps {
         id: Some(id),
         model_value: value,
         placeholder: Some(placeholder),
         size: InputSize::Small,
         align: InputAlign::Start,
-        oninput: Some(EventHandler::new(move |text: String| {
-            set(&ls_input, text);
+        oninput: Some(EventHandler::new(move |_inserted: String| {
+            // 镜像回传的只是本次插入的片段，整值由宿主读 DOM（见 hk::dom_value）。
+            if let Some(text) = hk::dom_value(&selector) {
+                set(&ls_input, text);
+            }
         })),
         submit_on_enter: Some(EventHandler::new(move |_event: ()| enter())),
         ..Default::default()
@@ -155,11 +159,13 @@ pub fn entity_list_page(
     let rows = ls.rows.get();
     let total = ls.total.get();
     let loaded_count = ls.loaded_count.get();
-    let has_more = !filtered && loaded_count < total;
-    let count_text = if filtered {
-        format!("筛选结果 {loaded_count} 条")
-    } else {
-        format!("已加载 {loaded_count} / {total} 条")
+    // 加载中与失败时不给「加载更多」：计数是上一轮的，对不上屏上的内容。
+    let has_more = matches!(load_state, Some(Ok(()))) && !filtered && loaded_count < total;
+    let count_text = match &load_state {
+        None => "加载中…".to_string(),
+        Some(Err(_)) => "加载失败".to_string(),
+        Some(Ok(())) if filtered => format!("筛选结果 {loaded_count} 条"),
+        Some(Ok(())) => format!("已加载 {loaded_count} / {total} 条"),
     };
 
     let (loading, error) = match &load_state {

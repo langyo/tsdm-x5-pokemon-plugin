@@ -15,9 +15,47 @@ fn request(body: String, on_done: Box<dyn FnOnce(Result<Value, String>)>) {
                 Ok(v) => on_done(Ok(v)),
                 Err(e) => on_done(Err(e)),
             },
-            Err(e) => on_done(Err(format!("网络错误: {e}"))),
+            Err(_) => on_done(Err(NETWORK_ERROR.to_string())),
         }),
     );
+}
+
+/// 响应不是 JSON 信封时的提示。
+///
+/// tairitsu 的 fetch 只把响应正文交给 wasm，拿不到 HTTP 状态码与响应头
+/// （上游 issue celestia-island/tairitsu#169），所以这里分不清是 500、403
+/// 还是登录过期后被送回的登录页——只能把这几种都说出来，并给出下一步。
+const NOT_ENVELOPE: &str =
+    "服务器返回了无法解析的内容（登录过期、权限不足或服务器出错时会出现），请刷新页面重试";
+
+/// 请求没发出去 / 没等到响应。宿主给的原因是 `TypeError: Failed to fetch`
+/// 一类，对使用者没有信息量，所以只留结论与下一步。
+const NETWORK_ERROR: &str = "无法连接服务器，请检查网络后重试";
+
+thread_local! {
+    /// 收到过 Discuz 的提示页（未登录 / 无权限）：外壳据此弹「重新登录」。
+    static SESSION_LOST: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// 是否已判定登录失效（见 [`not_envelope`]）。
+pub fn session_lost() -> bool {
+    SESSION_LOST.with(|flag| flag.get())
+}
+
+/// 解析失败时的提示。
+///
+/// 正文以 `<` 开头就是一张 HTML 页：Discuz 在未登录 / 无权限时用
+/// `showmessage` 回提示页，状态码仍是 200（tairitsu 的 fetch 也拿不到状态码，
+/// 见 celestia-island/tairitsu#169），所以只能看正文。这时记下登录失效，
+/// 外壳据此弹「重新登录」；其余坏响应给通用提示。
+fn not_envelope(body: &str) -> String {
+    if body.trim_start().starts_with('<') {
+        SESSION_LOST.with(|flag| flag.set(true));
+        crate::request_remount();
+        "登录已过期或没有权限".to_string()
+    } else {
+        NOT_ENVELOPE.to_string()
+    }
 }
 
 fn parse_envelope(body: &str) -> Result<Value, String> {
@@ -30,7 +68,7 @@ fn parse_envelope(body: &str) -> Result<Value, String> {
         #[serde(default)]
         reason: Option<String>,
     }
-    let env: Envelope = serde_json::from_str(body).map_err(|e| format!("响应解析失败: {e}"))?;
+    let env: Envelope = serde_json::from_str(body).map_err(|_| not_envelope(body))?;
     if !env.success {
         return Err(env.reason.unwrap_or_else(|| "未知错误".to_string()));
     }
@@ -47,7 +85,7 @@ fn parse_envelope_ok(body: &str) -> Result<(), String> {
         #[serde(default)]
         reason: Option<String>,
     }
-    let env: Envelope = serde_json::from_str(body).map_err(|e| format!("响应解析失败: {e}"))?;
+    let env: Envelope = serde_json::from_str(body).map_err(|_| not_envelope(body))?;
     if !env.success {
         return Err(env.reason.unwrap_or_else(|| "未知错误".to_string()));
     }
@@ -261,7 +299,7 @@ pub fn wild_add(
         &serde_json::json!({ "method": "POST", "body": body }).to_string(),
         Box::new(move |resp| match resp {
             Ok(text) => on_done(parse_envelope_ok(&text)),
-            Err(e) => on_done(Err(format!("网络错误: {e}"))),
+            Err(_) => on_done(Err(NETWORK_ERROR.to_string())),
         }),
     );
 }
@@ -282,7 +320,7 @@ pub fn wild_remove(
         &serde_json::json!({ "method": "POST", "body": body }).to_string(),
         Box::new(move |resp| match resp {
             Ok(text) => on_done(parse_envelope_ok(&text)),
-            Err(e) => on_done(Err(format!("网络错误: {e}"))),
+            Err(_) => on_done(Err(NETWORK_ERROR.to_string())),
         }),
     );
 }
@@ -299,7 +337,7 @@ pub fn delete_entity(entity: &str, id: u64, on_done: Box<dyn FnOnce(Result<(), S
         &serde_json::json!({ "method": "POST", "body": body }).to_string(),
         Box::new(move |resp| match resp {
             Ok(text) => on_done(parse_envelope_ok(&text)),
-            Err(e) => on_done(Err(format!("网络错误: {e}"))),
+            Err(_) => on_done(Err(NETWORK_ERROR.to_string())),
         }),
     );
 }

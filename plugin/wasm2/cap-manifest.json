@@ -1,8 +1,8 @@
 {
-  "build_id": "1795706925",
+  "build_id": "1795715499",
   "base": "/source/plugin/pokemon/wasm2",
-  "entry": "/source/plugin/pokemon/wasm2/cap-boot.js?v=1795706925",
-  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_capprobe.js?b=1795706925",
+  "entry": "/source/plugin/pokemon/wasm2/cap-boot.js?v=1795715499",
+  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_capprobe.js?b=1795715499",
   "interfaces": [
     "canvas-fill-stroke-styles",
     "canvas-rect",

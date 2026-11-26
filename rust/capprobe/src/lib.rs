@@ -21,6 +21,10 @@ use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::nod
 #[cfg(target_family = "wasm")]
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::node_list::item;
 #[cfg(target_family = "wasm")]
+use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::html_input_element::{
+    get_checked, get_value,
+};
+#[cfg(target_family = "wasm")]
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::non_element_parent_node::get_element_by_id;
 
 #[cfg(target_family = "wasm")]
@@ -74,6 +78,10 @@ pub struct CapResult {
 pub struct CapState {
     pub results: tairitsu_hooks::ReactiveSignal<Vec<CapResult>>,
     pub evt_counters: tairitsu_hooks::ReactiveSignal<Vec<u32>>,
+    /// 表单控件用例的三个模型：文本框与多行框共用的值、复选框、下拉框。
+    pub form_text: tairitsu_hooks::ReactiveSignal<String>,
+    pub form_checked: tairitsu_hooks::ReactiveSignal<bool>,
+    pub form_pick: tairitsu_hooks::ReactiveSignal<String>,
 }
 
 /// done 回调：测试结束时调用一次（守护定时器有代际防晚到）。
@@ -84,6 +92,9 @@ pub fn new_state(component_id: usize) -> CapState {
     CapState {
         results: tairitsu_hooks::use_signal(Vec::new),
         evt_counters: tairitsu_hooks::use_signal(Vec::new),
+        form_text: tairitsu_hooks::use_signal(|| FORM_MODEL_TEXT.to_string()),
+        form_checked: tairitsu_hooks::use_signal(|| false),
+        form_pick: tairitsu_hooks::use_signal(|| FORM_MODEL_PICK.to_string()),
     }
 }
 
@@ -151,6 +162,11 @@ fn registry() -> Registry {
         (
             "evt",
             "stopPropagation：容器拦冒泡，不吞子孙处理器（原生 onclick）",
+            true,
+        ),
+        (
+            "form",
+            "表单控件：value / checked 写入落到实时状态（重置后跟随模型）",
             true,
         ),
     ];
@@ -223,6 +239,63 @@ fn set_detail(state: &CapState, idx: usize, detail: String) {
         v[idx].detail = detail;
         state.results.inner().set(v);
     }
+}
+
+/// 表单控件用例的模型初值：「重置为模型值」把三个模型设回这两个值。
+#[cfg(target_family = "wasm")]
+const FORM_MODEL_TEXT: &str = "模型值";
+#[cfg(target_family = "wasm")]
+const FORM_MODEL_PICK: &str = "c";
+
+#[cfg(target_family = "wasm")]
+fn form_test_index(state: &CapState) -> Option<usize> {
+    state
+        .results
+        .get()
+        .iter()
+        .position(|r| r.group == "form")
+}
+
+/// 「重置为模型值」：模型回初值并重挂。补丁要等下一帧才落地，所以读回
+/// 放在之后的定时器里。
+#[cfg(target_family = "wasm")]
+fn form_probe_reset(state: &CapState) {
+    state.form_text.inner().set(FORM_MODEL_TEXT.to_string());
+    state.form_checked.inner().set(false);
+    state.form_pick.inner().set(FORM_MODEL_PICK.to_string());
+    request_remount();
+    let st = state.clone();
+    if let Ok(platform) = WitPlatform::new() {
+        use tairitsu_vdom::platform::TimerOps;
+        platform.set_timeout(Box::new(move || form_probe_verify(&st)), 120);
+    }
+}
+
+/// 读回各控件的**实时值**（不是属性），逐项与模型比对，结论写进结果栏。
+#[cfg(target_family = "wasm")]
+fn form_probe_verify(state: &CapState) {
+    let live = |id: &str| {
+        get_element_by_id(0, id)
+            .map(|handle| get_value(handle))
+            .unwrap_or_else(|| "<元素缺失>".to_string())
+    };
+    let text = live("cap-form-text");
+    let area = live("cap-form-area");
+    let pick = live("cap-form-select");
+    let checked = get_element_by_id(0, "cap-form-check").map(|handle| get_checked(handle));
+    let ok = text == FORM_MODEL_TEXT
+        && area == FORM_MODEL_TEXT
+        && pick == FORM_MODEL_PICK
+        && checked == Some(false);
+    let detail = format!(
+        "input={text:?} textarea={area:?} select={pick:?} checked={checked:?}；模型：{FORM_MODEL_TEXT:?} / {FORM_MODEL_TEXT:?} / {FORM_MODEL_PICK:?} / false"
+    );
+    let Some(index) = form_test_index(state) else {
+        return;
+    };
+    let status = if ok { CapStatus::Pass } else { CapStatus::Fail };
+    set_result(state, index, status, detail);
+    finish_check(state);
 }
 
 /// 顺序执行队列：idx 的测试拿到 done；5s 守护兜底（代际计数防晚到）。
@@ -1053,6 +1126,12 @@ fn run_test(state: &CapState, idx: usize, done: Done) {
         // stopPropagation 用例：触发结构与处理器都在 render_page 的 vnode 里
         // （原生 onclick），这里只需声明「等外部点击」，结论看详情栏计数。
         48 => done(CapStatus::Pass, "等点击：btn 应 +1、box 应 +1、overlay 应不变".into()),
+        // 表单控件用例：结构与处理器都在 render_page 的 vnode 里；结论由
+        // 「重置为模型值」在读回实时值之后给出，在那之前保持待定。
+        49 => done(
+            CapStatus::Pending,
+            "等操作：文本框里输入几个字 → 勾上复选框 → 点「重置为模型值」".into(),
+        ),
         _ => done(CapStatus::Skip, format!("未注册的测试下标 {idx}（{name}）")),
     }
 }
@@ -1116,7 +1195,7 @@ fn render_page(state: &CapState) -> tairitsu_vdom::VNode {
                 input { id: "cap-evt-focus", "data-pm-cap-evt": "focus", r#type: "text", placeholder: "focus 目标" }
                 input { id: "cap-evt-input", "data-pm-cap-evt": "input", r#type: "text", placeholder: "input 目标" }
                 button { id: "cap-evt-rm", "data-pm-cap-evt": "rm", "已移除监听的目标" }
-                ..vec![stop_probe(state)]
+                ..vec![stop_probe(state), form_probe(state)]
             }
             table { class: "cap-table",
                 thead {
@@ -1176,6 +1255,89 @@ fn stop_probe(state: &CapState) -> tairitsu_vdom::VNode {
             }
             span { "　overlay 本体：点这里 overlay+1　" }
             span { id: "cap-evt-stop-counts", style: "font-weight:600;", "{counts}" }
+        }
+    }
+}
+
+/// 表单控件用例的触发结构：四个受控控件 + 「重置为模型值」。
+///
+/// HTML 把表单控件的 `value` / `checked` 属性只当**默认值**：用户输入过
+/// （"dirty"）之后，再 `setAttribute` 改不动屏幕上的值；`<textarea>` 与
+/// `<select>` 更是根本没有 `value` 属性。所以平台写这些属性时必须同时写
+/// 实时属性。用例的走法：
+///
+/// 1. 在文本框里输入（受控：模型跟着输入走）→ 文本框变 dirty；
+/// 2. 勾上复选框（受控：模型变 true）→ 复选框变 dirty；
+/// 3. 点「重置为模型值」：模型回到初值，补丁落地后读回四个控件的实时值。
+///
+/// 预期：input / textarea 都显示「模型值」，select 选中 c，复选框未勾选。
+/// 平台只写属性时，文本框停在用户输入、多行框是空的、下拉框选着 a、
+/// 复选框仍勾着——四项里至少三项对不上。
+#[cfg(target_family = "wasm")]
+fn form_probe(state: &CapState) -> tairitsu_vdom::VNode {
+    use tairitsu_macros::rsx;
+    let text = state.form_text.get();
+    let area_text = text.clone();
+    let checked = state.form_checked.get();
+    let pick = state.form_pick.get();
+    let type_state = state.clone();
+    let check_state = state.clone();
+    let reset_state = state.clone();
+    rsx! {
+        div {
+            id: "cap-form",
+            "data-test-cap": "form",
+            style: "display:inline-block;padding:8px;border:1px dashed #999;",
+            span { "〔表单控件〕文本框：" }
+            input {
+                id: "cap-form-text",
+                "data-test-cap": "form-text",
+                r#type: "text",
+                value: text,
+                oninput: move |_event: tairitsu_vdom::InputEvent| {
+                    // 模型跟着输入走：整值从 DOM 读（事件只带本次插入的片段）。
+                    if let Some(typed) = get_element_by_id(0, "cap-form-text").map(|handle| get_value(handle)) {
+                        type_state.form_text.inner().set(typed);
+                    }
+                    request_remount();
+                },
+            }
+            span { "　复选框：" }
+            input {
+                id: "cap-form-check",
+                "data-test-cap": "form-check",
+                r#type: "checkbox",
+                checked: checked,
+                onclick: move |_event: tairitsu_vdom::MouseEvent| {
+                    // 模型跟着用户走：点击之后它是勾上的。
+                    check_state.form_checked.inner().set(true);
+                    request_remount();
+                },
+            }
+            span { "　下拉：" }
+            select {
+                id: "cap-form-select",
+                "data-test-cap": "form-select",
+                value: pick,
+                option { value: "a", "A" }
+                option { value: "b", "B" }
+                option { value: "c", "C" }
+            }
+            br {}
+            textarea {
+                id: "cap-form-area",
+                "data-test-cap": "form-area",
+                rows: "2",
+                style: "margin-top:6px;",
+                value: area_text,
+            }
+            button {
+                id: "cap-form-reset",
+                "data-test-cap": "form-reset",
+                style: "margin-left:8px;",
+                onclick: move |_event: tairitsu_vdom::MouseEvent| form_probe_reset(&reset_state),
+                "重置为模型值"
+            }
         }
     }
 }
