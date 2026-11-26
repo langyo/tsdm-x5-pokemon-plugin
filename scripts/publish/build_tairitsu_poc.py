@@ -24,6 +24,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -779,23 +780,60 @@ def compile_skin_css() -> None:
 
     页面组件仍与 Dioxus 版共用 game.css；这份皮肤只放「hikari 标准件 → 旧版
     观感」的适配，由 v2 页面排在 game.css 之后加载。
+
+    **还要带上 hikari 组件的样式表本身。** 早先这里只编皮肤，靠 game.css 里
+    的旧规则凑合——那时 game2 用到的 hikari 组件恰好都有旧样式兜着。换成上游
+    `ToastStore` + `Toast` 之后，容器 `.hk-toast-container` 的定位规则只存在于
+    hikari 的总表里，所以这里复用 admin2 构建脚本的组装逻辑（同一份
+    `hikari.scss` 基础层 + 全部 vue-mirror 组件表），把组件表接到皮肤前面。
     """
+    # admin2 的构建脚本已经有一份「hikari 组件表怎么组装」的实现；直接借它，
+    # 免得两处各维护一遍清单。
+    import importlib.util
+
+    admin_script = Path(__file__).resolve().parent / "build_tairitsu_admin.py"
+    spec = importlib.util.spec_from_file_location("admin_build_for_poc", admin_script)
+    admin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(admin)
+
     source = ROOT / "rust" / "game2" / "styles" / "main.scss"
     output = OUT / "hikari.css"
     sass = shutil.which("sass")
     if not sass:
         sys.exit("sass not found on PATH (needed for rust/game2/styles/main.scss)")
-    # 固定参数列表：sass --style=compressed --no-source-map --quiet <in> <out>
-    result = subprocess.run(
-        [
-            sass, "--style=compressed", "--no-source-map", "--quiet",
-            str(source), str(output),
-        ],
-        check=False,
-        shell=False,
-    )
+    packages = admin.hikari_packages_dir()
+    head = [
+        line
+        for line in (ROOT / "rust" / "admin2" / "styles" / "hikari.scss")
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.startswith("@use ") or line.startswith("@import ")
+    ]
+    mirror = [f'@import "{path}";' for path in admin.hikari_mirror_imports(packages)]
+    with tempfile.TemporaryDirectory() as td:
+        entry = Path(td) / "game-hikari-entry.scss"
+        # 组件表在前，game2 的皮肤在后：皮肤要用同权重规则覆盖 hikari 默认观感。
+        skin = source.read_text(encoding="utf-8")
+        entry.write_text(
+            "\n".join(head + mirror) + "\n" + skin + "\n", encoding="utf-8"
+        )
+        result = subprocess.run(
+            [
+                sass, "--style=compressed", "--no-source-map", "--quiet",
+                "--load-path", str(packages),
+                # 组件表里的主题 partial 以裸名 @use（'variables' / 'mixins'）。
+                "--load-path", str(packages / "theme" / "styles"),
+                str(entry), str(output),
+            ],
+            check=False,
+            shell=False,
+        )
     if result.returncode != 0:
         sys.exit(result.returncode)
+    print(
+        f"[poc] hikari.css: {len(head)} base sheets + {len(mirror)} vue-mirror "
+        f"sheets + game skin → {output.name} ({output.stat().st_size} bytes)"
+    )
 
 
 def main() -> None:
