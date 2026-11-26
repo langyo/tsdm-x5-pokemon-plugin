@@ -2099,6 +2099,8 @@ fn item_editor_modal(st: &AppState) -> VNode {
         .find(|(code, _, _)| *code == tag_kind)
         .and_then(|(_, _, hint)| hint)
         .unwrap_or("");
+    // 附加值输入的处理函数在下面 rsx! 里用到，状态句柄得先备好。
+    let tagv_state = st.clone();
     let tag_extra = if tag_kind == "drug" {
         rsx! { p { class: "adm-editor-hint", "药品无附加配置" } }
     } else {
@@ -2109,7 +2111,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                     class: "adm-filter-input",
                     r#type: "text",
                     value: tag_value,
-                    "data-pm-adm-itf": "tag_value"
+                    "data-test-adm-itf": "tag_value",
+                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                        set_item_editor_field(&tagv_state, "tag_value", &e.value);
+                    }
                 }
             }
         }
@@ -2119,6 +2124,8 @@ fn item_editor_modal(st: &AppState) -> VNode {
     for i in 0..11 {
         let label = ITEM_EFFECT_LABELS[i];
         let attr = format!("effect:{i}");
+        let eff_key = attr.clone();
+        let eff_state = st.clone();
         effect_inputs.push(rsx! {
             label { class: "adm-editor-field",
                 span { "{label}" }
@@ -2126,7 +2133,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                     class: "adm-filter-input",
                     r#type: "number",
                     value: effects[i].clone(),
-                    "data-pm-adm-itf": attr
+                    "data-test-adm-itf": attr,
+                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                        set_item_editor_field(&eff_state, &eff_key, &e.value);
+                    }
                 }
             }
         });
@@ -2151,12 +2161,38 @@ fn item_editor_modal(st: &AppState) -> VNode {
         }
     };
 
+    // 各处理器各持一份状态句柄（闭包要求 'static）。
+    let overlay_state = st.clone();
+    let x_state = st.clone();
+    let cancel_state = st.clone();
+    let save_state = st.clone();
+    let toggle_state = st.clone();
+    let itf_state_0 = st.clone();
+    let itf_state_1 = st.clone();
+    let itf_state_2 = st.clone();
+    let itf_state_3 = st.clone();
+    let itf_state_4 = st.clone();
+    let itf_state_5 = st.clone();
+    let itf_kind_state = st.clone();
+
     rsx! {
-        div { class: "modal-overlay", "data-pm-adm-it-overlay": "1",
+        div {
+            class: "modal-overlay",
+            "data-test-adm-it-overlay": "1",
+            onclick: move |e: tairitsu_vdom::MouseEvent| {
+                if e.target == e.current_target {
+                    close_item_editor(&overlay_state);
+                }
+            },
             div { class: "adm-editor-modal",
                 div { class: "modal-header",
                     h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-it-close": "1", "×" }
+                    button {
+                        class: "modal-close",
+                        "data-test-adm-it-close": "1",
+                        onclick: move |_| close_item_editor(&x_state),
+                        "×"
+                    }
                 }
                 div { class: "modal-body adm-editor-body",
                     div { class: "adm-editor-grid",
@@ -2166,7 +2202,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                                 class: "adm-filter-input",
                                 r#type: "text",
                                 value: ed.name.get(),
-                                "data-pm-adm-itf": "name"
+                                "data-test-adm-itf": "name",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_item_editor_field(&itf_state_0, "name", &e.value);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -2175,7 +2214,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                                 class: "adm-filter-input",
                                 r#type: "text",
                                 value: img_name,
-                                "data-pm-adm-itf": "img_name"
+                                "data-test-adm-itf": "img_name",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_item_editor_field(&itf_state_1, "img_name", &e.value);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -2185,7 +2227,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                                 r#type: "number",
                                 min: "0",
                                 value: ed.price.get(),
-                                "data-pm-adm-itf": "price"
+                                "data-test-adm-itf": "price",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_item_editor_field(&itf_state_2, "price", &e.value);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -2195,7 +2240,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                                 r#type: "number",
                                 min: "0",
                                 value: ed.min_level.get(),
-                                "data-pm-adm-itf": "min_level"
+                                "data-test-adm-itf": "min_level",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_item_editor_field(&itf_state_3, "min_level", &e.value);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -2204,13 +2252,17 @@ fn item_editor_modal(st: &AppState) -> VNode {
                                 class: "adm-filter-input",
                                 r#type: "text",
                                 value: ed.kind_require.get(),
-                                "data-pm-adm-itf": "kind_require"
+                                "data-test-adm-itf": "kind_require",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_item_editor_field(&itf_state_4, "kind_require", &e.value);
+                                }
                             }
                         }
                         button {
                             class: selling_cls,
                             disabled: saving,
-                            "data-pm-adm-it-toggle": "selling",
+                            "data-test-adm-it-toggle": "selling",
+                            onclick: move |_| toggle_item_editor_selling(&toggle_state),
                             "{selling_label}"
                         }
                     }
@@ -2219,7 +2271,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                             span { "类型" }
                             select {
                                 class: "adm-filter-input",
-                                "data-pm-adm-itf": "tag_kind",
+                                "data-test-adm-itf": "tag_kind",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_item_editor_field(&itf_kind_state, "tag_kind", &e.value);
+                                },
                                 for i in 0..kind_options.len() {
                                     ..vec![kind_options[i].clone()]
                                 }
@@ -2232,7 +2287,10 @@ fn item_editor_modal(st: &AppState) -> VNode {
                         textarea {
                             class: "adm-editor-textarea",
                             rows: 2,
-                            "data-pm-adm-itf": "description",
+                            "data-test-adm-itf": "description",
+                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                set_item_editor_field(&itf_state_5, "description", &e.value);
+                            },
                             "{ed.description.get()}"
                         }
                     }
@@ -2248,13 +2306,15 @@ fn item_editor_modal(st: &AppState) -> VNode {
                     button {
                         class: "admin-btn",
                         disabled: saving,
-                        "data-pm-adm-it-close": "1",
+                        "data-test-adm-it-close": "1",
+                        onclick: move |_| close_item_editor(&cancel_state),
                         "取消"
                     }
                     button {
                         class: "admin-btn admin-btn--primary",
                         disabled: saving,
-                        "data-pm-adm-it-save": "1",
+                        "data-test-adm-it-save": "1",
+                        onclick: move |_| submit_item_editor(&save_state),
                         "{save_label}"
                     }
                 }
