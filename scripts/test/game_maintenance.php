@@ -24,6 +24,7 @@ if (($argv[1] ?? '') === '--worker') {
     // 默认后台路由（admin_v2.inc.php）是独立页面，渲染时要用 Discuz 的这些
     // 函数与设置；这里只补测试需要的形状，页面走到 </html> 就算渲染成功。
     if (!defined('FORMHASH')) define('FORMHASH', 'test-formhash');
+    if (!defined('CHARSET')) define('CHARSET', 'utf-8');
     if (!function_exists('avatar')) {
         function avatar($uid, $size = 'small', $returnsrc = 0)
         {
