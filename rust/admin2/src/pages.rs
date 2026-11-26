@@ -5227,18 +5227,14 @@ fn config_form_body(st: &AppState) -> VNode {
                 let on = config_value_bool(&config, key);
                 let toggle_state = st.clone();
                 let toggle_key = k.clone();
-                let hint_text = hint.to_string();
-                section.push(rsx! {
-                    div { class: "adm-cfg-field",
-                        span { class: "adm-cfg-label", "{label}" }
-                        {hk::switch(on, "", move || {
-                            toggle_config_bool(&toggle_state, &toggle_key)
-                        })}
-                        if !hint_text.is_empty() {
-                            span { class: "adm-cfg-hint", "{hint}" }
-                        }
-                    }
+                let sw = hk::switch(on, "", move || {
+                    toggle_config_bool(&toggle_state, &toggle_key)
                 });
+                section.push(hk::form_field(
+                    label,
+                    (!hint.is_empty()).then(|| hint.to_string()),
+                    sw,
+                ));
             }
             CfgKind::Num | CfgKind::Text => {
                 let value = config_value_text(&config, key);
@@ -5259,15 +5255,11 @@ fn config_form_body(st: &AppState) -> VNode {
                     })),
                     ..Default::default()
                 });
-                section.push(rsx! {
-                    div { class: "adm-cfg-field",
-                        span { class: "adm-cfg-label", "{label}" }
-                        {input}
-                        if !hint.is_empty() {
-                            span { class: "adm-cfg-hint", "{hint}" }
-                        }
-                    }
-                });
+                section.push(hk::form_field(
+                    label,
+                    (!hint.is_empty()).then(|| hint.to_string()),
+                    input,
+                ));
             }
             CfgKind::Section(_) => {}
         }

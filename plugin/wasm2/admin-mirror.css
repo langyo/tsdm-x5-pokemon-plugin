@@ -1,0 +1,44 @@
+/* hikari mirror-only component: hk-form-field */
+.hk-form-field{
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.hk-form-field-label{
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--hi-color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.hk-form-field-required{
+    color: var(--hi-color-danger-fg);
+    font-weight: 700;
+}
+.hk-form-field-help{
+    font-size: 0.75rem;
+    color: var(--hi-color-text-secondary);
+}
+.hk-form-field-error-msg{
+    font-size: 0.75rem;
+    color: var(--hi-color-danger-fg);
+}
+.hk-form-field-warning-msg{
+    font-size: 0.75rem;
+    color: var(--hi-color-warning-fg);
+}
+.hk-form-field-success-msg{
+    font-size: 0.75rem;
+    color: var(--hi-color-success-fg);
+}
+.hk-form-field-error .hk-form-field-label{
+    color: var(--hi-color-danger-fg);
+}
+.hk-form-field-warning .hk-form-field-label{
+    color: var(--hi-color-warning-fg);
+}
+.hk-form-field-success .hk-form-field-label{
+    color: var(--hi-color-success-fg);
+}

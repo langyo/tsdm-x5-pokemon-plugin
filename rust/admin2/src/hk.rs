@@ -11,6 +11,7 @@
 //! - [`anchored_menu`]：贴着锚点展开的动作菜单，行语法沿用 hikari `HkMenu`
 //!   （表格的「管理」列触发后弹的就是它）；
 //! - [`section_card`] / [`page_header`] / [`alert`] / [`spinner`]：版面与状态；
+//! - [`form_field`]：标签 + 控件 + 说明的一格表单；
 //! - [`text_field`] / [`textarea_field`] / [`switch`] / [`select_field`]：表单字段。
 
 use std::rc::Rc;
@@ -20,10 +21,10 @@ use hikari_components::feedback::popover::{
 };
 use hikari_components::prelude::{Icon, IconProps, MdiIcon};
 use hikari_components::{
-    Alert, AlertProps, AlertVariant, Button, ButtonProps, ButtonSize, ButtonVariant, Input,
-    InputProps, Modal, ModalAction, ModalActionVariant, ModalProps, PageHeader, PageHeaderProps,
-    SectionCard, SectionCardProps, Select, SelectOption, SelectProps, Spinner, SpinnerProps, Switch,
-    SwitchProps, Textarea, TextareaProps,
+    Alert, AlertProps, AlertVariant, Button, ButtonProps, ButtonSize, ButtonVariant, FormField,
+    FormFieldProps, Input, InputProps, Modal, ModalAction, ModalActionVariant, ModalProps,
+    PageHeader, PageHeaderProps, SectionCard, SectionCardProps, Select, SelectOption, SelectProps,
+    Spinner, SpinnerProps, Switch, SwitchProps, Textarea, TextareaProps,
 };
 use tairitsu_macros::rsx;
 use tairitsu_vdom::{EventHandler, VNode, VText};
@@ -286,6 +287,20 @@ pub fn alert(variant: AlertVariant, message: &str) -> VNode {
 pub fn spinner() -> VNode {
     Spinner(SpinnerProps {
         center: true,
+        ..Default::default()
+    })
+}
+
+/// hikari `FormField`：标签 + 控件 + 说明。标签留空则只渲染控件与说明。
+///
+/// 这个组件的样式来自 Rust 镜像自己的 `StyledComponent`，Vue 侧没有对应表，
+/// 所以由 `scripts/publish/dump_hikari_mirror_css.py` 单独补一份
+/// `admin-mirror.css`（见该脚本头注）。
+pub fn form_field(label: &str, help: Option<String>, control: VNode) -> VNode {
+    FormField(FormFieldProps {
+        label: label.to_string(),
+        help_text: help,
+        children: control,
         ..Default::default()
     })
 }

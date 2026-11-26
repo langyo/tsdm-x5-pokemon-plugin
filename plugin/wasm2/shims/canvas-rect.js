@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/canvas-rect
-import { INTERFACES } from '../glue/platform/index.js?v=1795719432';
+import { INTERFACES } from '../glue/platform/index.js?v=1795720671';
 const obj = INTERFACES['@tairitsu-glue/canvas-rect'];
 export const clearRect = obj.clearRect;
 export const fillRect = obj.fillRect;

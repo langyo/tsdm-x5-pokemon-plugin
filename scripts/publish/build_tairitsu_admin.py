@@ -249,6 +249,15 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     compile_hikari_css()
     compile_admin_css()
+    # Rust 镜像自带、但 Vue 表没覆盖的组件样式（见 dump_hikari_mirror_css.py）。
+    # 必须在 compile_hikari_css 之后：它拿编译产物里已有的 .hk-* 类名做底，
+    # 只补缺的那几段。
+    mirror = subprocess.run(
+        [sys.executable, "-I", str(HERE / "dump_hikari_mirror_css.py")],
+        check=False,
+    )
+    if mirror.returncode != 0:
+        sys.exit("mirror-only hikari CSS dump failed")
     wasm = cargo_build(args.skip_build)
     jco_transpile_admin(wasm)
     build_id = str(int(wasm.stat().st_mtime))
