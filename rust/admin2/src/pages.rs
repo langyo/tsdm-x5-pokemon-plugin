@@ -1617,7 +1617,10 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
             class: "modal-overlay",
             "data-test-adm-pk-overlay": "1",
             // 只认「直接点在遮罩上」：容器内的点击冒泡上来时 target 是子元素，
-            // 据此区分，就不必给容器挂 stopPropagation（那会连按钮一起吞掉）。
+            // 据此区分，弹窗容器就不必再挂处理器。
+            // （给容器挂 stopPropagation 是等价的另一种写法：tairitsu 的行为与
+            // DOM 一致，只拦更外层，不吞子元素自己的处理器——capprobe 的
+            // stopPropagation 用例已验证，早先「会连按钮一起吞掉」的判断是误报。）
             onclick: move |e: tairitsu_vdom::MouseEvent| {
                 if e.target == e.current_target {
                     close_pokemon_editor(&overlay_close_state);

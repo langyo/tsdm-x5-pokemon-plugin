@@ -147,6 +147,12 @@ fn registry() -> Registry {
         ("misc", "execCommand(copy)", false),
         ("misc", "selection start/end", false),
         ("misc", "setContentEditable+getState", false),
+        // 放在末尾：run_test 按下标分派，往中间插会把后面的用例整体错位。
+        (
+            "evt",
+            "stopPropagation：容器拦冒泡，不吞子孙处理器（原生 onclick）",
+            true,
+        ),
     ];
     Registry { tests: t }
 }
@@ -170,6 +176,53 @@ fn bump_counter(state: &CapState, idx: usize) {
         state.evt_counters.inner().set(v);
     }
     request_remount();
+}
+
+/// stopPropagation 用例的三个计数槽（子按钮 / 容器 / 外层），挂在
+/// `evt_counters` 尾部：一条用例要同时读三个处理器的触发次数，而注册表
+/// 下标一行只带一个计数。
+#[cfg(target_family = "wasm")]
+const STOP_SLOTS: usize = 3;
+
+/// stopPropagation 用例在注册表里的名字前缀（`render_page` 按它找行）。
+#[cfg(target_family = "wasm")]
+const STOP_NAME: &str = "stopPropagation";
+
+/// 把 `which`（0 子按钮 / 1 容器 / 2 外层）的计数加一，并把三个计数写进
+/// 该用例的详情栏。
+#[cfg(target_family = "wasm")]
+fn bump_stop(state: &CapState, which: usize) {
+    let tests = registry().tests.len();
+    bump_counter(state, tests + which);
+    if let Some(i) = stop_test_index(state) {
+        set_detail(state, i, stop_counts_text(state));
+    }
+}
+
+#[cfg(target_family = "wasm")]
+fn stop_test_index(state: &CapState) -> Option<usize> {
+    state
+        .results
+        .get()
+        .iter()
+        .position(|r| r.group == "evt" && r.name.starts_with(STOP_NAME))
+}
+
+#[cfg(target_family = "wasm")]
+fn stop_counts_text(state: &CapState) -> String {
+    let tests = registry().tests.len();
+    let c = state.evt_counters.get();
+    let at = |k: usize| c.get(tests + k).copied().unwrap_or(0);
+    format!("btn={} box={} overlay={}", at(0), at(1), at(2))
+}
+
+#[cfg(target_family = "wasm")]
+fn set_detail(state: &CapState, idx: usize, detail: String) {
+    let mut v = state.results.get();
+    if idx < v.len() {
+        v[idx].detail = detail;
+        state.results.inner().set(v);
+    }
 }
 
 /// 顺序执行队列：idx 的测试拿到 done；5s 守护兜底（代际计数防晚到）。
@@ -997,6 +1050,9 @@ fn run_test(state: &CapState, idx: usize, done: Done) {
                 None => done(CapStatus::Fail, "getState=None".into()),
             }
         }
+        // stopPropagation 用例：触发结构与处理器都在 render_page 的 vnode 里
+        // （原生 onclick），这里只需声明「等外部点击」，结论看详情栏计数。
+        48 => done(CapStatus::Pass, "等点击：btn 应 +1、box 应 +1、overlay 应不变".into()),
         _ => done(CapStatus::Skip, format!("未注册的测试下标 {idx}（{name}）")),
     }
 }
@@ -1060,6 +1116,7 @@ fn render_page(state: &CapState) -> tairitsu_vdom::VNode {
                 input { id: "cap-evt-focus", "data-pm-cap-evt": "focus", r#type: "text", placeholder: "focus 目标" }
                 input { id: "cap-evt-input", "data-pm-cap-evt": "input", r#type: "text", placeholder: "input 目标" }
                 button { id: "cap-evt-rm", "data-pm-cap-evt": "rm", "已移除监听的目标" }
+                ..vec![stop_probe(state)]
             }
             table { class: "cap-table",
                 thead {
@@ -1071,6 +1128,54 @@ fn render_page(state: &CapState) -> tairitsu_vdom::VNode {
                     }
                 }
             }
+        }
+    }
+}
+
+/// stopPropagation 用例的触发结构，三层都挂原生 `onclick`：
+///
+/// ```text
+/// overlay[onclick → overlay+1]
+///   box[onclick → stop_propagation(); box+1]
+///     button[onclick → btn+1]
+/// ```
+///
+/// DOM 语义下的预期：点子按钮 `btn+1 box+1 overlay+0`（目标自己的处理器
+/// 先跑，容器的 stopPropagation 只拦住更外层）；点容器正文 `box+1`；点
+/// overlay 本体 `overlay+1`。每次点击都会触发一次重渲染（处理器的
+/// `UpdateEvent` 是 remove + add），所以连点两次还能验证处理器在重渲染
+/// 之后仍然活着。
+#[cfg(target_family = "wasm")]
+fn stop_probe(state: &CapState) -> tairitsu_vdom::VNode {
+    use tairitsu_macros::rsx;
+    let btn_state = state.clone();
+    let box_state = state.clone();
+    let overlay_state = state.clone();
+    let counts = stop_counts_text(state);
+    rsx! {
+        div {
+            id: "cap-evt-stop-overlay",
+            "data-test-cap": "stop-overlay",
+            style: "display:inline-block;padding:8px;border:1px dashed #999;",
+            onclick: move |_e: tairitsu_vdom::MouseEvent| bump_stop(&overlay_state, 2),
+            div {
+                id: "cap-evt-stop-box",
+                "data-test-cap": "stop-box",
+                style: "padding:6px;border:1px solid #456;",
+                onclick: move |e: tairitsu_vdom::MouseEvent| {
+                    e.stop_propagation();
+                    bump_stop(&box_state, 1);
+                },
+                span { "〔stopPropagation 容器〕点这里 box+1　" }
+                button {
+                    id: "cap-evt-stop-btn",
+                    "data-test-cap": "stop-btn",
+                    onclick: move |_e: tairitsu_vdom::MouseEvent| bump_stop(&btn_state, 0),
+                    "子按钮：点这里 btn+1"
+                }
+            }
+            span { "　overlay 本体：点这里 overlay+1　" }
+            span { id: "cap-evt-stop-counts", style: "font-weight:600;", "{counts}" }
         }
     }
 }
@@ -1105,13 +1210,12 @@ fn run_app() -> Result<()> {
             counter: 0,
         })
         .collect();
-    let evt_count = reg.tests.iter().filter(|t| t.2).count();
     state.results.inner().set(results);
+    // 每条用例一格，外加 stopPropagation 用例的三个计数槽。
     state
         .evt_counters
         .inner()
-        .set(vec![0; reg.tests.len()]);
-    let _ = evt_count;
+        .set(vec![0; reg.tests.len() + STOP_SLOTS]);
 
     let state_for_render = state.clone();
     tairitsu_vdom::runtime::update_render_function(component_id, move || {
