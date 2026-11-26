@@ -8,53 +8,55 @@
 // （game.css 里已经有了）。需要的值直接写并注明来源。
 
 // =============================================================================
-// Toast：hikari `Toast` 嵌在旧版 `.toast-item` 药丸里
+// Toast：直接用上游 `ToastStore` + `Toast`（容器 .hk-toast-container）
 // =============================================================================
+//
+// 旧版（Dioxus）是自绘的 `.toast-item` 药丸：白字、居中、顶部堆叠、可复制。
+// 现在容器是 hikari 的，观感按旧版调：顶部居中、堆叠间距、深色半透明底。
 
-.toast-item {
-  // hikari 的 Glow 在药丸和 Toast 本体之间多包一层 div，flex 布局要穿过它；
-  // 光晕（::before）在旧版药丸上不存在。
-  .hk-glow-wrapper {
-    flex: 1;
-    min-width: 0;
-    display: flex;
+.hk-toast-container {
+  // hikari 默认贴在右上（`inset-inline-end`）；旧版是顶部居中，改成水平居中。
+  inset-inline-end: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(90vw, 560px);
+  align-items: center;
+  gap: 8px;
 
-    &::before {
+  .hk-toast-item {
+    // 旧版是深色药丸 + 白字，圆角比 hikari 默认更圆。
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff; // $color-white
+    border-radius: 999px;
+    padding: 8px 16px;
+    max-width: min(90vw, 560px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+
+    // 旧版没有变体图标，靠底色区分成功/失败。
+    .hk-toast-icon {
       display: none;
     }
-  }
 
-  // hikari Toast 自带内边距、底色与最小宽度，这些由外层 .toast-item 承担。
-  .hk-toast {
-    flex: 1;
-    min-width: 0;
-    padding: 0;
-    background: none;
-    border-radius: 0;
-    overflow: visible;
-  }
+    .hk-toast-message {
+      color: inherit;
+      font-size: 13px;
+      line-height: 1.4;
+    }
 
-  // 旧版提示没有变体图标。
-  .hk-toast-icon-wrapper {
-    display: none;
-  }
+    // 关闭键在深色底上要够亮。
+    .hk-toast-close,
+    .hk-toast-copy-btn {
+      color: rgba(255, 255, 255, 0.75);
 
-  .hk-toast-content {
-    flex: 1;
-    min-width: 0;
+      &:hover {
+        color: #fff; // $color-white
+      }
+    }
   }
+}
 
-  // 对齐 game.css 的 `.toast-item .toast-message`。
-  .hk-toast-message {
-    margin: 0;
-    font-family: inherit;
-    font-size: inherit;
-    font-weight: inherit;
-    line-height: inherit;
-    color: #fff; // $color-white
-    text-align: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+// 旧版在提示条下面留的占位（页面内容不跳到提示条底下）。
+.toast-spacer {
+  height: 0;
 }
