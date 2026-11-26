@@ -19,6 +19,9 @@ pub mod api;
 pub mod app_state;
 #[cfg(target_family = "wasm")]
 pub mod delegation;
+/// 七张数据列表页共用的页面壳。
+#[cfg(target_family = "wasm")]
+pub mod list_page;
 #[cfg(target_family = "wasm")]
 pub mod pages;
 pub mod state;

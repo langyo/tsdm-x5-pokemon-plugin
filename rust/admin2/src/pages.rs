@@ -624,238 +624,110 @@ fn json_bool(v: &serde_json::Value, key: &str) -> bool {
     v.get(key).and_then(|x| x.as_bool()).unwrap_or(false)
 }
 
+/// 宠物数据页：行渲染进公共壳（见 `list_page::entity_list_page`）。
 fn pokemon_data_page(st: &AppState) -> VNode {
-    let pk = st.pokemon.clone();
-    let load_state = pk.loaded.get();
-    let busy = pk.busy.get();
-    let filtered = pk.filtered.get();
-    let err = pk.err.get();
-    let rows = pk.rows.get();
-    let total = pk.total.get();
-    let loaded_count = pk.loaded_count.get();
-    let has_more = !filtered && loaded_count < total;
-    let f_id = pk.f_id.get();
-    let f_name = pk.f_name.get();
-    let f_kind = pk.f_a.get();
-    let count_text = if filtered {
-        format!("筛选结果 {loaded_count} 条")
-    } else {
-        format!("已加载 {loaded_count} / {total} 条")
+    let spec = crate::state::POKEMON_SPEC;
+    let shape = crate::list_page::TableShape {
+        columns: &["ID", "名称", "属性", "售价", "六维", "操作"],
+        row: Box::new(pokemon_row),
     };
-
-    let body = match &load_state {
-        None => rsx! { div { class: "admin-loading", "正在加载宠物数据..." } },
-        Some(Err(e)) => {
-            let msg = format!("加载失败：{e}");
-            rsx! {
-                div { class: "admin-card admin-error",
-                    p { "{msg}" }
-                    button {
-                        class: "admin-btn",
-                        disabled: busy,
-                        "data-pm-adm-l-reload": "pk",
-                        "重新加载"
-                    }
-                }
-            }
-        }
-        Some(Ok(())) => {
-            let err_bar = match &err {
-                Some(e) => {
-                    let msg = format!("筛选失败：{e}");
-                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
-                }
-                None => VNode::empty(),
-            };
-            let table = if rows.is_empty() {
-                rsx! { p { class: "admin-empty-hint", "暂无宠物数据。" } }
-            } else {
-                let mut trs: Vec<VNode> = Vec::new();
-                for item in rows.iter() {
-                    let id = json_u64(item, "id").to_string();
-                    let id_for_edit = id.clone();
-                    let name = json_str(item, "name");
-                    // kind: ["fire", "water"] / ["normal", null]
-                    let del_attr_pk = format!("pk:{id}");
-                    let kinds: Vec<&str> = item
-                        .get("kind")
-                        .and_then(|k| k.as_array())
-                        .map(|arr| arr.iter().filter_map(|k| k.as_str()).collect::<Vec<&str>>())
-                        .unwrap_or_default();
-                    let kind_text = if kinds.is_empty() {
-                        "—".to_string()
-                    } else {
-                        kinds
-                            .iter()
-                            .map(|k| kind_name(k))
-                            .collect::<Vec<_>>()
-                            .join("/")
-                    };
-                    let is_selling = json_bool(item, "is_selling");
-                    let cost = json_u64(item, "cost");
-                    let cost_text = if is_selling {
-                        cost.to_string()
-                    } else {
-                        "不可出售".to_string()
-                    };
-                    let is_legendary = json_bool(item, "is_legendary");
-                    let legendary_tag = if is_legendary {
-                        rsx! { span { class: "adm-pk-legendary", "神兽" } }
-                    } else {
-                        VNode::empty()
-                    };
-                    // 六维（initial_statistic 或展平字段，都尝试）。
-                    let stat = item.get("initial_statistic").cloned().unwrap_or_default();
-                    let sv = |key: &str, alias: &str| -> u64 {
-                        stat.get(key)
-                            .or_else(|| item.get(key))
-                            .and_then(|x| x.as_u64())
-                            .or_else(|| {
-                                stat.get(alias)
-                                    .or_else(|| item.get(alias))
-                                    .and_then(|x| x.as_u64())
-                            })
-                            .unwrap_or(0)
-                    };
-                    let stats_text = format!(
-                        "HP {} · 攻 {} · 防 {} · 特攻 {} · 特防 {} · 速 {}",
-                        sv("hit_points", "hp"),
-                        sv("attack", "atk"),
-                        sv("defense", "def"),
-                        sv("special_attack", "spatk"),
-                        sv("special_defense", "spdef"),
-                        sv("speed", "spd"),
-                    );
-                    trs.push(rsx! {
-                        tr {
-                            td { "{id}" }
-                            td {
-                                "{name}"
-                                ..vec![legendary_tag]
-                            }
-                            td { "{kind_text}" }
-                            td { "{cost_text}" }
-                            td { class: "adm-pk-stats", "{stats_text}" }
-                            td {
-                                div { class: "adm-row-actions",
-                                    button {
-                                        class: "admin-btn adm-row-edit",
-                                        disabled: busy,
-                                        "data-pm-adm-pk-edit": id_for_edit,
-                                        "编辑"
-                                    }
-                                    button {
-                                        class: "admin-btn adm-row-del",
-                                        disabled: busy,
-                                        "data-pm-adm-del": del_attr_pk,
-                                        "删除"
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                rsx! {
-                    table { class: "adm-table",
-                        thead {
-                            tr {
-                                th { "ID" }
-                                th { "名称" }
-                                th { "属性" }
-                                th { "售价" }
-                                th { "六维" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            for i in 0..trs.len() {
-                                ..vec![trs[i].clone()]
-                            }
-                        }
-                    }
-                }
-            };
-            let more_btn = if has_more {
-                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
-                rsx! {
-                    div { class: "adm-load-more",
-                        button {
-                            class: "admin-btn",
-                            disabled: busy,
-                            "data-test-adm-l-more": "pk",
-                            onclick: move |_| load_more_list_pub(crate::state::POKEMON_SPEC, &pk),
-                            "{label}"
-                        }
-                    }
-                }
-            } else {
-                VNode::empty()
-            };
-            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
-            rsx! {
-                for i in 0..parts.len() {
-                    ..vec![parts[i].clone()]
-                }
-            }
-        }
-    };
-
+    let editor_state = st.clone();
+    let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || {
+        open_pokemon_new(&editor_state);
+    });
+    let page = crate::list_page::entity_list_page(
+        st,
+        spec,
+        &st.pokemon,
+        "pk",
+        &shape,
+        Some(on_new),
+    );
     rsx! {
-        section { class: "admin-page admin-config-page",
-            div { class: "admin-page-header",
-                h2 { "宠物数据" }
-                span { class: "adm-count", "{count_text}" }
-            }
-            div { class: "admin-card adm-filter-bar",
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "ID（精确）",
-                    value: f_id,
-                    "data-pm-adm-f-id": "pk"
-                }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "名称（包含）",
-                    value: f_name,
-                    "data-pm-adm-f-name": "pk"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-kind",
-                    r#type: "text",
-                    placeholder: "属性（如火）",
-                    value: f_kind,
-                    "data-pm-adm-f-a": "pk"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-l-apply": "pk",
-                    "筛选"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reset": "pk",
-                    "重置"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reload": "pk",
-                    "刷新"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-pk-new": "1",
-                    "新增宠物"
-                }
-            }
-            ..vec![body, pokemon_editor_modal(st)]
+        div {
+            ..vec![page, pokemon_editor_modal(st)]
         }
     }
+}
+
+/// 宠物行：ID / 名称(+神兽标) / 属性 / 售价 / 六维 / 操作。
+fn pokemon_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
+    let id = json_u64(item, "id").to_string();
+    let name = json_str(item, "name");
+    let kinds: Vec<&str> = item
+        .get("kind")
+        .and_then(|k| k.as_array())
+        .map(|arr| arr.iter().filter_map(|k| k.as_str()).collect::<Vec<&str>>())
+        .unwrap_or_default();
+    let kind_text = if kinds.is_empty() {
+        "—".to_string()
+    } else {
+        kinds.iter().map(|k| kind_name(k)).collect::<Vec<_>>().join("/")
+    };
+    let is_selling = json_bool(item, "is_selling");
+    let cost_text = if is_selling {
+        json_u64(item, "cost").to_string()
+    } else {
+        "不可出售".to_string()
+    };
+    let legendary_tag = if json_bool(item, "is_legendary") {
+        rsx! { span { class: "adm-pk-legendary", "神兽" } }
+    } else {
+        VNode::empty()
+    };
+    let stat = item.get("initial_statistic").cloned().unwrap_or_default();
+    let sv = |key: &str, alias: &str| -> u64 {
+        stat.get(key)
+            .or_else(|| item.get(key))
+            .and_then(|x| x.as_u64())
+            .or_else(|| {
+                stat.get(alias)
+                    .or_else(|| item.get(alias))
+                    .and_then(|x| x.as_u64())
+            })
+            .unwrap_or(0)
+    };
+    let stats_text = format!(
+        "HP {} · 攻 {} · 防 {} · 特攻 {} · 特防 {} · 速 {}",
+        sv("hit_points", "hp"),
+        sv("attack", "atk"),
+        sv("defense", "def"),
+        sv("special_attack", "spatk"),
+        sv("special_defense", "spdef"),
+        sv("speed", "spd"),
+    );
+    // 行操作：编辑 / 删除，都走原生事件（把页面状态与行 id 捕获进闭包）。
+    let edit_state = st.clone();
+    let del_state = st.clone();
+    let id_for_edit = id.clone();
+    let id_for_del = id.clone();
+    let edit_id: u64 = id.parse().unwrap_or(0);
+    let del_id: u64 = id.parse().unwrap_or(0);
+    vec![
+        rsx! { td { "{id}" } },
+        rsx! { td { "{name}" ..vec![legendary_tag] } },
+        rsx! { td { "{kind_text}" } },
+        rsx! { td { "{cost_text}" } },
+        rsx! { td { class: "adm-pk-stats", "{stats_text}" } },
+        rsx! {
+            td {
+                div { class: "adm-row-actions",
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-test-adm-pk-edit": id_for_edit,
+                        onclick: move |_| open_pokemon_edit(&edit_state, edit_id),
+                        "编辑"
+                    }
+                    button {
+                        class: "admin-btn adm-row-del",
+                        "data-test-adm-del": id_for_del,
+                        onclick: move |_| open_delete_confirm(&del_state, "pk", del_id),
+                        "删除"
+                    }
+                }
+            }
+        },
+    ]
 }
 
 /// 物品数据页（切片 3）：复用列表页模板 + 泛型动作/属性（it 页键）。
