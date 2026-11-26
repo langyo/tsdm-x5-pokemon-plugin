@@ -40,6 +40,9 @@ ADMIN_DIR = ROOT / "rust" / "admin2"
 WASM_ARTIFACT = ADMIN_DIR / "target" / "wasm32-wasip2" / "release" / "_admin2.wasm"
 COMPONENT = "_admin2"
 
+# hikari-components 的 styles/index.scss 里一行 vue-mirror 组件表导入。
+MIRROR_IMPORT_RE = re.compile(r"^\s*@import\s+'(\./vue-mirror/[^']+)'\s*;", re.MULTILINE)
+
 
 def cargo_build(skip: bool) -> Path:
     wasm = WASM_ARTIFACT
@@ -95,16 +98,8 @@ def bust_wrapper_cache(build_id: str) -> None:
     wrapper.write_text(js, encoding="utf-8")
 
 
-def verify_imports() -> None:
-    wrapper = OUT / "component-wrapper" / f"{COMPONENT}.js"
-    specifiers = sorted(set(re.findall(
-        r"from ['\"]tairitsu-browser:full/([a-z-]+)['\"]",
-        wrapper.read_text(encoding="utf-8"),
-    )))
-    unknown = [s for s in specifiers if s not in INTERFACE_MAP]
-    if unknown:
-        sys.exit(f"admin wrapper imports interfaces missing from INTERFACE_MAP: {unknown}")
-    print(f"[admin] wrapper imports {len(specifiers)} interfaces — all mapped")
+# 导入对账用 poc 脚本的同一份（逐函数、三份产物全查，见其 verify_imports）：
+# admin2 独有的导入（如 location.setHref）以前不在接口级对账的视野里。
 
 
 def write_boot_assets(build_id: str) -> None:
@@ -156,6 +151,95 @@ def compile_admin_css() -> None:
         sys.exit(result.returncode)
 
 
+def hikari_packages_dir() -> Path:
+    """hikari 检出的 packages/ 目录。
+
+    从 cargo metadata 读 hikari-components 的 manifest 位置：依赖来自 git 检出
+    还是本地 path patch，答案都是同一个目录，所以 CI 与本地开发共用这一条路径。
+    """
+    result = subprocess.run(
+        [
+            "cargo", "metadata",
+            "--format-version", "1",
+            "--manifest-path", str(ADMIN_DIR / "Cargo.toml"),
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+        shell=False,
+        cwd=str(ADMIN_DIR),
+    )
+    if result.returncode != 0:
+        sys.exit(result.stderr)
+    for pkg in json.loads(result.stdout)["packages"]:
+        if pkg["name"] == "hikari-components":
+            return Path(pkg["manifest_path"]).resolve().parent.parent
+    sys.exit("hikari-components not found in cargo metadata")
+
+
+def hikari_mirror_imports(packages: Path) -> list[str]:
+    """hikari-components 全局表里全部 vue-mirror 组件表，路径改写成相对
+    `<hikari>/packages`（编译时的 --load-path）。
+
+    清单从 hikari 自己的 styles/index.scss 里取：锁定哪个版本的 hikari，
+    入口就跟到哪个版本，不在本仓库手抄一份会过期的列表。
+    """
+    index = packages / "components" / "src" / "styles" / "index.scss"
+    found = MIRROR_IMPORT_RE.findall(index.read_text(encoding="utf-8"))
+    if not found:
+        sys.exit(f"no vue-mirror sheet imports found in {index}")
+    return [f"components/src/styles{path[1:]}" for path in found]
+
+
+def compile_hikari_css() -> None:
+    """编译 hikari 样式入口 → plugin/wasm2/admin-hikari.css。
+
+    后台整壳用 hikari 标准件（AdminShell / AdminHeader / NavSidebar / Modal …），
+    组件样式不再手写皮肤。入口分两段：
+
+    - 头部：rust/admin2/styles/hikari.scss 里的静态 @use（Vue 侧的规范基础层）；
+    - 尾部：hikari 的全部 vue-mirror 组件表（见 hikari_mirror_imports）。
+
+    有意不走 hikari-components 自己的 styles/index.scss 整表——那张表还带着
+    Gen-1 主题基座，其中的元素级按钮基线会把镜像壳里 s-* 类的原生控件重画
+    （AdminHeader 的头像按钮被挤成 0 宽）；Vue 的规范组合不含这一层。
+    """
+    source = ADMIN_DIR / "styles" / "hikari.scss"
+    output = OUT / "admin-hikari.css"
+    sass = shutil.which("sass")
+    if not sass:
+        sys.exit("sass not found on PATH (needed for rust/admin2/styles/hikari.scss)")
+    packages = hikari_packages_dir()
+    # 只取入口里的 @use / @import 行；注释留在源文件里给读的人。
+    head = [
+        line
+        for line in source.read_text(encoding="utf-8").splitlines()
+        if line.startswith("@use ") or line.startswith("@import ")
+    ]
+    mirror = [f'@import "{path}";' for path in hikari_mirror_imports(packages)]
+    with tempfile.TemporaryDirectory() as td:
+        entry = Path(td) / "hikari-entry.scss"
+        entry.write_text("\n".join(head + mirror) + "\n", encoding="utf-8")
+        result = subprocess.run(
+            [
+                sass, "--style=compressed", "--no-source-map", "--quiet",
+                "--load-path", str(packages),
+                # 组件表里的主题 partial 以裸名 @use（'variables' / 'mixins'）。
+                "--load-path", str(packages / "theme" / "styles"),
+                str(entry), str(output),
+            ],
+            check=False,
+            shell=False,
+        )
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+    print(
+        f"[admin] hikari.css: {len(head)} base sheets + {len(mirror)} vue-mirror "
+        f"sheets → {output.name} ({output.stat().st_size} bytes)"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-build", action="store_true")
@@ -163,17 +247,20 @@ def main() -> None:
     args = parser.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
+    compile_hikari_css()
     compile_admin_css()
     wasm = cargo_build(args.skip_build)
     jco_transpile_admin(wasm)
     build_id = str(int(wasm.stat().st_mtime))
     bust_wrapper_cache(build_id)
-    verify_imports()
+    poc.verify_imports()
     if not args.skip_vendor:
         poc.vendor_copy()
     elif not (OUT / "glue").is_dir() or not (OUT / "wasi").is_dir():
         sys.exit("--skip-vendor requires existing plugin/wasm2/glue and plugin/wasm2/wasi")
     # glue getParentElement 补丁已随上游 #124 的合入退役（见 poc 脚本主流程注释）。
+    poc.verify_glue_exports()
+    poc.write_boot_assets()  # 刷新 boot.js 模板（importmap 随 INTERFACE_MAP 变化）
     poc.shims_from_glue(build_id)
     poc.glue_core()
     write_boot_assets(build_id)

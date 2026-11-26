@@ -3,8 +3,6 @@
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
-use hikari_components::{Toast, ToastPosition, ToastProps, ToastVariant};
-
 use crate::app_state::AppState;
 use crate::state::{AdminRoute, ToastKind};
 
@@ -356,54 +354,6 @@ pub fn render_route(state: &AppState) -> VNode {
 pub fn Admin(state: Box<AppState>) -> VNode {
     let st = state;
     let route = st.route.get();
-    let busy = st.config.saving.get();
-    let dirty = st.config.is_dirty();
-
-    let main_class = match route {
-        AdminRoute::GlobalConfig => "admin-scrollable",
-        _ => "",
-    };
-
-    let nav_items: Vec<(AdminRoute, VNode)> = [
-        AdminRoute::GlobalConfig,
-        AdminRoute::PokemonData,
-        AdminRoute::ItemData,
-        AdminRoute::MapData,
-        AdminRoute::UserData,
-        AdminRoute::EvolutionData,
-        AdminRoute::SkillType,
-        AdminRoute::EffectData,
-    ]
-    .iter()
-    .map(|r| {
-        let key = r.key();
-        let title = r.title();
-        let ported = r.ported();
-        // 与旧版 AdminLayout 的导航按钮同一套行内样式（选中态深蓝底白字）。
-        let style = if *r == route {
-            "display:block;width:100%;margin:4px 0;padding:8px 6px;border:1px solid #2f6aa0;background:#2f6aa0;color:#fff;text-align:center;cursor:pointer;font-size:13px;"
-        } else {
-            "display:block;width:100%;margin:4px 0;padding:8px 6px;border:1px solid #c7d4e6;background:#fff;color:#234;text-align:center;cursor:pointer;font-size:13px;"
-        };
-        let badge = if ported {
-            VNode::empty()
-        } else {
-            rsx! { span { class: "admin-nav-badge", "移植中" } }
-        };
-        (
-            *r,
-            rsx! {
-                button {
-                    class: "admin-nav-item",
-                    style: style,
-                    "data-pm-adm-nav": key,
-                    span { "{title}" }
-                    ..vec![badge]
-                }
-            },
-        )
-    })
-    .collect();
 
     let content = match route {
         AdminRoute::GlobalConfig => global_config_page(&st),
@@ -428,67 +378,13 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         }
     };
 
-    let toast = if st.config.toast_visible.get() {
-        let cfg = st.config.clone();
-        let variant = match st.config.toast_kind.get() {
-            ToastKind::Success => ToastVariant::Success,
-            ToastKind::Error => ToastVariant::Error,
-        };
-        let message = st.config.toast_message.get();
-        rsx! {
-            Toast {
-                variant: variant,
-                message: message,
-                position: ToastPosition::BottomRight,
-                on_close: Some(tairitsu_vdom::Callback::new(move |_| {
-                    cfg.toast_visible.set(false)
-                })),
-            }
-        }
-    } else {
-        VNode::empty()
-    };
-
-    let busy_hint = if busy {
-        rsx! { span { class: "admin-busy", "处理中..." } }
-    } else {
-        VNode::empty()
-    };
-    let dirty_hint = if dirty {
-        rsx! { span { class: "admin-dirty", "有未保存修改" } }
-    } else {
-        VNode::empty()
-    };
-
-    rsx! {
-        div {
-            class: "admin-shell",
-            // 外壳与旧版（rust/admin 的 AdminLayout）逐像素一致：标题条、
-            // 192px 侧栏、主区都在行内样式里定尺寸，不依赖 admin.css
-            // （旧版就是这样，admin.css 的 .admin-shell 只管边框）。
-            style: "--admin-sidebar-width:192px;display:flex;flex-direction:column;height:80vh;font-family:'Microsoft YaHei',sans-serif;",
-            header { style: "padding:10px 16px;background:#2f6aa0;color:#fff;font-size:20px;font-weight:700;text-align:center;user-select:none;",
-                div { style: "display:flex;align-items:center;justify-content:center;gap:12px;user-select:none;",
-                    span { style: "user-select:none;", "天使动漫 · 宠物插件后台" }
-                }
-            }
-            div { style: "display:flex;flex:1;min-height:0;min-width:0;",
-                aside { style: "flex:0 0 192px;width:192px;background:#f4f7fb;border-right:1px solid #d8e0ea;padding:12px 0;overflow:auto;display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;",
-                    div { style: "width:100%;display:flex;flex-direction:column;align-items:stretch;padding:0 14px;box-sizing:border-box;",
-                        for i in 0..nav_items.len() {
-                            ..vec![nav_items[i].1.clone()]
-                        }
-                    }
-                }
-                main {
-                    class: main_class,
-                    style: "flex:1 1 auto;padding:16px;min-height:0;min-width:0;",
-                    ..vec![content]
-                }
-            }
-            ..vec![toast, delete_confirm_modal(&st)]
-        }
-    }
+    // 壳、导航、提示全归 hikari 标准件（见 shell.rs）；删除确认是跨页的
+    // 浮层，挂在壳的 overlays 槽，各页自己的编辑器仍由页面渲染。
+    crate::shell::render(
+        &st,
+        content,
+        vec![delete_confirm_modal(&st)],
+    )
 }
 
 fn global_config_page(st: &AppState) -> VNode {

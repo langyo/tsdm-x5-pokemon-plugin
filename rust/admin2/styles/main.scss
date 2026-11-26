@@ -1,18 +1,105 @@
 // 后台（tairitsu 版）自己的样式表。
 //
 // 归属：这些规则以前内联在 PHP 的 admin_v2.inc.php 里 —— 后端不该拥有样式，
-// 排版一改就得动 PHP，而且 `<style>` 直接落到论坛页面上，选择器没有任何
-// 作用域。现在它们住在前端仓库，由构建产物 admin.css 伺服，PHP 只留
-// `<link>` 与 `#app` 挂载点。
+// 排版一改就得动 PHP。现在它们住在前端仓库，由构建产物 admin.css 伺服，
+// PHP 只留 `<link>` 与 `#app` 挂载点。
 //
-// 作用域：整份样式包在 `#app` 下。Discuz 页面里还有论坛自己的 .modal-overlay、
-// .admin-btn 之类通用类名，不加限定会互相污染（游戏端也有同样的顾虑）。
+// 分层：壳与标准控件（AdminShell / AdminHeader / NavSidebar / Modal / Button /
+// Input …）的样式来自 hikari 总表 admin-hikari.css（见 hikari.scss），这里
+// 只写两样东西——
+//   1. 独立页面的文档级设置（hikari 的壳按 `height: 100%` 铺满，需要文档链
+//      给出确定高度）；
+//   2. 本后台自己的页面片段（列表页、各编辑器表单的排布）。
 //
-// 换用 hikari 标准件是下一步：那时这层皮肤只保留「hikari 组件 → 旧观感」
-// 的覆盖，页面结构本身由组件决定。
+// 页面片段仍包在 `#app` 下：类名都很通用（.admin-card、.adm-table），加一层
+// 限定免得与 hikari 的类名互相覆盖。
+
+// hikari 的壳（.s-admin-shell）是 height: 100% 的弹性列，底部状态栏 fixed。
+// 文档链给出确定高度，壳才铺得满视口。
+html,
+body,
+#app {
+  height: 100%;
+}
+
+// 页面底色与正文色：hikari 的 token 层只定义变量（--color-background /
+// --color-text），把它们落到文档上是宿主的事——shittim-chest 与 ayane 都在
+// 自己的主题表里做这一步。不落的话 body 是透明的，内容区透出画布底色。
+html {
+  background: rgb(var(--color-background));
+  color: rgb(var(--color-text));
+
+  // 让原生控件（滚动条、输入框的自动填充底）跟着明暗模式走。
+  &[data-mode="dark"] {
+    color-scheme: dark;
+  }
+
+  &[data-mode="light"] {
+    color-scheme: light;
+  }
+}
 
 #app {
-  // ---- 页面壳与联动状态 ----
+  // ---- 外壳的宿主侧补充 ----
+  // 侧栏面板的内边距与滚动；面板宽度、底色、分隔线由 FaceShell 的 <aside> 给。
+  .admin-nav-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 12px 10px;
+    overflow: auto;
+  }
+  .admin-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  // 头像下拉打开时的透明遮罩：压在头部之下、正文之上。
+  .admin-menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--hk-z-header, 30) - 1);
+  }
+  // hikari 的 AdminHeader 镜像把头像下拉渲染在 <header> 内部，而 header 自带
+  // backdrop-filter —— 按 CSS 规范它是一个 Backdrop Root，后代的
+  // backdrop-filter 只能模糊到 root 以内的内容。下拉面板于是只剩 55% 的
+  // 半透明白，直接糊在侧栏文字上。Vue 版把浮层传送到页面根的 overlay root，
+  // 没有这个问题；上游镜像改掉之前，这里给 header 内的浮层一个不透明底。
+  .s-glass-header .hk-select-popout {
+    background: rgb(var(--color-surface));
+  }
+  // 状态栏左右两区块里的本站内容。
+  .admin-status-brand {
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .admin-status-version {
+    font-size: 12px;
+    opacity: 0.65;
+    font-variant-numeric: tabular-nums;
+  }
+  .admin-status-link {
+    font-size: 12px;
+    margin-right: 12px;
+    text-decoration: none;
+    color: inherit;
+    opacity: 0.75;
+
+    &:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+  }
+  // 移动端抽屉底部的账号区。
+  .admin-drawer-user {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+  }
+
+  // ---- 页面联动状态 ----
   .admin-busy { font-size: 12px; color: #e67e22; }
   .admin-dirty { font-size: 12px; color: #c0392b; }
   .admin-main > section { padding: 20px; }
@@ -322,57 +409,60 @@
   }
 }
 
-// 后台壳（.admin-shell）与页面根元素不在 #app 之外，无需前缀；
-// 旧版把尺寸写在行内样式里，这里原样保留那份观感。
-.admin-shell {
-  border: 1px solid #e7e7e7;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+// 启动占位（组件挂载前就在，因此不能限定在 #app 内）。
+#loading {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  font-size: 14px;
+  color: #666;
 }
 
-// 加载指示器（挂载前就存在，因此不能限定在 #app 内）。
-#loading { text-align: center; padding-top: 40vh; }
-.lds-dual-ring {
-  display: inline-block;
+.pm-boot-ring {
   width: 32px;
   height: 32px;
-
-  &::after {
-    content: " ";
-    display: block;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 4px solid #5cb8e6;
-    border-color: #5cb8e6 transparent #5cb8e6 transparent;
-    animation: lds-dual-ring 1.2s linear infinite;
-  }
+  border: 3px solid #ddd;
+  border-top-color: #666;
+  border-radius: 50%;
+  animation: pm-boot-spin 0.8s linear infinite;
 }
 
-@keyframes lds-dual-ring {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes pm-boot-spin {
+  to { transform: rotate(360deg); }
 }
 
-#ajaxwaitid { display: none !important; }
-
-// 界面版本切换条（迁移期对照用，两版页面都有）。
-.pm-ui-switch {
+// 启动失败 / 产物缺失：独立页面没有论坛导航可退，自己给出回去的路。
+.admin-boot-failed {
+  min-height: 100vh;
+  box-sizing: border-box;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: #666;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  font-size: 14px;
+  color: #333;
+
+  pre {
+    max-width: 720px;
+    max-height: 240px;
+    overflow: auto;
+    padding: 8px;
+    box-sizing: border-box;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 11px;
+    word-break: break-all;
+    white-space: pre-wrap;
+  }
 
   a {
-    color: #5cb8e6;
-    text-decoration: none;
-
-    &:hover { text-decoration: underline; }
+    color: inherit;
   }
-
-  .current { font-weight: 600; color: #333; }
 }

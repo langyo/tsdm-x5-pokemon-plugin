@@ -15,7 +15,6 @@
 import argparse
 import importlib.util
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -95,16 +94,7 @@ def bust_wrapper_cache(build_id: str) -> None:
     wrapper.write_text(js, encoding="utf-8")
 
 
-def verify_imports() -> None:
-    wrapper = OUT / "component-wrapper" / f"{COMPONENT}.js"
-    specifiers = sorted(set(re.findall(
-        r"from ['\"]tairitsu-browser:full/([a-z-]+)['\"]",
-        wrapper.read_text(encoding="utf-8"),
-    )))
-    unknown = [s for s in specifiers if s not in INTERFACE_MAP]
-    if unknown:
-        sys.exit(f"admin wrapper imports interfaces missing from INTERFACE_MAP: {unknown}")
-    print(f"[admin] wrapper imports {len(specifiers)} interfaces — all mapped")
+# 导入对账用 poc 脚本的同一份（逐函数、三份产物全查，见其 verify_imports）。
 
 
 def write_boot_assets(build_id: str) -> None:
@@ -147,12 +137,13 @@ def main() -> None:
     jco_transpile_admin(wasm)
     build_id = str(int(wasm.stat().st_mtime))
     bust_wrapper_cache(build_id)
-    verify_imports()
+    poc.verify_imports()
     if not args.skip_vendor:
         poc.vendor_copy()
     elif not (OUT / "glue").is_dir() or not (OUT / "wasi").is_dir():
         sys.exit("--skip-vendor requires existing plugin/wasm2/glue and plugin/wasm2/wasi")
     # glue getParentElement 补丁已随上游 #124 的合入退役（见 poc 脚本主流程注释）。
+    poc.verify_glue_exports()
     poc.write_boot_assets()  # 刷新 boot.js（importmap 随 INTERFACE_MAP 变化）
     poc.shims_from_glue(build_id)
     poc.glue_core()

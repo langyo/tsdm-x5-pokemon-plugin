@@ -24,6 +24,9 @@ pub mod delegation;
 pub mod list_page;
 #[cfg(target_family = "wasm")]
 pub mod pages;
+/// hikari 标准件搭的外壳（AdminShell / AdminHeader / NavSidebar / 状态栏 / Toast）。
+#[cfg(target_family = "wasm")]
+pub mod shell;
 pub mod state;
 
 #[cfg(target_family = "wasm")]
@@ -163,6 +166,57 @@ fn push_patch_log(entry: String) {
     });
 }
 
+/// 读 PHP 挂在 `#app` 上的页面数据（`data-pm-*`，见 plugin/admin_v2.inc.php）。
+/// 读不到的键留空：外壳按「没有这一项」渲染，不猜。
+#[cfg(target_family = "wasm")]
+fn read_boot_info() -> crate::state::BootInfo {
+    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::get_attribute;
+    let app = get_element_by_id(0, "app");
+    let read = |name: &str| -> String {
+        app.and_then(|handle| get_attribute(handle, name))
+            .unwrap_or_default()
+    };
+    crate::state::BootInfo {
+        site_name: read("data-pm-site-name"),
+        user_id: read("data-pm-user-id"),
+        user_name: read("data-pm-user-name"),
+        user_group: read("data-pm-user-group"),
+        avatar: read("data-pm-avatar"),
+        plugin_version: read("data-pm-plugin-version"),
+        forum_url: read("data-pm-forum-url"),
+        game_url: read("data-pm-game-url"),
+        legacy_url: read("data-pm-legacy-url"),
+        logout_url: read("data-pm-logout-url"),
+    }
+}
+
+/// 把视口宽度喂给外壳（hikari 的壳不自己量视口，见 FaceShell 头注）：
+/// 启动时量一次，再挂一条跨过桌面 / 移动分界的媒体查询，翻越时重量。
+#[cfg(target_family = "wasm")]
+fn watch_viewport(state: &app_state::AppState) {
+    use tairitsu_vdom::platform::{LayoutOps, MediaQueryOps};
+    let Ok(platform) = WitPlatform::new() else {
+        return;
+    };
+    state
+        .shell
+        .viewport_width
+        .inner()
+        .set(platform.inner_width() as f64);
+    let list = platform.match_media("(min-width: 1024px)");
+    let st = state.clone();
+    platform.media_query_list_add_listener(
+        list,
+        Box::new(move |_matches: bool| {
+            let width = WitPlatform::new()
+                .map(|platform| platform.inner_width())
+                .unwrap_or(0);
+            st.shell.viewport_width.inner().set(width as f64);
+            request_remount();
+        }),
+    );
+}
+
 #[cfg(target_family = "wasm")]
 fn run_app() -> Result<()> {
     std::panic::set_hook(Box::new(|info| {
@@ -177,10 +231,14 @@ fn run_app() -> Result<()> {
     }));
 
     let component_id = tairitsu_vdom::use_component(|| tairitsu_vdom::VNode::empty());
-    let state = tairitsu_vdom::runtime::with_component(component_id, app_state::AppState::new);
+    let boot = read_boot_info();
+    let state = tairitsu_vdom::runtime::with_component(component_id, || {
+        app_state::AppState::new(boot)
+    });
     state.component_id.set(component_id as u32);
     state.config.component_id.set(component_id as u32);
     ROOT_COMPONENT.with(|id| id.set(component_id));
+    watch_viewport(&state);
 
     let state_for_render = state.clone();
     let state_for_delegation = state.clone();

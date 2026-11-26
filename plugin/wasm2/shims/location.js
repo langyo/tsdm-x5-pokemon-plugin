@@ -1,4 +1,22 @@
 // shim for tairitsu-browser:full/location
-import { INTERFACES } from '../glue/html/index.js?v=1795683513';
+import { INTERFACES } from '../glue/html/index.js?v=1795696746';
 const obj = INTERFACES['@tairitsu-glue/location'];
+export const assign = obj.assign;
+export const getAncestorOrigins = obj.getAncestorOrigins;
+export const getHash = obj.getHash;
+export const getHref = obj.getHref;
+export const getHostname = obj.getHostname;
+export const getOrigin = obj.getOrigin;
 export const getPathname = obj.getPathname;
+export const getPort = obj.getPort;
+export const getProtocol = obj.getProtocol;
+export const getSearch = obj.getSearch;
+export const reload = obj.reload;
+export const replace = obj.replace;
+export const setHash = obj.setHash;
+export const setHref = obj.setHref;
+export const setHostname = obj.setHostname;
+export const setPathname = obj.setPathname;
+export const setPort = obj.setPort;
+export const setProtocol = obj.setProtocol;
+export const setSearch = obj.setSearch;

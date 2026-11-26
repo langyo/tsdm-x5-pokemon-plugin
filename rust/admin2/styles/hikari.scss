@@ -1,0 +1,42 @@
+// hikari 样式入口（后台独立页面用）—— 「头部」。
+//
+// 后台页不嵌在论坛版式里（壳独占整个视口，同 shittim-chest 的 AdminLayout、
+// ayane 的 ShellLayout），所以 hikari 的全局层可以原样落到文档上，不需要
+// 再做 #app 作用域改写。
+//
+// 组合方式沿用 Vue 侧的规范组合（packages/vue/src/styles/index.scss）——
+// shittim-chest 和 ayane 加载的就是这一套，镜像壳组件（AdminShell /
+// AdminHeader / NavSidebar / Modal …）的样式表也是照着它写的：
+//
+//   1. reset        —— 宿主重置（盒模型、body 边距、表单控件继承）
+//   2. selection    —— 选区策略（界面文字默认不可拖选，可编辑控件放行）
+//   3. channels     —— --color-* 通道调色板的静态种子 + --c-*/--shadow-* 别名
+//   4. scale        —— 间距 / 字号 / 圆角 / 时长 / z 分层 / 字体
+//   5. scrollbar    —— 共享的覆盖式滚动条外观
+//   6. theme-vars   —— 按 html[data-mode="light|dark"] 给出的整套 --color-* 与
+//                      --hi-color-* 派生（由调色板 crate 生成，勿手改）
+//
+// 之后的「尾部」由构建脚本接上（scripts/publish/build_tairitsu_admin.py 的
+// compile_hikari_css）：从 hikari-components 的 styles/index.scss 里取出全部
+// vue-mirror 组件表的导入，紧跟本文件。清单不手抄——锁定哪个版本的 hikari，
+// 就自动对齐那个版本的组件表。
+//
+// 特意不走 hikari-components 自己的 styles/index.scss 整表：那张表还带着
+// Gen-1 主题基座（theme/styles/base），里面有一条元素级的按钮基线
+// （`button:where(:not(.hk-*))` → padding 0.5rem 1rem …），会把镜像壳里用
+// s-* 类的原生控件也当成普通按钮重画——AdminHeader 的头像按钮被挤成 0 宽
+// 就是它干的。Vue 的规范组合不含这一层。
+//
+// 编译参数：--load-path 指向 <hikari>/packages（下面的路径都相对它解析），
+// 再加 <hikari>/packages/theme/styles（组件表里的主题 partial 以裸名 @use）。
+// hikari 的检出位置由 cargo metadata 给出，本文件不写死绝对路径。
+//
+// 唯一保留的 Gen-1 组件表是 icon：Icon 组件（.hk-icon）还是老实现，镜像壳的
+// 导航行与菜单行都在用它。
+@use "vue/src/styles/reset";
+@use "vue/src/styles/selection";
+@use "vue/src/styles/theme/channels";
+@use "vue/src/styles/theme/scale";
+@use "vue/src/styles/theme/scrollbar";
+@use "vue/src/styles/theme-vars.css";
+@use "components/src/styles/components/icon";

@@ -67,9 +67,6 @@ pub struct GlobalConfigState {
     /// 编辑框当前内容。
     pub draft: ReactiveSignal<String>,
     pub saving: ReactiveSignal<bool>,
-    pub toast_visible: ReactiveSignal<bool>,
-    pub toast_message: ReactiveSignal<String>,
-    pub toast_kind: ReactiveSignal<ToastKind>,
 }
 
 impl GlobalConfigState {
@@ -80,9 +77,6 @@ impl GlobalConfigState {
             saved_json: use_signal(String::new),
             draft: use_signal(String::new),
             saving: use_signal(|| false),
-            toast_visible: use_signal(|| false),
-            toast_message: use_signal(String::new),
-            toast_kind: use_signal(|| ToastKind::Success),
         }
     }
 
@@ -97,10 +91,21 @@ impl std::fmt::Debug for GlobalConfigState {
     }
 }
 
-pub fn show_toast_silent(state: &GlobalConfigState, kind: ToastKind, message: String) {
-    state.toast_kind.inner().set(kind);
-    state.toast_message.inner().set(message);
-    state.toast_visible.inner().set(true);
+/// 弹一条应用级提示。
+///
+/// 提示栈是 hikari 的 `ToastStore`（Vue `useToast()` 的 Rust 等价物：按类型
+/// 聚合、去重、限时自动消失），页面壳里挂一个 `Toast` 宿主统一渲染。第一个
+/// 参数保留是为了不动调用点的形状，页面状态本身不再各存一份提示。
+pub fn show_toast_silent(_state: &GlobalConfigState, kind: ToastKind, message: String) {
+    let toast = hikari_components::use_toast();
+    match kind {
+        ToastKind::Success => {
+            toast.success(&message);
+        }
+        ToastKind::Error => {
+            toast.error(&message);
+        }
+    }
 }
 
 /// 新闻公告条目（config.news_announcements 的元素）。
@@ -1065,11 +1070,75 @@ impl std::fmt::Debug for UserDrillState {
     }
 }
 
+/// 页面数据：PHP 挂在 `#app` 的 `data-pm-*` 上，启动时读一次（见 lib.rs 的
+/// `read_boot_info`）。只放数据，不放任何样式或类名——那些归前端。
+#[derive(Clone, Default)]
+pub struct BootInfo {
+    pub site_name: String,
+    pub user_id: String,
+    pub user_name: String,
+    pub user_group: String,
+    pub avatar: String,
+    pub plugin_version: String,
+    pub forum_url: String,
+    pub game_url: String,
+    pub legacy_url: String,
+    pub logout_url: String,
+}
+
+/// 头像下拉的锚点：头像按钮的视口矩形，打开下拉时量一次。
+#[derive(Clone, Copy, PartialEq, Default)]
+pub struct MenuAnchor {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+/// 外壳状态。
+///
+/// hikari 的壳组件自己不存状态（`FaceShell` / `AdminHeader` 头注里的
+/// STATE CONTRACT）：抽屉开合、头像下拉、视口宽度全是受控 props，由这里
+/// 持有，`shell.rs` 只负责把状态映射成 props、把回调写回状态。
+#[derive(Clone)]
+pub struct ShellState {
+    pub boot: BootInfo,
+    /// 视口宽度（px）；0 = 尚未测量，壳按桌面布局渲染（不会闪一下抽屉）。
+    pub viewport_width: ReactiveSignal<f64>,
+    /// 移动端导航抽屉是否打开。
+    pub mobile_open: ReactiveSignal<bool>,
+    /// 头像下拉是否打开（桌面）。
+    pub user_menu_open: ReactiveSignal<bool>,
+    pub menu_anchor: ReactiveSignal<Option<MenuAnchor>>,
+    /// 头像图片加载失败过：退回首字母，不再反复重试。
+    pub avatar_failed: ReactiveSignal<bool>,
+}
+
+impl ShellState {
+    pub fn new(boot: BootInfo) -> Self {
+        Self {
+            boot,
+            viewport_width: use_signal(|| 0.0),
+            mobile_open: use_signal(|| false),
+            user_menu_open: use_signal(|| false),
+            menu_anchor: use_signal(|| None),
+            avatar_failed: use_signal(|| false),
+        }
+    }
+}
+
+impl std::fmt::Debug for ShellState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ShellState").finish()
+    }
+}
+
 /// 应用级状态。
 #[derive(Clone)]
 pub struct AppState {
     pub component_id: std::cell::Cell<u32>,
     pub route: ReactiveSignal<AdminRoute>,
+    pub shell: ShellState,
     pub config: GlobalConfigState,
     pub pokemon: ListState,
     pub item: ListState,
@@ -1091,10 +1160,11 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new() -> Self {
+    pub fn new(boot: BootInfo) -> Self {
         Self {
             component_id: std::cell::Cell::new(0),
             route: use_signal(|| AdminRoute::GlobalConfig),
+            shell: ShellState::new(boot),
             config: GlobalConfigState::new(),
             pokemon: ListState::new(),
             item: ListState::new(),

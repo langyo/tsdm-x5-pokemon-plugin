@@ -8,7 +8,11 @@ description = "tairitsu rebuild of the admin frontend (slice 1: shell + global c
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# 依赖与 _game2 完全同源（同 rev 锁定，见 game2/Cargo.toml 的依赖策略注释）。
+# tairitsu 与 _game2 / _capprobe 同 rev 锁定（三个组件共用一份 glue，必须
+# 构建在同一份 tairitsu 之上；策略注释见 game2/Cargo.toml）。hikari 各组件
+# 独立编进各自的 wasm，后台先于前台升到 0.55.497：Rust 侧自 #1011 起补齐
+# AdminShell / AdminHeader / NavSidebar / AdminTablePage 镜像，后台整壳由此
+# 可以用 hikari 标准件搭。
 [dependencies]
 tairitsu-vdom = { git = "https://github.com/celestia-island/tairitsu", rev = "0299a096", default-features = false }
 tairitsu-hooks = { git = "https://github.com/celestia-island/tairitsu", rev = "0299a096", default-features = false }
@@ -18,7 +22,7 @@ tairitsu-web = { git = "https://github.com/celestia-island/tairitsu", rev = "029
     "vdom",
     "wit-bindings",
 ] }
-hikari-components = { git = "https://github.com/celestia-island/hikari", rev = "ed699a6b" }
+hikari-components = { git = "https://github.com/celestia-island/hikari", rev = "192b7cc0" }
 anyhow = "1"
 serde = { version = "^1", features = ["derive"] }
 serde_json = "^1"

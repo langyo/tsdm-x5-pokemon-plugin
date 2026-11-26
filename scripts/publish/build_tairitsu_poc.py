@@ -48,6 +48,72 @@ WASM_ARTIFACT = (
 #
 #   export TAIRITSU_POC_NPM_VENDOR=<tairitsu>/packages/npm/celestia-tairitsu-web-glue/dist
 #   export TAIRITSU_POC_WASI_VENDOR=<unpacked preview2-shim>/dist/browser
+# shim 生成段手写补出的函数：不在 glue 域模块的平铺导出里，所以不计入
+# INTERFACE_MAP 的函数清单，但 wrapper 确实会 import 它们。
+SHIM_PROVIDED = {
+    "node": {"getChildNodes"},
+    "node-list": {"getLength", "item"},
+}
+
+# 帧调度补丁，boot.js 与 poc.html 共用同一份（经 f-string 插值，所以这里
+# 是普通 JS，花括号不用转义）。
+#
+# 帧调度走浏览器原生 rAF：与刷新率对齐，空闲时不占 CPU。后台标签页和
+# 不可见的 webview 里原生 rAF 会被节流到停摆，而 tairitsu 的调度器要靠
+# 一帧回来复位——所以每个帧请求配一个看门狗：原生帧迟迟不来就补投一次
+# （并撤掉那个迟到的原生帧，保证回调只跑一次）。
+#
+# 早期 POC 用 MessageChannel 无条件接管 rAF：后台可用了，但前台也不再
+# 对齐刷新率——实测任何 rAF 循环都会跑到每秒十万帧。
+#
+# 计数暴露在 window.__tairitsuFrames 上：帧投递失败时（组件点不动、
+# 列表不更新）第一个要看的就是它 —— scheduled=0 说明调度器根本没走
+# rAF，scheduled>0 而 ran=0 说明原生帧没跑起来且看门狗也没补上。
+FRAME_SCHEDULER_JS = """  if (!window.__tairitsuRafPatched) {
+    window.__tairitsuRafPatched = true;
+    window.__tairitsuFrames = { scheduled: 0, ran: 0, fallback: 0 };
+    var nativeRaf = window.requestAnimationFrame.bind(window);
+    var nativeCaf = window.cancelAnimationFrame.bind(window);
+    var FALLBACK_MS = 120;
+    var rafSeq = 0;
+    var rafEntries = new Map();
+    window.requestAnimationFrame = function (cb) {
+      window.__tairitsuFrames.scheduled++;
+      var id = ++rafSeq;
+      var entry = { cb: cb, nativeId: 0, watchdog: 0, done: false };
+      rafEntries.set(id, entry);
+      var run = function (ts) {
+        if (entry.done) return;
+        entry.done = true;
+        clearTimeout(entry.watchdog);
+        rafEntries.delete(id);
+        window.__tairitsuFrames.ran++;
+        try {
+          entry.cb(ts);
+        } catch (err) {
+          console.error('[tairitsu] frame callback failed', err);
+        }
+      };
+      entry.nativeId = nativeRaf(run);
+      entry.watchdog = setTimeout(function () {
+        nativeCaf(entry.nativeId);
+        window.__tairitsuFrames.fallback++;
+        run(performance.now());
+      }, FALLBACK_MS);
+      return id;
+    };
+    // 帧调度带真 cancel（组件侧 TimerOps::cancel_animation_frame 由此生效）。
+    window.cancelAnimationFrame = function (id) {
+      var entry = rafEntries.get(id);
+      if (!entry) return;
+      entry.done = true;
+      clearTimeout(entry.watchdog);
+      nativeCaf(entry.nativeId);
+      rafEntries.delete(id);
+    };
+  }
+"""
+
 NPM_VENDOR = os.environ.get("TAIRITSU_POC_NPM_VENDOR")
 WASI_VENDOR = os.environ.get("TAIRITSU_POC_WASI_VENDOR")
 WASI_VENDOR_URL = (
@@ -59,8 +125,8 @@ WASI_VENDOR_URL = (
 INTERFACE_MAP = {
     "css-style-declaration": ("css", ["getPropertyValue", "setProperty"]),
     "document": ("dom", [
-        "createElement", "createTextNode", "elementFromPoint", "execCommand",
-        "getBody",
+        "createElement", "createElementNs", "createTextNode", "elementFromPoint",
+        "execCommand", "getBody",
     ]),
     "dom-token-list": ("css", ["add", "contains", "remove"]),
     "element": ("dom", [
@@ -121,7 +187,14 @@ INTERFACE_MAP = {
     # mutation-observer/resize-observer 走各自域；media-query-list 与
     # canvas 2D 三件套在上游 npm glue 的 platform 域注册。
     "history": ("html", ["pushState", "replaceState"]),
-    "location": ("html", ["getPathname"]),
+    # location 全量：后台外壳的账号菜单靠 setHref 整页跳转（上游 glue 在
+    # tairitsu#166 补齐，此前只有 getHash / getPathname 两个只读函数）。
+    "location": ("html", [
+        "assign", "getAncestorOrigins", "getHash", "getHref", "getHostname",
+        "getOrigin", "getPathname", "getPort", "getProtocol", "getSearch",
+        "reload", "replace", "setHash", "setHref", "setHostname", "setPathname",
+        "setPort", "setProtocol", "setSearch",
+    ]),
     "mutation-observer": ("observers", ["observe", "disconnect"]),
     "resize-observer": ("resize-observer", ["observe", "unobserve", "disconnect"]),
     "media-query-list": ("html", [
@@ -221,17 +294,84 @@ def bust_wrapper_cache(build_id: str) -> None:
     wrapper.write_text(js, encoding='utf-8')
 
 
+def wrapper_imports(wrapper: Path) -> dict[str, set[str]]:
+    """一份转译产物从 tairitsu-browser 导入的 {接口名: {函数名}}。"""
+    text = wrapper.read_text(encoding="utf-8")
+    pairs = re.findall(
+        r"import\s*\{([^}]*)\}\s*from\s*['\"]tairitsu-browser:full/([a-z0-9-]+)['\"]",
+        text,
+    )
+    imported: dict[str, set[str]] = {}
+    for names, iface in pairs:
+        bucket = imported.setdefault(iface, set())
+        bucket.update(
+            name.strip().split(" as ")[0] for name in names.split(",") if name.strip()
+        )
+    return imported
+
+
 def verify_imports() -> None:
-    """从转译产物提取全部 tairitsu-browser 导入接口名，与 INTERFACE_MAP 对账。"""
-    wrapper = OUT / "component-wrapper" / "_game2.js"
-    specifiers = sorted(set(re.findall(
-        r"from ['\"]tairitsu-browser:full/([a-z-]+)['\"]",
-        wrapper.read_text(encoding="utf-8"),
-    )))
-    unknown = [s for s in specifiers if s not in INTERFACE_MAP]
+    """从转译产物提取 tairitsu-browser 的接口与函数导入，与 INTERFACE_MAP 对账。
+
+    只核对接口名不够：shim 是 `export const fn = obj.fn` 的平铺再导出，
+    INTERFACE_MAP 漏掉某个函数时 shim 就不导出它，浏览器加载 wrapper 直接报
+    "does not provide an export named …"，整页起不来（上游 Rust 侧开始调用
+    create-element-ns 时实测踩到）。
+
+    game2 / admin2 / capprobe 三份产物共用同一套 shim，所以三份都要对账：
+    后台外壳用 location.setHref 跳转那次，漏的正是 admin2 独有的一条导入。
+    """
+    wrappers = sorted((OUT / "component-wrapper").glob("_*.js"))
+    if not wrappers:
+        sys.exit("no transpiled wrapper under component-wrapper/")
+    unknown: list[str] = []
+    missing: list[str] = []
+    for wrapper in wrappers:
+        imported = wrapper_imports(wrapper)
+        unknown += [f"{wrapper.name}:{iface}" for iface in imported if iface not in INTERFACE_MAP]
+        missing += [
+            f"{wrapper.name}:{iface}.{fn}"
+            for iface, fns in imported.items()
+            for fn in fns
+            if fn not in INTERFACE_MAP[iface][1] and fn not in SHIM_PROVIDED.get(iface, ())
+        ]
     if unknown:
-        sys.exit(f"wrapper imports interfaces missing from INTERFACE_MAP: {unknown}")
-    print(f"[poc] wrapper imports {len(specifiers)} interfaces — all mapped")
+        sys.exit(f"wrapper imports interfaces missing from INTERFACE_MAP: {sorted(unknown)}")
+    if missing:
+        sys.exit(f"wrapper imports functions missing from INTERFACE_MAP: {sorted(missing)}")
+    print(
+        f"[poc] {len(wrappers)} wrappers checked ({', '.join(w.name for w in wrappers)}) — "
+        "every imported interface and function is exported by its shim"
+    )
+
+
+def verify_glue_exports() -> None:
+    """INTERFACE_MAP 里登记的函数，glue 域模块里必须真的有。
+
+    shim 只是 `export const fn = obj.fn` 的转发：obj.fn 不存在时导出值是
+    undefined，模块能加载，直到组件第一次调用才在运行时炸——而那时页面已经
+    起来了。构建期对着 glue 源码（esbuild 产物保留属性名）点一遍名，缺哪个
+    直接报哪个，提示去补上游 glue 而不是在宿主里绕。
+    """
+    absent: list[str] = []
+    for iface, (domain, functions) in INTERFACE_MAP.items():
+        if domain is None:
+            continue
+        glue = OUT / "glue" / domain / "index.js"
+        if not glue.exists():
+            sys.exit(f"glue domain module missing: {glue}")
+        text = glue.read_text(encoding="utf-8")
+        for fn in functions:
+            if not re.search(rf"\b{re.escape(fn)}\s*\(", text):
+                absent.append(f"{iface}.{fn} (glue {domain})")
+    if absent:
+        sys.exit(
+            "INTERFACE_MAP lists functions the vendored glue does not implement:\n  "
+            + "\n  ".join(sorted(absent))
+            + "\nExtend the upstream glue (tairitsu packages/npm/celestia-tairitsu-web-glue)"
+            " and re-vendor instead of working around it in the host."
+        )
+    print("[poc] every INTERFACE_MAP function is implemented by the vendored glue")
 
 
 def vendor_copy() -> None:
@@ -244,14 +384,6 @@ def vendor_copy() -> None:
             "(build it with `pnpm -C <tairitsu>/packages/npm/celestia-tairitsu-web-glue build`),"
             "\nor pass --skip-vendor to reuse the glue already in plugin/wasm2/."
         )
-    if not WASI_VENDOR:
-        sys.exit(
-            "TAIRITSU_POC_WASI_VENDOR is not set.\n"
-            "Unpack @bytecodealliance/preview2-shim and point it at dist/browser, e.g.\n"
-            f"  curl -L {WASI_VENDOR_URL}  (or the npm tarball) into a temp dir,\n"
-            "or pass --skip-vendor to reuse the wasi shims already in plugin/wasm2/."
-        )
-
     glue_src = Path(NPM_VENDOR)
     glue_dir = OUT / "glue"
     if glue_dir.exists():
@@ -264,7 +396,17 @@ def vendor_copy() -> None:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
+    # wasi browser shims 很少变：没给目录就沿用 plugin/wasm2/wasi 里现有的。
     wasi_dir = OUT / "wasi"
+    if not WASI_VENDOR:
+        if not wasi_dir.is_dir():
+            sys.exit(
+                "TAIRITSU_POC_WASI_VENDOR is not set and plugin/wasm2/wasi is missing.\n"
+                "Unpack @bytecodealliance/preview2-shim and point it at dist/browser, e.g.\n"
+                f"  curl -L {WASI_VENDOR_URL}  (or the npm tarball) into a temp dir."
+            )
+        print("[poc] vendored glue domains (wasi shims reused)")
+        return
     if wasi_dir.exists():
         shutil.rmtree(wasi_dir)
     src_browser = Path(WASI_VENDOR)
@@ -466,8 +608,7 @@ def write_boot_assets() -> None:
 // 载入 jco 转译产物并调用组件导出的 lifecycle.start。
 //
 // 与 poc.html 的区别：资源一律用绝对 URL（页面是 /plugin.php?...，
-// 相对路径会解析到站点根），帧调度换成 MessageChannel（后台标签页的
-// rAF 会被节流到停摆，调度器会永久卡住）。
+// 相对路径会解析到站点根）。
 (function () {{
   'use strict';
 
@@ -483,50 +624,7 @@ def write_boot_assets() -> None:
     document.head.appendChild(map);
   }}
 
-  // tairitsu 的调度器在后台标签页会卡死（rAF 不触发 → rt.scheduled 无法复位）。
-  // MessageChannel 不受节流影响，把 rAF 改写到它上面。
-  //
-  // 计数暴露在 window.__tairitsuFrames 上：帧投递失败时（组件点不动、
-  // 列表不更新）第一个要看的就是它 —— scheduled=0 说明调度器根本没走
-  // rAF，scheduled>0 而 ran=0 说明 MessageChannel 的帧没跑起来。
-  if (!window.__tairitsuRafPatched) {{
-    window.__tairitsuRafPatched = true;
-    window.__tairitsuFrames = {{ scheduled: 0, ran: 0 }};
-    var channel = new MessageChannel();
-    var pending = [];
-    channel.port1.onmessage = function () {{
-      var callbacks = pending;
-      pending = [];
-      for (var i = 0; i < callbacks.length; i++) {{
-        if (!callbacks[i].cb) continue;  // 已 cancel 的帧
-        window.__tairitsuFrames.ran++;
-        try {{
-          callbacks[i].cb(performance.now());
-        }} catch (err) {{
-          console.error('[tairitsu] frame callback failed', err);
-        }}
-      }}
-    }};
-    // 帧调度带真 cancel：id 单调递增，pending 存 {{id, cb}}；cancel 按 id
-    // 置空（取消的帧不再投递，也不计入 ran）。组件侧
-    // TimerOps::cancel_animation_frame 由此真正生效。
-    var rafSeq = 0;
-    window.requestAnimationFrame = function (cb) {{
-      window.__tairitsuFrames.scheduled++;
-      var id = ++rafSeq;
-      pending.push({{ id: id, cb: cb }});
-      channel.port2.postMessage(0);
-      return id;
-    }};
-    window.cancelAnimationFrame = function (id) {{
-      for (var i = 0; i < pending.length; i++) {{
-        if (pending[i].id === id) {{
-          pending[i].cb = null;
-          return;
-        }}
-      }}
-    }};
-  }}
+{FRAME_SCHEDULER_JS}
 
   globalThis.__setWasmExports = globalThis.__setWasmExports || function (e) {{
     globalThis.__wasmExports = e;
@@ -617,24 +715,9 @@ def write_boot_assets() -> None:
 {json.dumps({"imports": import_map}, indent=2)}
 </script>
 <script>
-// 后台/隐藏标签页的 rAF 不触发，会让 tairitsu 调度器永久卡死（rt.scheduled
-// 无法复位）。POC 页面用 MessageChannel 驱动帧；前台真实使用无此问题。
+// 帧调度与 boot.js 同一份补丁（原生 rAF + 看门狗，说明见 FRAME_SCHEDULER_JS）。
 (function () {{
-  (function () {{
-    var ch = new MessageChannel();
-    var pending = [];
-    ch.port1.onmessage = function () {{
-      var cbs = pending; pending = [];
-      for (var i = 0; i < cbs.length; i++) cbs[i](performance.now());
-    }};
-    window.requestAnimationFrame = function (cb) {{
-      pending.push(cb);
-      ch.port2.postMessage(0);
-      return pending.length;
-    }};
-    window.cancelAnimationFrame = function () {{}};
-  }})();
-}})();
+{FRAME_SCHEDULER_JS}}})();
 </script>
 <script src="./glue-core.js"></script>
 <style>
@@ -686,6 +769,30 @@ console.log('[poc] component started');
     print("[poc] wrote poc.html, boot.js, manifest.json")
 
 
+def compile_skin_css() -> None:
+    """编译 tairitsu 版专用皮肤 rust/game2/styles/main.scss → plugin/wasm2/hikari.css。
+
+    页面组件仍与 Dioxus 版共用 game.css；这份皮肤只放「hikari 标准件 → 旧版
+    观感」的适配，由 v2 页面排在 game.css 之后加载。
+    """
+    source = ROOT / "rust" / "game2" / "styles" / "main.scss"
+    output = OUT / "hikari.css"
+    sass = shutil.which("sass")
+    if not sass:
+        sys.exit("sass not found on PATH (needed for rust/game2/styles/main.scss)")
+    # 固定参数列表：sass --style=compressed --no-source-map --quiet <in> <out>
+    result = subprocess.run(
+        [
+            sass, "--style=compressed", "--no-source-map", "--quiet",
+            str(source), str(output),
+        ],
+        check=False,
+        shell=False,
+    )
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-build", action="store_true", help="复用已有 wasm 产物")
@@ -697,6 +804,7 @@ def main() -> None:
     args = parser.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
+    compile_skin_css()
     wasm = cargo_build(args.skip_build)
     jco_transpile(wasm)
     build_id = str(int(wasm.stat().st_mtime))
@@ -711,6 +819,7 @@ def main() -> None:
     # dom glue 自带 __storeNode 实现，无需再改写。
     shims_from_glue(build_id)
     glue_core()
+    verify_glue_exports()
     write_boot_assets()
     print("[poc] done →", OUT)
 

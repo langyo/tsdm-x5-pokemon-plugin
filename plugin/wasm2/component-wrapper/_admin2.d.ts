@@ -7,6 +7,8 @@ export type * as TairitsuBrowserFullElement020 from './interfaces/tairitsu-brows
 export type * as TairitsuBrowserFullEventTarget020 from './interfaces/tairitsu-browser-full-event-target.js'; // import tairitsu-browser:full/event-target@0.2.0
 export type * as TairitsuBrowserFullEvent020 from './interfaces/tairitsu-browser-full-event.js'; // import tairitsu-browser:full/event@0.2.0
 export type * as TairitsuBrowserFullHtmlInputElement020 from './interfaces/tairitsu-browser-full-html-input-element.js'; // import tairitsu-browser:full/html-input-element@0.2.0
+export type * as TairitsuBrowserFullLocation020 from './interfaces/tairitsu-browser-full-location.js'; // import tairitsu-browser:full/location@0.2.0
+export type * as TairitsuBrowserFullMediaQueryList020 from './interfaces/tairitsu-browser-full-media-query-list.js'; // import tairitsu-browser:full/media-query-list@0.2.0
 export type * as TairitsuBrowserFullMouseEvent020 from './interfaces/tairitsu-browser-full-mouse-event.js'; // import tairitsu-browser:full/mouse-event@0.2.0
 export type * as TairitsuBrowserFullNodeList020 from './interfaces/tairitsu-browser-full-node-list.js'; // import tairitsu-browser:full/node-list@0.2.0
 export type * as TairitsuBrowserFullNode020 from './interfaces/tairitsu-browser-full-node.js'; // import tairitsu-browser:full/node@0.2.0
