@@ -1319,7 +1319,18 @@ pub fn close_pokemon_editor(state: &AppState) {
     crate::request_remount();
 }
 
-/// 表单字段变更（key 见 delegation 的 data-pm-adm-pkf）。数组字段用
+/// 切换编辑器的两个布尔开关（出售中 / 神兽）。
+pub fn toggle_pokemon_editor_flag(state: &AppState, which: &str) {
+    let ed = state.pokemon_editor.clone();
+    match which {
+        "selling" => ed.is_selling.inner().set(!ed.is_selling.get()),
+        "legendary" => ed.is_legendary.inner().set(!ed.is_legendary.get()),
+        _ => {}
+    }
+    crate::request_remount();
+}
+
+/// 表单字段变更（key 见编辑器的 `data-test-adm-pkf`）。数组字段用
 /// `stat:i` / `base:i` 形式。
 pub fn set_pokemon_editor_field(state: &AppState, key: &str, value: &str, checked: bool) {
     let ed = state.pokemon_editor.clone();
@@ -1542,6 +1553,8 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
         let sv = stat[i].clone();
         let sa = format!("stat:{i}");
         let sl = STAT_LABELS[i];
+        let stat_state = st.clone();
+        let stat_key = sa.clone();
         stat_inputs.push(rsx! {
             label { class: "adm-editor-field",
                 span { "{sl}" }
@@ -1551,12 +1564,17 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                     min: "0",
                     max: "255",
                     value: sv,
-                    "data-pm-adm-pkf": sa
+                    "data-test-adm-pkf": sa,
+                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                        set_pokemon_editor_field(&stat_state, &stat_key, &e.value, false);
+                    }
                 }
             }
         });
         let bv = base[i].clone();
         let ba = format!("base:{i}");
+        let base_state = st.clone();
+        let base_key = ba.clone();
         base_inputs.push(rsx! {
             label { class: "adm-editor-field",
                 span { "{sl}" }
@@ -1566,7 +1584,10 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                     min: "0",
                     max: "3",
                     value: bv,
-                    "data-pm-adm-pkf": ba
+                    "data-test-adm-pkf": ba,
+                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                        set_pokemon_editor_field(&base_state, &base_key, &e.value, false);
+                    }
                 }
             }
         });
@@ -1577,12 +1598,42 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
         None => VNode::empty(),
     };
 
+    // 各处理器各持一份状态句柄（闭包要求 'static）。
+    let overlay_close_state = st.clone();
+    let x_close_state = st.clone();
+    let cancel_close_state = st.clone();
+    let save_state = st.clone();
+    let toggle_selling_state = st.clone();
+    let toggle_legendary_state = st.clone();
+    let field_state_0 = st.clone();
+    let field_state_1 = st.clone();
+    let field_state_2 = st.clone();
+    let field_state_3 = st.clone();
+    let ta_desc_state = st.clone();
+    let ta_extra_state = st.clone();
+
     rsx! {
-        div { class: "modal-overlay", "data-pm-adm-pk-overlay": "1",
-            div { class: "adm-editor-modal", "data-pm-adm-pk-modal": "1",
+        div {
+            class: "modal-overlay",
+            "data-test-adm-pk-overlay": "1",
+            // 只认「直接点在遮罩上」：容器内的点击冒泡上来时 target 是子元素，
+            // 据此区分，就不必给容器挂 stopPropagation（那会连按钮一起吞掉）。
+            onclick: move |e: tairitsu_vdom::MouseEvent| {
+                if e.target == e.current_target {
+                    close_pokemon_editor(&overlay_close_state);
+                }
+            },
+            div {
+                class: "adm-editor-modal",
+                "data-test-adm-pk-modal": "1",
                 div { class: "modal-header",
                     h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-pk-close": "1", "×" }
+                    button {
+                        class: "modal-close",
+                        "data-test-adm-pk-close": "1",
+                        onclick: move |_| close_pokemon_editor(&x_close_state),
+                        "×"
+                    }
                 }
                 div { class: "modal-body adm-editor-body",
                     div { class: "adm-editor-grid",
@@ -1592,7 +1643,10 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                                 class: "adm-filter-input",
                                 r#type: "text",
                                 value: ed.name.get(),
-                                "data-pm-adm-pkf": "name"
+                                "data-test-adm-pkf": "name",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_pokemon_editor_field(&field_state_0, "name", &e.value, false);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -1602,7 +1656,10 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                                 r#type: "number",
                                 min: "0",
                                 value: ed.cost.get(),
-                                "data-pm-adm-pkf": "cost"
+                                "data-test-adm-pkf": "cost",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_pokemon_editor_field(&field_state_1, "cost", &e.value, false);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -1611,7 +1668,10 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                                 class: "adm-filter-input",
                                 r#type: "text",
                                 value: ed.kind1.get(),
-                                "data-pm-adm-pkf": "kind1"
+                                "data-test-adm-pkf": "kind1",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_pokemon_editor_field(&field_state_2, "kind1", &e.value, false);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -1620,19 +1680,24 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                                 class: "adm-filter-input",
                                 r#type: "text",
                                 value: ed.kind2.get(),
-                                "data-pm-adm-pkf": "kind2"
+                                "data-test-adm-pkf": "kind2",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_pokemon_editor_field(&field_state_3, "kind2", &e.value, false);
+                                }
                             }
                         }
                         button {
                             class: selling_cls,
                             disabled: saving,
-                            "data-pm-adm-pk-toggle": "selling",
+                            "data-test-adm-pk-toggle": "selling",
+                            onclick: move |_| toggle_pokemon_editor_flag(&toggle_selling_state, "selling"),
                             "{selling_label}"
                         }
                         button {
                             class: legendary_cls,
                             disabled: saving,
-                            "data-pm-adm-pk-toggle": "legendary",
+                            "data-test-adm-pk-toggle": "legendary",
+                            onclick: move |_| toggle_pokemon_editor_flag(&toggle_legendary_state, "legendary"),
                             "{legendary_label}"
                         }
                     }
@@ -1641,7 +1706,10 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                         textarea {
                             class: "adm-editor-textarea",
                             rows: 2,
-                            "data-pm-adm-pkf": "description",
+                            "data-test-adm-pkf": "description",
+                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                set_pokemon_editor_field(&ta_desc_state, "description", &e.value, false);
+                            },
                             "{ed.description.get()}"
                         }
                     }
@@ -1662,7 +1730,10 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                         textarea {
                             class: "adm-editor-textarea",
                             rows: 8,
-                            "data-pm-adm-pkf": "extra",
+                            "data-test-adm-pkf": "extra",
+                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                set_pokemon_editor_field(&ta_extra_state, "extra", &e.value, false);
+                            },
                             "{ed.extra_json.get()}"
                         }
                     }
@@ -1672,13 +1743,15 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                     button {
                         class: "admin-btn",
                         disabled: saving,
-                        "data-pm-adm-pk-close": "1",
+                        "data-test-adm-pk-close": "1",
+                        onclick: move |_| close_pokemon_editor(&cancel_close_state),
                         "取消"
                     }
                     button {
                         class: "admin-btn admin-btn--primary",
                         disabled: saving,
-                        "data-pm-adm-pk-save": "1",
+                        "data-test-adm-pk-save": "1",
+                        onclick: move |_| submit_pokemon_editor(&save_state),
                         "{save_label}"
                     }
                 }
