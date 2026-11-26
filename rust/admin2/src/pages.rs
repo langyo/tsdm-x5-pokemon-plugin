@@ -731,224 +731,83 @@ fn pokemon_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
 }
 
 /// 物品数据页（切片 3）：复用列表页模板 + 泛型动作/属性（it 页键）。
+/// 物品数据页：行渲染进公共壳。
 fn item_data_page(st: &AppState) -> VNode {
-    let ls = st.item.clone();
     let spec = crate::state::ITEM_SPEC;
-    let load_state = ls.loaded.get();
-    let busy = ls.busy.get();
-    let filtered = ls.filtered.get();
-    let err = ls.err.get();
-    let rows = ls.rows.get();
-    let total = ls.total.get();
-    let loaded_count = ls.loaded_count.get();
-    let has_more = !filtered && loaded_count < total;
-    let f_id = ls.f_id.get();
-    let f_name = ls.f_name.get();
-    let f_a = ls.f_a.get();
-    let f_b = ls.f_b.get();
-    let count_text = if filtered {
-        format!("筛选结果 {loaded_count} 条")
-    } else {
-        format!("已加载 {loaded_count} / {total} 条")
+    let shape = crate::list_page::TableShape {
+        columns: &["ID", "名称", "类型", "价格", "出售", "描述", "操作"],
+        row: Box::new(item_row),
     };
-
-    let body = match &load_state {
-        None => rsx! { div { class: "admin-loading", "正在加载物品数据..." } },
-        Some(Err(e)) => {
-            let msg = format!("加载失败：{e}");
-            rsx! {
-                div { class: "admin-card admin-error",
-                    p { "{msg}" }
-                    button {
-                        class: "admin-btn",
-                        disabled: busy,
-                        "data-pm-adm-l-reload": "it",
-                        "重新加载"
-                    }
-                }
-            }
-        }
-        Some(Ok(())) => {
-            let err_bar = match &err {
-                Some(e) => {
-                    let msg = format!("筛选失败：{e}");
-                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
-                }
-                None => VNode::empty(),
-            };
-            let table = if rows.is_empty() {
-                rsx! { p { class: "admin-empty-hint", "暂无物品数据。" } }
-            } else {
-                let mut trs: Vec<VNode> = Vec::new();
-                for item in rows.iter() {
-                    let id = json_u64(item, "id").to_string();
-                    let id_for_edit = id.clone();
-                    let name = json_str(item, "name");
-                    let del_attr_it = format!("it:{id}");
-                    // tag: {"drug":null} / {"ball":5} / {"evolution":3} / {"armor":…} / {"special":"…"}
-                    let tag_label = item
-                        .get("tag")
-                        .and_then(|t| t.as_object())
-                        .and_then(|obj| obj.keys().next())
-                        .map(|k| match k.as_str() {
-                            "drug" => "药品".to_string(),
-                            "ball" => "宠物球".to_string(),
-                            "evolution" => "升级素材".to_string(),
-                            "enhance" => "强化道具".to_string(),
-                            "armor" => "装备".to_string(),
-                            "special" => "特殊物品".to_string(),
-                            other => other.to_string(),
-                        })
-                        .unwrap_or_else(|| "—".to_string());
-                    let price = json_u64(item, "price").to_string();
-                    let selling = if json_bool(item, "is_selling") {
-                        "是"
-                    } else {
-                        "否"
-                    };
-                    let desc = json_str(item, "description");
-                    let desc_short = if desc.chars().count() > 16 {
-                        let cut: String = desc.chars().take(16).collect();
-                        format!("{cut}…")
-                    } else {
-                        desc
-                    };
-                    trs.push(rsx! {
-                        tr {
-                            td { "{id}" }
-                            td { "{name}" }
-                            td { "{tag_label}" }
-                            td { "{price}" }
-                            td { "{selling}" }
-                            td { class: "adm-pk-stats", "{desc_short}" }
-                            td {
-                                div { class: "adm-row-actions",
-                                    button {
-                                        class: "admin-btn adm-row-edit",
-                                        disabled: busy,
-                                        "data-pm-adm-it-edit": id_for_edit,
-                                        "编辑"
-                                    }
-                                    button {
-                                        class: "admin-btn adm-row-del",
-                                        disabled: busy,
-                                        "data-pm-adm-del": del_attr_it,
-                                        "删除"
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                rsx! {
-                    table { class: "adm-table",
-                        thead {
-                            tr {
-                                th { "ID" }
-                                th { "名称" }
-                                th { "类型" }
-                                th { "价格" }
-                                th { "出售" }
-                                th { "描述" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            for i in 0..trs.len() {
-                                ..vec![trs[i].clone()]
-                            }
-                        }
-                    }
-                }
-            };
-            let more_btn = if has_more {
-                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
-                rsx! {
-                    div { class: "adm-load-more",
-                        button {
-                            class: "admin-btn",
-                            disabled: busy,
-                            "data-pm-adm-l-more": "it",
-                            "{label}"
-                        }
-                    }
-                }
-            } else {
-                VNode::empty()
-            };
-            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
-            rsx! {
-                for i in 0..parts.len() {
-                    ..vec![parts[i].clone()]
-                }
-            }
-        }
-    };
-
-    let _ = spec;
+    let new_state = st.clone();
+    let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_item_new(&new_state));
+    let page = crate::list_page::entity_list_page(st, spec, &st.item, "it", &shape, Some(on_new));
     rsx! {
-        section { class: "admin-page admin-config-page",
-            div { class: "admin-page-header",
-                h2 { "物品数据" }
-                span { class: "adm-count", "{count_text}" }
-            }
-            div { class: "admin-card adm-filter-bar",
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "ID（精确）",
-                    value: f_id,
-                    "data-pm-adm-f-id": "it"
-                }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "名称（包含）",
-                    value: f_name,
-                    "data-pm-adm-f-name": "it"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-kind",
-                    r#type: "text",
-                    placeholder: "类型（1药品/2球/3素材/4强化/5装备）",
-                    value: f_a,
-                    "data-pm-adm-f-a": "it"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-num",
-                    r#type: "text",
-                    placeholder: "价格 ≥",
-                    value: f_b,
-                    "data-pm-adm-f-b": "it"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-l-apply": "it",
-                    "筛选"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reset": "it",
-                    "重置"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reload": "it",
-                    "刷新"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-it-new": "1",
-                    "新增物品"
-                }
-            }
-            ..vec![body, item_editor_modal(st)]
+        div {
+            ..vec![page, item_editor_modal(st)]
         }
     }
+}
+
+/// 物品行：ID / 名称 / 类型标签 / 价格 / 可出售 / 描述 / 操作。
+fn item_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
+    let id = json_u64(item, "id").to_string();
+    let name = json_str(item, "name");
+    // tag: {"drug":null} / {"ball":5} / {"evolution":3} / {"armor":…} / {"special":"…"}
+    let tag_label = item
+        .get("tag")
+        .and_then(|t| t.as_object())
+        .and_then(|obj| obj.keys().next())
+        .map(|k| match k.as_str() {
+            "drug" => "药品".to_string(),
+            "ball" => "宠物球".to_string(),
+            "evolution" => "升级素材".to_string(),
+            "enhance" => "强化道具".to_string(),
+            "armor" => "装备".to_string(),
+            "special" => "特殊物品".to_string(),
+            other => other.to_string(),
+        })
+        .unwrap_or_else(|| "—".to_string());
+    let price = json_u64(item, "price").to_string();
+    let selling = if json_bool(item, "is_selling") { "是" } else { "否" };
+    let desc = json_str(item, "description");
+    let desc_short = if desc.chars().count() > 16 {
+        let cut: String = desc.chars().take(16).collect();
+        format!("{cut}…")
+    } else {
+        desc
+    };
+    let edit_state = st.clone();
+    let del_state = st.clone();
+    let id_for_edit = id.clone();
+    let id_for_del = id.clone();
+    let edit_id: u64 = id.parse().unwrap_or(0);
+    let del_id: u64 = id.parse().unwrap_or(0);
+    vec![
+        rsx! { td { "{id}" } },
+        rsx! { td { "{name}" } },
+        rsx! { td { "{tag_label}" } },
+        rsx! { td { "{price}" } },
+        rsx! { td { "{selling}" } },
+        rsx! { td { class: "adm-pk-stats", "{desc_short}" } },
+        rsx! {
+            td {
+                div { class: "adm-row-actions",
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-test-adm-it-edit": id_for_edit,
+                        onclick: move |_| open_item_edit(&edit_state, edit_id),
+                        "编辑"
+                    }
+                    button {
+                        class: "admin-btn adm-row-del",
+                        "data-test-adm-del": id_for_del,
+                        onclick: move |_| open_delete_confirm(&del_state, "it", del_id),
+                        "删除"
+                    }
+                }
+            }
+        },
+    ]
 }
 
 /// 地形单字符 → 中文名（载荷 area_type 为 "l"/"g"/… 单字符）。
@@ -974,991 +833,364 @@ fn area_name(code: &str) -> &'static str {
 }
 
 /// 地图数据页（切片 4）：列表页模板 + 泛型动作/属性（mp 页键）。
+/// 地图数据页：行渲染进公共壳。
 fn map_data_page(st: &AppState) -> VNode {
-    let ls = st.map.clone();
-    let load_state = ls.loaded.get();
-    let busy = ls.busy.get();
-    let filtered = ls.filtered.get();
-    let err = ls.err.get();
-    let rows = ls.rows.get();
-    let total = ls.total.get();
-    let loaded_count = ls.loaded_count.get();
-    let has_more = !filtered && loaded_count < total;
-    let f_id = ls.f_id.get();
-    let f_name = ls.f_name.get();
-    let f_a = ls.f_a.get();
-    let f_b = ls.f_b.get();
-    let count_text = if filtered {
-        format!("筛选结果 {loaded_count} 条")
-    } else {
-        format!("已加载 {loaded_count} / {total} 条")
+    let spec = crate::state::MAP_SPEC;
+    let shape = crate::list_page::TableShape {
+        columns: &["ID", "名称", "地形", "状态", "等级范围", "模式", "品质门槛", "操作"],
+        row: Box::new(map_row),
     };
-
-    let body = match &load_state {
-        None => rsx! { div { class: "admin-loading", "正在加载地图数据..." } },
-        Some(Err(e)) => {
-            let msg = format!("加载失败：{e}");
-            rsx! {
-                div { class: "admin-card admin-error",
-                    p { "{msg}" }
-                    button {
-                        class: "admin-btn",
-                        disabled: busy,
-                        "data-pm-adm-l-reload": "mp",
-                        "重新加载"
-                    }
-                }
-            }
-        }
-        Some(Ok(())) => {
-            let err_bar = match &err {
-                Some(e) => {
-                    let msg = format!("筛选失败：{e}");
-                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
-                }
-                None => VNode::empty(),
-            };
-            let table = if rows.is_empty() {
-                rsx! { p { class: "admin-empty-hint", "暂无地图数据。" } }
-            } else {
-                let mut trs: Vec<VNode> = Vec::new();
-                for item in rows.iter() {
-                    let id = json_u64(item, "id").to_string();
-                    let id_for_edit = id.clone();
-                    let name = json_str(item, "name");
-                    let del_attr_mp = format!("mp:{id}");
-                    let area = area_name(&json_str(item, "area_type")).to_string();
-                    let enabled_text = if json_bool(item, "is_enabled") {
-                        "启用"
-                    } else {
-                        "停用"
-                    };
-                    let min_lv = json_u64(item, "min_level");
-                    let max_lv = json_u64(item, "max_level");
-                    let range_text = format!("Lv.{min_lv} ~ Lv.{max_lv}");
-                    let min_quality = json_u64(item, "min_quality");
-                    let quality_text = if min_quality > 0 {
-                        min_quality.to_string()
-                    } else {
-                        "—".to_string()
-                    };
-                    // mode 是扁平字符串："wild"/"boss"/"hybrid"
-                    let mode_label = match json_str(item, "mode").as_str() {
-                        "wild" => "野生".to_string(),
-                        "boss" => "Boss".to_string(),
-                        "hybrid" => "混合".to_string(),
-                        _ => "？".to_string(),
-                    };
-                    trs.push(rsx! {
-                        tr {
-                            td { "{id}" }
-                            td { "{name}" }
-                            td { "{area}" }
-                            td { "{enabled_text}" }
-                            td { "{range_text}" }
-                            td { "{mode_label}" }
-                            td { "{quality_text}" }
-                            td {
-                                div { class: "adm-row-actions",
-                                    button {
-                                        class: "admin-btn adm-row-edit",
-                                        disabled: busy,
-                                        "data-pm-adm-mp-edit": id_for_edit,
-                                        "编辑"
-                                    }
-                                    button {
-                                        class: "admin-btn adm-row-del",
-                                        disabled: busy,
-                                        "data-pm-adm-del": del_attr_mp,
-                                        "删除"
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                rsx! {
-                    table { class: "adm-table",
-                        thead {
-                            tr {
-                                th { "ID" }
-                                th { "名称" }
-                                th { "地形" }
-                                th { "状态" }
-                                th { "等级范围" }
-                                th { "模式" }
-                                th { "品质门槛" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            for i in 0..trs.len() {
-                                ..vec![trs[i].clone()]
-                            }
-                        }
-                    }
-                }
-            };
-            let more_btn = if has_more {
-                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
-                rsx! {
-                    div { class: "adm-load-more",
-                        button {
-                            class: "admin-btn",
-                            disabled: busy,
-                            "data-pm-adm-l-more": "mp",
-                            "{label}"
-                        }
-                    }
-                }
-            } else {
-                VNode::empty()
-            };
-            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
-            rsx! {
-                for i in 0..parts.len() {
-                    ..vec![parts[i].clone()]
-                }
-            }
-        }
-    };
-
+    let new_state = st.clone();
+    let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_map_new(&new_state));
+    let page = crate::list_page::entity_list_page(st, spec, &st.map, "mp", &shape, Some(on_new));
     rsx! {
-        section { class: "admin-page admin-config-page",
-            div { class: "admin-page-header",
-                h2 { "地图数据" }
-                span { class: "adm-count", "{count_text}" }
-            }
-            div { class: "admin-card adm-filter-bar",
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "ID（精确）",
-                    value: f_id,
-                    "data-pm-adm-f-id": "mp"
-                }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "名称（包含）",
-                    value: f_name,
-                    "data-pm-adm-f-name": "mp"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-kind",
-                    r#type: "text",
-                    placeholder: "地形（plain/grass/sea/cave…）",
-                    value: f_a,
-                    "data-pm-adm-f-a": "mp"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-num",
-                    r#type: "text",
-                    placeholder: "最低等级 ≥",
-                    value: f_b,
-                    "data-pm-adm-f-b": "mp"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-l-apply": "mp",
-                    "筛选"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reset": "mp",
-                    "重置"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reload": "mp",
-                    "刷新"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-mp-new": "1",
-                    "新增地图"
-                }
-            }
-            ..vec![body, map_editor_modal(st)]
+        div {
+            ..vec![page, map_editor_modal(st)]
         }
     }
 }
 
-/// 用户数据页（切片 5）：列表页模板 + 泛型动作/属性（us 页键）。
-/// ID 筛选 tag 是 UID、名称是 昵称（服务端反查 common_member.username）。
+/// 地图行：ID / 名称 / 地形 / 状态 / 等级范围 / 模式 / 品质门槛 / 操作。
+fn map_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
+    let id = json_u64(item, "id").to_string();
+    let name = json_str(item, "name");
+    let area = area_name(&json_str(item, "area_type")).to_string();
+    let enabled_text = if json_bool(item, "is_enabled") { "启用" } else { "停用" };
+    let min_lv = json_u64(item, "min_level");
+    let max_lv = json_u64(item, "max_level");
+    let range_text = format!("Lv.{min_lv} ~ Lv.{max_lv}");
+    let min_quality = json_u64(item, "min_quality");
+    let quality_text = if min_quality > 0 { min_quality.to_string() } else { "—".to_string() };
+    // mode 是扁平字符串："wild"/"boss"/"hybrid"
+    let mode_label = match json_str(item, "mode").as_str() {
+        "wild" => "野生".to_string(),
+        "boss" => "Boss".to_string(),
+        "hybrid" => "混合".to_string(),
+        _ => "？".to_string(),
+    };
+    let edit_state = st.clone();
+    let del_state = st.clone();
+    let id_for_edit = id.clone();
+    let id_for_del = id.clone();
+    let edit_id: u64 = id.parse().unwrap_or(0);
+    let del_id: u64 = id.parse().unwrap_or(0);
+    vec![
+        rsx! { td { "{id}" } },
+        rsx! { td { "{name}" } },
+        rsx! { td { "{area}" } },
+        rsx! { td { "{enabled_text}" } },
+        rsx! { td { "{range_text}" } },
+        rsx! { td { "{mode_label}" } },
+        rsx! { td { "{quality_text}" } },
+        rsx! {
+            td {
+                div { class: "adm-row-actions",
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-test-adm-mp-edit": id_for_edit,
+                        onclick: move |_| open_map_edit(&edit_state, edit_id),
+                        "编辑"
+                    }
+                    button {
+                        class: "admin-btn adm-row-del",
+                        "data-test-adm-del": id_for_del,
+                        onclick: move |_| open_delete_confirm(&del_state, "mp", del_id),
+                        "删除"
+                    }
+                }
+            }
+        },
+    ]
+}
+/// 用户数据页：行渲染进公共壳。
 fn user_data_page(st: &AppState) -> VNode {
-    let ls = st.user.clone();
-    let load_state = ls.loaded.get();
-    let busy = ls.busy.get();
-    let filtered = ls.filtered.get();
-    let err = ls.err.get();
-    let rows = ls.rows.get();
-    let total = ls.total.get();
-    let loaded_count = ls.loaded_count.get();
-    let has_more = !filtered && loaded_count < total;
-    let f_id = ls.f_id.get();
-    let f_name = ls.f_name.get();
-    let f_a = ls.f_a.get();
-    let f_b = ls.f_b.get();
-    let count_text = if filtered {
-        format!("筛选结果 {loaded_count} 条")
-    } else {
-        format!("已加载 {loaded_count} / {total} 条")
+    let spec = crate::state::USER_SPEC;
+    let shape = crate::list_page::TableShape {
+        columns: &["UID", "用户名", "胜", "输", "金钱", "经验", "宠物", "物品", "操作"],
+        row: Box::new(user_row),
     };
-
-    let body = match &load_state {
-        None => rsx! { div { class: "admin-loading", "正在加载用户数据..." } },
-        Some(Err(e)) => {
-            let msg = format!("加载失败：{e}");
-            rsx! {
-                div { class: "admin-card admin-error",
-                    p { "{msg}" }
-                    button {
-                        class: "admin-btn",
-                        disabled: busy,
-                        "data-pm-adm-l-reload": "us",
-                        "重新加载"
-                    }
-                }
-            }
-        }
-        Some(Ok(())) => {
-            let err_bar = match &err {
-                Some(e) => {
-                    let msg = format!("筛选失败：{e}");
-                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
-                }
-                None => VNode::empty(),
-            };
-            let table = if rows.is_empty() {
-                rsx! { p { class: "admin-empty-hint", "暂无用户数据。" } }
-            } else {
-                let mut trs: Vec<VNode> = Vec::new();
-                for item in rows.iter() {
-                    let id = json_u64(item, "id").to_string();
-                    let uid = id.clone();
-                    let name = json_str(item, "name");
-                    let win = json_u64(item, "win_count").to_string();
-                    let lose = json_u64(item, "lose_count").to_string();
-                    let money = json_u64(item, "money").to_string();
-                    let exp = json_u64(item, "experience").to_string();
-                    let pm_count = item
-                        .get("pokemon_list")
-                        .and_then(|l| l.as_array())
-                        .map(|a| a.len())
-                        .unwrap_or(0)
-                        .to_string();
-                    let item_count = item
-                        .get("item_list")
-                        .and_then(|l| l.as_array())
-                        .map(|a| a.len())
-                        .unwrap_or(0)
-                        .to_string();
-                    trs.push(rsx! {
-                        tr {
-                            td { "{id}" }
-                            td { "{name}" }
-                            td { "{win}" }
-                            td { "{lose}" }
-                            td { "{money}" }
-                            td { "{exp}" }
-                            td { "{pm_count}" }
-                            td { "{item_count}" }
-                            td {
-                                div { class: "adm-row-actions",
-                                    button {
-                                        class: "admin-btn adm-row-edit",
-                                        disabled: busy,
-                                        "data-pm-adm-grant-poke": uid.clone(),
-                                        "给宠物"
-                                    }
-                                    button {
-                                        class: "admin-btn adm-row-edit",
-                                        disabled: busy,
-                                        "data-pm-adm-grant-item": uid.clone(),
-                                        "给物品"
-                                    }
-                                    button {
-                                        class: "admin-btn",
-                                        disabled: busy,
-                                        "data-pm-adm-drill": uid,
-                                        "管理"
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                rsx! {
-                    table { class: "adm-table",
-                        thead {
-                            tr {
-                                th { "UID" }
-                                th { "用户名" }
-                                th { "胜" }
-                                th { "输" }
-                                th { "金钱" }
-                                th { "经验" }
-                                th { "宠物" }
-                                th { "物品" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            for i in 0..trs.len() {
-                                ..vec![trs[i].clone()]
-                            }
-                        }
-                    }
-                }
-            };
-            let more_btn = if has_more {
-                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
-                rsx! {
-                    div { class: "adm-load-more",
-                        button {
-                            class: "admin-btn",
-                            disabled: busy,
-                            "data-pm-adm-l-more": "us",
-                            "{label}"
-                        }
-                    }
-                }
-            } else {
-                VNode::empty()
-            };
-            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
-            rsx! {
-                for i in 0..parts.len() {
-                    ..vec![parts[i].clone()]
-                }
-            }
-        }
-    };
-
+    let page = crate::list_page::entity_list_page(st, spec, &st.user, "us", &shape, None);
     rsx! {
-        section { class: "admin-page admin-config-page",
-            div { class: "admin-page-header",
-                h2 { "用户数据" }
-                span { class: "adm-count", "{count_text}" }
-            }
-            div { class: "admin-card adm-filter-bar",
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "UID（精确）",
-                    value: f_id,
-                    "data-pm-adm-f-id": "us"
-                }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "用户名（包含）",
-                    value: f_name,
-                    "data-pm-adm-f-name": "us"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-num",
-                    r#type: "text",
-                    placeholder: "胜场 ≥",
-                    value: f_a,
-                    "data-pm-adm-f-a": "us"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-num",
-                    r#type: "text",
-                    placeholder: "金钱 ≥",
-                    value: f_b,
-                    "data-pm-adm-f-b": "us"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-l-apply": "us",
-                    "筛选"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reset": "us",
-                    "重置"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reload": "us",
-                    "刷新"
-                }
-            }
-            ..vec![body, grant_modal(st), user_drill_modal(st)]
+        div {
+            ..vec![page, grant_modal(st), user_drill_modal(st)]
         }
     }
 }
 
-/// 进化链数据页（切片 6）：列表页模板；name 槽位=进化来源、a 槽位=进化目标。
-fn evolution_data_page(st: &AppState) -> VNode {
-    let ls = st.evolution.clone();
-    let load_state = ls.loaded.get();
-    let busy = ls.busy.get();
-    let filtered = ls.filtered.get();
-    let err = ls.err.get();
-    let rows = ls.rows.get();
-    let total = ls.total.get();
-    let loaded_count = ls.loaded_count.get();
-    let has_more = !filtered && loaded_count < total;
-    let f_id = ls.f_id.get();
-    let f_name = ls.f_name.get();
-    let f_a = ls.f_a.get();
-    let count_text = if filtered {
-        format!("筛选结果 {loaded_count} 条")
-    } else {
-        format!("已加载 {loaded_count} / {total} 条")
+/// 用户行：UID / 用户名 / 胜 / 输 / 金钱 / 经验 / 宠物数 / 物品数 / 操作。
+fn user_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
+    let id = json_u64(item, "id").to_string();
+    let name = json_str(item, "name");
+    let win = json_u64(item, "win_count").to_string();
+    let lose = json_u64(item, "lose_count").to_string();
+    let money = json_u64(item, "money").to_string();
+    let exp = json_u64(item, "experience").to_string();
+    let list_len = |key: &str| -> String {
+        item.get(key)
+            .and_then(|l| l.as_array())
+            .map(|a| a.len())
+            .unwrap_or(0)
+            .to_string()
     };
-
-    let body = match &load_state {
-        None => rsx! { div { class: "admin-loading", "正在加载进化链数据..." } },
-        Some(Err(e)) => {
-            let msg = format!("加载失败：{e}");
-            rsx! {
-                div { class: "admin-card admin-error",
-                    p { "{msg}" }
+    let pm_count = list_len("pokemon_list");
+    let item_count = list_len("item_list");
+    let poke_state = st.clone();
+    let item_state = st.clone();
+    let drill_state = st.clone();
+    let uid = id.clone();
+    let uid_for_drill = id.clone();
+    let parsed: u64 = uid.parse().unwrap_or(0);
+    vec![
+        rsx! { td { "{id}" } },
+        rsx! { td { "{name}" } },
+        rsx! { td { "{win}" } },
+        rsx! { td { "{lose}" } },
+        rsx! { td { "{money}" } },
+        rsx! { td { "{exp}" } },
+        rsx! { td { "{pm_count}" } },
+        rsx! { td { "{item_count}" } },
+        rsx! {
+            td {
+                div { class: "adm-row-actions",
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-test-adm-grant-poke": uid,
+                        onclick: move |_| open_grant(&poke_state, parsed, "pokemon"),
+                        "给宠物"
+                    }
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-test-adm-grant-item": uid_for_drill.clone(),
+                        onclick: move |_| open_grant(&item_state, parsed, "item"),
+                        "给物品"
+                    }
                     button {
                         class: "admin-btn",
-                        disabled: busy,
-                        "data-pm-adm-l-reload": "ev",
-                        "重新加载"
+                        "data-test-adm-drill": uid_for_drill,
+                        onclick: move |_| open_drill(&drill_state, parsed),
+                        "管理"
                     }
                 }
             }
-        }
-        Some(Ok(())) => {
-            let err_bar = match &err {
-                Some(e) => {
-                    let msg = format!("筛选失败：{e}");
-                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
-                }
-                None => VNode::empty(),
-            };
-            let table = if rows.is_empty() {
-                rsx! { p { class: "admin-empty-hint", "暂无进化链数据。" } }
-            } else {
-                let mut trs: Vec<VNode> = Vec::new();
-                for item in rows.iter() {
-                    let id = json_u64(item, "id").to_string();
-                    let id_for_edit = id.clone();
-                    // 历史数据存在 from_id/to_id 为 0 的孤儿行，名字为空——显示占位符。
-                    let del_attr_ev = format!("ev:{id}");
-                    let source = {
-                        let s = json_str(item, "source_name");
-                        if s.is_empty() {
-                            format!("（未知 #{}）", json_u64(item, "source_id"))
-                        } else {
-                            s
-                        }
-                    };
-                    let target = {
-                        let s = json_str(item, "target_name");
-                        if s.is_empty() {
-                            format!("（未知 #{}）", json_u64(item, "target_id"))
-                        } else {
-                            s
-                        }
-                    };
-                    let condition = json_str(item, "condition");
-                    let priority = json_u64(item, "priority").to_string();
-                    let item_name = json_str(item, "item_name");
-                    let item_hint = if item_name.is_empty() {
-                        "—".to_string()
-                    } else {
-                        item_name
-                    };
-                    trs.push(rsx! {
-                        tr {
-                            td { "{id}" }
-                            td { "{source}" }
-                            td { "{target}" }
-                            td { class: "adm-pk-stats", "{condition}" }
-                            td { "{item_hint}" }
-                            td { "{priority}" }
-                            td {
-                                div { class: "adm-row-actions",
-                                    button {
-                                        class: "admin-btn adm-row-edit",
-                                        disabled: busy,
-                                        "data-pm-adm-ev-edit": id_for_edit,
-                                        "编辑"
-                                    }
-                                    button {
-                                        class: "admin-btn adm-row-del",
-                                        disabled: busy,
-                                        "data-pm-adm-del": del_attr_ev,
-                                        "删除"
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                rsx! {
-                    table { class: "adm-table",
-                        thead {
-                            tr {
-                                th { "ID" }
-                                th { "进化来源" }
-                                th { "进化目标" }
-                                th { "条件" }
-                                th { "道具" }
-                                th { "优先级" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            for i in 0..trs.len() {
-                                ..vec![trs[i].clone()]
-                            }
-                        }
-                    }
-                }
-            };
-            let more_btn = if has_more {
-                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
-                rsx! {
-                    div { class: "adm-load-more",
-                        button {
-                            class: "admin-btn",
-                            disabled: busy,
-                            "data-pm-adm-l-more": "ev",
-                            "{label}"
-                        }
-                    }
-                }
-            } else {
-                VNode::empty()
-            };
-            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
-            rsx! {
-                for i in 0..parts.len() {
-                    ..vec![parts[i].clone()]
-                }
-            }
-        }
+        },
+    ]
+}
+/// 进化链数据页：name 槽位=进化来源、a 槽位=进化目标。
+fn evolution_data_page(st: &AppState) -> VNode {
+    let spec = crate::state::EVOLUTION_SPEC;
+    let shape = crate::list_page::TableShape {
+        columns: &["ID", "进化来源", "进化目标", "条件", "道具", "优先级", "操作"],
+        row: Box::new(evolution_row),
     };
-
+    let new_state = st.clone();
+    let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_evolution_new(&new_state));
+    let page =
+        crate::list_page::entity_list_page(st, spec, &st.evolution, "ev", &shape, Some(on_new));
     rsx! {
-        section { class: "admin-page admin-config-page",
-            div { class: "admin-page-header",
-                h2 { "进化链数据" }
-                span { class: "adm-count", "{count_text}" }
-            }
-            div { class: "admin-card adm-filter-bar",
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "ID（精确）",
-                    value: f_id,
-                    "data-pm-adm-f-id": "ev"
-                }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "进化来源（宠物名）",
-                    value: f_name,
-                    "data-pm-adm-f-name": "ev"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-kind",
-                    r#type: "text",
-                    placeholder: "进化目标（宠物名）",
-                    value: f_a,
-                    "data-pm-adm-f-a": "ev"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-l-apply": "ev",
-                    "筛选"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reset": "ev",
-                    "重置"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reload": "ev",
-                    "刷新"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-ev-new": "1",
-                    "新增进化链"
-                }
-            }
-            ..vec![body, evolution_editor_modal(st)]
+        div {
+            ..vec![page, evolution_editor_modal(st)]
         }
     }
+}
+
+/// 进化链行：ID / 来源 / 目标 / 条件 / 道具 / 优先级 / 操作。
+fn evolution_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
+    let id = json_u64(item, "id").to_string();
+    // 历史数据存在 from_id/to_id 为 0 的孤儿行，名字为空——显示占位符。
+    let source = {
+        let s = json_str(item, "source_name");
+        if s.is_empty() {
+            format!("（未知 #{}）", json_u64(item, "source_id"))
+        } else {
+            s
+        }
+    };
+    let target = {
+        let s = json_str(item, "target_name");
+        if s.is_empty() {
+            format!("（未知 #{}）", json_u64(item, "target_id"))
+        } else {
+            s
+        }
+    };
+    let condition = json_str(item, "condition");
+    let priority = json_u64(item, "priority").to_string();
+    let item_name = json_str(item, "item_name");
+    let item_hint = if item_name.is_empty() { "—".to_string() } else { item_name };
+    let edit_state = st.clone();
+    let del_state = st.clone();
+    let id_for_edit = id.clone();
+    let id_for_del = id.clone();
+    let edit_id: u64 = id.parse().unwrap_or(0);
+    let del_id: u64 = id.parse().unwrap_or(0);
+    vec![
+        rsx! { td { "{id}" } },
+        rsx! { td { "{source}" } },
+        rsx! { td { "{target}" } },
+        rsx! { td { class: "adm-pk-stats", "{condition}" } },
+        rsx! { td { "{item_hint}" } },
+        rsx! { td { "{priority}" } },
+        rsx! {
+            td {
+                div { class: "adm-row-actions",
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-test-adm-ev-edit": id_for_edit,
+                        onclick: move |_| open_evolution_edit(&edit_state, edit_id),
+                        "编辑"
+                    }
+                    button {
+                        class: "admin-btn adm-row-del",
+                        "data-test-adm-del": id_for_del,
+                        onclick: move |_| open_delete_confirm(&del_state, "ev", del_id),
+                        "删除"
+                    }
+                }
+            }
+        },
+    ]
 }
 
 /// 技能数据页（切片 7a）：列表页模板 + 泛型动作/属性（sk 页键）。
+/// 技能数据页：行渲染进公共壳。
 fn skill_data_page(st: &AppState) -> VNode {
-    let ls = st.skill.clone();
-    let load_state = ls.loaded.get();
-    let busy = ls.busy.get();
-    let filtered = ls.filtered.get();
-    let err = ls.err.get();
-    let rows = ls.rows.get();
-    let total = ls.total.get();
-    let loaded_count = ls.loaded_count.get();
-    let has_more = !filtered && loaded_count < total;
-    let f_id = ls.f_id.get();
-    let f_name = ls.f_name.get();
-    let f_a = ls.f_a.get();
-    let count_text = if filtered {
-        format!("筛选结果 {loaded_count} 条")
-    } else {
-        format!("已加载 {loaded_count} / {total} 条")
+    let spec = crate::state::SKILL_SPEC;
+    let shape = crate::list_page::TableShape {
+        columns: &["ID", "名称", "描述", "等级限制", "次数", "可学种族数", "操作"],
+        row: Box::new(skill_row),
     };
-
-    let body = match &load_state {
-        None => rsx! { div { class: "admin-loading", "正在加载技能数据..." } },
-        Some(Err(e)) => {
-            let msg = format!("加载失败：{e}");
-            rsx! {
-                div { class: "admin-card admin-error",
-                    p { "{msg}" }
-                    button {
-                        class: "admin-btn",
-                        disabled: busy,
-                        "data-pm-adm-l-reload": "sk",
-                        "重新加载"
-                    }
-                }
-            }
-        }
-        Some(Ok(())) => {
-            let err_bar = match &err {
-                Some(e) => {
-                    let msg = format!("筛选失败：{e}");
-                    rsx! { div { class: "admin-card admin-error", p { "{msg}" } } }
-                }
-                None => VNode::empty(),
-            };
-            let table = if rows.is_empty() {
-                rsx! { p { class: "admin-empty-hint", "暂无技能数据。" } }
-            } else {
-                let mut trs: Vec<VNode> = Vec::new();
-                for item in rows.iter() {
-                    let id = json_u64(item, "id").to_string();
-                    let id_for_edit = id.clone();
-                    let name = json_str(item, "name");
-                    let desc = json_str(item, "description");
-                    let del_attr_sk = format!("sk:{id}");
-                    let desc_short = if desc.chars().count() > 18 {
-                        let cut: String = desc.chars().take(18).collect();
-                        format!("{cut}…")
-                    } else {
-                        desc
-                    };
-                    let level = json_u64(item, "min_level_limit").to_string();
-                    let uses = json_u64(item, "use_times_limit").to_string();
-                    // available_pokemons 是种族 ID 数组，只显示数量。
-                    let species_count = item
-                        .get("available_pokemons")
-                        .and_then(|l| l.as_array())
-                        .map(|a| a.len())
-                        .unwrap_or(0)
-                        .to_string();
-                    trs.push(rsx! {
-                        tr {
-                            td { "{id}" }
-                            td { "{name}" }
-                            td { class: "adm-pk-stats", "{desc_short}" }
-                            td { "{level}" }
-                            td { "{uses}" }
-                            td { "{species_count}" }
-                            td {
-                                div { class: "adm-row-actions",
-                                    button {
-                                        class: "admin-btn adm-row-edit",
-                                        disabled: busy,
-                                        "data-pm-adm-sk-edit": id_for_edit,
-                                        "编辑"
-                                    }
-                                    button {
-                                        class: "admin-btn adm-row-del",
-                                        disabled: busy,
-                                        "data-pm-adm-del": del_attr_sk,
-                                        "删除"
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                rsx! {
-                    table { class: "adm-table",
-                        thead {
-                            tr {
-                                th { "ID" }
-                                th { "名称" }
-                                th { "描述" }
-                                th { "等级限制" }
-                                th { "次数" }
-                                th { "可学种族数" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            for i in 0..trs.len() {
-                                ..vec![trs[i].clone()]
-                            }
-                        }
-                    }
-                }
-            };
-            let more_btn = if has_more {
-                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
-                rsx! {
-                    div { class: "adm-load-more",
-                        button {
-                            class: "admin-btn",
-                            disabled: busy,
-                            "data-pm-adm-l-more": "sk",
-                            "{label}"
-                        }
-                    }
-                }
-            } else {
-                VNode::empty()
-            };
-            let parts: Vec<VNode> = vec![err_bar, table, more_btn];
-            rsx! {
-                for i in 0..parts.len() {
-                    ..vec![parts[i].clone()]
-                }
-            }
-        }
-    };
-
+    let new_state = st.clone();
+    let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_skill_new(&new_state));
+    let page = crate::list_page::entity_list_page(st, spec, &st.skill, "sk", &shape, Some(on_new));
     rsx! {
-        section { class: "admin-page admin-config-page",
-            div { class: "admin-page-header",
-                h2 { "技能数据" }
-                span { class: "adm-count", "{count_text}" }
-            }
-            div { class: "admin-card adm-filter-bar",
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "ID（精确）",
-                    value: f_id,
-                    "data-pm-adm-f-id": "sk"
-                }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    placeholder: "名称（包含）",
-                    value: f_name,
-                    "data-pm-adm-f-name": "sk"
-                }
-                input {
-                    class: "adm-filter-input adm-filter-kind",
-                    r#type: "text",
-                    placeholder: "种族 ID（如 25 皮卡丘）",
-                    value: f_a,
-                    "data-pm-adm-f-a": "sk"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-l-apply": "sk",
-                    "筛选"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reset": "sk",
-                    "重置"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reload": "sk",
-                    "刷新"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-sk-new": "1",
-                    "新增技能"
-                }
-            }
-            ..vec![body, skill_editor_modal(st)]
+        div {
+            ..vec![page, skill_editor_modal(st)]
         }
     }
 }
 
-/// 效果数据页（切片 7b）：服务端无 filter 端点，只 list/count + 分页。
-fn effect_data_page(st: &AppState) -> VNode {
-    let ls = st.effect.clone();
-    let load_state = ls.loaded.get();
-    let busy = ls.busy.get();
-    let rows = ls.rows.get();
-    let total = ls.total.get();
-    let loaded_count = ls.loaded_count.get();
-    let has_more = loaded_count < total;
-    let count_text = format!("已加载 {loaded_count} / {total} 条");
-
-    let body = match &load_state {
-        None => rsx! { div { class: "admin-loading", "正在加载效果数据..." } },
-        Some(Err(e)) => {
-            let msg = format!("加载失败：{e}");
-            rsx! {
-                div { class: "admin-card admin-error",
-                    p { "{msg}" }
-                    button {
-                        class: "admin-btn",
-                        disabled: busy,
-                        "data-pm-adm-l-reload": "ef",
-                        "重新加载"
-                    }
-                }
-            }
-        }
-        Some(Ok(())) => {
-            let table = if rows.is_empty() {
-                rsx! { p { class: "admin-empty-hint", "暂无效果数据。" } }
-            } else {
-                let mut trs: Vec<VNode> = Vec::new();
-                for item in rows.iter() {
-                    let id = json_u64(item, "id").to_string();
-                    let id_for_edit = id.clone();
-                    let code = json_str(item, "code");
-                    let kind = json_str(item, "kind");
-                    let del_attr_ef = format!("ef:{id}");
-                    let version = json_u64(item, "version").to_string();
-                    let hooks = item
-                        .get("hooks")
-                        .and_then(|h| h.as_array())
-                        .map(|a| {
-                            a.iter()
-                                .filter_map(|x| x.as_str())
-                                .collect::<Vec<_>>()
-                                .join(", ")
-                        })
-                        .unwrap_or_default();
-                    let desc = json_str(item, "description");
-                    let desc_short = if desc.chars().count() > 20 {
-                        let cut: String = desc.chars().take(20).collect();
-                        format!("{cut}…")
-                    } else {
-                        desc
-                    };
-                    trs.push(rsx! {
-                        tr {
-                            td { "{id}" }
-                            td { "{code}" }
-                            td { "{kind}" }
-                            td { class: "adm-pk-stats", "{hooks}" }
-                            td { "{version}" }
-                            td { class: "adm-pk-stats", "{desc_short}" }
-                            td {
-                                div { class: "adm-row-actions",
-                                    button {
-                                        class: "admin-btn adm-row-edit",
-                                        disabled: busy,
-                                        "data-pm-adm-efx-edit": id_for_edit,
-                                        "编辑"
-                                    }
-                                    button {
-                                        class: "admin-btn adm-row-del",
-                                        disabled: busy,
-                                        "data-pm-adm-del": del_attr_ef,
-                                        "删除"
-                                    }
-                                }
-                            }
-                        }
-                    });
-                }
-                rsx! {
-                    table { class: "adm-table",
-                        thead {
-                            tr {
-                                th { "ID" }
-                                th { "效果码" }
-                                th { "类型" }
-                                th { "钩子" }
-                                th { "版本" }
-                                th { "描述" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            for i in 0..trs.len() {
-                                ..vec![trs[i].clone()]
-                            }
-                        }
-                    }
-                }
-            };
-            let more_btn = if has_more {
-                let label = format!("加载更多（已加载 {loaded_count}/{total}）");
-                rsx! {
-                    div { class: "adm-load-more",
-                        button {
-                            class: "admin-btn",
-                            disabled: busy,
-                            "data-pm-adm-l-more": "ef",
-                            "{label}"
-                        }
-                    }
-                }
-            } else {
-                VNode::empty()
-            };
-            let parts: Vec<VNode> = vec![table, more_btn];
-            rsx! {
-                for i in 0..parts.len() {
-                    ..vec![parts[i].clone()]
-                }
-            }
-        }
+/// 技能行：ID / 名称 / 描述 / 等级限制 / 次数 / 可学种族数 / 操作。
+fn skill_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
+    let id = json_u64(item, "id").to_string();
+    let name = json_str(item, "name");
+    let desc = json_str(item, "description");
+    let desc_short = if desc.chars().count() > 18 {
+        let cut: String = desc.chars().take(18).collect();
+        format!("{cut}…")
+    } else {
+        desc
     };
+    let level = json_u64(item, "min_level_limit").to_string();
+    let uses = json_u64(item, "use_times_limit").to_string();
+    // available_pokemons 是种族 ID 数组，只显示数量。
+    let species_count = item
+        .get("available_pokemons")
+        .and_then(|l| l.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0)
+        .to_string();
+    let edit_state = st.clone();
+    let del_state = st.clone();
+    let id_for_edit = id.clone();
+    let id_for_del = id.clone();
+    let edit_id: u64 = id.parse().unwrap_or(0);
+    let del_id: u64 = id.parse().unwrap_or(0);
+    vec![
+        rsx! { td { "{id}" } },
+        rsx! { td { "{name}" } },
+        rsx! { td { class: "adm-pk-stats", "{desc_short}" } },
+        rsx! { td { "{level}" } },
+        rsx! { td { "{uses}" } },
+        rsx! { td { "{species_count}" } },
+        rsx! {
+            td {
+                div { class: "adm-row-actions",
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-test-adm-sk-edit": id_for_edit,
+                        onclick: move |_| open_skill_edit(&edit_state, edit_id),
+                        "编辑"
+                    }
+                    button {
+                        class: "admin-btn adm-row-del",
+                        "data-test-adm-del": id_for_del,
+                        onclick: move |_| open_delete_confirm(&del_state, "sk", del_id),
+                        "删除"
+                    }
+                }
+            }
+        },
+    ]
+}
 
+/// 效果数据页（切片 7b）：服务端无 filter 端点，只 list/count + 分页。
+/// 效果数据页：服务端无 filter 端点，只 list/count + 分页。
+fn effect_data_page(st: &AppState) -> VNode {
+    let spec = crate::state::EFFECT_SPEC;
+    let shape = crate::list_page::TableShape {
+        columns: &["ID", "效果码", "类型", "钩子", "版本", "描述", "操作"],
+        row: Box::new(effect_row),
+    };
+    let new_state = st.clone();
+    let on_new: std::rc::Rc<dyn Fn()> = std::rc::Rc::new(move || open_effect_new(&new_state));
+    let page = crate::list_page::entity_list_page(st, spec, &st.effect, "ef", &shape, Some(on_new));
     rsx! {
-        section { class: "admin-page admin-config-page",
-            div { class: "admin-page-header",
-                h2 { "效果数据" }
-                span { class: "adm-count", "{count_text}" }
-            }
-            div { class: "admin-card adm-filter-bar",
-                span { class: "admin-config-hint",
-                    "战斗引擎 2.0 效果模板。服务端未提供筛选端点，此页仅支持刷新与分页。"
-                }
-                button {
-                    class: "admin-btn",
-                    disabled: busy,
-                    "data-pm-adm-l-reload": "ef",
-                    "刷新"
-                }
-                button {
-                    class: "admin-btn admin-btn--primary",
-                    disabled: busy,
-                    "data-pm-adm-efx-new": "1",
-                    "新增效果"
-                }
-            }
-            ..vec![body, effect_editor_modal(st)]
+        div {
+            ..vec![page, effect_editor_modal(st)]
         }
     }
+}
+
+/// 效果行：ID / 效果码 / 类型 / 钩子 / 版本 / 描述 / 操作。
+fn effect_row(st: &AppState, item: &serde_json::Value) -> Vec<VNode> {
+    let id = json_u64(item, "id").to_string();
+    let code = json_str(item, "code");
+    let kind = json_str(item, "kind");
+    let version = json_u64(item, "version").to_string();
+    let hooks = item
+        .get("hooks")
+        .and_then(|h| h.as_array())
+        .map(|a| a.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(", "))
+        .unwrap_or_default();
+    let desc = json_str(item, "description");
+    let desc_short = if desc.chars().count() > 20 {
+        let cut: String = desc.chars().take(20).collect();
+        format!("{cut}…")
+    } else {
+        desc
+    };
+    let edit_state = st.clone();
+    let del_state = st.clone();
+    let id_for_edit = id.clone();
+    let id_for_del = id.clone();
+    let edit_id: u64 = id.parse().unwrap_or(0);
+    let del_id: u64 = id.parse().unwrap_or(0);
+    vec![
+        rsx! { td { "{id}" } },
+        rsx! { td { "{code}" } },
+        rsx! { td { "{kind}" } },
+        rsx! { td { class: "adm-pk-stats", "{hooks}" } },
+        rsx! { td { "{version}" } },
+        rsx! { td { class: "adm-pk-stats", "{desc_short}" } },
+        rsx! {
+            td {
+                div { class: "adm-row-actions",
+                    button {
+                        class: "admin-btn adm-row-edit",
+                        "data-test-adm-efx-edit": id_for_edit,
+                        onclick: move |_| open_effect_edit(&edit_state, edit_id),
+                        "编辑"
+                    }
+                    button {
+                        class: "admin-btn adm-row-del",
+                        "data-test-adm-del": id_for_del,
+                        onclick: move |_| open_delete_confirm(&del_state, "ef", del_id),
+                        "删除"
+                    }
+                }
+            }
+        },
+    ]
 }
 
 // ---------------------------------------------------------------------------
