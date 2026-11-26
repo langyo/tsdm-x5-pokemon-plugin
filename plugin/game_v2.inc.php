@@ -62,6 +62,8 @@ include template('common/header');
 $game_css_ver = time();
 ?>
 <link rel="stylesheet" href="/source/plugin/pokemon/wasm/game.css?v=<?php echo $game_css_ver; ?>">
+<?php // hikari 标准件的皮肤（hikari 组件 → 旧版观感），必须排在 game.css 之后。 ?>
+<link rel="stylesheet" href="/source/plugin/pokemon/wasm2/hikari.css?v=<?php echo $build_id; ?>">
 
 <div class="pm-ui-switch">
   <span>界面版本：</span>

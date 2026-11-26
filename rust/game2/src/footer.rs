@@ -35,10 +35,9 @@ const INFO_ICON: &str = r#"<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.
 const EXTERNAL_ICON: &str = r#"<path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z" />"#;
 
 /// 页脚：版权 + “关于本项目”入口。单根节点，便于外壳内联放置。
-/// 无 props：tairitsu 的 #[component] 把未标 default 的字段视为必填，
-/// 传 None 会在渲染期 panic，而页脚本就不需要状态。
 #[component]
-pub fn Footer() -> VNode {
+pub fn Footer(state: Box<AppState>) -> VNode {
+    let open_state = state.clone();
     // 图标是纯装饰，dangerous_inner_html 只放本文件内的常量路径。
     rsx! {
         footer { class: "app-footer",
@@ -49,10 +48,10 @@ pub fn Footer() -> VNode {
                     r#type: "button",
                     title: "关于本项目",
                     "aria-label": "关于本项目",
-                    "data-pm-about": "1",
+                    onclick: move |_| open_state.show_about.set(true),
                     svg {
                         xmlns: "http://www.w3.org/2000/svg",
-                        view_box: "0 0 24 24",
+                        "viewBox": "0 0 24 24",
                         width: "18",
                         height: "18",
                         fill: "currentColor",
@@ -65,7 +64,7 @@ pub fn Footer() -> VNode {
 }
 
 /// 关于本项目弹窗：信息展示 + AI 模型披露（只读，无表单）。
-pub fn about_modal() -> VNode {
+pub fn about_modal(state: &AppState) -> VNode {
     let tech_tags: Vec<VNode> = TECH_TAGS
         .iter()
         .map(|tag| rsx! { span { class: "about-tech-tag", "{*tag}" } })
@@ -82,15 +81,11 @@ pub fn about_modal() -> VNode {
             }
         })
         .collect();
-    rsx! {
-        div { class: "modal-overlay", "data-pm-about-close": "1",
-            div { class: "modal-container modal-lg",
-                div { class: "modal-header",
-                    h3 { "关于本项目" }
-                    button { class: "modal-close-btn", "data-pm-about-close": "1", "×" }
-                }
-                div { class: "modal-body",
-                    div { class: "about-dialog",
+    let close_state = state.clone();
+    let on_close: std::rc::Rc<dyn Fn()> =
+        std::rc::Rc::new(move || close_state.show_about.set(false));
+    let dialog = rsx! {
+                        div { class: "about-dialog",
                         div { class: "about-hero",
                             img {
                                 class: "about-hero-logo",
@@ -122,7 +117,7 @@ pub fn about_modal() -> VNode {
                                 "langyo/tsdm-x5-pokemon-plugin"
                                 svg {
                                     xmlns: "http://www.w3.org/2000/svg",
-                                    view_box: "0 0 24 24",
+                                    "viewBox": "0 0 24 24",
                                     width: "12",
                                     height: "12",
                                     fill: "currentColor",
@@ -143,8 +138,6 @@ pub fn about_modal() -> VNode {
                             p { class: "about-models-footnote", "谨向以上模型及其背后的团队致谢。" }
                         }
                     }
-                }
-            }
-        }
-    }
+    };
+    crate::modal::modal("关于本项目", true, on_close, vec![dialog])
 }

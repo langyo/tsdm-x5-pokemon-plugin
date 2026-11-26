@@ -17,17 +17,16 @@
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
-use hikari_components::{Toast, ToastPosition, ToastProps, ToastVariant};
-
 use crate::app_state::AppState;
 use crate::battle_types::{BattleStatus, MapInfo};
 use crate::state::{PendingBattleAction, ToastKind};
+use crate::toast;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
 const IMG_PATH_REMOTE: &str = "https://img.tsdm39.com/Pokemon";
 
 // ---------------------------------------------------------------------------
-// 装载与动作（delegation.rs 调用）
+// 装载与动作（页面各元素的原生 onclick 调用）
 // ---------------------------------------------------------------------------
 
 /// 首次进入：恢复战斗 + 拉地图（战斗中不拉也行，但拉了切换更快）。
@@ -256,10 +255,9 @@ fn heal_then_start(state: &AppState, ids: Vec<u64>, idx: usize, map_id: u64) {
             if result.is_err() {
                 let bt = st.battle.clone();
                 bt.loading.inner().set(false);
-                crate::state::battle_show_toast_silent(
-                    &bt,
+                toast::show(
                     ToastKind::Error,
-                    "治疗结果尚未确认，请检查宠物状态后再继续。".to_string(),
+                    "治疗结果尚未确认，请检查宠物状态后再继续。",
                 );
                 crate::request_remount();
                 return;
@@ -274,7 +272,7 @@ fn heal_then_start(state: &AppState, ids: Vec<u64>, idx: usize, map_id: u64) {
     );
 }
 
-// ---- 战斗动作入口（delegation 直调） ----
+// ---- 战斗动作入口（按钮原生 onclick 直调） ----
 
 pub fn use_skill(state: &AppState, skill_id: u64) {
     begin(state, "turn", serde_json::json!({ "skill_id": skill_id }));
@@ -513,27 +511,6 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
     let first_level = list.first().map(|p| p.level);
     let pokemon_empty = list.is_empty();
 
-    let toast = if bt.toast_visible.get() {
-        let toast_state = bt.clone();
-        let variant = match bt.toast_kind.get() {
-            ToastKind::Success => ToastVariant::Success,
-            ToastKind::Error => ToastVariant::Error,
-        };
-        let message = bt.toast_message.get();
-        rsx! {
-            Toast {
-                variant: variant,
-                message: message,
-                position: ToastPosition::BottomRight,
-                on_close: Some(tairitsu_vdom::Callback::new(move |_| {
-                    toast_state.toast_visible.set(false)
-                })),
-            }
-        }
-    } else {
-        VNode::empty()
-    };
-
     // 连接错误弹窗（上次动作结果未确认）。
     let conn_modal = match conn_error {
         Some(err) => {
@@ -548,6 +525,7 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
             } else {
                 "重新同步战斗"
             };
+            let conn_state = st.clone();
             rsx! {
                 div { class: "modal-overlay",
                     div { class: "modal-container",
@@ -560,7 +538,14 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
                             button {
                                 class: "btn btn-primary",
                                 disabled: loading,
-                                "data-pm-bt-conn-action": "1",
+                                onclick: move |_| {
+                                    // 有无未确认的动作在点击时判断（与原委托分支一致）。
+                                    if conn_state.battle.pending.get().is_some() {
+                                        retry(&conn_state);
+                                    } else {
+                                        reconnect(&conn_state);
+                                    }
+                                },
                                 "{btn_label}"
                             }
                         }
@@ -580,7 +565,7 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
 
     rsx! {
         div { class: "page-adventure",
-            ..vec![body, conn_modal, toast]
+            ..vec![body, conn_modal]
         }
     }
 }
@@ -681,17 +666,17 @@ fn adventure_map_view(
                 let name = boss.pokemon_name.clone();
                 let alt_name = name.clone();
                 let detail = format!("Lv.{} · 倍率 x{}", boss.level, boss.boss_multiplier);
-                let attr = format!(
-                    "{}|{}|{}",
-                    map.id,
-                    boss.pokemon_type_id,
-                    boss.boss_index.unwrap_or(0)
-                );
+                let boss_map_id = map.id;
+                let boss_type_id = boss.pokemon_type_id;
+                let boss_index = boss.boss_index.unwrap_or(0);
+                let boss_state = st.clone();
                 boss_rows.push(rsx! {
                     button {
                         class: "boss-row-btn",
                         disabled: loading || pokemon_empty,
-                        "data-pm-bt-boss": attr,
+                        onclick: move |_| {
+                            start_boss(&boss_state, boss_map_id, boss_type_id, Some(boss_index))
+                        },
                         div { class: "boss-row-content",
                             img { class: "boss-row-avatar", src: sprite, alt: alt_name }
                             div { class: "boss-row-info",
@@ -718,24 +703,30 @@ fn adventure_map_view(
                 VNode::empty()
             };
             let start_btn = if has_wild {
-                let attr = map.id.to_string();
+                let start_map_id = map.id;
+                let start_state = st.clone();
                 rsx! {
                     button {
                         class: "modal-action-btn",
                         disabled: loading || pokemon_empty,
-                        "data-pm-bt-start": attr,
+                        onclick: move |_| start_adventure(&start_state, start_map_id),
                         "开始冒险"
                     }
                 }
             } else {
                 VNode::empty()
             };
+            let map_overlay_state = st.clone();
+            let map_close_state = st.clone();
             rsx! {
-                div { class: "modal-overlay", "data-pm-bt-map-close": "1",
+                div { class: "modal-overlay",
+                    onclick: move |_| close_map_detail(&map_overlay_state),
                     div { class: "modal-container",
+                        // 对齐 Dioxus 版 Modal：点弹窗内部不冒泡到遮罩（内部点击不关闭）。
+                        onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                         div { class: "modal-header",
                             h3 { "{title}" }
-                            button { class: "modal-close-btn", "data-pm-bt-map-close": "1", "×" }
+                            button { class: "modal-close-btn", onclick: move |_| close_map_detail(&map_close_state), "×" }
                         }
                         div { class: "modal-body modal-map-details",
                             div { class: "map-detail-header",
@@ -803,8 +794,7 @@ fn adventure_map_view(
                         let bg_style = format!("background-position: {x}% {y}%;");
                         let mut cards: Vec<VNode> = Vec::new();
                         for map in &region.maps {
-                            let id_attr = map.id.to_string();
-                            let id_attr_btn = map.id.to_string();
+                            let map_id = map.id;
                             let icon = map.area_icon();
                             let name = map.name.clone();
                             let area_name = map.area_type_name.clone();
@@ -830,19 +820,22 @@ fn adventure_map_view(
                                 .iter()
                                 .take(3)
                                 .map(|boss| {
-                                    let attr = format!(
-                                        "{}|{}|{}",
-                                        map.id,
-                                        boss.pokemon_type_id,
-                                        boss.boss_index.unwrap_or(0)
-                                    );
                                     let sprite = format!("{IMG_PATH_REMOTE}/pm/{}.gif", boss.pokemon_type_id);
                                     let name = boss.pokemon_name.clone();
                                     let alt_name = name.clone();
                                     let level = format!("Lv.{}", boss.level);
+                                    let chip_map_id = map.id;
+                                    let chip_type_id = boss.pokemon_type_id;
+                                    let chip_index = boss.boss_index.unwrap_or(0);
+                                    let chip_state = st.clone();
                                     rsx! {
                                         div { class: "card-boss-item",
-                                            "data-pm-bt-boss": attr,
+                                            // 对齐 Dioxus 版：点 Boss 直接开战，拦住冒泡，
+                                            // 免得再触发地图卡自身的「打开详情」。
+                                            onclick: move |e: tairitsu_vdom::MouseEvent| {
+                                                e.stop_propagation();
+                                                start_boss(&chip_state, chip_map_id, chip_type_id, Some(chip_index));
+                                            },
                                             img { class: "card-boss-avatar", src: sprite, alt: alt_name }
                                             span { class: "card-boss-name", "{name}" }
                                             span { class: "card-boss-level", "{level}" }
@@ -868,9 +861,11 @@ fn adventure_map_view(
                                     }
                                 }
                             };
+                            let card_state = st.clone();
+                            let detail_btn_state = st.clone();
                             cards.push(rsx! {
                                 div { class: card_cls,
-                                    "data-pm-bt-map-open": id_attr,
+                                    onclick: move |_| open_map_detail(&card_state, map_id),
                                     div { class: "zoomed-map-header",
                                         span { class: "map-icon", "{icon}" }
                                         h4 { "{name}" }
@@ -889,7 +884,11 @@ fn adventure_map_view(
                                     button {
                                         class: "zoomed-start-btn",
                                         disabled: loading || pokemon_empty,
-                                        "data-pm-bt-map-open": id_attr_btn,
+                                        // 卡片自身也开详情：按钮上拦住冒泡，一次点击只打开一次（对齐 Dioxus 版）。
+                                        onclick: move |e: tairitsu_vdom::MouseEvent| {
+                                            e.stop_propagation();
+                                            open_map_detail(&detail_btn_state, map_id);
+                                        },
                                         "查看详情"
                                     }
                                 }
@@ -902,11 +901,12 @@ fn adventure_map_view(
                         } else {
                             VNode::empty()
                         };
+                        let back_state = st.clone();
                         rsx! {
                             div { class: "hoenn-map-zoomed",
                                 button {
                                     class: "back-to-world-btn",
-                                    "data-pm-bt-region-back": "1",
+                                    onclick: move |_| select_region(&back_state, None),
                                     "← 返回世界地图"
                                 }
                                 div { class: "zoomed-region-title",
@@ -933,12 +933,13 @@ fn adventure_map_view(
                     let count_text = format!("{}个地点", region.maps.len());
                     let style = format!("left: {}%; top: {}%;", region.x, region.y);
                     let name = region.id.clone();
-                    let region_attr = region.id.clone();
+                    let region_id = region.id.clone();
+                    let marker_state = st.clone();
                     markers.push(rsx! {
                         div {
                             class: "map-marker",
                             style: style,
-                            "data-pm-bt-region": region_attr,
+                            onclick: move |_| select_region(&marker_state, Some(region_id.clone())),
                             div { class: "marker-dot" }
                             div { class: "marker-info",
                                 div { class: "marker-label", "{name}" }
@@ -985,6 +986,7 @@ fn battle_scene(
     let battle_over = scene.effective_battle_over();
     let needs_replacement = scene.needs_replacement();
     let turn = scene.turn.to_string();
+    let switch_open_state = st.clone();
 
     // —— 两侧精灵 ——
     let wild = &scene.wild_pokemon;
@@ -1034,7 +1036,8 @@ fn battle_scene(
         0 => {
             let mut skill_btns: Vec<VNode> = Vec::new();
             for skill in &my.skills {
-                let sid = skill.id.to_string();
+                let sid = skill.id;
+                let skill_state = st.clone();
                 let disabled = loading || skill.pp == 0;
                 let cls = if disabled {
                     "skill-btn disabled"
@@ -1065,7 +1068,7 @@ fn battle_scene(
                         class: cls,
                         r#type: "button",
                         disabled: disabled,
-                        "data-pm-bt-skill": sid,
+                        onclick: move |_| use_skill(&skill_state, sid),
                         div { class: "skill-btn-content",
                             div { class: "skill-name", "{name}" }
                             span { class: type_badge, "{stype}" }
@@ -1083,6 +1086,7 @@ fn battle_scene(
                     div { class: "empty-skill-slot", span { class: "empty-slot-text", "空" } }
                 });
             }
+            let attack_state = st.clone();
             rsx! {
                 div { class: "skills-panel",
                     div { class: "attack-button-section",
@@ -1090,7 +1094,7 @@ fn battle_scene(
                             class: if loading { "normal-attack-btn disabled" } else { "normal-attack-btn" },
                             r#type: "button",
                             disabled: loading,
-                            "data-pm-bt-attack": "1",
+                            onclick: move |_| normal_attack(&attack_state),
                             span { class: "attack-btn-label", "普通攻击" }
                         }
                     }
@@ -1111,7 +1115,8 @@ fn battle_scene(
             } else {
                 let mut cards: Vec<VNode> = Vec::new();
                 for item in items.iter() {
-                    let id_attr = item.id.to_string();
+                    let item_id = item.id;
+                    let item_state = st.clone();
                     let usable = item.can_use_on(my);
                     let disabled = loading || !usable;
                     let cls = if disabled {
@@ -1143,7 +1148,7 @@ fn battle_scene(
                             class: cls,
                             r#type: "button",
                             disabled: disabled,
-                            "data-pm-bt-item": id_attr,
+                            onclick: move |_| use_item_in_battle(&item_state, item_id),
                             title: condition,
                             div { class: "battle-item-icon",
                                 img { src: img_src, alt: alt_name }
@@ -1175,7 +1180,8 @@ fn battle_scene(
             } else {
                 let mut cards: Vec<VNode> = Vec::new();
                 for ball in balls.iter() {
-                    let id_attr = ball.type_id.to_string();
+                    let ball_id = ball.type_id;
+                    let ball_state = st.clone();
                     let disabled = loading || ball.quantity <= 0;
                     let cls = if disabled {
                         "battle-item-card disabled"
@@ -1196,7 +1202,7 @@ fn battle_scene(
                             class: cls,
                             r#type: "button",
                             disabled: disabled,
-                            "data-pm-bt-ball": id_attr,
+                            onclick: move |_| capture(&ball_state, ball_id),
                             div { class: "battle-item-icon",
                                 img { src: img_src, alt: alt_name }
                             }
@@ -1220,6 +1226,7 @@ fn battle_scene(
             }
         }
         _ => {
+            let flee_state = st.clone();
             rsx! {
                 div { class: "flee-panel",
                     p { class: "flee-hint", "确定要离开这场战斗吗？离开后将无法获得本场奖励。" }
@@ -1227,7 +1234,7 @@ fn battle_scene(
                         class: "btn btn-warning",
                         r#type: "button",
                         disabled: loading,
-                        "data-pm-bt-flee": "1",
+                        onclick: move |_| flee(&flee_state),
                         "退出战斗"
                     }
                 }
@@ -1251,7 +1258,9 @@ fn battle_scene(
             let title = format!("选择技能 - {}", sel.item_name);
             let mut rows: Vec<VNode> = Vec::new();
             for skill in &sel.available_skills {
-                let attr = format!("{}|{}", sel.item_id, skill.id);
+                let item_id = sel.item_id;
+                let skill_id = skill.id;
+                let row_state = st.clone();
                 let name = skill.name.clone();
                 let pp_text = format!("PP: {}/{}", skill.current_pp, skill.max_pp);
                 let pp_cls = if skill.current_pp == 0 {
@@ -1266,7 +1275,7 @@ fn battle_scene(
                         class: "skill-selection-item",
                         r#type: "button",
                         disabled: loading,
-                        "data-pm-bt-select-skill": attr,
+                        onclick: move |_| use_item_on_skill(&row_state, item_id, skill_id),
                         div { class: "skill-selection-info",
                             span { class: "skill-selection-name", "{name}" }
                             span { class: pp_cls, "{pp_text}" }
@@ -1275,12 +1284,17 @@ fn battle_scene(
                     }
                 });
             }
+            let sel_overlay_state = st.clone();
+            let sel_close_state = st.clone();
             rsx! {
-                div { class: "modal-overlay", "data-pm-bt-select-cancel": "1",
+                div { class: "modal-overlay",
+                    onclick: move |_| cancel_selection(&sel_overlay_state),
                     div { class: "modal-container",
+                        // 对齐 Dioxus 版 Modal：点弹窗内部不冒泡到遮罩（内部点击不关闭）。
+                        onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                         div { class: "modal-header",
                             h3 { "{title}" }
-                            button { class: "modal-close-btn", "data-pm-bt-select-cancel": "1", "×" }
+                            button { class: "modal-close-btn", onclick: move |_| cancel_selection(&sel_close_state), "×" }
                         }
                         div { class: "modal-body skill-selection-modal",
                             p { class: "skill-selection-hint", "请选择要恢复PP的技能：" }
@@ -1341,6 +1355,7 @@ fn battle_scene(
                     })
                     .collect();
                 let empty_notice = rsx! { p { "尚无战斗事件。" } };
+                let copy_state = st.clone();
                 rsx! {
                     div { class: "battle-log-events",
                         if data.turns.is_empty() {
@@ -1361,19 +1376,31 @@ fn battle_scene(
                     button {
                         class: "btn btn-primary",
                         r#type: "button",
-                        "data-pm-bt-log-copy": "1",
+                        "data-test-bt-log-copy": "1",
+                        onclick: move |_| copy_log(&copy_state),
                         "复制战报"
                     }
                     p { role: "status", class: "battle-copy-status", "{copy_status}" }
                 }
             }
         };
+        let log_overlay_state = st.clone();
+        let log_close_state = st.clone();
         rsx! {
-            div { class: "modal-overlay", "data-pm-bt-log-close": "1",
-                div { class: "modal-container",
+            div { class: "modal-overlay",
+                "data-test-bt-log-close": "1",
+                onclick: move |_| close_log(&log_overlay_state),
+                div {
+                    class: "modal-container",
+                    onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                     div { class: "modal-header",
                         h3 { "战报" }
-                        button { class: "modal-close-btn", "data-pm-bt-log-close": "1", "×" }
+                        button {
+                            class: "modal-close-btn",
+                            "data-test-bt-log-close": "1",
+                            onclick: move |_| close_log(&log_close_state),
+                            "×"
+                        }
                     }
                     div { class: "modal-body battle-log-body", ..vec![body] }
                 }
@@ -1384,6 +1411,11 @@ fn battle_scene(
     };
 
     let _ = pokemon_empty;
+    let log_open_state = st.clone();
+    let skills_tab_state = st.clone();
+    let items_tab_state = st.clone();
+    let capture_tab_state = st.clone();
+    let flee_tab_state = st.clone();
 
     rsx! {
         div { class: "page-battle",
@@ -1391,7 +1423,8 @@ fn battle_scene(
                 button {
                     class: "btn btn-secondary",
                     disabled: scene.engine_battle_id == 0,
-                    "data-pm-bt-log-open": "1",
+                    "data-test-bt-log-open": "1",
+                    onclick: move |_| open_log(&log_open_state),
                     "查看战报"
                 }
             }
@@ -1399,10 +1432,30 @@ fn battle_scene(
                 div { class: "battle-card-body",
                     div { class: "battle-content-area",
                         div { class: "battle-tab-menu",
-                            button { class: skills_cls, "data-pm-bt-tab": "0", "技能" }
-                            button { class: items_cls, "data-pm-bt-tab": "1", "道具" }
-                            button { class: capture_cls, "data-pm-bt-tab": "2", "捕捉" }
-                            button { class: flee_cls, "data-pm-bt-tab": "3", "退出战斗" }
+                            button {
+                                class: skills_cls,
+                                "data-test-bt-tab": "0",
+                                onclick: move |_| switch_tab(&skills_tab_state, 0),
+                                "技能"
+                            }
+                            button {
+                                class: items_cls,
+                                "data-test-bt-tab": "1",
+                                onclick: move |_| switch_tab(&items_tab_state, 1),
+                                "道具"
+                            }
+                            button {
+                                class: capture_cls,
+                                "data-test-bt-tab": "2",
+                                onclick: move |_| switch_tab(&capture_tab_state, 2),
+                                "捕捉"
+                            }
+                            button {
+                                class: flee_cls,
+                                "data-test-bt-tab": "3",
+                                onclick: move |_| switch_tab(&flee_tab_state, 3),
+                                "退出战斗"
+                            }
                         }
                         div { class: "battle-divider" }
                         div { class: "battle-main-content",
@@ -1433,7 +1486,8 @@ fn battle_scene(
                                             }
                                         }
                                         div { class: "player-pokemon-block",
-                                            "data-pm-bt-switch-open": "1",
+                                            "data-test-bt-switch-open": "1",
+                                            onclick: move |_| open_switch_modal(&switch_open_state),
                                             div { class: "player-info-box",
                                                 div { class: "player-header",
                                                     div { class: "player-name-row",
@@ -1475,6 +1529,9 @@ fn battle_scene(
 /// 结算弹窗（胜利/失败/逃脱/捕捉 + 奖励 + 结束/继续）。
 fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading: bool) -> VNode {
     let bt = st.battle.clone();
+    let result_log_state = st.clone();
+    let end_state = st.clone();
+    let continue_state = st.clone();
     let title = scene.status.result_title();
     let result_cls = match scene.status {
         BattleStatus::Victory | BattleStatus::Captured => "battle-result victory",
@@ -1543,7 +1600,8 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
             button {
                 class: "battle-continue-btn",
                 disabled: loading,
-                "data-pm-bt-continue": "1",
+                "data-test-bt-continue": "1",
+                onclick: move |_| continue_battle(&continue_state),
                 "继续战斗"
             }
         }
@@ -1562,11 +1620,17 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
                         ..vec![rewards_block, level_up_block]
                     }
                     div { class: "battle-end-buttons",
-                        button { class: "battle-end-btn", "data-pm-bt-log-open": "1", "查看战报" }
+                        button {
+                            class: "battle-end-btn",
+                            "data-test-bt-log-open": "1",
+                            onclick: move |_| open_log(&result_log_state),
+                            "查看战报"
+                        }
                         button {
                             class: "battle-end-btn",
                             disabled: loading,
-                            "data-pm-bt-end": "1",
+                            "data-test-bt-end": "1",
+                            onclick: move |_| end_battle(&end_state),
                             "返回冒险地图"
                         }
                         ..vec![continue_btn]
@@ -1588,12 +1652,15 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
         .and_then(|r| r.ok())
         .unwrap_or_default();
     let fainted_id = scene.my_pokemon.instance_id;
+    let replace_flee_state = st.clone();
 
     let mut rows: Vec<VNode> = Vec::new();
     for pm in list.iter().filter(|p| p.site == 1 || p.site == 2) {
         let is_the_fainted = pm.id == fainted_id;
         let is_fainted = is_the_fainted || pm.hp <= 0;
         let attr = pm.id.to_string();
+        let pm_id = pm.id;
+        let replace_state = st.clone();
         let cls = if is_fainted {
             "replacement-pokemon-card disabled"
         } else {
@@ -1623,7 +1690,8 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
                 class: cls,
                 r#type: "button",
                 disabled: loading || is_fainted,
-                "data-pm-bt-replace": attr,
+                "data-test-bt-replace": attr,
+                onclick: move |_| replace_pokemon(&replace_state, pm_id),
                 img { class: "replacement-pokemon-sprite", src: sprite, alt: alt_name }
                 div { class: "replacement-pokemon-info",
                     div { class: "replacement-pokemon-name",
@@ -1654,7 +1722,8 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
                         button {
                             class: "btn btn-warning",
                             disabled: loading,
-                            "data-pm-bt-flee": "1",
+                            "data-test-bt-flee": "1",
+                            onclick: move |_| flee(&replace_flee_state),
                             "逃跑（无惩罚）"
                         }
                     }
@@ -1666,23 +1735,41 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
 
 /// 手动换宠确认。
 fn switch_modal(st: &AppState, loading: bool) -> VNode {
-    let _ = st;
+    let overlay_state = st.clone();
+    let close_state = st.clone();
+    let cancel_state = st.clone();
+    let confirm_state = st.clone();
     rsx! {
-        div { class: "modal-overlay", "data-pm-bt-switch-cancel": "1",
-            div { class: "modal-container",
+        div { class: "modal-overlay",
+            "data-test-bt-switch-cancel": "1",
+            onclick: move |_| close_switch_modal(&overlay_state),
+            div {
+                class: "modal-container",
+                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                 div { class: "modal-header",
                     h3 { "切换上场宠物" }
-                    button { class: "modal-close-btn", "data-pm-bt-switch-cancel": "1", "×" }
+                    button {
+                        class: "modal-close-btn",
+                        "data-test-bt-switch-cancel": "1",
+                        onclick: move |_| close_switch_modal(&close_state),
+                        "×"
+                    }
                 }
                 div { class: "modal-body switch-pokemon-modal",
                     p { class: "switch-pokemon-warning", "切换宠物可能会让当前上场宠物再受到一次攻击！" }
                     p { class: "switch-pokemon-hint", "确定要切换吗？（将轮换背包中的下一只宠物）" }
                     div { class: "switch-pokemon-actions",
-                        button { class: "btn btn-secondary", "data-pm-bt-switch-cancel": "1", "取消" }
+                        button {
+                            class: "btn btn-secondary",
+                            "data-test-bt-switch-cancel": "1",
+                            onclick: move |_| close_switch_modal(&cancel_state),
+                            "取消"
+                        }
                         button {
                             class: "btn btn-primary",
                             disabled: loading,
-                            "data-pm-bt-switch-confirm": "1",
+                            "data-test-bt-switch-confirm": "1",
+                            onclick: move |_| switch_pokemon(&confirm_state),
                             "确定切换"
                         }
                     }

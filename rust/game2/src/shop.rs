@@ -4,7 +4,7 @@
 //! 直接复用 plugin/wasm/game.css；行为对齐点：
 //! - 分类切换/搜索重置回第 1 页，服务端返回总页数后把当前页夹回
 //! - 悬浮详情显示在光标上方（视口内横向收拢），不遮挡价格与购买按钮
-//! - 购买互斥（buying 守卫），成功/失败反馈用 hikari Toast
+//! - 购买互斥（buying 守卫），成功/失败反馈走应用级提示（toast.rs）
 //! - 分页器窗口化页码（shop_logic::windowed_pages，同算法带测试）
 //!
 //! 战斗中禁用商店的遮罩随对战页移植一起接（当前 v2 无对战状态）。
@@ -14,14 +14,13 @@
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
-use hikari_components::{
-    theme::ThemeProviderProps, ThemeProvider, Toast, ToastPosition, ToastProps, ToastVariant,
-};
+use hikari_components::{theme::ThemeProviderProps, ThemeProvider};
 
 use crate::api;
 use crate::icon::{Icon, IconName, IconProps};
-use crate::shop_logic::{windowed_entries, PagerEntry};
-use crate::state::{show_toast_silent, ShopItem, ShopPet, ShopState, ToastKind};
+use crate::shop_logic::{shop_tooltip_position, windowed_entries, PagerEntry};
+use crate::state::{ShopItem, ShopPet, ShopState, ToastKind};
+use crate::toast;
 
 /// 图片资源基础路径（对应 Dioxus 版 IMG_PATH）。
 const IMG_PATH: &str = "source/plugin/pokemon/images";
@@ -111,7 +110,8 @@ fn promise_commit(state: &ShopState) {
 fn promise_commit(_state: &ShopState) {}
 
 // ---------------------------------------------------------------------------
-// 委托动作入口（delegation.rs 调用；全部走事件线程，可安全 mark_dirty）
+// 动作入口（本文件组件上的 tairitsu 原生事件处理器调用；全部走事件线程，
+// 可安全 mark_dirty）
 // ---------------------------------------------------------------------------
 
 pub fn select_category(state: &ShopState, cat: Option<u32>) {
@@ -191,6 +191,30 @@ pub fn viewport_width_or_default() -> f64 {
     crate::shop_logic::viewport_width().unwrap_or(1280.0)
 }
 
+/// tooltip 估算高度（定位用，需与 .shop-tile-tooltip 的 CSS 尺寸一致）。
+const ITEM_TOOLTIP_H: f64 = 130.0;
+const PET_TOOLTIP_H: f64 = 190.0;
+
+/// 指针进入瓦片：按光标位置算出 tooltip 落点并显示。tooltip 是纯派生 UI，
+/// 走内部值写入（不触发信号调度）+ 请求重渲染。
+fn tooltip_enter(state: &ShopState, idx: usize, tooltip_h: f64, client_x: i32, client_y: i32) {
+    let (x, y) = shop_tooltip_position(
+        client_x as f64,
+        client_y as f64,
+        tooltip_h,
+        viewport_width_or_default(),
+    );
+    state.hover_pos.inner().set((x, y));
+    state.hover_key.inner().set(Some(idx));
+    crate::request_remount();
+}
+
+/// 指针离开瓦片：收起 tooltip。
+fn tooltip_leave(state: &ShopState) {
+    state.hover_key.inner().set(None);
+    crate::request_remount();
+}
+
 /// promise 线程版：全部走内部值写入，不触发任何调度。
 fn clamp_page_silent(state: &ShopState, total_pages: usize) {
     let last = total_pages.max(1);
@@ -219,12 +243,11 @@ fn buy_item(state: &ShopState, item: &ShopItem) {
         item.id,
         Box::new(move |result| {
             match result {
-                Ok(resp) => show_toast_silent(
-                    &state,
+                Ok(resp) => toast::show(
                     ToastKind::Success,
                     format!("成功购买 {name} ×1！余额: {}", resp.remaining_money),
                 ),
-                Err(e) => show_toast_silent(&state, ToastKind::Error, format!("购买失败: {e}")),
+                Err(e) => toast::show(ToastKind::Error, format!("购买失败: {e}")),
             }
             state.buying.inner().set(false);
             reload(&state);
@@ -248,8 +271,7 @@ fn buy_pet(state: &ShopState, pet: &ShopPet) {
                         2 => "背包",
                         _ => "仓库",
                     };
-                    show_toast_silent(
-                        &state,
+                    toast::show(
                         ToastKind::Success,
                         format!(
                             "成功购买 {name}！已放入{location}，余额: {}",
@@ -257,7 +279,7 @@ fn buy_pet(state: &ShopState, pet: &ShopPet) {
                         ),
                     );
                 }
-                Err(e) => show_toast_silent(&state, ToastKind::Error, format!("购买失败: {e}")),
+                Err(e) => toast::show(ToastKind::Error, format!("购买失败: {e}")),
             }
             state.buying.inner().set(false);
             reload(&state);
@@ -266,10 +288,10 @@ fn buy_pet(state: &ShopState, pet: &ShopPet) {
 }
 
 /// 搜索防抖：每次输入重启计时器（对齐 Dioxus 版 SEARCH_DEBOUNCE_MS）。
-/// 当前未使用：tairitsu 的 InputEvent 只带增量文本，搜索框改用
-/// onchange 的 ChangeEvent（完整值，回车提交），保留此函数待上游
-/// 补充 input 完整值语义后切回。（TimerOps 的 WitPlatform 实现是
-/// wasm 专属，native 编不过，一并按目标门控。）
+/// 当前未使用：筛选框走 oninput 逐字重载（InputEvent.value 已是完整值），
+/// 没有防抖；保留此函数备需要时接入。
+/// （TimerOps 的 WitPlatform 实现是 wasm 专属，native 编不过，一并按
+/// 目标门控。）
 #[cfg(target_family = "wasm")]
 #[allow(dead_code)]
 fn debounce_reload(state: &ShopState) {
@@ -316,7 +338,6 @@ fn ShopCard(state: Box<ShopState>) -> VNode {
         reload(&state);
     }
 
-    let toast_state = state.clone();
     rsx! {
         div { class: "page-shop",
             div { class: "shop-card",
@@ -333,24 +354,7 @@ fn ShopCard(state: Box<ShopState>) -> VNode {
                     }
                 }
             }
-            if state.toast_visible.get() {
-                Toast {
-                    variant: toast_variant(state.toast_kind.get()),
-                    message: state.toast_message.get(),
-                    position: ToastPosition::BottomRight,
-                    on_close: Some(tairitsu_vdom::Callback::new(move |_| {
-                        toast_state.toast_visible.set(false)
-                    })),
-                }
-            }
         }
-    }
-}
-
-fn toast_variant(kind: ToastKind) -> ToastVariant {
-    match kind {
-        ToastKind::Success => ToastVariant::Success,
-        ToastKind::Error => ToastVariant::Error,
     }
 }
 
@@ -380,12 +384,11 @@ fn CategoryBar(state: Box<ShopState>) -> VNode {
                         let class = if active == cat_id { "category-btn active" } else { "category-btn" };
                         let img_class = if is_pet { "cat-icon-img pet-cat-icon" } else { "cat-icon-img" };
                         let img_src = format!("{IMG_PATH}/{cat_icon}");
-                        let cat_attr = match cat_id { Some(n) => n.to_string(), None => "pet".to_string() };
                         rsx! {
                             button {
                                 class: class,
                                 disabled: buying,
-                                "data-pm-cat": cat_attr,
+                                onclick: move |_| select_category(&state, cat_id),
                                 span { class: "cat-icon",
                                     img { class: img_class, src: img_src }
                                 }
@@ -403,18 +406,22 @@ fn CategoryBar(state: Box<ShopState>) -> VNode {
 #[component]
 fn FilterToggle(state: Box<ShopState>, filter_class: String) -> VNode {
     let has_value = !state.keyword.get().trim().is_empty();
+    let toggle_state = state.clone();
     rsx! {
         div { class: "shop-filter",
             button {
                 class: filter_class,
                 r#type: "button",
                 title: "按名称筛选商品",
-                "data-pm-filter-toggle": "1",
+                onclick: move |_| {
+                    toggle_state.filter_open.set(!toggle_state.filter_open.get());
+                    refresh(&toggle_state);
+                },
                 if has_value {
                     span { class: "filter-icon filter-icon-filled",
                         svg {
                             xmlns: "http://www.w3.org/2000/svg",
-                            view_box: "0 0 24 24",
+                            "viewBox": "0 0 24 24",
                             width: "16",
                             height: "16",
                             fill: "currentColor",
@@ -426,13 +433,13 @@ fn FilterToggle(state: Box<ShopState>, filter_class: String) -> VNode {
                     span { class: "filter-icon filter-icon-outline",
                         svg {
                             xmlns: "http://www.w3.org/2000/svg",
-                            view_box: "0 0 24 24",
+                            "viewBox": "0 0 24 24",
                             width: "16",
                             height: "16",
                             fill: "none",
                             stroke: "currentColor",
-                            stroke_width: "2",
-                            stroke_linejoin: "round",
+                            "stroke-width": "2",
+                            "stroke-linejoin": "round",
                             dangerous_inner_html: FUNNEL_PATH,
                         }
                     }
@@ -451,10 +458,16 @@ const FUNNEL_PATH: &str = r#"<path d="M3 4.5h18l-6.8 7.6v7.4l-4.4-2.4v-5L3 4.5z"
 fn FilterPopover(state: Box<ShopState>) -> VNode {
     let keyword = state.keyword.get();
     let has_value = !keyword.trim().is_empty();
+    // 处理器闭包要求 'static：四个处理器各持一份状态句柄。
+    let (close_state, input_state, change_state, clear_state) =
+        (state.clone(), state.clone(), state.clone(), state);
     rsx! {
         div {
             class: "shop-filter-backdrop",
-            "data-pm-filter-close": "1",
+            onclick: move |_| {
+                close_state.filter_open.set(false);
+                refresh(&close_state);
+            },
         }
         div { class: "shop-filter-popover",
             label { class: "shop-filter-label", "按名称筛选" }
@@ -465,14 +478,21 @@ fn FilterPopover(state: Box<ShopState>) -> VNode {
                     placeholder: "输入名称，动态匹配",
                     value: keyword,
                     autocomplete: "off",
-                    "data-pm-filter-input": "1",
+                    // 逐字即时匹配：InputEvent 带整字段值。change（失焦/回车）
+                    // 同样按完整值重载。
+                    oninput: move |e: tairitsu_vdom::InputEvent| {
+                        reload_from_filter(&input_state, &e.value)
+                    },
+                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                        reload_from_filter(&change_state, &e.value)
+                    },
                 }
                 if has_value {
                     button {
                         class: "shop-filter-clear",
                         r#type: "button",
                         title: "清除筛选",
-                        "data-pm-filter-clear": "1",
+                        onclick: move |_| reload_from_filter(&clear_state, ""),
                         Icon { name: Some(IconName::X), size: Some(12), class: Some(String::new()) }
                     }
                 }
@@ -570,14 +590,18 @@ fn ItemTile(state: Box<ShopState>, idx: usize, item: ShopItem) -> VNode {
     let title_text = item.name.clone();
     let type_name = item.type_name.clone();
 
-    let item_id_attr = item.id.to_string();
-    let tile_idx_attr = idx.to_string();
+    // 购买入口是整块瓦片：点到瓦片内任意位置都触发购买（按钮不单独绑定）。
+    let item_id = item.id;
+    // 处理器闭包要求 'static：三个处理器各持一份状态句柄。
+    let (click_state, enter_state, leave_state) = (state.clone(), state.clone(), state);
     rsx! {
         div {
             class: "shop-tile",
-            "data-pm-tile": tile_idx_attr,
-            "data-pm-tile-kind": "item",
-            "data-pm-buy": item_id_attr,
+            onclick: move |_| buy_item_by_id(&click_state, item_id),
+            onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
+                tooltip_enter(&enter_state, idx, ITEM_TOOLTIP_H, e.client_x, e.client_y)
+            },
+            onmouseleave: move |_| tooltip_leave(&leave_state),
             div { class: "shop-tile-icon",
                 img { class: "tile-icon-img", src: img_src }
             }
@@ -663,8 +687,10 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
     let type_1_cls = format!("badge badge-type-{type_1}");
     let type_2_cls = format!("badge badge-type-{type_2}");
 
-    let pet_id_attr = pet.id.to_string();
-    let tile_idx_attr = idx.to_string();
+    // 购买入口是整块瓦片：点到瓦片内任意位置都触发购买（按钮不单独绑定）。
+    let pet_id = pet.id;
+    // 处理器闭包要求 'static：三个处理器各持一份状态句柄。
+    let (click_state, enter_state, leave_state) = (state.clone(), state.clone(), state);
 
     let hp = format!("HP {}", pet.hp);
     let atk = format!("攻击 {}", pet.atk);
@@ -676,9 +702,11 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
     rsx! {
         div {
             class: "shop-tile pet-tile",
-            "data-pm-tile": tile_idx_attr,
-            "data-pm-tile-kind": "pet",
-            "data-pm-buypet": pet_id_attr,
+            onclick: move |_| buy_pet_by_id(&click_state, pet_id),
+            onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
+                tooltip_enter(&enter_state, idx, PET_TOOLTIP_H, e.client_x, e.client_y)
+            },
+            onmouseleave: move |_| tooltip_leave(&leave_state),
             div { class: "shop-tile-icon",
                 img { class: "tile-icon-img pet-sprite-img", src: img_src }
             }
@@ -779,6 +807,8 @@ fn Paginator(state: Box<ShopState>) -> VNode {
     let total = state.total_pages.get().max(1);
     let current = (state.page.get() as usize).clamp(1, total);
     let entries = windowed_entries(current, total);
+    // 处理器闭包要求 'static：前后翻页各持一份状态句柄（页码在循环内克隆）。
+    let (prev_state, next_state) = (state.clone(), state.clone());
 
     rsx! {
         div { class: "shop-pagination",
@@ -786,23 +816,25 @@ fn Paginator(state: Box<ShopState>) -> VNode {
                 class: "pager-btn pager-nav",
                 r#type: "button",
                 disabled: current <= 1,
-                "data-pm-page": "prev",
+                onclick: move |_| {
+                    goto_page(&prev_state, prev_state.page.get().saturating_sub(1).max(1))
+                },
                 Icon { name: Some(IconName::ChevronLeft), size: Some(14), class: Some(String::new()) }
             }
             for i in 0..entries.len() {
                 {
                     match entries[i] {
                         PagerEntry::Page(p) => {
+                            let state = state.clone();
                             let active = p == current;
                             let class = if active { "pager-btn pager-num active" } else { "pager-btn pager-num" };
                             let label = p.to_string();
-                            let page_attr = label.clone();
                             rsx! {
                                 button {
                                     class: class,
                                     r#type: "button",
                                     disabled: total == 1,
-                                    "data-pm-page": page_attr,
+                                    onclick: move |_| goto_page(&state, p as u32),
                                     "{label}"
                                 }
                             }
@@ -815,7 +847,7 @@ fn Paginator(state: Box<ShopState>) -> VNode {
                 class: "pager-btn pager-nav",
                 r#type: "button",
                 disabled: current >= total,
-                "data-pm-page": "next",
+                onclick: move |_| goto_page(&next_state, next_state.page.get() + 1),
                 Icon { name: Some(IconName::ChevronRight), size: Some(14), class: Some(String::new()) }
             }
         }

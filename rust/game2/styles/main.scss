@@ -1,0 +1,60 @@
+// tairitsu 版专用皮肤：把 hikari 标准件压回旧版观感。
+//
+// 只由 v2 页面加载（game_v2.inc.php），排在 game.css 之后。game.css 仍是两套
+// 前端共用的基础样式；这里只放「hikari 组件 → 旧版样式」的适配，不重复定义
+// 旧版已有的规则。编译产物：plugin/wasm2/hikari.css。
+//
+// 不 @use variables：那个模块带一份 :root 令牌，@use 会把它原样再输出一遍
+// （game.css 里已经有了）。需要的值直接写并注明来源。
+
+// =============================================================================
+// Toast：hikari `Toast` 嵌在旧版 `.toast-item` 药丸里
+// =============================================================================
+
+.toast-item {
+  // hikari 的 Glow 在药丸和 Toast 本体之间多包一层 div，flex 布局要穿过它；
+  // 光晕（::before）在旧版药丸上不存在。
+  .hk-glow-wrapper {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+
+    &::before {
+      display: none;
+    }
+  }
+
+  // hikari Toast 自带内边距、底色与最小宽度，这些由外层 .toast-item 承担。
+  .hk-toast {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  // 旧版提示没有变体图标。
+  .hk-toast-icon-wrapper {
+    display: none;
+  }
+
+  .hk-toast-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  // 对齐 game.css 的 `.toast-item .toast-message`。
+  .hk-toast-message {
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    color: #fff; // $color-white
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

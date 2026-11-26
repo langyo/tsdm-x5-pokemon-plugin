@@ -1,7 +1,9 @@
 //! tairitsu + hikari 版游戏前端。
 //!
-//! 已移植页面：欢迎页（welcome.rs）、首页（home.rs）、商店（shop.rs）。
-//! 启动流程与状态模式记录在 docs/refactor-tairitsu-hikari-research.md §9/§10。
+//! 外壳（顶部导航 / 内容区 / 侧栏 / 页脚）和各页面都是同一个根组件的渲染函数：
+//! 状态在 `run_app` 里、于根组件上下文内创建一次，交互用 tairitsu 原生事件
+//! 绑定，变更经 signal → mark_dirty → 下一帧 flush → diff → apply_patches，
+//! 只把差异落到 DOM。来龙去脉见 docs/refactor-tairitsu-hikari-research.md。
 
 #[cfg(target_family = "wasm")]
 pub mod api;
@@ -10,14 +12,16 @@ pub mod app_state;
 pub mod battle;
 pub mod battle_types;
 #[cfg(target_family = "wasm")]
-pub mod delegation;
-#[cfg(target_family = "wasm")]
 pub mod footer;
 #[cfg(target_family = "wasm")]
 pub mod home;
 pub mod icon;
 #[cfg(target_family = "wasm")]
 pub mod inventory;
+#[cfg(target_family = "wasm")]
+pub mod mini_grid;
+#[cfg(target_family = "wasm")]
+pub mod modal;
 #[cfg(target_family = "wasm")]
 pub mod my_pokemon;
 #[cfg(target_family = "wasm")]
@@ -30,8 +34,12 @@ pub mod quality;
 #[cfg(target_family = "wasm")]
 pub mod shop;
 pub mod shop_logic;
+#[cfg(target_family = "wasm")]
+pub mod sidebar;
 pub mod state;
 pub mod storage_logic;
+#[cfg(target_family = "wasm")]
+pub mod toast;
 #[cfg(target_family = "wasm")]
 pub mod welcome;
 
@@ -40,38 +48,18 @@ use anyhow::Result;
 #[cfg(target_family = "wasm")]
 use tairitsu_web::WitPlatform;
 #[cfg(target_family = "wasm")]
-use tairitsu_web::wit_platform::WitElement;
-#[cfg(target_family = "wasm")]
-use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::node::get_child_nodes;
-#[cfg(target_family = "wasm")]
-use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::node_list::item;
-#[cfg(target_family = "wasm")]
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::non_element_parent_node::get_element_by_id;
-
-/// 按元素 id 取原始句柄（诊断/同步写入用）。
-#[cfg(target_family = "wasm")]
-pub fn element_handle(id: &str) -> Option<u64> {
-    get_element_by_id(0, id)
-}
 
 #[cfg(target_family = "wasm")]
 thread_local! {
     /// 根组件 ID：request_remount 据此 mark_dirty（0 = 尚未完成启动）。
     static ROOT_COMPONENT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-    /// TEMP DIAG：vnode 根元素（apply 回调用）。
-    static PATCH_ROOT: std::cell::RefCell<Option<WitElement>> =
-        const { std::cell::RefCell::new(None) };
-    /// 兜底整树替换用的最新状态。
-    static STATE_CACHE: std::cell::RefCell<Option<crate::app_state::AppState>> =
-        const { std::cell::RefCell::new(None) };
 }
 
-/// 请求一次增量渲染：mark_dirty → rAF（boot.js 的 MessageChannel 帧驱动）
-/// → flush_render → diff(old,new) → apply_patches 只落差异。
+/// 请求一次增量渲染：mark_dirty → 下一帧 → flush_render → diff → apply_patches。
 ///
-/// 名字保留 request_remount 是为了不动各页面模块里的调用点；语义自
-/// §10.1.5 起从「整树重挂」改为「标脏 + 帧调度增量渲染」（旧观察器桥
-/// 与整树重挂通道已退役）。
+/// 名字保留 request_remount 是为了不动各页面模块里的调用点；「整树重挂」的
+/// 语义早已退役。
 #[cfg(target_family = "wasm")]
 pub fn request_remount() {
     ROOT_COMPONENT.with(|id| {
@@ -81,63 +69,29 @@ pub fn request_remount() {
     });
 }
 
-/// 批次是否含结构性操作（增删/替换子节点）——递归扫描嵌套 UpdateChild。
-#[cfg(target_family = "wasm")]
-fn patch_has_structural(ps: &[tairitsu_vdom::Patch]) -> bool {
-    use tairitsu_vdom::Patch;
-    ps.iter().any(|p| match p {
-        Patch::InsertChild { .. }
-        | Patch::RemoveChild { .. }
-        | Patch::ReplaceNode { .. }
-        | Patch::CreateNode { .. } => true,
-        Patch::UpdateChild { patches, .. } => patch_has_structural(patches),
-        _ => false,
-    })
-}
-
-/// TEMP DIAG：补丁变体摘要（最近 3 批滚动日志用）。
-#[cfg(target_family = "wasm")]
-fn patch_summary(p: &tairitsu_vdom::Patch, depth: usize) -> String {
-    use tairitsu_vdom::Patch;
-    if depth > 5 {
-        return "…".into();
-    }
-    match p {
-        Patch::CreateNode { .. } => "CreateNode".into(),
-        Patch::ReplaceNode { .. } => "ReplaceNode".into(),
-        Patch::RemoveNode => "RemoveNode".into(),
-        Patch::UpdateText { text } => format!("UpdateText({}字)", text.chars().count()),
-        Patch::UpdateAttribute { name, .. } => format!("UpdAttr({name})"),
-        Patch::AddAttribute { name, .. } => format!("AddAttr({name})"),
-        Patch::RemoveAttribute { name } => format!("RmAttr({name})"),
-        Patch::UpdateStyle { .. } => "UpdStyle".into(),
-        Patch::UpdateClass { .. } => "UpdClass".into(),
-        Patch::InsertChild { index, .. } => format!("InsertChild({index})"),
-        Patch::RemoveChild { index } => format!("RemoveChild({index})"),
-        Patch::UpdateChild { index, patches } => format!(
-            "UpdateChild({index},[{}])",
-            patches
-                .iter()
-                .map(|cp| patch_summary(cp, depth + 1))
-                .collect::<Vec<_>>()
-                .join(",")
-        ),
-        Patch::AddEvent { name, .. } => format!("AddEvent({name})"),
-        Patch::UpdateEvent { name, .. } => format!("UpdEvent({name})"),
-        Patch::RemoveEvent { name } => format!("RmEvent({name})"),
-        _ => "Other".into(),
-    }
-}
-
-/// 整树重挂载：清空 #app 后按最新信号值与路由重建整棵树。
-///
-/// 按路由渲染页面：欢迎页整屏；其余页面带顶部导航（对齐 Dioxus 版
-/// Header 的 首页/商店 入口，未移植页面暂不列出）。
+/// 按路由渲染页面：欢迎页整屏；其余页面是「顶部导航 + 内容区（+ 侧栏）+ 页脚」，
+/// 结构与类名对齐 Dioxus 版 `components/layout`（Layout / Header / PageContainer /
+/// Sidebar / Footer）。
 #[cfg(target_family = "wasm")]
 fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     use app_state::Route;
     use tairitsu_macros::rsx;
-    // 首页装载（对齐 Dioxus 版 use_resource 首次求值时机）。
+    use sidebar::{Sidebar, SidebarProps};
+
+    // 账户资料回来之前是加载态；拉取失败给出「重新载入」（对齐 Dioxus 版 Layout）。
+    match &state.sidebar.profile.get() {
+        None => return loading_container(state, None),
+        Some(Err(err)) => return loading_container(state, Some(err.as_str())),
+        Some(Ok(_)) => {}
+    }
+
+    if state.route.get() == Route::Welcome {
+        return welcome::Welcome(welcome::WelcomeProps {
+            state: Some(Box::new(state.clone())),
+            ..Default::default()
+        });
+    }
+    // 各页首次进入时装载（对齐 Dioxus 版 use_resource 首次求值时机）。
     if state.route.get() == Route::Home {
         home::ensure_loaded(state);
     }
@@ -155,12 +109,6 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     }
     if state.route.get() == Route::Adventure {
         battle::ensure_loaded(state);
-    }
-    if state.route.get() == Route::Welcome {
-        return welcome::Welcome(welcome::WelcomeProps {
-            state: Some(Box::new(state.clone())),
-            ..Default::default()
-        });
     }
 
     let page = match state.route.get() {
@@ -197,102 +145,168 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
             ..Default::default()
         }),
     };
+    // 侧栏数据（携带宠物 / 背包分类件数 / 徽章状态）与页面无关，进主界面时装一次。
+    sidebar::ensure_loaded(state);
 
-    let home_active = state.route.get() == Route::Home;
-    let shop_active = state.route.get() == Route::Shop;
-    let inv_active = state.route.get() == Route::Inventory;
-    let center_active = state.route.get() == Route::PokemonCenter;
-    let mypm_active = state.route.get() == Route::MyPokemon;
-    let storage_active = state.route.get() == Route::PokemonStorage;
-    let adventure_active = state.route.get() == Route::Adventure;
-    let home_cls = if home_active {
-        "nav-link active"
+    // 顶部导航与 Dioxus 版 Header 完全一致：个人中心 / 商店 / 宠物中心 / 野外冒险。
+    // 首页走左上角 logo，背包与仓库走侧栏。
+    let nav_cls = |active: bool| if active { "nav-link active" } else { "nav-link" };
+    let mypm_cls = nav_cls(state.route.get() == Route::MyPokemon);
+    let shop_cls = nav_cls(state.route.get() == Route::Shop);
+    let center_cls = nav_cls(state.route.get() == Route::PokemonCenter);
+    let adventure_cls = nav_cls(state.route.get() == Route::Adventure);
+    // 首页与冒险页全宽，其余页面是内容区 + 侧栏（对齐 Dioxus 版 Layout / PageContainer）。
+    let full_width = matches!(state.route.get(), Route::Home | Route::Adventure);
+    let container_cls = if full_width {
+        "page-container page-container--full-width"
     } else {
-        "nav-link"
+        "page-container page-container--default"
     };
-    let shop_cls = if shop_active {
-        "nav-link active"
-    } else {
-        "nav-link"
-    };
-    let inv_cls = if inv_active {
-        "nav-link active"
-    } else {
-        "nav-link"
-    };
-    let center_cls = if center_active {
-        "nav-link active"
-    } else {
-        "nav-link"
-    };
-    let mypm_cls = if mypm_active {
-        "nav-link active"
-    } else {
-        "nav-link"
-    };
-    let storage_cls = if storage_active {
-        "nav-link active"
-    } else {
-        "nav-link"
-    };
-    let adventure_cls = if adventure_active {
-        "nav-link active"
-    } else {
-        "nav-link"
-    };
+    let show_sidebar = state.route.get() != Route::Home;
     let img_logo = "source/plugin/pokemon/images/item/jlq.gif";
-    // 管理员专用「后台管理」入口（对齐 Dioxus 版侧栏；后台默认已是 tairitsu 版）。
-    let admin_link = if state.is_admin.get() {
-        rsx! {
-            a {
-                class: "nav-link admin-entry",
-                href: "plugin.php?id=pokemon:game&index=admin",
-                target: "_blank",
-                rel: "noopener",
-                "后台管理"
-            }
-        }
-    } else {
-        tairitsu_vdom::VNode::empty()
-    };
+    let (
+        logo_state,
+        mypm_state,
+        shop_state,
+        center_state,
+        adventure_state,
+    ) = (
+        state.clone(),
+        state.clone(),
+        state.clone(),
+        state.clone(),
+        state.clone(),
+    );
+    // 顶部提示容器常驻根部（对齐 Dioxus 版 AppProviders → ToastProvider）。
+    let toast_container = toast::container();
     // 页脚常驻；“关于本项目”弹窗按状态挂载（结构与类名对齐 Dioxus 版）。
-    let footer_node = footer::Footer(Default::default());
+    let footer_node = footer::Footer(footer::FooterProps {
+        state: Some(Box::new(state.clone())),
+        ..Default::default()
+    });
     let about_node = if state.show_about.get() {
-        footer::about_modal()
+        footer::about_modal(state)
     } else {
         tairitsu_vdom::VNode::empty()
     };
 
     rsx! {
         div { class: "app-layout",
+            ..vec![toast_container]
+            div { class: "toast-spacer" }
             header { class: "app-header",
                 div { class: "header-inner",
                     div { class: "header-logo",
                         button {
+                            r#type: "button",
                             class: "logo-link",
-                            "data-pm-nav": "home",
-                            img { class: "logo-mascot", src: img_logo }
+                            onclick: move |_| navigate(&logo_state, Route::Home),
+                            img { class: "logo-mascot", src: img_logo, alt: "Pokeball" }
                             span { class: "logo-text", "Online Void Pokemon" }
                         }
                     }
                     nav { class: "header-nav",
-                        button { class: home_cls, "data-pm-nav": "home", "首页" }
-                        button { class: shop_cls, "data-pm-nav": "shop", "商店" }
-                        button { class: inv_cls, "data-pm-nav": "inventory", "背包" }
-                        button { class: center_cls, "data-pm-nav": "center", "宠物中心" }
-                        button { class: mypm_cls, "data-pm-nav": "my-pokemon", "我的宠物" }
-                        button { class: storage_cls, "data-pm-nav": "storage", "仓库" }
-                        button { class: adventure_cls, "data-pm-nav": "adventure", "冒险" }
-                        ..vec![admin_link]
+                        button {
+                            r#type: "button",
+                            class: mypm_cls,
+                            onclick: move |_| navigate(&mypm_state, Route::MyPokemon),
+                            "个人中心"
+                        }
+                        button {
+                            r#type: "button",
+                            class: shop_cls,
+                            onclick: move |_| navigate(&shop_state, Route::Shop),
+                            "商店"
+                        }
+                        button {
+                            r#type: "button",
+                            class: center_cls,
+                            onclick: move |_| navigate(&center_state, Route::PokemonCenter),
+                            "宠物中心"
+                        }
+                        button {
+                            r#type: "button",
+                            class: adventure_cls,
+                            onclick: move |_| navigate(&adventure_state, Route::Adventure),
+                            "野外冒险"
+                        }
                     }
                 }
             }
             div { class: "app-main",
-                div { class: "app-content", ..vec![page] }
+                div { class: "app-content",
+                    div { class: container_cls, ..vec![page] }
+                }
+                if show_sidebar {
+                    Sidebar { state: Some(Box::new(state.clone())) }
+                }
             }
             ..vec![footer_node, about_node]
         }
     }
+}
+
+/// 账户资料加载中 / 加载失败（对齐 Dioxus 版 Layout 的 loading-container）。
+#[cfg(target_family = "wasm")]
+fn loading_container(state: &app_state::AppState, error: Option<&str>) -> tairitsu_vdom::VNode {
+    use tairitsu_macros::rsx;
+
+    let Some(err) = error else {
+        return rsx! {
+            div { class: "loading-container",
+                div { class: "loading-spinner" }
+                p { "加载中..." }
+            }
+        };
+    };
+    let message = format!("账户载入失败：{err}");
+    let reload_state = state.clone();
+    rsx! {
+        div { class: "loading-container",
+            p { role: "alert", "{message}" }
+            button {
+                class: "btn btn-primary",
+                onclick: move |_| {
+                    reload_state.sidebar.profile.inner().set(None);
+                    request_remount();
+                    load_profile(&reload_state);
+                },
+                "重新载入"
+            }
+        }
+    }
+}
+
+/// 拉取用户资料并据此选起始页（对齐 Dioxus 版 Layout 的 needs_welcome）：
+/// is_new_player 或 total_pokemons==0 → Welcome，否则 Home。
+#[cfg(target_family = "wasm")]
+fn load_profile(state: &app_state::AppState) {
+    use app_state::Route;
+
+    let state = state.clone();
+    api::profile(Box::new(move |result| {
+        match result {
+            Ok(summary) => {
+                let route = if summary.needs_welcome {
+                    Route::Welcome
+                } else {
+                    Route::Home
+                };
+                state.needs_welcome.inner().set(summary.needs_welcome);
+                state.sidebar.profile.inner().set(Some(Ok(summary)));
+                state.route.inner().set(route);
+            }
+            Err(e) => state.sidebar.profile.inner().set(Some(Err(e))),
+        }
+        request_remount();
+    }));
+}
+
+/// 页面切换（对齐 Dioxus 版 `*CURRENT_PAGE.write() = page`）。
+#[cfg(target_family = "wasm")]
+pub fn navigate(state: &app_state::AppState, route: app_state::Route) {
+    state.route.inner().set(route);
+    request_remount();
 }
 
 #[cfg(target_family = "wasm")]
@@ -326,139 +340,25 @@ pub fn run_app() -> Result<()> {
     state.my_pm.component_id.set(component_id as u32);
     state.storage.component_id.set(component_id as u32);
     state.battle.component_id.set(component_id as u32);
+    // 提示列表一变就标脏本组件（容器渲染在根部）。
+    toast::init();
 
     let state_for_render = state.clone();
-    let state_for_delegation = state.clone();
     tairitsu_vdom::runtime::update_render_function(component_id, move || {
         render_route(&state_for_render)
     });
     let vnode = render_route(&state);
     ROOT_COMPONENT.with(|id| id.set(component_id));
 
-    // 启动路由判定（对齐 Dioxus 版 Layout 的 needs_welcome）：
-    // user/profile → is_new_player 或 total_pokemons==0 → Welcome，
-    // 否则 Home。promise 回调只写内部值 + request_remount。
-    {
-        let state = state.clone();
-        api::profile(Box::new(move |result| match result {
-            Ok(summary) => {
-                state.needs_welcome.inner().set(summary.needs_welcome);
-                state.is_admin.inner().set(summary.is_admin);
-                let route = if summary.needs_welcome {
-                    app_state::Route::Welcome
-                } else {
-                    app_state::Route::Home
-                };
-                state.route.inner().set(route);
-                request_remount();
-            }
-            // 资料拉取失败：留在欢迎页（用户可手动初始化或刷新）。
-            Err(_) => {}
-        }));
-    }
+    // 资料回来前先画加载态；回调里改路由 + 标脏即切到 Welcome / Home。
+    load_profile(&state);
 
     let platform = WitPlatform::new()?;
-    platform.mount_vnode_to_app(vnode.clone())?;
-
-    // diff 产出的 patch 相对「组件 vnode 根元素」（mount 后 #app 的第一个
-    // 子元素）计算，init_runtime/apply 必须以同一元素为根；传 #app 会差一层，
-    // 顶层 patch 索引解析到 None 被静默丢弃（tairitsu#116 的教训）。
-    let app_handle = get_element_by_id(0, "app").expect("#app mount point not found");
-    let children_handle = get_child_nodes(app_handle);
-    let vnode_root_handle = item(children_handle, 0).expect("rendered vnode root not found");
-    let root_element = WitElement::from_raw(vnode_root_handle);
-    tairitsu_web::init_runtime(root_element.clone());
-    PATCH_ROOT.with(|p| *p.borrow_mut() = Some(root_element.clone()));
-
-    STATE_CACHE.with(|c| *c.borrow_mut() = Some(state.clone()));
-    // 补丁批次滚动日志（data-dbg-plog，最近 10 批）+ 结构性兜底（§10.1.5）：
-    // 含 Insert/Remove/Replace/Create 的批次整树替换——游戏单屏 20–50 塔片，
-    // 替换开销与旧重挂相当（21–24ms），换来 DOM 与 diff 基线永远同源；
-    // 纯属性/文本批次（战斗回合等热路径）保持增量。增量索引在深层
-    // UpdateChild 路径上存在错位类缺口（背包搜索实测复现，见研究文档）。
-    tairitsu_vdom::runtime::set_apply_patches_callback(
-        |component_id: tairitsu_vdom::ComponentId, patches: Vec<tairitsu_vdom::Patch>| {
-            let structural = patch_has_structural(&patches);
-            let summary = format!(
-                "{}n={} | {}",
-                if structural { "[S] " } else { "" },
-                patches.len(),
-                patches
-                    .iter()
-                    .map(|p| patch_summary(p, 0))
-                    .collect::<Vec<_>>()
-                    .join(" ; ")
-            );
-            thread_local! {
-                static PLOG: std::cell::RefCell<Vec<String>> =
-                    const { std::cell::RefCell::new(Vec::new()) };
-            }
-            PLOG.with(|l| {
-                let mut v = l.borrow_mut();
-                v.push(summary);
-                let len = v.len();
-                if len > 10 {
-                    v.drain(0..len - 10);
-                }
-                let joined = v
-                    .iter()
-                    .enumerate()
-                    .map(|(i, e)| format!("[{i}] {e}"))
-                    .collect::<Vec<_>>()
-                    .join(" ||| ");
-                let joined: String = joined.chars().take(900).collect();
-                if let Some(app) = get_element_by_id(0, "app") {
-                    use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::element::set_attribute;
-                    let _ = set_attribute(app, "data-dbg-plog", &joined);
-                }
-            });
-            if structural {
-                // 结构性批次：整树替换（§10.1.5 兜底策略，注释见 run_app 头部）。
-                let state = STATE_CACHE.with(|s| s.borrow().clone());
-                let Some(state) = state else { return };
-                let vnode = render_route(&state);
-                if let Ok(platform) = WitPlatform::new() {
-                    let _ = platform.mount_vnode_to_app(vnode.clone());
-                }
-                if let Some(app_handle) = get_element_by_id(0, "app") {
-                    let children_handle = get_child_nodes(app_handle);
-                    if let Some(root_handle) = item(children_handle, 0) {
-                        let root_element = WitElement::from_raw(root_handle);
-                        // 不重跑 init_runtime：它会覆盖本回调。调度回调与根
-                        // 无关仍然有效；apply 走本回调自己的 PATCH_ROOT。
-                        PATCH_ROOT.with(|p| *p.borrow_mut() = Some(root_element));
-                    }
-                }
-                tairitsu_vdom::runtime::store_initial_vnode(component_id, vnode);
-                return;
-            }
-            let root = PATCH_ROOT.with(|p| p.borrow().clone());
-            if let Some(root) = root {
-                if let Ok(platform) = WitPlatform::new() {
-                    tairitsu_web::wit_platform::wasm_impl::with_render_component(
-                        component_id,
-                        || {
-                            let _ = platform.apply_patches(&root, &patches);
-                        },
-                    );
-                }
-            }
-        },
-    );
-
-    // 调度（增量渲染通道，§10.1.5）：
-    //   - 数据更新 → request_remount → mark_dirty → init_runtime 注册的
-    //     rAF 调度（boot.js 用 MessageChannel 驱动 rAF）→ flush_render →
-    //     diff → apply_patches。
-    //   - 交互：事件委托（delegation.rs）在 #app 上注册一次。
-    //   - 旧的 data-flush-pending 观察器桥与 pm-flush 整树重挂通道已退役
-    //     （boot.js 的观察器不再有属性变化可观察，自然静默）。
-    {
-        use tairitsu_vdom::platform::DomOps;
-        let app =
-            WitElement::from_raw(get_element_by_id(0, "app").expect("#app mount point not found"));
-        delegation::install(&app, &state_for_delegation);
-    }
+    // diff 的补丁相对「组件 vnode 根元素」计算，init_runtime 必须拿 mount 返回
+    // 的同一个根：传挂载父级 #app 会差一层，顶层补丁索引全部错位（首条撞巧
+    // 命中、其余静默丢弃）。
+    let root = platform.mount_vnode_to_app(vnode.clone())?;
+    tairitsu_web::init_runtime(root);
 
     tairitsu_vdom::runtime::store_initial_vnode(component_id, vnode);
     Ok(())

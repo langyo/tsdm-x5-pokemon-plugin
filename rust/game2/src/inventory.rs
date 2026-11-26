@@ -9,10 +9,9 @@
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
-use hikari_components::{Toast, ToastPosition, ToastProps, ToastVariant};
-
 use crate::app_state::AppState;
 use crate::state::ToastKind;
+use crate::toast;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
 
@@ -67,7 +66,7 @@ fn reload(inv: &crate::state::InventoryState) {
 }
 
 // ---------------------------------------------------------------------------
-// 委托动作入口（delegation.rs 调用）
+// 动作入口（本页各元素的原生 onclick / onchange 回调调用）
 // ---------------------------------------------------------------------------
 
 pub fn select_category(state: &AppState, cat: Option<u32>) {
@@ -134,11 +133,7 @@ pub fn use_item(state: &AppState, item_id: u64, item_type: u64, use_target: Opti
             load_usable_pokemon(state, item_id);
         }
         "battle" => {
-            crate::state::inv_show_toast(
-                &state.inv,
-                ToastKind::Error,
-                "精灵球请在战斗中使用".to_string(),
-            );
+            toast::show(ToastKind::Error, "精灵球请在战斗中使用");
             crate::request_remount();
         }
         _ => {
@@ -192,7 +187,7 @@ fn api_use_item(state: &AppState, item_id: u64, pokemon_id: Option<u64>) {
         Box::new(move |result| {
             match result {
                 Ok(out) => {
-                    crate::state::inv_show_toast_silent(&inv, ToastKind::Success, out.message);
+                    toast::show(ToastKind::Success, out.message);
                     if pokemon_id.is_none() {
                         inv.show_target_modal.inner().set(false);
                         inv.selected_item.inner().set(None);
@@ -210,11 +205,7 @@ fn api_use_item(state: &AppState, item_id: u64, pokemon_id: Option<u64>) {
                     reload(&inv);
                 }
                 Err(e) => {
-                    crate::state::inv_show_toast_silent(
-                        &inv,
-                        ToastKind::Error,
-                        format!("使用失败: {e}"),
-                    );
+                    toast::show(ToastKind::Error, format!("使用失败: {e}"));
                 }
             }
             inv.using.inner().set(None);
@@ -264,12 +255,15 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
             let page_info = format!("第 {page} / {total_pages} 页");
             let prev_disabled = page <= 1;
             let next_disabled = page >= total_pages as u32;
+            // 翻页按钮在点击时才读当前页码（与委托版一致），不取渲染时的 page。
+            let prev_state = state.clone();
+            let next_state = state.clone();
             rsx! {
                 p { class: "inventory-result-count", "{count_text}" }
                 div { class: "shop-items-scroll",
                     div { class: "shop-items-grid",
                         for idx in 0..items.len() {
-                            { rsx! { InventoryTile { inv: Some(Box::new(inv.clone())), item: Some(items[idx].clone()) } } }
+                            { rsx! { InventoryTile { state: Some(state.clone()), item: Some(items[idx].clone()) } } }
                         }
                     }
                 }
@@ -278,14 +272,17 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                         button {
                             class: "page-btn",
                             disabled: prev_disabled,
-                            "data-pm-inv-page": "prev",
+                            onclick: move |_| {
+                                let page = prev_state.inv.page.get().saturating_sub(1).max(1);
+                                goto_page(&prev_state, page);
+                            },
                             "上一页"
                         }
                         span { class: "page-info", "{page_info}" }
                         button {
                             class: "page-btn",
                             disabled: next_disabled,
-                            "data-pm-inv-page": "next",
+                            onclick: move |_| goto_page(&next_state, next_state.inv.page.get() + 1),
                             "下一页"
                         }
                     }
@@ -305,7 +302,7 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                 let rows: Vec<VNode> = list
                     .iter()
                     .map(|p| {
-                        let pid = p.id.to_string();
+                        let id = p.id;
                         let name = p.nickname.clone();
                         let level = format!("Lv.{}", p.level);
                         let hp = p.hp;
@@ -322,10 +319,12 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                             "#2ecc71"
                         };
                         let hp_style = format!("width: {hp_percent}%; background: {hp_color};");
+                        // 回调须 'static：每行各持一份状态克隆。
+                        let pick_state = state.clone();
                         rsx! {
                             div {
                                 class: "pokemon-select-item",
-                                "data-pm-inv-pick": pid,
+                                onclick: move |_| confirm_use_on_pokemon(&pick_state, id),
                                 div { class: "pokemon-select-body",
                                     div { class: "pokemon-select-info",
                                         span { class: "pokemon-select-name", "{name}" }
@@ -366,12 +365,18 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
             })
             .unwrap_or_default();
         let title = format!("选择宝可梦 - {item_name}");
+        // 遮罩与关闭按钮都关闭弹窗；容器上 stop_propagation，点弹窗内部
+        // （含选宠行）不冒泡到遮罩——与 Dioxus 版共用 Modal 一致。
+        let overlay_state = state.clone();
+        let close_btn_state = state.clone();
         rsx! {
-            div { class: "modal-overlay", "data-pm-inv-modal-close": "1",
+            div { class: "modal-overlay",
+                onclick: move |_| close_target_modal(&overlay_state),
                 div { class: "modal-container",
+                    onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                     div { class: "modal-header",
                         h3 { "{title}" }
-                        button { class: "modal-close-btn", "data-pm-inv-modal-close": "1", "×" }
+                        button { class: "modal-close-btn", onclick: move |_| close_target_modal(&close_btn_state), "×" }
                     }
                     div { class: "modal-body", ..vec![pokemon_body] }
                 }
@@ -381,35 +386,55 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
         tairitsu_vdom::VNode::empty()
     };
 
-    let toast_state = inv.clone();
+    // 回调须 'static：各按钮各持一份状态克隆。
+    let search_state = state.clone();
+    let submit_state = state.clone();
+    let clear_state = state.clone();
+
     rsx! {
         div { class: "page-inventory",
             div { class: "inventory-card",
                 div { class: "inventory-card-body",
                     div { class: "inventory-search-bar",
+                        // 回车/失焦提交（change）：先记下输入值，再按它搜索。
                         input {
                             class: "inventory-search-input",
                             r#type: "search",
                             placeholder: "按物品名称搜索",
                             value: search_input,
-                            "data-pm-inv-search": "1"
+                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                let value = e.value;
+                                search_state.inv.search_input.set(value.clone());
+                                apply_search(&search_state, &value);
+                            }
                         }
-                        button { class: "inventory-search-btn", "data-pm-inv-search-submit": "1", "搜索" }
-                        button { class: "inventory-search-clear", "data-pm-inv-search-clear": "1", "清除" }
+                        button {
+                            class: "inventory-search-btn",
+                            onclick: move |_| apply_search(&submit_state, &submit_state.inv.search_input.get()),
+                            "搜索"
+                        }
+                        button {
+                            class: "inventory-search-clear",
+                            onclick: move |_| {
+                                clear_state.inv.search_input.set(String::new());
+                                apply_search(&clear_state, "");
+                            },
+                            "清除"
+                        }
                     }
                     div { class: "shop-category-bar",
                         div { class: "shop-category-group",
                             for i in 0..cats.len() {
                                 {
                                     let (cat_id, cat_name, cat_icon) = cats[i];
-                                    let cat_attr = cat_id.map(|n| n.to_string()).unwrap_or_else(|| "all".to_string());
                                     let active = category == cat_id;
                                     let cls = if active { "category-btn active" } else { "category-btn" };
                                     let img_src = format!("{IMG_PATH}/{cat_icon}");
+                                    let cat_state = state.clone();
                                     rsx! {
                                         button {
                                             class: cls,
-                                            "data-pm-inv-cat": cat_attr,
+                                            onclick: move |_| select_category(&cat_state, cat_id),
                                             span { class: "cat-icon",
                                                 img { class: "cat-icon-img", src: img_src }
                                             }
@@ -424,24 +449,7 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                 }
             }
             ..vec![modal]
-            if inv.toast_visible.get() {
-                Toast {
-                    variant: inv_toast_variant(inv.toast_kind.get()),
-                    message: inv.toast_message.get(),
-                    position: ToastPosition::BottomRight,
-                    on_close: Some(tairitsu_vdom::Callback::new(move |_| {
-                        toast_state.toast_visible.set(false)
-                    })),
-                }
-            }
         }
-    }
-}
-
-fn inv_toast_variant(kind: ToastKind) -> ToastVariant {
-    match kind {
-        ToastKind::Success => ToastVariant::Success,
-        ToastKind::Error => ToastVariant::Error,
     }
 }
 
@@ -450,12 +458,14 @@ fn plain(text: &str, class: &str) -> VNode {
     rsx! { div { class: "pokemon-select-modal", div { class: class, "{t}" } } }
 }
 
+/// 单个物品卡片。use_item 需要整个 AppState（装备道具会切到个人中心页），
+/// 所以这里收 state，而不是只收背包子状态。
 #[component]
 fn InventoryTile(
-    inv: Box<crate::state::InventoryState>,
+    state: Box<AppState>,
     item: crate::state::InventoryItem,
 ) -> VNode {
-    let using = inv.using.get();
+    let using = state.inv.using.get();
     let img_src = format!("{IMG_PATH}/item/{}.gif", item.image);
     let qty = format!("×{}", item.quantity);
     let is_using = using == Some(item.type_id);
@@ -478,7 +488,11 @@ fn InventoryTile(
         "buy-btn disabled"
     }
     .to_string();
-    let use_attr = item.type_id.to_string();
+    // 使用键是物品类型 ID（type_id）——use_item/get_usable_pokemon 都以它为键
+    // （对齐 Dioxus 版），背包行 id 不外发。
+    let item_id = item.type_id;
+    let item_type = item.item_type;
+    let use_target = item.use_target.clone();
 
     rsx! {
         div { class: "shop-item-card",
@@ -498,7 +512,7 @@ fn InventoryTile(
                     button {
                         class: button_class,
                         disabled: !usable,
-                        "data-pm-inv-use": use_attr,
+                        onclick: move |_| use_item(&state, item_id, item_type, use_target.clone()),
                         "{button_text}"
                     }
                 }

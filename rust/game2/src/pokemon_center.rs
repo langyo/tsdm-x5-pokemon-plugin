@@ -11,10 +11,9 @@
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
-use hikari_components::{Toast, ToastPosition, ToastProps, ToastVariant};
-
 use crate::app_state::AppState;
 use crate::state::{PokemonBasic, ToastKind};
+use crate::toast;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
 
@@ -52,14 +51,10 @@ pub fn heal_one(state: &AppState, pokemon_id: u64, flee: bool) {
                     } else {
                         out.message
                     };
-                    crate::state::center_show_toast_silent(&center, ToastKind::Success, msg);
+                    toast::show(ToastKind::Success, msg);
                 }
                 Err(e) => {
-                    crate::state::center_show_toast_silent(
-                        &center,
-                        ToastKind::Error,
-                        format!("治疗失败: {e}"),
-                    );
+                    toast::show(ToastKind::Error, format!("治疗失败: {e}"));
                 }
             }
             center.healing.inner().set(false);
@@ -93,11 +88,7 @@ pub fn heal_all(state: &AppState) {
         .map(|p| p.id)
         .collect();
     if targets.is_empty() {
-        crate::state::center_show_toast(
-            &center,
-            ToastKind::Error,
-            "没有需要治疗的宠物！".to_string(),
-        );
+        toast::show(ToastKind::Error, "没有需要治疗的宠物！");
         crate::request_remount();
         return;
     }
@@ -113,8 +104,7 @@ fn heal_sequence(state: AppState, ids: Vec<u64>, idx: usize, healed: u32, cost: 
         let center = state.center.clone();
         center.healing.inner().set(false);
         if healed > 0 {
-            crate::state::center_show_toast_silent(
-                &center,
+            toast::show(
                 ToastKind::Success,
                 format!("已治疗 {healed} 只宠物，共花费 {cost} 金币"),
             );
@@ -201,7 +191,7 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
             let rows: Vec<VNode> = injured
                 .iter()
                 .map(|pm| {
-                    let pid = pm.id.to_string();
+                    let id = pm.id;
                     let name = pm.display_name();
                     let alt_name = name.clone();
                     let level = format!("Lv.{}", pm.level);
@@ -244,9 +234,10 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                     } else {
                         "治疗"
                     };
-                    let flee_attr = if is_in_battle { "1" } else { "0" };
                     let shiny = pm.is_shiny;
                     let legendary = pm.is_legendary;
+                    // 回调须 'static：每张卡片各持一份状态克隆。
+                    let row_state = st.clone();
                     rsx! {
                         div { class: "heal-pokemon-card",
                             div { class: "heal-pm-sprite",
@@ -283,8 +274,7 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                             button {
                                 class: btn_cls,
                                 disabled: healing,
-                                "data-pm-center-heal": pid,
-                                "data-pm-center-flee": flee_attr,
+                                onclick: move |_| heal_one(&row_state, id, is_in_battle),
                                 "{btn_text}"
                             }
                         }
@@ -308,9 +298,9 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
     } else {
         "heal-all-btn disabled"
     };
-    let toast_state = center.clone();
     let header_src = format!("{IMG_PATH}/rpg/center_health.gif");
     let doctor_src = format!("{IMG_PATH}/rpg/doctor.gif");
+    let heal_all_state = st.clone();
 
     rsx! {
         div { class: "page-pokemon-center",
@@ -330,7 +320,7 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                             button {
                                 class: heal_all_cls,
                                 disabled: healing,
-                                "data-pm-center-heal-all": "1",
+                                onclick: move |_| heal_all(&heal_all_state),
                                 "全部治疗"
                             }
                         }
@@ -338,23 +328,6 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                     ..vec![body]
                 }
             }
-            if center.toast_visible.get() {
-                Toast {
-                    variant: center_toast_variant(center.toast_kind.get()),
-                    message: center.toast_message.get(),
-                    position: ToastPosition::BottomRight,
-                    on_close: Some(tairitsu_vdom::Callback::new(move |_| {
-                        toast_state.toast_visible.set(false)
-                    })),
-                }
-            }
         }
-    }
-}
-
-fn center_toast_variant(kind: ToastKind) -> ToastVariant {
-    match kind {
-        ToastKind::Success => ToastVariant::Success,
-        ToastKind::Error => ToastVariant::Error,
     }
 }

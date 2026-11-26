@@ -1,8 +1,7 @@
 //! 应用壳（tairitsu 版）：页面路由 + 各页面的持久状态。
 //!
-//! Dioxus 版由 Layout + CURRENT_PAGE 全局信号驱动；tairitsu 版
-//! 把路由放进 AppState.route 信号，重挂载时按路由渲染对应页面。
-//! 页面切换走委托（data-pm-nav），request_remount 整树重建。
+//! Dioxus 版由 Layout + CURRENT_PAGE 全局信号驱动；tairitsu 版把路由放进
+//! AppState.route 信号，各页面自己用 tairitsu 原生事件绑定发起切换。
 
 use tairitsu_hooks::{use_signal, ReactiveSignal};
 
@@ -42,6 +41,38 @@ pub struct OnlinePlayer {
     pub username: String,
 }
 
+/// 侧栏状态（对齐 Dioxus 版 Sidebar 读的全局信号：USER_STATE /
+/// SELECTED_POKEMON_INDEX + 组件内的徽章信号）。携带宠物列表不在这里：
+/// `center.pokemons` 就是全应用共享的那份宠物列表（各页写操作后都会重拉它）。
+#[derive(Clone)]
+pub struct SidebarState {
+    /// None = 尚未载入；Some(Err) = 失败。
+    pub profile: ReactiveSignal<Option<Result<crate::state::UserProfile, String>>>,
+    /// 背包各分类件数 `(type_id, count)`。
+    pub bag_counts: ReactiveSignal<Option<Result<Vec<(u64, i64)>, String>>>,
+    /// 迷你格里当前选中的宠物 id（非战斗时的高亮）。
+    pub selected_id: ReactiveSignal<Option<u64>>,
+    /// 悬浮中的迷你格下标（tooltip 显隐）。
+    pub hover_slot: ReactiveSignal<Option<usize>>,
+    /// 帖子徽章是否隐藏。None = 尚未查询；Some(Err) = 查询失败。
+    pub badge_hidden: ReactiveSignal<Option<Result<bool, String>>>,
+    /// 徽章请求进行中（按钮禁用，防重复提交）。
+    pub badge_busy: ReactiveSignal<bool>,
+}
+
+impl SidebarState {
+    pub fn new() -> Self {
+        Self {
+            profile: use_signal(|| None),
+            bag_counts: use_signal(|| None),
+            selected_id: use_signal(|| None),
+            hover_slot: use_signal(|| None),
+            badge_hidden: use_signal(|| None),
+            badge_busy: use_signal(|| false),
+        }
+    }
+}
+
 /// 应用级持久状态（含各页面子状态）。
 #[derive(Clone)]
 pub struct AppState {
@@ -50,8 +81,8 @@ pub struct AppState {
     pub route: ReactiveSignal<Route>,
     /// 新玩家（is_new_player 或 total_pokemons==0）时先看欢迎页。
     pub needs_welcome: ReactiveSignal<bool>,
-    /// 管理员（决定是否显示「后台管理」入口）。
-    pub is_admin: ReactiveSignal<bool>,
+    /// 侧栏。
+    pub sidebar: SidebarState,
 
     // ---- 欢迎页 ----
     pub welcome_initializing: ReactiveSignal<bool>,
@@ -60,12 +91,6 @@ pub struct AppState {
 
     // ---- 页脚“关于本项目”弹窗 ----
     pub show_about: ReactiveSignal<bool>,
-
-    // ---- 帖子徽章（首页右侧控制区）----
-    /// None = 尚未查询；Some(Err) = 查询失败。
-    pub badge_hidden: ReactiveSignal<Option<Result<bool, String>>>,
-    /// 正在请求（按钮禁用，防重复提交）。
-    pub badge_busy: ReactiveSignal<bool>,
 
     // ---- 首页 ----
     /// 话题+新闻合并列表。None = 加载中；Some(Err) = 失败。
@@ -97,13 +122,11 @@ impl AppState {
             component_id: std::cell::Cell::new(0),
             route: use_signal(|| Route::Welcome),
             needs_welcome: use_signal(|| true),
-            is_admin: use_signal(|| false),
+            sidebar: SidebarState::new(),
             welcome_initializing: use_signal(|| false),
             welcome_error: use_signal(|| None),
             welcome_success: use_signal(|| false),
             show_about: use_signal(|| false),
-            badge_hidden: use_signal(|| None),
-            badge_busy: use_signal(|| false),
             topics: use_signal(|| None),
             online: use_signal(|| None),
             shop: ShopState::new(),

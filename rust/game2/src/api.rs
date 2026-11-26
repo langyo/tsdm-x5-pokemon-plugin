@@ -451,32 +451,72 @@ pub fn initialize_player(on_done: Box<dyn FnOnce(Result<InitializeOutcome, Strin
 #[derive(Deserialize)]
 struct ProfileDto {
     #[serde(default)]
+    uid: u64,
+    #[serde(default)]
+    username: String,
+    #[serde(default)]
     is_new_player: bool,
     #[serde(default)]
     total_pokemons: Option<u64>,
-    /// 管理员可见「后台管理」入口（对齐 Dioxus 版侧栏）。
     #[serde(default)]
     is_admin: bool,
-}
-
-/// 启动时需要的资料摘要：是否进欢迎页 + 是否管理员。
-#[derive(Clone, Copy, Debug, Default)]
-pub struct ProfileSummary {
-    pub needs_welcome: bool,
-    pub is_admin: bool,
+    #[serde(default)]
+    money: i64,
+    #[serde(default)]
+    strength_level: u32,
+    #[serde(default)]
+    wins: u32,
+    #[serde(default)]
+    losses: u32,
 }
 
 /// 拉取用户资料并判定欢迎页条件（对齐 Dioxus 版 Layout：
 /// is_new_player 或 total_pokemons==0 → Welcome，否则 Home）。
-pub fn profile(on_done: Box<dyn FnOnce(Result<ProfileSummary, String>)>) {
+pub fn profile(on_done: Box<dyn FnOnce(Result<crate::state::UserProfile, String>)>) {
     request(
         "user",
         "profile",
         None,
         Box::new(|result: Result<ProfileDto, String>| {
-            on_done(result.map(|dto| ProfileSummary {
+            on_done(result.map(|dto| crate::state::UserProfile {
                 needs_welcome: dto.is_new_player || dto.total_pokemons.unwrap_or(0) == 0,
+                uid: dto.uid,
+                username: dto.username,
                 is_admin: dto.is_admin,
+                money: dto.money,
+                strength_level: dto.strength_level,
+                wins: dto.wins,
+                losses: dto.losses,
+            }))
+        }),
+    );
+}
+
+/// 背包各分类的件数 `(type_id, count)`（侧栏背包迷你卡用，对齐 Dioxus 版
+/// `get_inventory_stats`）。
+pub fn inventory_stats(on_done: Box<dyn FnOnce(Result<Vec<(u64, i64)>, String>)>) {
+    #[derive(Deserialize)]
+    struct CategoryDto {
+        #[serde(default)]
+        type_id: u64,
+        #[serde(default)]
+        count: i64,
+    }
+    #[derive(Deserialize)]
+    struct StatsDto {
+        #[serde(default)]
+        categories: Vec<CategoryDto>,
+    }
+    request(
+        "user",
+        "inventory_stats",
+        None,
+        Box::new(|result: Result<StatsDto, String>| {
+            on_done(result.map(|dto| {
+                dto.categories
+                    .into_iter()
+                    .map(|c| (c.type_id, c.count))
+                    .collect()
             }))
         }),
     );
@@ -706,6 +746,12 @@ struct PokemonBasicDto {
     skills: Vec<PokemonSkillDto>,
     #[serde(default)]
     base_info: Option<PokemonBaseInfoDto>,
+    #[serde(default)]
+    exp: u64,
+    #[serde(default)]
+    exp_for_current_level: u64,
+    #[serde(default)]
+    exp_for_next_level: u64,
 }
 
 #[derive(Deserialize)]
@@ -776,6 +822,9 @@ pub fn pokemon_list(on_done: Box<dyn FnOnce(Result<Vec<crate::state::PokemonBasi
                                 .unwrap_or_default(),
                             type_2: p.base_info.as_ref().and_then(|b| b.type_2.clone()),
                             is_legendary: p.base_info.map(|b| b.is_legendary).unwrap_or(false),
+                            exp: p.exp,
+                            exp_for_current_level: p.exp_for_current_level,
+                            exp_for_next_level: p.exp_for_next_level,
                         }
                     })
                     .collect()

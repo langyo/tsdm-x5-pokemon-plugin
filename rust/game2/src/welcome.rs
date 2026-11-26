@@ -144,9 +144,10 @@ pub fn Welcome(state: Box<AppState>) -> VNode {
                                 "{error_text}"
                             }
                         }
+                        // 回调须 'static：state 此后不再使用，直接移入闭包。
                         button {
                             class: button_class,
-                            "data-pm-welcome-init": "1",
+                            onclick: move |_| initialize(&state),
                             "{button_text}"
                         }
                     }
@@ -172,12 +173,12 @@ fn svg_lucide(paths: &str) -> VNode {
             xmlns: "http://www.w3.org/2000/svg",
             width: "14",
             height: "14",
-            view_box: "0 0 24 24",
+            "viewBox": "0 0 24 24",
             fill: "none",
             stroke: "currentColor",
-            stroke_width: "2",
-            stroke_linecap: "round",
-            stroke_linejoin: "round",
+            "stroke-width": "2",
+            "stroke-linecap": "round",
+            "stroke-linejoin": "round",
             dangerous_inner_html: paths,
         }
     }

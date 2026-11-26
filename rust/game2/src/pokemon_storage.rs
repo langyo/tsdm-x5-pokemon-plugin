@@ -7,17 +7,18 @@
 //! 的门禁提示）。筛选与排序逻辑在 storage_logic.rs（带单测）。
 //!
 //! 与 Dioxus 版的两处有意差异：
-//! - 点击卡片展开内联操作行（Dioxus 是浮层菜单；委托架构下内联更稳）。
-//! - 搜索走 change（回车/失焦生效，与商店/背包一致）；Dioxus 是逐字过滤。
+//! - 点击卡片展开内联操作行（Dioxus 是浮层菜单；移植时委托架构下内联更稳，沿用）。
 //! - 战斗中遮罩随战斗页移植接入（当前无战斗态，全部按非战斗渲染）。
+//!
+//! 事件用 tairitsu 原生绑定：搜索框逐字过滤（oninput，与 Dioxus 版一致）；
+//! 属性 / 等级区间 / 闪光 / 排序走 change（Dioxus 版等级区间同样是 oninput）。
 
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
-use hikari_components::{Toast, ToastPosition, ToastProps, ToastVariant};
-
 use crate::app_state::AppState;
 use crate::state::{ToastKind, STORAGE_PAGE_SIZE};
+use crate::toast;
 use crate::storage_logic::{
     hp_class_storage, hp_health_status, is_weak_state, matching_storage_ids, parse_level_range,
     selected_matching_ids, StorageEntry, StorageFilters, StorageSort,
@@ -51,7 +52,7 @@ fn reload_list(state: &AppState) {
 }
 
 // ---------------------------------------------------------------------------
-// 动作入口（delegation.rs 调用）
+// 动作入口（本页各元素的原生 onclick / onchange / oninput 回调调用）
 // ---------------------------------------------------------------------------
 
 pub fn set_filter(state: &AppState, field: &str, value: &str) {
@@ -158,7 +159,7 @@ fn release_sequence(state: AppState, ids: Vec<u64>, idx: usize, ok: u32, fail: u
                 format!("放生完成：成功 {ok} 只，失败 {fail} 只"),
             )
         };
-        crate::state::storage_show_toast_silent(&st, kind, msg);
+        toast::show(kind, msg);
         crate::request_remount();
         reload_list(&state);
         return;
@@ -182,7 +183,7 @@ fn release_sequence(state: AppState, ids: Vec<u64>, idx: usize, ok: u32, fail: u
 fn finish_action(state: &AppState, message: Option<(ToastKind, String)>) {
     let st = state.storage.clone();
     if let Some((kind, msg)) = message {
-        crate::state::storage_show_toast_silent(&st, kind, msg);
+        toast::show(kind, msg);
     }
     st.action_loading.inner().set(false);
     st.open_menu.inner().set(None);
@@ -383,9 +384,14 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
             .collect();
         let more = if filtered.len() > shown.len() {
             let label = format!("加载更多（已显示 {}/{}）", shown.len(), filtered.len());
+            let more_state = st.clone();
             rsx! {
                 div { class: "storage-load-more",
-                    button { class: "select-action-btn", "data-pm-st-more": "1", "{label}" }
+                    button {
+                        class: "select-action-btn",
+                        onclick: move |_| load_more(&more_state),
+                        "{label}"
+                    }
                 }
             }
         } else {
@@ -410,13 +416,19 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
         } else {
             "select-action-btn danger"
         };
+        let all_state = st.clone();
+        let release_state = st.clone();
         rsx! {
             div { class: "select-actions-bar",
-                button { class: "select-action-btn", "data-pm-st-select-all": "1", "{all_label}" }
+                button {
+                    class: "select-action-btn",
+                    onclick: move |_| select_all(&all_state),
+                    "{all_label}"
+                }
                 button {
                     class: release_cls,
                     disabled: selected_count == 0,
-                    "data-pm-st-batch-release": "1",
+                    onclick: move |_| batch_release(&release_state),
                     "{release_label}"
                 }
             }
@@ -432,6 +444,14 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
     let sort_value = st.storage.sort_value.get();
     let min_value = st.storage.min_level.get();
     let max_value = st.storage.max_level.get();
+    // 各筛选控件的原生回调各持一份状态（闭包要求 'static）。
+    let search_state = st.clone();
+    let type_state = st.clone();
+    let min_state = st.clone();
+    let max_state = st.clone();
+    let shiny_state = st.clone();
+    let sort_state = st.clone();
+    let clear_state = st.clone();
     let err_block = match &level_err {
         Some(msg) => {
             let m = msg.clone();
@@ -440,12 +460,22 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
         None => VNode::empty(),
     };
     let select_btn = if select_mode {
+        let exit_state = st.clone();
         rsx! {
-            button { class: "select-mode-btn exit", "data-pm-st-select-exit": "1", "取消选择" }
+            button {
+                class: "select-mode-btn exit",
+                onclick: move |_| exit_select_mode(&exit_state),
+                "取消选择"
+            }
         }
     } else if storage_count > 0 {
+        let enter_state = st.clone();
         rsx! {
-            button { class: "select-mode-btn", "data-pm-st-select-mode": "1", "多选" }
+            button {
+                class: "select-mode-btn",
+                onclick: move |_| enter_select_mode(&enter_state),
+                "多选"
+            }
         }
     } else {
         VNode::empty()
@@ -461,27 +491,6 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                 }
             }
         }
-    };
-
-    let toast = if st.storage.toast_visible.get() {
-        let toast_state = st.storage.clone();
-        let variant = match st.storage.toast_kind.get() {
-            ToastKind::Success => ToastVariant::Success,
-            ToastKind::Error => ToastVariant::Error,
-        };
-        let message = st.storage.toast_message.get();
-        rsx! {
-            Toast {
-                variant: variant,
-                message: message,
-                position: ToastPosition::BottomRight,
-                on_close: Some(tairitsu_vdom::Callback::new(move |_| {
-                    toast_state.toast_visible.set(false)
-                })),
-            }
-        }
-    } else {
-        VNode::empty()
     };
 
     rsx! {
@@ -503,19 +512,25 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                             ..vec![select_btn]
                         }
                         div { class: "storage-search-bar",
+                            // 搜索逐字过滤（oninput，对齐 Dioxus 版）：事件带整字段值，
+                            // 不再挂 change，失焦时不会重复触发一次。
                             input {
                                 class: "storage-search-input",
                                 r#type: "text",
                                 placeholder: "搜索名字 / 昵称",
                                 value: search_value,
-                                "data-pm-st-search": "1"
+                                oninput: move |e: tairitsu_vdom::InputEvent| {
+                                    set_filter(&search_state, "search", &e.value)
+                                }
                             }
                             div { class: "storage-filter-fields",
                                 label {
                                     "属性"
                                     select {
                                         value: type_value,
-                                        "data-pm-st-type": "1",
+                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                            set_filter(&type_state, "type", &e.value)
+                                        },
                                         option { value: "", "全部属性" }
                                         for i in 0..POKEMON_TYPES.len() {
                                             {
@@ -532,7 +547,9 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                         r#type: "number", min: "1", step: "1",
                                         placeholder: "不限",
                                         value: min_value,
-                                        "data-pm-st-min": "1"
+                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                            set_filter(&min_state, "min", &e.value)
+                                        }
                                     }
                                 }
                                 label {
@@ -541,14 +558,18 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                         r#type: "number", min: "1", step: "1",
                                         placeholder: "不限",
                                         value: max_value,
-                                        "data-pm-st-max": "1"
+                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                            set_filter(&max_state, "max", &e.value)
+                                        }
                                     }
                                 }
                                 label {
                                     "闪光"
                                     select {
                                         value: shiny_value,
-                                        "data-pm-st-shiny": "1",
+                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                            set_filter(&shiny_state, "shiny", &e.value)
+                                        },
                                         option { value: "", "全部" }
                                         option { value: "shiny", "仅闪光" }
                                         option { value: "normal", "非闪光" }
@@ -558,14 +579,20 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                     "排序"
                                     select {
                                         value: sort_value,
-                                        "data-pm-st-sort": "1",
+                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                            set_filter(&sort_state, "sort", &e.value)
+                                        },
                                         option { value: "oldest", "取得较早优先" }
                                         option { value: "newest", "最近取得优先" }
                                         option { value: "level_asc", "等级从低到高" }
                                         option { value: "level_desc", "等级从高到低" }
                                     }
                                 }
-                                button { class: "select-action-btn", "data-pm-st-clear": "1", "清除筛选" }
+                                button {
+                                    class: "select-action-btn",
+                                    onclick: move |_| clear_filters(&clear_state),
+                                    "清除筛选"
+                                }
                             }
                             ..vec![err_block]
                         }
@@ -574,7 +601,6 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                     }
                 }
             }
-            ..vec![toast]
         }
     }
 }
@@ -613,7 +639,7 @@ fn slot_card(
         "pokemon-slot"
     };
 
-    let id_attr = pm.id.to_string();
+    let id = pm.id;
     let sprite = format!("{IMG_PATH}/spm/{}.gif", pm.type_id);
     let title = format!("{display_name} · Lv.{}", pm.level);
     let level = format!("Lv.{}", pm.level);
@@ -649,6 +675,8 @@ fn slot_card(
     };
 
     // 操作行（菜单展开时）：携带区 → 设为首位/放入仓库；仓库区 → 放入背包/放生。
+    // 操作按钮在卡片内部，而卡片自己监听 click（展开/收起、勾选）：按钮的
+    // 回调必须 stop_propagation，等价于委托时代「操作按钮先于卡片命中」。
     let menu = if menu_open {
         let bag_full = st
             .center
@@ -665,10 +693,14 @@ fn slot_card(
                     button { class: "popup-menu-item disabled", disabled: true, "背包已满（6/6）" }
                 }
             } else {
+                let to_bag_state = st.clone();
                 rsx! {
                     button {
                         class: "popup-menu-item",
-                        "data-pm-st-to-bag": id_attr.clone(),
+                        onclick: move |e: tairitsu_vdom::MouseEvent| {
+                            e.stop_propagation();
+                            move_to_site(&to_bag_state, id, 2, "放入背包");
+                        },
                         "放入背包"
                     }
                 }
@@ -679,10 +711,14 @@ fn slot_card(
                     button { class: "popup-menu-item danger disabled", disabled: true, "放生" }
                 }
             } else {
+                let release_state = st.clone();
                 rsx! {
                     button {
                         class: "popup-menu-item danger",
-                        "data-pm-st-release": id_attr.clone(),
+                        onclick: move |e: tairitsu_vdom::MouseEvent| {
+                            e.stop_propagation();
+                            release_one(&release_state, id);
+                        },
                         "放生"
                     }
                 }
@@ -690,19 +726,27 @@ fn slot_card(
             actions.push(release_btn);
         } else {
             if pm.site != 1 {
+                let first_state = st.clone();
                 let first_btn = rsx! {
                     button {
                         class: "popup-menu-item",
-                        "data-pm-st-first": id_attr.clone(),
+                        onclick: move |e: tairitsu_vdom::MouseEvent| {
+                            e.stop_propagation();
+                            set_first(&first_state, id);
+                        },
                         "设为首位"
                     }
                 };
                 actions.push(first_btn);
             }
+            let to_storage_state = st.clone();
             let store_btn = rsx! {
                 button {
                     class: "popup-menu-item",
-                    "data-pm-st-to-storage": id_attr.clone(),
+                    onclick: move |e: tairitsu_vdom::MouseEvent| {
+                        e.stop_propagation();
+                        move_to_site(&to_storage_state, id, 3, "放入仓库");
+                    },
                     "放入仓库"
                 }
             };
@@ -719,9 +763,11 @@ fn slot_card(
         VNode::empty()
     };
 
+    // 卡片自身的点击：多选模式切换勾选，否则展开/收起操作行。
+    let card_state = st.clone();
     rsx! {
         div { class: slot_class,
-            "data-pm-st-card": id_attr,
+            onclick: move |_: tairitsu_vdom::MouseEvent| click_card(&card_state, id),
             title: title,
             div { class: "pokemon-sprite",
                 img { src: sprite, alt: alt_name }

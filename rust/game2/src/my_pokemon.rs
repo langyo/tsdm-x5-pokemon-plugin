@@ -11,10 +11,9 @@
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
-use hikari_components::{Toast, ToastPosition, ToastProps, ToastVariant};
-
 use crate::app_state::AppState;
 use crate::quality::{quality_grade, quality_rank, UNKNOWN_RANK};
+use crate::toast;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
 /// 昵称上限（对齐 Dioxus 版输入框）。
@@ -183,7 +182,7 @@ pub fn submit_rename(state: &AppState) {
 }
 
 // ---------------------------------------------------------------------------
-// 装备标签页：动作入口（delegation.rs 调用）
+// 装备标签页：动作入口（本页元素的 onclick 调用）
 // ---------------------------------------------------------------------------
 
 /// 切换标签页（进入装备页时装载装备数据）。
@@ -228,6 +227,14 @@ pub fn ensure_equipment(state: &AppState) {
     );
 }
 
+/// 「重新加载装备」：清掉失败态后重拉（对齐 Dioxus 版
+/// `equipment_resource.restart()`）。
+fn retry_equipment_load(state: &AppState) {
+    state.my_pm.equipment.inner().set(None);
+    crate::request_remount();
+    ensure_equipment(state);
+}
+
 fn reload_equipment(state: &AppState) {
     let Some(list) = state.center.pokemons.get().and_then(|r| r.ok()) else {
         return;
@@ -259,7 +266,7 @@ fn reload_equipment(state: &AppState) {
 fn finish_equip_action(state: &AppState, message: Option<(crate::state::ToastKind, String)>) {
     let my = state.my_pm.clone();
     if let Some((kind, msg)) = message {
-        crate::state::mypm_show_toast_silent(&my, kind, msg);
+        toast::show(kind, msg);
     }
     my.equip_loading.inner().set(false);
     my.equip_selected.inner().set(None);
@@ -491,7 +498,7 @@ fn equip_to(state: &AppState, myitem_id: u64, slot_index: u32, success_msg: &str
 }
 
 // ---------------------------------------------------------------------------
-// 技能标签页：动作入口（delegation.rs 调用）
+// 技能标签页：动作入口（本页元素的 onclick 调用）
 // ---------------------------------------------------------------------------
 
 /// 打开学习弹窗（拉可学习列表）。
@@ -529,6 +536,14 @@ fn load_learnable(state: &AppState) {
     );
 }
 
+/// 「重新加载技能」：清掉失败态后重开学习弹窗（对齐 Dioxus 版
+/// `resource.restart()`）。
+fn retry_learnable_load(state: &AppState) {
+    state.my_pm.learnable.inner().set(None);
+    crate::request_remount();
+    open_learn_modal(state);
+}
+
 /// 技能动作收尾：清守卫、刷列表（技能槽来自 list 载荷）。
 fn finish_skill_action(
     state: &AppState,
@@ -537,7 +552,7 @@ fn finish_skill_action(
 ) {
     let my = state.my_pm.clone();
     if let Some((kind, msg)) = message {
-        crate::state::mypm_show_toast_silent(&my, kind, msg);
+        toast::show(kind, msg);
     }
     my.skill_loading.inner().set(false);
     my.skill_selected.inner().set(None);
@@ -620,8 +635,7 @@ pub fn forget_skill(state: &AppState, skill_type_id: u64) {
         return;
     };
     if !skill.can_forget {
-        crate::state::mypm_show_toast_silent(
-            &my,
+        toast::show(
             crate::state::ToastKind::Error,
             format!(
                 "该技能PP未满（{}/{}），请先在宠物中心治疗，或使用PP恢复道具补满后再遗忘",
@@ -763,8 +777,7 @@ pub fn evolve_to(state: &AppState, to_id: u64, to_name: &str) {
             match result {
                 Ok(new_name) => {
                     let shown = if new_name.is_empty() { name } else { new_name };
-                    crate::state::mypm_show_toast_silent(
-                        &my,
+                    toast::show(
                         crate::state::ToastKind::Success,
                         format!("🎉 进化成功！进化为了 {shown}"),
                     );
@@ -778,8 +791,7 @@ pub fn evolve_to(state: &AppState, to_id: u64, to_name: &str) {
                     }));
                 }
                 Err(e) => {
-                    crate::state::mypm_show_toast_silent(
-                        &my,
+                    toast::show(
                         crate::state::ToastKind::Error,
                         format!("进化失败：{e}"),
                     );
@@ -847,11 +859,27 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
         } else {
             "mypm-tab"
         };
+        // 标签页按钮各绑自己的处理函数（状态句柄克隆进闭包）。
+        let st_tab_stats = st.clone();
+        let st_tab_equip = st.clone();
+        let st_tab_skills = st.clone();
         let tab_menu = rsx! {
             div { class: "mypm-tab-menu",
-                button { class: stats_cls, "data-pm-my-pm-tab": "stats", "属性" }
-                button { class: equip_cls, "data-pm-my-pm-tab": "equipment", "装备" }
-                button { class: skills_cls, "data-pm-my-pm-tab": "skills", "技能" }
+                button {
+                    class: stats_cls,
+                    onclick: move |_| switch_tab(&st_tab_stats, crate::state::MyPokemonTab::Stats),
+                    "属性"
+                }
+                button {
+                    class: equip_cls,
+                    onclick: move |_| switch_tab(&st_tab_equip, crate::state::MyPokemonTab::Equipment),
+                    "装备"
+                }
+                button {
+                    class: skills_cls,
+                    onclick: move |_| switch_tab(&st_tab_skills, crate::state::MyPokemonTab::Skills),
+                    "技能"
+                }
             }
         };
 
@@ -942,27 +970,6 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
     };
     let modals: Vec<VNode> = vec![ev_modal, evo_path_modal, evolution_modal];
 
-    let toast = if st.my_pm.toast_visible.get() {
-        let toast_state = st.my_pm.clone();
-        let variant = match st.my_pm.toast_kind.get() {
-            crate::state::ToastKind::Success => ToastVariant::Success,
-            crate::state::ToastKind::Error => ToastVariant::Error,
-        };
-        let message = st.my_pm.toast_message.get();
-        rsx! {
-            Toast {
-                variant: variant,
-                message: message,
-                position: ToastPosition::BottomRight,
-                on_close: Some(tairitsu_vdom::Callback::new(move |_| {
-                    toast_state.toast_visible.set(false)
-                })),
-            }
-        }
-    } else {
-        VNode::empty()
-    };
-
     let icon = format!("{IMG_PATH}/item/jlq.gif");
     rsx! {
         div { class: "page-my-pokemon",
@@ -976,7 +983,6 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
             ..{
                 let mut all = vec![learn_modal];
                 all.extend(modals.iter().cloned());
-                all.push(toast);
                 all
             }
         }
@@ -1030,12 +1036,14 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
         None => rsx! { div { class: "loading", "正在加载装备..." } },
         Some(Err(error)) => {
             let msg = format!("装备加载失败：{error}");
+            let retry_state = st.clone();
             rsx! {
                 div { class: "equipment-tab",
                     div { role: "alert", class: "error-message", "{msg}" }
                     button {
                         class: "btn btn-primary",
-                        "data-pm-eq-reload": "1",
+                        "data-test-eq-reload": "1",
+                        onclick: move |_| retry_equipment_load(&retry_state),
                         "重新加载装备"
                     }
                 }
@@ -1065,6 +1073,8 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                 .iter()
                 .map(|slot| {
                     let idx = slot.slot_index.to_string();
+                    let slot_state = st.clone();
+                    let slot_index = slot.slot_index;
                     let filled = slot.item.is_some();
                     let inner_cls = if filled {
                         "equip-slot-inner filled"
@@ -1100,7 +1110,8 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                     };
                     rsx! {
                         div { class: "equip-slot",
-                            "data-pm-eq-slot": idx,
+                            "data-test-eq-slot": idx,
+                            onclick: move |_| click_slot(&slot_state, slot_index),
                             div { class: overlay_cls }
                             div { class: inner_cls, ..vec![inner] }
                         }
@@ -1114,6 +1125,8 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                 .filter(|item| item.available_count > 0 || item.equipped_count > 0)
                 .map(|item| {
                     let mid = item.myitem_id.to_string();
+                    let myitem_id = item.myitem_id;
+                    let item_state = st.clone();
                     let is_equipped = item.is_equipped || item.equipped_count > 0;
                     let is_selected_item = selected
                         .as_ref()
@@ -1152,7 +1165,8 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                             div {
                                 class: "inventory-item",
                                 title: title,
-                                "data-pm-eq-inv-item": mid,
+                                "data-test-eq-inv-item": mid,
+                                onclick: move |_| select_inventory_item(&item_state, myitem_id),
                                 div { class: "inventory-item-icon",
                                     img { src: src, alt: alt }
                                 }
@@ -1178,6 +1192,7 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
             } else {
                 VNode::empty()
             };
+            let section_state = st.clone();
 
             rsx! {
                 div { class: "equipment-tab",
@@ -1189,7 +1204,8 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                     }
                     div {
                         class: section_cls,
-                        "data-pm-eq-inv-section": "1",
+                        "data-test-eq-inv-section": "1",
+                        onclick: move |_| unequip_selected_from_section(&section_state),
                         div { class: "inventory-header",
                             span { class: "inventory-title", "物品栏" }
                             span { class: "equip-hint", "{hint}" }
@@ -1209,11 +1225,12 @@ fn pet_selector(list: &[crate::state::PokemonBasic], selected_id: u64, st: &AppS
     if list.len() <= 1 {
         return VNode::empty();
     }
-    let _ = st;
     let chips: Vec<VNode> = list
         .iter()
         .map(|p| {
             let id = p.id.to_string();
+            let pid = p.id;
+            let chip_state = st.clone();
             let active = p.id == selected_id;
             let cls = if active {
                 "pet-chip active"
@@ -1225,7 +1242,8 @@ fn pet_selector(list: &[crate::state::PokemonBasic], selected_id: u64, st: &AppS
             rsx! {
                 button {
                     class: cls,
-                    "data-pm-my-pm-select": id,
+                    "data-test-my-pm-select": id,
+                    onclick: move |_| select_pokemon(&chip_state, pid),
                     span { class: "pet-chip-name", "{label}" }
                     span { class: "pet-chip-level", "{level}" }
                 }
@@ -1250,7 +1268,6 @@ fn stats_panel(
     save_error: &Option<String>,
     save_success: bool,
 ) -> VNode {
-    let _ = st;
     let display_name = d
         .nickname
         .clone()
@@ -1336,6 +1353,9 @@ fn stats_panel(
 
     let stats = d.stats.unwrap_or([0; 5]);
     let radar = radar_chart(stats[0], stats[1], stats[2], stats[3], stats[4]);
+    let ev_state = st.clone();
+    let evo_path_state = st.clone();
+    let evo_state = st.clone();
 
     // 昵称区：编辑态 / 展示态
     let name_area = if editing {
@@ -1346,6 +1366,9 @@ fn stats_panel(
                 rsx! { p { class: "error-message", role: "alert", "{msg}" } }
             })
             .unwrap_or_else(|| VNode::empty());
+        let input_state = st.clone();
+        let save_state = st.clone();
+        let cancel_state = st.clone();
         rsx! {
             div { class: "pokemon-name-edit-wrapper",
                 input {
@@ -1355,7 +1378,12 @@ fn stats_panel(
                     maxlength: NICKNAME_MAX,
                     placeholder: "输入昵称（最多 14 字）",
                     disabled: saving,
-                    "data-pm-my-pm-nick-input": "1"
+                    "data-test-my-pm-nick-input": "1",
+                    oninput: move |e: tairitsu_vdom::InputEvent| {
+                        // 只记草稿值，不重渲染（输入框是受控的，重渲染会把
+                        // 光标顶回末尾）。
+                        input_state.my_pm.edit_value.inner().set(e.value.clone());
+                    }
                 }
                 div { class: "edit-actions-inline",
                     button {
@@ -1363,7 +1391,8 @@ fn stats_panel(
                         r#type: "button",
                         title: "保存",
                         disabled: saving,
-                        "data-pm-my-pm-nick-save": "1",
+                        "data-test-my-pm-nick-save": "1",
+                        onclick: move |_| submit_rename(&save_state),
                         "✓"
                     }
                     button {
@@ -1371,7 +1400,8 @@ fn stats_panel(
                         r#type: "button",
                         title: "取消",
                         disabled: saving,
-                        "data-pm-my-pm-nick-cancel": "1",
+                        "data-test-my-pm-nick-cancel": "1",
+                        onclick: move |_| cancel_edit(&cancel_state),
                         "×"
                     }
                 }
@@ -1393,7 +1423,7 @@ fn stats_panel(
             rsx! { span { class: "pokemon-name", "{n}" } }
         };
         let edit_seed = display_name.clone();
-        let _ = edit_seed;
+        let edit_state = st.clone();
         let mut nodes: Vec<VNode> = Vec::with_capacity(2);
         nodes.push(name_node);
         nodes.push(rsx! {
@@ -1401,7 +1431,8 @@ fn stats_panel(
                 class: "edit-icon-btn",
                 r#type: "button",
                 "aria-label": "修改昵称",
-                "data-pm-my-pm-nick-edit": "1",
+                "data-test-my-pm-nick-edit": "1",
+                onclick: move |_| begin_edit(&edit_state, &edit_seed),
                 "✎"
             }
         });
@@ -1537,9 +1568,24 @@ fn stats_panel(
                     }
                     ..vec![iv_rows]
                     div { class: "tool-buttons-col",
-                        button { class: "ev-calculator-btn", "data-pm-my-pm-ev-open": "1", "努力值计算器" }
-                        button { class: "ev-calculator-btn", "data-pm-my-pm-evo-path-open": "1", "进化路径" }
-                        button { class: "ev-calculator-btn", "data-pm-my-pm-evo-open": "1", "进化" }
+                        button {
+                            class: "ev-calculator-btn",
+                            "data-test-my-pm-ev-open": "1",
+                            onclick: move |_| open_ev_modal(&ev_state),
+                            "努力值计算器"
+                        }
+                        button {
+                            class: "ev-calculator-btn",
+                            "data-test-my-pm-evo-path-open": "1",
+                            onclick: move |_| open_evo_path_modal(&evo_path_state),
+                            "进化路径"
+                        }
+                        button {
+                            class: "ev-calculator-btn",
+                            "data-test-my-pm-evo-open": "1",
+                            onclick: move |_| open_evolution_modal(&evo_state),
+                            "进化"
+                        }
                     }
                 }
                 ..vec![radar]
@@ -1624,7 +1670,7 @@ fn radar_chart(attack: i64, defense: i64, sp_attack: i64, sp_defense: i64, speed
                     x2: x2,
                     y2: y2,
                     stroke: "#e0e0e0",
-                    stroke_width: "0.5"
+                    "stroke-width": "0.5"
                 }
             }
         })
@@ -1634,7 +1680,7 @@ fn radar_chart(attack: i64, defense: i64, sp_attack: i64, sp_defense: i64, speed
         div { class: "stats-radar-chart",
             svg {
                 class: "radar-svg responsive",
-                view_box: "0 0 280 280",
+                "viewBox": "0 0 280 280",
                 width: "200px",
                 height: "200px",
                 for i in 0..grid_paths.len() {
@@ -1642,7 +1688,7 @@ fn radar_chart(attack: i64, defense: i64, sp_attack: i64, sp_defense: i64, speed
                         d: grid_paths[i].clone(),
                         fill: "none",
                         stroke: "#e0e0e0",
-                        stroke_width: "1"
+                        "stroke-width": "1"
                     }
                 }
                 for i in 0..axis_nodes.len() {
@@ -1652,7 +1698,7 @@ fn radar_chart(attack: i64, defense: i64, sp_attack: i64, sp_defense: i64, speed
                     d: data_path,
                     fill: "rgba(52, 152, 219, 0.25)",
                     stroke: "#3498db",
-                    stroke_width: "2"
+                    "stroke-width": "2"
                 }
                 for i in 0..label_nodes.len() {
                     ..vec![label_nodes[i].clone()]
@@ -1689,6 +1735,9 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
     let mut cards: Vec<VNode> = Vec::new();
     for skill in &valid {
         let tid = skill.type_id.to_string();
+        let skill_type_id = skill.type_id;
+        let card_state = st.clone();
+        let forget_state = st.clone();
         let is_selected = selected == Some(skill.type_id);
         let card_cls = if is_selected {
             "skill-card-v2 skill-slot-clickable selected"
@@ -1734,7 +1783,12 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
                     class: btn_cls,
                     r#type: "button",
                     disabled: loading,
-                    "data-pm-skill-forget": tid.clone(),
+                    "data-test-skill-forget": tid.clone(),
+                    onclick: move |e: tairitsu_vdom::MouseEvent| {
+                        // 遗忘按钮在技能卡内部：不挡住冒泡会连卡片一起 toggle。
+                        e.stop_propagation();
+                        forget_skill(&forget_state, skill_type_id);
+                    },
                     "遗忘此技能"
                 }
             }
@@ -1744,7 +1798,8 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
 
         cards.push(rsx! {
             div { class: card_cls,
-                "data-pm-skill-card": tid.clone(),
+                "data-test-skill-card": tid.clone(),
+                onclick: move |_| toggle_skill_card(&card_state, skill_type_id),
                 div { class: "skill-card-top",
                     span { class: "skill-name", "{name}" }
                     span { class: "skill-pp",
@@ -1766,12 +1821,14 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
         });
     }
     for _ in 0..empty_count {
+        let learn_slot_state = st.clone();
         cards.push(rsx! {
             button {
                 r#type: "button",
                 class: "skill-slot-empty",
                 disabled: loading,
-                "data-pm-skill-learn-slot": "1",
+                "data-test-skill-learn-slot": "1",
+                onclick: move |_| open_learn_modal(&learn_slot_state),
                 div { class: "skill-slot-plus", "+" }
                 div { class: "skill-slot-hint", "点击学习新技能" }
             }
@@ -1811,14 +1868,22 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
         })
         .unwrap_or(0);
     let title = format!("学习新技能 (Lv.{level})");
+    let overlay_state = st.clone();
+    let close_state = st.clone();
 
     let body = match st.my_pm.learnable.get() {
         None => rsx! { div { class: "skill-learn-loading", "加载技能列表中..." } },
         Some(Err(error)) => {
             let msg = format!("技能加载失败：{error}");
+            let reload_state = st.clone();
             rsx! {
                 div { role: "alert", class: "error-message", "{msg}" }
-                button { class: "btn btn-primary", "data-pm-learn-reload": "1", "重新加载技能" }
+                button {
+                    class: "btn btn-primary",
+                    "data-test-learn-reload": "1",
+                    onclick: move |_| retry_learnable_load(&reload_state),
+                    "重新加载技能"
+                }
             }
         }
         Some(Ok((available, locked))) if available.is_empty() && locked.is_empty() => {
@@ -1829,13 +1894,13 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
             if !available.is_empty() {
                 rows.push(rsx! { div { class: "skill-section-title", "可学习" } });
                 for skill in &available {
-                    rows.push(learn_item(skill, st.my_pm.skill_loading.get()));
+                    rows.push(learn_item(skill, st.my_pm.skill_loading.get(), Some(st)));
                 }
             }
             if !locked.is_empty() {
                 rows.push(rsx! { div { class: "skill-section-title", "等级不足" } });
                 for skill in &locked {
-                    rows.push(learn_item(skill, true));
+                    rows.push(learn_item(skill, true, None));
                 }
             }
             rsx! {
@@ -1847,11 +1912,20 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
     };
 
     rsx! {
-        div { class: "modal-overlay", "data-pm-learn-close": "1",
-            div { class: "modal-container",
+        div { class: "modal-overlay",
+            "data-test-learn-close": "1",
+            onclick: move |_| close_learn_modal(&overlay_state),
+            div {
+                class: "modal-container",
+                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                 div { class: "modal-header",
                     h3 { "{title}" }
-                    button { class: "modal-close-btn", "data-pm-learn-close": "1", "×" }
+                    button {
+                        class: "modal-close-btn",
+                        "data-test-learn-close": "1",
+                        onclick: move |_| close_learn_modal(&close_state),
+                        "×"
+                    }
                 }
                 div { class: "modal-body",
                     div { class: "skill-learn-content", ..vec![body] }
@@ -1861,8 +1935,14 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
     }
 }
 
-fn learn_item(skill: &crate::state::LearnableSkill, loading: bool) -> VNode {
+fn learn_item(
+    skill: &crate::state::LearnableSkill,
+    loading: bool,
+    st: Option<&AppState>,
+) -> VNode {
     let sid = skill.id.to_string();
+    let skill_id = skill.id;
+    let click_state = st.cloned();
     let cls = if skill.is_available {
         "skill-learn-item"
     } else {
@@ -1891,7 +1971,12 @@ fn learn_item(skill: &crate::state::LearnableSkill, loading: bool) -> VNode {
             r#type: "button",
             class: cls,
             disabled: !skill.is_available || loading,
-            "data-pm-learn-item": sid,
+            "data-test-learn-item": sid,
+            onclick: move |_| {
+                if let Some(st) = &click_state {
+                    learn_skill(st, skill_id);
+                }
+            },
             div { class: "skill-learn-item-header",
                 span { class: "skill-learn-name", "{sname}" }
                 span { class: "skill-learn-hint", "{hint}" }
@@ -1946,6 +2031,7 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
         .map(|i| {
             let attr = format!("cur-{i}");
             let value = current[i].to_string();
+            let cell_state = st.clone();
             rsx! {
                 div { class: "ev-cell",
                     input {
@@ -1954,7 +2040,10 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
                         min: "0",
                         max: "255",
                         value: value,
-                        "data-pm-ev-input": attr
+                        "data-test-ev-input": attr,
+                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                            set_ev_value(&cell_state, i, false, &e.value);
+                        }
                     }
                 }
             }
@@ -1964,6 +2053,7 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
         .map(|i| {
             let attr = format!("add-{i}");
             let value = added[i].to_string();
+            let cell_state = st.clone();
             rsx! {
                 div { class: "ev-cell",
                     input {
@@ -1972,7 +2062,10 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
                         min: "0",
                         max: "255",
                         value: value,
-                        "data-pm-ev-input": attr
+                        "data-test-ev-input": attr,
+                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                            set_ev_value(&cell_state, i, true, &e.value);
+                        }
                     }
                 }
             }
@@ -1994,12 +2087,23 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
         "ev-cell ev-total grand-total invalid"
     };
 
+    let ev_overlay_state = st.clone();
+    let ev_close_state = st.clone();
     rsx! {
-        div { class: "modal-overlay", "data-pm-ev-close": "1",
-            div { class: "modal-container modal-lg",
+        div { class: "modal-overlay",
+            "data-test-ev-close": "1",
+            onclick: move |_| close_ev_modal(&ev_overlay_state),
+            div {
+                class: "modal-container modal-lg",
+                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                 div { class: "modal-header",
                     h3 { "努力值计算器" }
-                    button { class: "modal-close-btn", "data-pm-ev-close": "1", "×" }
+                    button {
+                        class: "modal-close-btn",
+                        "data-test-ev-close": "1",
+                        onclick: move |_| close_ev_modal(&ev_close_state),
+                        "×"
+                    }
                 }
                 div { class: "modal-body",
                     div { class: "ev-calculator",
@@ -2118,17 +2222,40 @@ fn evo_path_modal(st: &AppState) -> VNode {
         }
     };
 
+    let path_overlay_state = st.clone();
+    let path_close_state = st.clone();
+    let fwd_state = st.clone();
+    let bwd_state = st.clone();
     rsx! {
-        div { class: "modal-overlay", "data-pm-evo-path-close": "1",
-            div { class: "modal-container",
+        div { class: "modal-overlay",
+            "data-test-evo-path-close": "1",
+            onclick: move |_| close_evo_path_modal(&path_overlay_state),
+            div {
+                class: "modal-container",
+                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                 div { class: "modal-header",
                     h3 { "进化路径" }
-                    button { class: "modal-close-btn", "data-pm-evo-path-close": "1", "×" }
+                    button {
+                        class: "modal-close-btn",
+                        "data-test-evo-path-close": "1",
+                        onclick: move |_| close_evo_path_modal(&path_close_state),
+                        "×"
+                    }
                 }
                 div { class: "modal-body",
                     div { class: "evo-path-tab-bar",
-                        button { class: fwd_cls, "data-pm-evo-path-tab": "forward", "进化路线" }
-                        button { class: bwd_cls, "data-pm-evo-path-tab": "backward", "退化路线" }
+                        button {
+                            class: fwd_cls,
+                            "data-test-evo-path-tab": "forward",
+                            onclick: move |_| switch_evo_path_tab(&fwd_state, true),
+                            "进化路线"
+                        }
+                        button {
+                            class: bwd_cls,
+                            "data-test-evo-path-tab": "backward",
+                            onclick: move |_| switch_evo_path_tab(&bwd_state, false),
+                            "退化路线"
+                        }
                     }
                     ..vec![body]
                 }
@@ -2140,6 +2267,9 @@ fn evo_path_modal(st: &AppState) -> VNode {
 /// 进化弹窗：可进化路线（条件 + 状态 + 执行按钮）。
 fn evolution_modal(st: &AppState) -> VNode {
     let evolving = st.my_pm.evolving.get();
+    let evolve_state = st.clone();
+    let evo_overlay_state = st.clone();
+    let evo_close_state = st.clone();
 
     let body = match st.my_pm.evo_check.get() {
         None => rsx! { div { class: "evo-path-loading", "正在查询进化条件..." } },
@@ -2171,12 +2301,15 @@ fn evolution_modal(st: &AppState) -> VNode {
                     let btn = if evo.can_evolve {
                         let to_id = evo.to_id.to_string();
                         let to_name = evo.to_name.clone();
+                        let evo_id = evo.to_id;
+                        let evo_state = evolve_state.clone();
                         rsx! {
                             button {
                                 class: "ev-calculator-btn",
                                 disabled: evolving,
-                                "data-pm-evo-do": to_id,
-                                "data-pm-evo-do-name": to_name,
+                                "data-test-evo-do": to_id,
+                                "data-test-evo-do-name": to_name.clone(),
+                                onclick: move |_| evolve_to(&evo_state, evo_id, &to_name),
                                 "进化"
                             }
                         }
@@ -2207,11 +2340,20 @@ fn evolution_modal(st: &AppState) -> VNode {
     };
 
     rsx! {
-        div { class: "modal-overlay", "data-pm-evo-modal-close": "1",
-            div { class: "modal-container",
+        div { class: "modal-overlay",
+            "data-test-evo-modal-close": "1",
+            onclick: move |_| close_evolution_modal(&evo_overlay_state),
+            div {
+                class: "modal-container",
+                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                 div { class: "modal-header",
                     h3 { "进化" }
-                    button { class: "modal-close-btn", "data-pm-evo-modal-close": "1", "×" }
+                    button {
+                        class: "modal-close-btn",
+                        "data-test-evo-modal-close": "1",
+                        onclick: move |_| close_evolution_modal(&evo_close_state),
+                        "×"
+                    }
                 }
                 div { class: "modal-body", ..vec![body] }
             }

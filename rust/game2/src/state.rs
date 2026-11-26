@@ -44,11 +44,27 @@ pub struct ShopPet {
     pub can_buy: bool,
 }
 
-/// 反馈提示（成功/失败共用一条 UI，颜色随 variant）。
-#[derive(Clone, Copy, PartialEq)]
+/// 反馈提示的类别（展示见 `toast.rs`；时长与配色沿用 Dioxus 版）。
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ToastKind {
     Success,
     Error,
+    Info,
+    Warning,
+}
+
+/// 当前用户资料（侧栏 trainer 卡 + 启动时的欢迎页判定）。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct UserProfile {
+    pub uid: u64,
+    pub username: String,
+    pub is_admin: bool,
+    /// 新玩家（is_new_player 或 total_pokemons==0）：先进欢迎页。
+    pub needs_welcome: bool,
+    pub money: i64,
+    pub strength_level: u32,
+    pub wins: u32,
+    pub losses: u32,
 }
 
 /// 背包物品（与 rust/utils/src/types/api_user.rs InventoryItem 字段一致）。
@@ -98,10 +114,6 @@ pub struct InventoryState {
     pub selected_item: ReactiveSignal<Option<u64>>,
     pub show_target_modal: ReactiveSignal<bool>,
     pub usable_pokemon: ReactiveSignal<Option<Result<Vec<UsablePokemon>, String>>>,
-
-    pub toast_visible: ReactiveSignal<bool>,
-    pub toast_message: ReactiveSignal<String>,
-    pub toast_kind: ReactiveSignal<ToastKind>,
 }
 
 impl InventoryState {
@@ -119,9 +131,6 @@ impl InventoryState {
             selected_item: use_signal(|| None),
             show_target_modal: use_signal(|| false),
             usable_pokemon: use_signal(|| None),
-            toast_visible: use_signal(|| false),
-            toast_message: use_signal(String::new),
-            toast_kind: use_signal(|| ToastKind::Success),
         }
     }
 }
@@ -130,20 +139,6 @@ impl std::fmt::Debug for InventoryState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("InventoryState").finish()
     }
-}
-
-/// 背包页提示（与商店的 show_toast* 分开命名，避免重载——Rust 无函数重载）。
-pub fn inv_show_toast(state: &InventoryState, kind: ToastKind, message: String) {
-    state.toast_kind.set(kind);
-    state.toast_message.set(message);
-    state.toast_visible.set(true);
-}
-
-/// promise 线程版（与 ShopState 的同名函数同约定）。
-pub fn inv_show_toast_silent(state: &InventoryState, kind: ToastKind, message: String) {
-    state.toast_kind.inner().set(kind);
-    state.toast_message.inner().set(message);
-    state.toast_visible.inner().set(true);
 }
 
 /// 商店页持久状态。`PocState` 的继任者：POC 骨架已退役，
@@ -170,9 +165,6 @@ pub struct ShopState {
     pub hover_pos: ReactiveSignal<(f64, f64)>,
 
     pub buying: ReactiveSignal<bool>,
-    pub toast_visible: ReactiveSignal<bool>,
-    pub toast_message: ReactiveSignal<String>,
-    pub toast_kind: ReactiveSignal<ToastKind>,
 }
 
 impl ShopState {
@@ -189,25 +181,8 @@ impl ShopState {
             hover_key: use_signal(|| None),
             hover_pos: use_signal(|| (0.0f64, 0.0f64)),
             buying: use_signal(|| false),
-            toast_visible: use_signal(|| false),
-            toast_message: use_signal(String::new),
-            toast_kind: use_signal(|| ToastKind::Success),
         }
     }
-}
-
-pub fn show_toast(state: &ShopState, kind: ToastKind, message: String) {
-    state.toast_kind.set(kind);
-    state.toast_message.set(message);
-    state.toast_visible.set(true);
-}
-
-/// promise 线程版：只写内部值（不触发 mark_dirty 的调度路径），
-/// 渲染由 promise_commit → pm-flush 事件统一驱动。
-pub fn show_toast_silent(state: &ShopState, kind: ToastKind, message: String) {
-    state.toast_kind.inner().set(kind);
-    state.toast_message.inner().set(message);
-    state.toast_visible.inner().set(true);
 }
 
 impl std::fmt::Debug for ShopState {
@@ -241,6 +216,10 @@ pub struct PokemonBasic {
     /// 属性 2。
     pub type_2: Option<String>,
     pub is_legendary: bool,
+    /// 经验与当前等级区间（侧栏迷你格 tooltip 的 EXP 条用）。
+    pub exp: u64,
+    pub exp_for_current_level: u64,
+    pub exp_for_next_level: u64,
 }
 
 impl PokemonBasic {
@@ -283,9 +262,6 @@ pub struct CenterState {
     pub in_battle: ReactiveSignal<bool>,
     /// 治疗请求进行中（互斥守卫）。
     pub healing: ReactiveSignal<bool>,
-    pub toast_visible: ReactiveSignal<bool>,
-    pub toast_message: ReactiveSignal<String>,
-    pub toast_kind: ReactiveSignal<ToastKind>,
 }
 
 impl CenterState {
@@ -295,9 +271,6 @@ impl CenterState {
             pokemons: use_signal(|| None),
             in_battle: use_signal(|| false),
             healing: use_signal(|| false),
-            toast_visible: use_signal(|| false),
-            toast_message: use_signal(String::new),
-            toast_kind: use_signal(|| ToastKind::Success),
         }
     }
 }
@@ -306,18 +279,6 @@ impl std::fmt::Debug for CenterState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CenterState").finish()
     }
-}
-
-pub fn center_show_toast(state: &CenterState, kind: ToastKind, message: String) {
-    state.toast_kind.set(kind);
-    state.toast_message.set(message);
-    state.toast_visible.set(true);
-}
-
-pub fn center_show_toast_silent(state: &CenterState, kind: ToastKind, message: String) {
-    state.toast_kind.inner().set(kind);
-    state.toast_message.inner().set(message);
-    state.toast_visible.inner().set(true);
 }
 
 /// 我的宝可梦页签名。
@@ -506,9 +467,6 @@ pub struct MyPokemonState {
     /// 装备/卸下动作进行中（互斥守卫）。
     pub equip_loading: ReactiveSignal<bool>,
     pub equip_selected: ReactiveSignal<Option<SelectedEquip>>,
-    pub toast_visible: ReactiveSignal<bool>,
-    pub toast_message: ReactiveSignal<String>,
-    pub toast_kind: ReactiveSignal<ToastKind>,
 
     // ---- 技能标签页 ----
     /// 当前选中（展开遗忘操作）的技能 type_id。
@@ -581,9 +539,6 @@ impl MyPokemonState {
             equipment: use_signal(|| None),
             equip_loading: use_signal(|| false),
             equip_selected: use_signal(|| None),
-            toast_visible: use_signal(|| false),
-            toast_message: use_signal(String::new),
-            toast_kind: use_signal(|| ToastKind::Success),
             skill_selected: use_signal(|| None),
             learn_modal_open: use_signal(|| false),
             learnable: use_signal(|| None),
@@ -607,13 +562,6 @@ impl std::fmt::Debug for MyPokemonState {
     }
 }
 
-/// 我的宠物页反馈提示（promise 线程版：只写内部值）。
-pub fn mypm_show_toast_silent(state: &MyPokemonState, kind: ToastKind, message: String) {
-    state.toast_kind.inner().set(kind);
-    state.toast_message.inner().set(message);
-    state.toast_visible.inner().set(true);
-}
-
 /// 仓库页持久状态（筛选值即时生效，渲染时套用——与 Dioxus 版一致）。
 #[derive(Clone)]
 pub struct StorageState {
@@ -634,9 +582,6 @@ pub struct StorageState {
     pub open_menu: ReactiveSignal<Option<u64>>,
     /// 写操作进行中（互斥守卫）。
     pub action_loading: ReactiveSignal<bool>,
-    pub toast_visible: ReactiveSignal<bool>,
-    pub toast_message: ReactiveSignal<String>,
-    pub toast_kind: ReactiveSignal<ToastKind>,
 }
 
 /// 仓库页每页条数（对齐 Dioxus 版 STORAGE_PAGE_SIZE）。
@@ -657,9 +602,6 @@ impl StorageState {
             visible_count: use_signal(|| STORAGE_PAGE_SIZE),
             open_menu: use_signal(|| None),
             action_loading: use_signal(|| false),
-            toast_visible: use_signal(|| false),
-            toast_message: use_signal(String::new),
-            toast_kind: use_signal(|| ToastKind::Success),
         }
     }
 
@@ -674,18 +616,6 @@ impl std::fmt::Debug for StorageState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("StorageState").finish()
     }
-}
-
-pub fn storage_show_toast(state: &StorageState, kind: ToastKind, message: String) {
-    state.toast_kind.set(kind);
-    state.toast_message.set(message);
-    state.toast_visible.set(true);
-}
-
-pub fn storage_show_toast_silent(state: &StorageState, kind: ToastKind, message: String) {
-    state.toast_kind.inner().set(kind);
-    state.toast_message.inner().set(message);
-    state.toast_visible.inner().set(true);
 }
 
 /// 待确认的战斗动作（重试用；与 Dioxus 版 PendingBattleAction 对应，
@@ -734,9 +664,6 @@ pub struct BattleState {
     pub log_copy_status: ReactiveSignal<String>,
     /// 上次开战的地图（结算「继续战斗」用）。
     pub last_map_id: ReactiveSignal<u64>,
-    pub toast_visible: ReactiveSignal<bool>,
-    pub toast_message: ReactiveSignal<String>,
-    pub toast_kind: ReactiveSignal<ToastKind>,
 }
 
 impl BattleState {
@@ -759,9 +686,6 @@ impl BattleState {
             log_data: use_signal(|| None),
             log_copy_status: use_signal(String::new),
             last_map_id: use_signal(|| 0u64),
-            toast_visible: use_signal(|| false),
-            toast_message: use_signal(String::new),
-            toast_kind: use_signal(|| ToastKind::Success),
         }
     }
 }
@@ -770,10 +694,4 @@ impl std::fmt::Debug for BattleState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BattleState").finish()
     }
-}
-
-pub fn battle_show_toast_silent(state: &BattleState, kind: ToastKind, message: String) {
-    state.toast_kind.inner().set(kind);
-    state.toast_message.inner().set(message);
-    state.toast_visible.inner().set(true);
 }
