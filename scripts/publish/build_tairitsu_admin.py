@@ -136,6 +136,26 @@ def write_boot_assets(build_id: str) -> None:
     )
 
 
+def compile_admin_css() -> None:
+    """编译 rust/admin2/styles/main.scss → plugin/wasm2/admin.css。
+
+    后台样式归前端：以前这段 CSS 内联在 admin_v2.inc.php 里，PHP 改样式、
+    `<style>` 还直接落在论坛页面上。现在由这里产出，入口页只挂 `<link>`。
+    """
+    source = ADMIN_DIR / "styles" / "main.scss"
+    output = OUT / "admin.css"
+    sass = shutil.which("sass")
+    if not sass:
+        sys.exit("sass not found on PATH (needed for rust/admin2/styles/main.scss)")
+    result = subprocess.run(
+        [sass, "--style=compressed", "--no-source-map", "--quiet", str(source), str(output)],
+        check=False,
+        shell=False,
+    )
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-build", action="store_true")
@@ -143,6 +163,7 @@ def main() -> None:
     args = parser.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
+    compile_admin_css()
     wasm = cargo_build(args.skip_build)
     jco_transpile_admin(wasm)
     build_id = str(int(wasm.stat().st_mtime))
