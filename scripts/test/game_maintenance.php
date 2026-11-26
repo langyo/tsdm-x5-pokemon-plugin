@@ -74,12 +74,24 @@ if (($argv[1] ?? '') === '--worker') {
     }
     DB::$config = array_key_exists('global', $case)
         ? ['key' => 'is_open', 'value' => $case['global'], 'data_type' => $case['data_type'] ?? 'boolean'] : false;
+    // 页面自己会往 stdout 写东西：API 路由回 JSON，独立后台页（admin_v2.inc.php）
+    // 写整份 HTML 文档。父进程只认 JSON，所以先缓冲，按内容决定交回什么。
+    ob_start();
     try {
         if (($case['entry'] ?? '') === 'game') require __DIR__ . '/../../plugin/game.inc.php';
         else require __DIR__ . '/../../plugin/pokemon.inc.php';
     } catch (RuntimeException $error) {
+        ob_end_clean();
         if ($error->getMessage() !== 'Game template reached') throw $error;
         echo json_encode(['success' => true, 'page' => 'game']);
+        exit;
+    }
+    $rendered = (string) ob_get_clean();
+    if (ltrim($rendered) !== '' && ltrim($rendered)[0] !== '{') {
+        // 走完独立后台页的 </html>：这本身就是「页面渲染成功」。
+        echo json_encode(['success' => true, 'page' => 'admin']);
+    } else {
+        echo $rendered;
     }
     exit;
 }
@@ -149,7 +161,7 @@ check_route(!$r['success'] && $r['message'] === 'system_closed', 'Guests also se
 // 默认 admin 路由已是 tairitsu 壳（admin_v2.inc.php）：管理员维护期可渲染，
 // 非管理员被 admin_only 拦下。
 [$r] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'admin' => true]);
-check_route($r['success'] && $r['page'] === 'game', 'Default admin route renders the tairitsu shell for admins during maintenance');
+check_route($r['success'] && $r['page'] === 'admin', 'Default admin route renders the tairitsu shell for admins during maintenance');
 [$r] = route_case(['entry' => 'game', 'legacy' => 0, 'global' => '0', 'index' => 'admin', 'uid' => 0]);
 check_route(!$r['success'] && $r['message'] === 'admin_only', 'Default admin route still rejects non-admins');
 // Dioxus admincp 的维护期写配置路径经 &ui=v1 逃生参数进入。
