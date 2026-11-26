@@ -1,4 +1,4 @@
 // shim for tairitsu-browser:full/location
-import { INTERFACES } from '../glue/html/index.js?v=1795679534';
+import { INTERFACES } from '../glue/html/index.js?v=1795681697';
 const obj = INTERFACES['@tairitsu-glue/location'];
 export const getPathname = obj.getPathname;
