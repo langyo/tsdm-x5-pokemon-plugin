@@ -824,6 +824,7 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 [[package]]
 name = "hikari-animation"
 version = "0.5.0"
+source = "git+https://github.com/celestia-island/hikari?rev=ed699a6b#ed699a6bd0d0b32f26bb51db2092a3e1a7d054a4"
 dependencies = [
  "js-sys",
  "once_cell",
@@ -841,6 +842,7 @@ dependencies = [
 [[package]]
 name = "hikari-builder"
 version = "0.5.0"
+source = "git+https://github.com/celestia-island/hikari?rev=ed699a6b#ed699a6bd0d0b32f26bb51db2092a3e1a7d054a4"
 dependencies = [
  "anyhow",
  "flate2",
@@ -855,6 +857,7 @@ dependencies = [
 [[package]]
 name = "hikari-components"
 version = "0.5.0"
+source = "git+https://github.com/celestia-island/hikari?rev=ed699a6b#ed699a6bd0d0b32f26bb51db2092a3e1a7d054a4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -878,6 +881,7 @@ dependencies = [
 [[package]]
 name = "hikari-i18n"
 version = "0.5.0"
+source = "git+https://github.com/celestia-island/hikari?rev=ed699a6b#ed699a6bd0d0b32f26bb51db2092a3e1a7d054a4"
 dependencies = [
  "anyhow",
  "include_dir",
@@ -890,6 +894,7 @@ dependencies = [
 [[package]]
 name = "hikari-icons"
 version = "0.5.0"
+source = "git+https://github.com/celestia-island/hikari?rev=ed699a6b#ed699a6bd0d0b32f26bb51db2092a3e1a7d054a4"
 dependencies = [
  "anyhow",
  "hikari-animation",
@@ -906,6 +911,7 @@ dependencies = [
 [[package]]
 name = "hikari-palette"
 version = "0.5.0"
+source = "git+https://github.com/celestia-island/hikari?rev=ed699a6b#ed699a6bd0d0b32f26bb51db2092a3e1a7d054a4"
 dependencies = [
  "regex-lite",
  "serde",
@@ -915,6 +921,7 @@ dependencies = [
 [[package]]
 name = "hikari-theme"
 version = "0.5.0"
+source = "git+https://github.com/celestia-island/hikari?rev=ed699a6b#ed699a6bd0d0b32f26bb51db2092a3e1a7d054a4"
 dependencies = [
  "hikari-palette",
  "tairitsu-hooks",
@@ -2462,24 +2469,23 @@ dependencies = [
 [[package]]
 name = "tairitsu-browser-worlds"
 version = "0.5.26"
-dependencies = [
- "anyhow",
-]
+source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
 
 [[package]]
 name = "tairitsu-hooks"
 version = "0.5.26"
+source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
 dependencies = [
  "anyhow",
  "tairitsu-vdom",
  "tokio",
- "tracing",
  "wit-bindgen",
 ]
 
 [[package]]
 name = "tairitsu-macros"
 version = "0.5.26"
+source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
 dependencies = [
  "grass",
  "hex",
@@ -2495,6 +2501,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-style"
 version = "0.5.26"
+source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
 dependencies = [
  "pest",
  "pest_derive",
@@ -2508,9 +2515,8 @@ dependencies = [
 [[package]]
 name = "tairitsu-vdom"
 version = "0.5.26"
+source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
 dependencies = [
- "anyhow",
- "serde",
  "tracing",
  "wit-bindgen",
 ]
@@ -2518,6 +2524,7 @@ dependencies = [
 [[package]]
 name = "tairitsu-web"
 version = "0.5.26"
+source = "git+https://github.com/celestia-island/tairitsu?rev=e0dc3981#e0dc398179b4d38c49ddfcd3610e02368c7e0410"
 dependencies = [
  "anyhow",
  "serde",
