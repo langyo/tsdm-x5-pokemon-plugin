@@ -2957,6 +2957,32 @@ fn map_editor_modal(st: &AppState) -> VNode {
     } else {
         "启用：否"
     };
+    // 各处理器各持一份状态句柄（闭包要求 'static）。
+    let mpf_state_0 = st.clone();
+    let mpf_state_1 = st.clone();
+    let mpf_state_2 = st.clone();
+    let mpf_state_3 = st.clone();
+    let mpsel_state_0 = st.clone();
+    let mpsel_state_1 = st.clone();
+    let mx_state_0 = st.clone();
+    let mx_state_1 = st.clone();
+    let mx_state_2 = st.clone();
+    let wild_q_state = st.clone();
+    let wild_search_state = st.clone();
+    let mp_toggle_state = st.clone();
+    let mp_x_state = st.clone();
+    let mp_cancel_state = st.clone();
+    let mp_save_state = st.clone();
+    let boss_overlay_state = st.clone();
+    let boss_x_state = st.clone();
+    let boss_cancel_state = st.clone();
+    let boss_save_state = st.clone();
+    let boss_search_state = st.clone();
+    let boss_add_state = st.clone();
+    let bossq_state = st.clone();
+    let bosslv_state = st.clone();
+    let bossmult_state = st.clone();
+
     let enabled_cls = if ed.is_enabled.get() {
         "admin-btn admin-btn--primary adm-editor-toggle"
     } else {
@@ -2996,7 +3022,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                     r#type: "number",
                     min: "0",
                     value: ed.experience.get(),
-                    "data-pm-adm-mpf": "experience"
+                    "data-test-adm-mpf": "experience",
+                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                        set_map_editor_field(&mx_state_0, "experience", &e.value);
+                    }
                 }
             }
             label { class: "adm-editor-field",
@@ -3006,7 +3035,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                     r#type: "number",
                     min: "0",
                     value: ed.experience_increase_times.get(),
-                    "data-pm-adm-mpf": "increase_times"
+                    "data-test-adm-mpf": "increase_times",
+                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                        set_map_editor_field(&mx_state_1, "increase_times", &e.value);
+                    }
                 }
             }
         }]
@@ -3021,7 +3053,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                         r#type: "number",
                         min: "0",
                         value: ed.experience.get(),
-                        "data-pm-adm-mpf": "experience"
+                        "data-test-adm-mpf": "experience",
+                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                            set_map_editor_field(&mx_state_2, "experience", &e.value);
+                        }
                     }
                 }
             });
@@ -3032,6 +3067,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
             serde_json::from_str(&ed.bosses_json.get()).unwrap_or_default();
         for (i, e) in boss_entries.iter().enumerate() {
             let idx_attr = i.to_string();
+            let boss_edit_idx = i;
+            let boss_del_idx = i;
+            let boss_edit_state = st.clone();
+            let boss_del_state = st.clone();
             let name = json_str(e, "pokemon_name");
             let lv = json_u64(e, "level");
             let mult = e
@@ -3048,12 +3087,14 @@ fn map_editor_modal(st: &AppState) -> VNode {
                     span { class: "adm-boss-row-actions",
                         button {
                             class: "admin-btn adm-row-edit",
-                            "data-pm-adm-mp-boss-edit": idx_attr.clone(),
+                            "data-test-adm-mp-boss-edit": idx_attr.clone(),
+                            onclick: move |_| boss_modal_open(&boss_edit_state, Some(boss_edit_idx)),
                             "编辑"
                         }
                         button {
                             class: "admin-btn adm-row-del",
-                            "data-pm-adm-mp-boss-del": idx_attr.clone(),
+                            "data-test-adm-mp-boss-del": idx_attr.clone(),
+                            onclick: move |_| boss_remove(&boss_del_state, boss_del_idx),
                             "删除"
                         }
                     }
@@ -3086,11 +3127,15 @@ fn map_editor_modal(st: &AppState) -> VNode {
             for (pid, name) in ed.boss_results.get().into_iter() {
                 let label = format!("{name} #{pid}");
                 let attr = format!("{pid}:{name}");
+                let boss_pick_state = st.clone();
+                let boss_pick_name = name.clone();
+                let boss_pick_id = pid;
                 result_chips.push(rsx! {
                     button {
                         class: "admin-btn adm-grant-result",
                         disabled: ed.boss_searching.get(),
-                        "data-pm-adm-mp-boss-pick": attr,
+                        "data-test-adm-mp-boss-pick": attr,
+                        onclick: move |_| boss_pick(&boss_pick_state, boss_pick_id, &boss_pick_name),
                         "{label}"
                     }
                 });
@@ -3123,6 +3168,8 @@ fn map_editor_modal(st: &AppState) -> VNode {
                 let key = format!("iv:{i}");
                 let lab = *lab;
                 let val = ed.boss_ivs.get()[i].clone();
+                let iv_key = key.clone();
+                let iv_state = st.clone();
                 iv_fields.push(rsx! {
                     label { class: "adm-editor-field",
                         span { "{lab}" }
@@ -3132,7 +3179,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                             min: "0",
                             max: "255",
                             value: val,
-                            "data-pm-adm-bossf": key
+                            "data-test-adm-bossf": key,
+                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                set_boss_field(&iv_state, &iv_key, &e.value);
+                            }
                         }
                     }
                 });
@@ -3142,11 +3192,23 @@ fn map_editor_modal(st: &AppState) -> VNode {
                 None => VNode::empty(),
             };
             rsx! {
-                div { class: "modal-overlay adm-boss-overlay", "data-pm-adm-boss-overlay": "1",
+                div {
+                    class: "modal-overlay adm-boss-overlay",
+                    "data-test-adm-boss-overlay": "1",
+                    onclick: move |e: tairitsu_vdom::MouseEvent| {
+                        if e.target == e.current_target {
+                            close_boss_modal(&boss_overlay_state);
+                        }
+                    },
                     div { class: "adm-editor-modal adm-boss-modal",
                         div { class: "modal-header",
                             h3 { "{title}" }
-                            button { class: "modal-close", "data-pm-adm-mp-boss-cancel": "1", "×" }
+                            button {
+                                class: "modal-close",
+                                "data-test-adm-mp-boss-cancel": "1",
+                                onclick: move |_| close_boss_modal(&boss_x_state),
+                                "×"
+                            }
                         }
                         div { class: "modal-body adm-editor-body",
                             div { class: "adm-editor-grid",
@@ -3155,12 +3217,16 @@ fn map_editor_modal(st: &AppState) -> VNode {
                                     r#type: "text",
                                     placeholder: "按名称搜索物种（包含）",
                                     value: ed.boss_query.get(),
-                                    "data-pm-adm-bossf": "query"
+                                    "data-test-adm-bossf": "query",
+                                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                        set_boss_field(&bossq_state, "query", &e.value);
+                                    }
                                 }
                                 button {
                                     class: "admin-btn adm-editor-toggle",
                                     disabled: ed.boss_searching.get(),
-                                    "data-pm-adm-mp-boss-search": "1",
+                                    "data-test-adm-mp-boss-search": "1",
+                                    onclick: move |_| boss_search(&boss_search_state),
                                     "搜索"
                                 }
                             }
@@ -3174,7 +3240,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                                         r#type: "number",
                                         min: "1",
                                         value: ed.boss_level.get(),
-                                        "data-pm-adm-bossf": "level"
+                                        "data-test-adm-bossf": "level",
+                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                            set_boss_field(&bosslv_state, "level", &e.value);
+                                        }
                                     }
                                 }
                                 label { class: "adm-editor-field",
@@ -3186,7 +3255,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                                         max: "5.0",
                                         step: "0.1",
                                         value: ed.boss_mult.get(),
-                                        "data-pm-adm-bossf": "mult"
+                                        "data-test-adm-bossf": "mult",
+                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                            set_boss_field(&bossmult_state, "mult", &e.value);
+                                        }
                                     }
                                 }
                             }
@@ -3200,12 +3272,14 @@ fn map_editor_modal(st: &AppState) -> VNode {
                             div { class: "adm-editor-actions",
                                 button {
                                     class: "admin-btn admin-btn--primary",
-                                    "data-pm-adm-mp-boss-save": "1",
+                                    "data-test-adm-mp-boss-save": "1",
+                                    onclick: move |_| boss_save(&boss_save_state),
                                     "保存"
                                 }
                                 button {
                                     class: "admin-btn",
-                                    "data-pm-adm-mp-boss-cancel": "2",
+                                    "data-test-adm-mp-boss-cancel": "2",
+                                    onclick: move |_| close_boss_modal(&boss_cancel_state),
                                     "取消"
                                 }
                             }
@@ -3222,7 +3296,8 @@ fn map_editor_modal(st: &AppState) -> VNode {
                     "Boss 挑战"
                     button {
                         class: "admin-btn adm-editor-toggle",
-                        "data-pm-adm-mp-boss-add": "1",
+                        "data-test-adm-mp-boss-add": "1",
+                        onclick: move |_| boss_modal_open(&boss_add_state, None),
                         "＋ 添加 Boss"
                     }
                 }
@@ -3300,12 +3375,16 @@ fn map_editor_modal(st: &AppState) -> VNode {
                             r#type: "text",
                             placeholder: "按名称搜索宠物类型（包含）",
                             value: ed.wild_query.get(),
-                            "data-pm-adm-mpf": "wild_query"
+                            "data-test-adm-mpf": "wild_query",
+                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                set_map_editor_field(&wild_q_state, "wild_query", &e.value);
+                            }
                         }
                         button {
                             class: "admin-btn adm-editor-toggle",
                             disabled: ed.wild_searching.get(),
-                            "data-pm-adm-mp-wild-search": "1",
+                            "data-test-adm-mp-wild-search": "1",
+                            onclick: move |_| wild_search(&wild_search_state),
                             "搜索"
                         }
                     }
@@ -3328,7 +3407,12 @@ fn map_editor_modal(st: &AppState) -> VNode {
             div { class: "adm-editor-modal",
                 div { class: "modal-header",
                     h3 { "{title}" }
-                    button { class: "modal-close", "data-pm-adm-mp-close": "1", "×" }
+                    button {
+                        class: "modal-close",
+                        "data-test-adm-mp-close": "1",
+                        onclick: move |_| close_map_editor(&mp_x_state),
+                        "×"
+                    }
                 }
                 div { class: "modal-body adm-editor-body",
                     div { class: "adm-editor-grid",
@@ -3338,14 +3422,20 @@ fn map_editor_modal(st: &AppState) -> VNode {
                                 class: "adm-filter-input",
                                 r#type: "text",
                                 value: ed.name.get(),
-                                "data-pm-adm-mpf": "name"
+                                "data-test-adm-mpf": "name",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_map_editor_field(&mpf_state_0, "name", &e.value);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
                             span { "地形类型" }
                             select {
                                 class: "adm-filter-input",
-                                "data-pm-adm-mpf": "area_type",
+                                "data-test-adm-mpf": "area_type",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_map_editor_field(&mpsel_state_0, "area_type", &e.value);
+                                },
                                 for i in 0..area_options.len() {
                                     ..vec![area_options[i].clone()]
                                 }
@@ -3355,7 +3445,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                             span { "模式" }
                             select {
                                 class: "adm-filter-input",
-                                "data-pm-adm-mpf": "mode",
+                                "data-test-adm-mpf": "mode",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_map_editor_field(&mpsel_state_1, "mode", &e.value);
+                                },
                                 for i in 0..mode_options.len() {
                                     ..vec![mode_options[i].clone()]
                                 }
@@ -3369,7 +3462,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                                 min: "1",
                                 max: "255",
                                 value: ed.min_level.get(),
-                                "data-pm-adm-mpf": "min_level"
+                                "data-test-adm-mpf": "min_level",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_map_editor_field(&mpf_state_1, "min_level", &e.value);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -3380,7 +3476,10 @@ fn map_editor_modal(st: &AppState) -> VNode {
                                 min: "1",
                                 max: "255",
                                 value: ed.max_level.get(),
-                                "data-pm-adm-mpf": "max_level"
+                                "data-test-adm-mpf": "max_level",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_map_editor_field(&mpf_state_2, "max_level", &e.value);
+                                }
                             }
                         }
                         label { class: "adm-editor-field",
@@ -3391,13 +3490,17 @@ fn map_editor_modal(st: &AppState) -> VNode {
                                 min: "0",
                                 max: "8",
                                 value: ed.min_quality.get(),
-                                "data-pm-adm-mpf": "min_quality"
+                                "data-test-adm-mpf": "min_quality",
+                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                    set_map_editor_field(&mpf_state_3, "min_quality", &e.value);
+                                }
                             }
                         }
                         button {
                             class: enabled_cls,
                             disabled: saving,
-                            "data-pm-adm-mp-toggle": "enabled",
+                            "data-test-adm-mp-toggle": "enabled",
+                            onclick: move |_| toggle_map_editor_enabled(&mp_toggle_state),
                             "{enabled_label}"
                         }
                     }
@@ -3412,13 +3515,15 @@ fn map_editor_modal(st: &AppState) -> VNode {
                     button {
                         class: "admin-btn",
                         disabled: saving,
-                        "data-pm-adm-mp-close": "1",
+                        "data-test-adm-mp-close": "1",
+                        onclick: move |_| close_map_editor(&mp_cancel_state),
                         "取消"
                     }
                     button {
                         class: "admin-btn admin-btn--primary",
                         disabled: saving,
-                        "data-pm-adm-mp-save": "1",
+                        "data-test-adm-mp-save": "1",
+                        onclick: move |_| submit_map_editor(&mp_save_state),
                         "{save_label}"
                     }
                 }
@@ -5625,12 +5730,15 @@ fn config_form_body(st: &AppState) -> VNode {
         let title_field = st.clone();
         let url_field = st.clone();
         rsx! {
-            div { class: "modal-overlay",
+            div {
+                class: "modal-overlay",
                 "data-test-adm-ann-overlay": "1",
-                onclick: move |_| close_announcement(&overlay_close),
-                div {
-                    class: "adm-editor-modal adm-editor-modal--narrow",
-                    onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
+                onclick: move |e: tairitsu_vdom::MouseEvent| {
+                    if e.target == e.current_target {
+                        close_announcement(&overlay_close);
+                    }
+                },
+                div { class: "adm-editor-modal adm-editor-modal--narrow",
                     div { class: "modal-header",
                         h3 { "{title}" }
                         button {
