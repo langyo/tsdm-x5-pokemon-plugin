@@ -21,6 +21,27 @@ if (($argv[1] ?? '') === '--worker') {
     function lang($kind, $key) { return $key; }
     function showmessage($message) { echo json_encode(['success' => false, 'message' => $message]); exit; }
     function template($name) { throw new RuntimeException('Game template reached'); }
+    // 默认后台路由（admin_v2.inc.php）是独立页面，渲染时要用 Discuz 的这些
+    // 函数与设置；这里只补测试需要的形状，页面走到 </html> 就算渲染成功。
+    if (!defined('FORMHASH')) define('FORMHASH', 'test-formhash');
+    if (!function_exists('avatar')) {
+        function avatar($uid, $size = 'small', $returnsrc = 0)
+        {
+            return '/uc_server/avatar.php?uid=' . (int) $uid . '&size=' . $size;
+        }
+    }
+    if (!function_exists('dhtmlspecialchars')) {
+        function dhtmlspecialchars($text) { return htmlspecialchars((string) $text, ENT_QUOTES); }
+    }
+    if (!function_exists('updatesession')) {
+        function updatesession() {}
+    }
+    if (!function_exists('output')) {
+        function output() {}
+    }
+    $_G['setting'] = ['bbname' => 'Fixture Forum'];
+    $_G['siteurl'] = 'https://fixture.invalid/';
+    $_G['group'] = ['grouptitle' => 'Members'];
     class DB
     {
         public static $config;
