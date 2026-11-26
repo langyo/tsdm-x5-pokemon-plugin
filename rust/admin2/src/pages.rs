@@ -504,12 +504,18 @@ fn global_config_page(st: &AppState) -> VNode {
         None => rsx! { div { class: "admin-loading", "正在加载全局配置..." } },
         Some(Err(e)) => {
             let msg = format!("加载失败：{e}");
+            let reload_state = st.clone();
             rsx! {
                 div { class: "admin-card admin-error",
                     p { "{msg}" }
                     button {
                         class: "admin-btn",
-                        "data-pm-adm-config-reload": "1",
+                        "data-test-adm-config-reload": "1",
+                        onclick: move |_| {
+                            reload_state.config.loaded.inner().set(None);
+                            crate::request_remount();
+                            ensure_loaded(&reload_state);
+                        },
                         "重新加载"
                     }
                 }
@@ -533,13 +539,18 @@ fn global_config_page(st: &AppState) -> VNode {
             };
             let content = if raw_mode {
                 let rows = draft.lines().count().max(4).min(30);
+                let draft_state = st.clone();
                 rsx! {
                     div { class: "admin-card admin-config-editor",
                         textarea {
                             class: "admin-config-textarea",
                             rows: rows,
                             spellcheck: "false",
-                            "data-pm-adm-config-input": "1",
+                            "data-test-adm-config-input": "1",
+                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                draft_state.config.draft.inner().set(e.value.clone());
+                                crate::request_remount();
+                            },
                             "{draft}"
                         }
                     }
@@ -547,6 +558,9 @@ fn global_config_page(st: &AppState) -> VNode {
             } else {
                 config_form_body(st)
             };
+            let rawmode_state = st.clone();
+            let save_state = st.clone();
+            let reset_state = st.clone();
             rsx! {
                 div { class: "admin-card admin-config-editor",
                     div { class: "admin-config-toolbar",
@@ -556,19 +570,22 @@ fn global_config_page(st: &AppState) -> VNode {
                         button {
                             class: "admin-btn",
                             disabled: saving,
-                            "data-pm-adm-config-rawmode": "1",
+                            "data-test-adm-config-rawmode": "1",
+                            onclick: move |_| toggle_config_raw_mode(&rawmode_state),
                             "{mode_label}"
                         }
                         button {
                             class: save_cls,
                             disabled: !dirty || saving,
-                            "data-pm-adm-config-save": "1",
+                            "data-test-adm-config-save": "1",
+                            onclick: move |_| save_config(&save_state),
                             "保存配置"
                         }
                         button {
                             class: reset_cls,
                             disabled: !dirty || saving,
-                            "data-pm-adm-config-reset": "1",
+                            "data-test-adm-config-reset": "1",
+                            onclick: move |_| reset_config(&reset_state),
                             "重置修改"
                         }
                     }
@@ -765,7 +782,8 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                         button {
                             class: "admin-btn",
                             disabled: busy,
-                            "data-pm-adm-l-more": "pk",
+                            "data-test-adm-l-more": "pk",
+                            onclick: move |_| load_more_list_pub(crate::state::POKEMON_SPEC, &pk),
                             "{label}"
                         }
                     }
@@ -6218,12 +6236,15 @@ fn config_form_body(st: &AppState) -> VNode {
                 } else {
                     "admin-btn adm-cfg-toggle"
                 };
+                let toggle_state = st.clone();
+                let toggle_key = k.clone();
                 section.push(rsx! {
                     div { class: "adm-cfg-field",
                         span { class: "adm-cfg-label", "{label}" }
                         button {
                             class: cls,
-                            "data-pm-adm-cfg-toggle": k.clone(),
+                            "data-test-adm-cfg-toggle": k.clone(),
+                            onclick: move |_| toggle_config_bool(&toggle_state, &toggle_key),
                             "{text}"
                         }
                         if !hint.is_empty() {
@@ -6235,6 +6256,8 @@ fn config_form_body(st: &AppState) -> VNode {
             CfgKind::Num | CfgKind::Text => {
                 let value = config_value_text(&config, key);
                 let is_num = *kind == CfgKind::Num;
+                let field_state = st.clone();
+                let field_key = k.clone();
                 section.push(rsx! {
                     div { class: "adm-cfg-field",
                         span { class: "adm-cfg-label", "{label}" }
@@ -6242,7 +6265,10 @@ fn config_form_body(st: &AppState) -> VNode {
                             class: "adm-filter-input adm-cfg-input",
                             r#type: if is_num { "number" } else { "text" },
                             value: value,
-                            "data-pm-adm-cfg": k.clone()
+                            "data-test-adm-cfg": k.clone(),
+                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                set_config_field(&field_state, &field_key, &e.value, false);
+                            }
                         }
                         if !hint.is_empty() {
                             span { class: "adm-cfg-hint", "{hint}" }
@@ -6262,7 +6288,8 @@ fn config_form_body(st: &AppState) -> VNode {
         let title = json_str(item, "title");
         let url = json_str(item, "url");
         let idx = i.to_string();
-        let idx_edit = idx.clone();
+        let edit_state = st.clone();
+        let del_state = st.clone();
         ann_rows.push(rsx! {
             div { class: "adm-cfg-ann-row",
                 span { class: "adm-cfg-ann-title", "{title}" }
@@ -6270,12 +6297,14 @@ fn config_form_body(st: &AppState) -> VNode {
                 div { class: "adm-cfg-ann-actions",
                     button {
                         class: "admin-btn adm-row-edit",
-                        "data-pm-adm-ann-edit": idx_edit,
+                        "data-test-adm-ann-edit": idx.clone(),
+                        onclick: move |_| open_announcement(&edit_state, Some(i)),
                         "编辑"
                     }
                     button {
                         class: "admin-btn adm-row-edit",
-                        "data-pm-adm-ann-del": idx,
+                        "data-test-adm-ann-del": idx,
+                        onclick: move |_| remove_announcement(&del_state, i),
                         "删除"
                     }
                 }
@@ -6283,6 +6312,7 @@ fn config_form_body(st: &AppState) -> VNode {
         });
     }
     let can_add = items.len() < 6;
+    let new_ann_state = st.clone();
     let ann_body = if ann_rows.is_empty() {
         rsx! { p { class: "adm-editor-hint", "暂无公告" } }
     } else {
@@ -6304,7 +6334,8 @@ fn config_form_body(st: &AppState) -> VNode {
             button {
                 class: "admin-btn adm-cfg-add",
                 disabled: !can_add,
-                "data-pm-adm-ann-new": "1",
+                "data-test-adm-ann-new": "1",
+                onclick: move |_| open_announcement(&new_ann_state, None),
                 "新增公告"
             }
         }
@@ -6350,12 +6381,27 @@ fn config_form_body(st: &AppState) -> VNode {
             Some(i) => format!("编辑公告 #{}", i + 1),
             None => "新增公告".to_string(),
         };
+        let overlay_close = st.clone();
+        let x_close = st.clone();
+        let cancel_close = st.clone();
+        let save_ann = st.clone();
+        let title_field = st.clone();
+        let url_field = st.clone();
         rsx! {
-            div { class: "modal-overlay", "data-pm-adm-ann-overlay": "1",
-                div { class: "adm-editor-modal adm-editor-modal--narrow",
+            div { class: "modal-overlay",
+                "data-test-adm-ann-overlay": "1",
+                onclick: move |_| close_announcement(&overlay_close),
+                div {
+                    class: "adm-editor-modal adm-editor-modal--narrow",
+                    onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                     div { class: "modal-header",
                         h3 { "{title}" }
-                        button { class: "modal-close", "data-pm-adm-ann-close": "1", "×" }
+                        button {
+                            class: "modal-close",
+                            "data-test-adm-ann-close": "1",
+                            onclick: move |_| close_announcement(&x_close),
+                            "×"
+                        }
                     }
                     div { class: "modal-body adm-editor-body",
                         div { class: "adm-editor-grid",
@@ -6365,7 +6411,10 @@ fn config_form_body(st: &AppState) -> VNode {
                                     class: "adm-filter-input",
                                     r#type: "text",
                                     value: cf.ann_title.get(),
-                                    "data-pm-adm-annf": "title"
+                                    "data-test-adm-annf": "title",
+                                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                        set_announcement_field(&title_field, "title", &e.value);
+                                    }
                                 }
                             }
                             label { class: "adm-editor-field",
@@ -6374,7 +6423,10 @@ fn config_form_body(st: &AppState) -> VNode {
                                     class: "adm-filter-input",
                                     r#type: "text",
                                     value: cf.ann_url.get(),
-                                    "data-pm-adm-annf": "url"
+                                    "data-test-adm-annf": "url",
+                                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                                        set_announcement_field(&url_field, "url", &e.value);
+                                    }
                                 }
                             }
                         }
@@ -6382,12 +6434,14 @@ fn config_form_body(st: &AppState) -> VNode {
                     div { class: "adm-editor-footer",
                         button {
                             class: "admin-btn",
-                            "data-pm-adm-ann-close": "1",
+                            "data-test-adm-ann-close": "1",
+                            onclick: move |_| close_announcement(&cancel_close),
                             "取消"
                         }
                         button {
                             class: "admin-btn admin-btn--primary",
-                            "data-pm-adm-ann-save": "1",
+                            "data-test-adm-ann-save": "1",
+                            onclick: move |_| save_announcement(&save_ann),
                             "确定"
                         }
                     }
