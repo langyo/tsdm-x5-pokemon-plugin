@@ -187,56 +187,75 @@ html {
   }
 
   // ---- 全局配置 ----
-  .admin-config-toolbar {
+  // 分区卡片、开关与输入框都是 hikari 标准件；这里只管卡片里的字段网格与
+  // 公告列表的排布，颜色一律走主题 token（暗色模式下才读得清）。
+  .adm-config-page-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .adm-config-toolbar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
-    margin-bottom: 12px;
     flex-wrap: wrap;
   }
-  .admin-config-hint { font-size: 12px; color: #888; flex: 1; min-width: 160px; }
-  .admin-config-textarea {
+  .adm-config-state {
+    font-size: 12px;
+    color: rgb(var(--color-text-tertiary));
+
+    &-dirty {
+      color: rgb(var(--color-warning));
+      font-weight: 600;
+    }
+  }
+  .adm-config-cards { display: flex; flex-direction: column; gap: 16px; }
+  .adm-config-textarea {
     width: 100%;
     min-height: 320px;
     font-family: Consolas, Monaco, monospace;
     font-size: 12px;
     line-height: 1.5;
-    border: 1px solid #d8d8d8;
+    border: 1px solid rgb(var(--color-border) / 25%);
     border-radius: 6px;
     padding: 12px;
     box-sizing: border-box;
     white-space: pre;
     overflow: auto;
+    background: rgb(var(--color-surface));
+    color: rgb(var(--color-text));
 
-    &:focus { outline: none; border-color: #5cb8e6; }
+    &:focus { outline: none; border-color: rgb(var(--color-primary)); }
   }
+  .adm-config-failed {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .adm-section-body { width: 100%; }
 
-  .adm-cfg-section { margin: 0 0 18px; &:last-child { margin-bottom: 4px; } }
-  .adm-cfg-section-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #333;
-    margin: 0 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #eee;
+  .adm-cfg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+  // 窄屏两列会挤成一百多像素宽，跌破输入框的可用宽度，改单列。
+  @media (max-width: 720px) {
+    .adm-cfg-grid { grid-template-columns: minmax(0, 1fr); }
+    .adm-config-toolbar { flex-direction: column; align-items: stretch; }
   }
-  .adm-cfg-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; }
   .adm-cfg-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-  .adm-cfg-label { color: #555; }
-  .adm-cfg-hint { font-size: 11px; color: #999; }
-  .adm-cfg-input { width: 100%; box-sizing: border-box; }
-  .adm-cfg-toggle { align-self: flex-start; padding: 3px 14px; font-size: 12px; }
+  .adm-cfg-label { color: rgb(var(--color-text-secondary)); }
+  .adm-cfg-hint { font-size: 11px; color: rgb(var(--color-text-tertiary)); }
   .adm-cfg-ann-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
   .adm-cfg-ann-row {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 6px 10px;
-    background: #fafafa;
-    border: 1px solid #eee;
+    background: rgb(var(--color-border) / 6%);
+    border: 1px solid rgb(var(--color-border) / 15%);
     border-radius: 6px;
   }
-  .adm-cfg-ann-title { font-weight: 600; color: #333; }
+  .adm-cfg-ann-title { font-weight: 600; color: rgb(var(--color-text)); }
   .adm-cfg-ann-url {
     flex: 1;
     min-width: 0;

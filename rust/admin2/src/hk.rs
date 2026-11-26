@@ -10,6 +10,7 @@
 //! - [`modal`]：hikari `Modal`（标题、宽度、页脚动作）；
 //! - [`anchored_menu`]：贴着锚点展开的动作菜单，行语法沿用 hikari `HkMenu`
 //!   （表格的「管理」列触发后弹的就是它）；
+//! - [`section_card`] / [`page_header`] / [`alert`] / [`spinner`]：版面与状态；
 //! - [`text_field`] / [`textarea_field`] / [`switch`] / [`select_field`]：表单字段。
 
 use std::rc::Rc;
@@ -19,9 +20,10 @@ use hikari_components::feedback::popover::{
 };
 use hikari_components::prelude::{Icon, IconProps, MdiIcon};
 use hikari_components::{
-    Button, ButtonProps, ButtonSize, ButtonVariant, Input, InputProps, Modal, ModalAction,
-    ModalActionVariant, ModalProps, Select, SelectOption, SelectProps, Switch, SwitchProps,
-    Textarea, TextareaProps,
+    Alert, AlertProps, AlertVariant, Button, ButtonProps, ButtonSize, ButtonVariant, Input,
+    InputProps, Modal, ModalAction, ModalActionVariant, ModalProps, PageHeader, PageHeaderProps,
+    SectionCard, SectionCardProps, Select, SelectOption, SelectProps, Spinner, SpinnerProps, Switch,
+    SwitchProps, Textarea, TextareaProps,
 };
 use tairitsu_macros::rsx;
 use tairitsu_vdom::{EventHandler, VNode, VText};
@@ -247,6 +249,65 @@ pub fn anchored_menu(anchor: MenuAnchor, actions: Vec<HkAction>, class: &str) ->
             }
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// 版面
+// ---------------------------------------------------------------------------
+
+/// hikari `PageHeader`：页头——标题、副标题、右侧动作。列表页由
+/// `AdminTablePage` 自带页头，这一给没有表格的页面用。
+pub fn page_header(title: &str, subtitle: Option<String>, actions: Vec<VNode>) -> VNode {
+    let action_slot = if actions.is_empty() {
+        None
+    } else {
+        Some(rsx! {
+            div { class: "hk-button-row", ..actions }
+        })
+    };
+    PageHeader(PageHeaderProps {
+        title: title.to_string(),
+        subtitle,
+        actions: action_slot,
+        ..Default::default()
+    })
+}
+
+/// hikari `Alert`：一条横幅（错误 / 提醒 / 信息 / 成功）。
+pub fn alert(variant: AlertVariant, message: &str) -> VNode {
+    Alert(AlertProps {
+        variant,
+        message: message.to_string(),
+        ..Default::default()
+    })
+}
+
+/// hikari `Spinner`：居中的加载指示。
+pub fn spinner() -> VNode {
+    Spinner(SpinnerProps {
+        center: true,
+        ..Default::default()
+    })
+}
+
+/// hikari `SectionCard`：一张带标题的分区卡片。`actions` 放在标题右侧，
+/// `body` 是卡片正文（按 `adm-cfg-grid` 这类宿主网格自行排布）。
+pub fn section_card(title: &str, actions: Vec<VNode>, body: Vec<VNode>) -> VNode {
+    let action_slot = if actions.is_empty() {
+        None
+    } else {
+        Some(rsx! {
+            div { class: "hk-button-row", ..actions }
+        })
+    };
+    SectionCard(SectionCardProps {
+        title: title.to_string(),
+        actions: action_slot,
+        children: rsx! {
+            div { class: "adm-section-body", ..body }
+        },
+        ..Default::default()
+    })
 }
 
 // ---------------------------------------------------------------------------

@@ -2,12 +2,14 @@
 
 use hikari_components::prelude::MdiIcon;
 use hikari_components::{
-    ButtonSize, ButtonVariant, ConfirmDialog, ConfirmDialogProps, ConfirmVariant, Input, InputProps,
+    AlertVariant, ButtonSize, ButtonVariant, ConfirmDialog, ConfirmDialogProps, ConfirmVariant,
+    Input, InputAlign, InputProps, InputSize,
 };
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::{EventHandler, VNode};
 
 use crate::app_state::AppState;
+use crate::hk;
 use crate::state::{AdminRoute, ToastKind};
 
 /// 首次进入装载当前页数据。
@@ -432,37 +434,22 @@ fn global_config_page(st: &AppState) -> VNode {
     let raw_mode = cf.raw_mode.get();
 
     let body = match &load_state {
-        None => rsx! { div { class: "admin-loading", "正在加载全局配置..." } },
+        None => hk::spinner(),
         Some(Err(e)) => {
             let msg = format!("加载失败：{e}");
             let reload_state = st.clone();
             rsx! {
-                div { class: "admin-card admin-error",
-                    p { "{msg}" }
-                    button {
-                        class: "admin-btn",
-                        "data-test-adm-config-reload": "1",
-                        onclick: move |_| {
-                            reload_state.config.loaded.inner().set(None);
-                            crate::request_remount();
-                            ensure_loaded(&reload_state);
-                        },
-                        "重新加载"
-                    }
+                div { class: "adm-config-failed",
+                    {hk::alert(AlertVariant::Error, &msg)}
+                    {hk::button("重新加载", ButtonVariant::Secondary, ButtonSize::Sm, false, move || {
+                        reload_state.config.loaded.inner().set(None);
+                        crate::request_remount();
+                        ensure_loaded(&reload_state);
+                    })}
                 }
             }
         }
         Some(Ok(())) => {
-            let save_cls = if dirty && !saving {
-                "admin-btn admin-btn--primary"
-            } else {
-                "admin-btn admin-btn--primary disabled"
-            };
-            let reset_cls = if dirty && !saving {
-                "admin-btn"
-            } else {
-                "admin-btn disabled"
-            };
             let mode_label = if raw_mode {
                 "切换到表单"
             } else {
@@ -472,18 +459,19 @@ fn global_config_page(st: &AppState) -> VNode {
                 let rows = draft.lines().count().max(4).min(30);
                 let draft_state = st.clone();
                 rsx! {
-                    div { class: "admin-card admin-config-editor",
-                        textarea {
-                            class: "admin-config-textarea",
-                            rows: rows,
-                            spellcheck: "false",
-                            "data-test-adm-config-input": "1",
-                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                draft_state.config.draft.inner().set(e.value.clone());
+                    textarea {
+                        id: "cfg-raw-json",
+                        class: "adm-config-textarea",
+                        rows: rows,
+                        spellcheck: "false",
+                        oninput: move |_event: tairitsu_vdom::InputEvent| {
+                            // 整值从 DOM 读：事件的 data 只是本次插入的片段。
+                            if let Some(text) = hk::dom_value("#cfg-raw-json") {
+                                draft_state.config.draft.inner().set(text);
                                 crate::request_remount();
-                            },
-                            "{draft}"
-                        }
+                            }
+                        },
+                        "{draft}"
                     }
                 }
             } else {
@@ -492,33 +480,30 @@ fn global_config_page(st: &AppState) -> VNode {
             let rawmode_state = st.clone();
             let save_state = st.clone();
             let reset_state = st.clone();
+            let toolbar: Vec<VNode> = vec![
+                hk::button(mode_label, ButtonVariant::Secondary, ButtonSize::Sm, saving, move || {
+                    toggle_config_raw_mode(&rawmode_state)
+                }),
+                hk::button("保存配置", ButtonVariant::Primary, ButtonSize::Sm, !dirty || saving, move || {
+                    save_config(&save_state)
+                }),
+                hk::button("重置修改", ButtonVariant::Ghost, ButtonSize::Sm, !dirty || saving, move || {
+                    reset_config(&reset_state)
+                }),
+            ];
+            let status = if saving {
+                "保存中…"
+            } else if dirty {
+                "有未保存修改"
+            } else {
+                "与已保存版本一致"
+            };
+            let status_tone = if dirty { " adm-config-state-dirty" } else { "" };
             rsx! {
-                div { class: "admin-card admin-config-editor",
-                    div { class: "admin-config-toolbar",
-                        span { class: "admin-config-hint",
-                            if dirty { "有未保存修改" } else { "与已保存版本一致" }
-                        }
-                        button {
-                            class: "admin-btn",
-                            disabled: saving,
-                            "data-test-adm-config-rawmode": "1",
-                            onclick: move |_| toggle_config_raw_mode(&rawmode_state),
-                            "{mode_label}"
-                        }
-                        button {
-                            class: save_cls,
-                            disabled: !dirty || saving,
-                            "data-test-adm-config-save": "1",
-                            onclick: move |_| save_config(&save_state),
-                            "保存配置"
-                        }
-                        button {
-                            class: reset_cls,
-                            disabled: !dirty || saving,
-                            "data-test-adm-config-reset": "1",
-                            onclick: move |_| reset_config(&reset_state),
-                            "重置修改"
-                        }
+                div { class: "adm-config-page-body",
+                    div { class: "adm-config-toolbar",
+                        span { class: format!("adm-config-state{status_tone}"), "{status}" }
+                        div { class: "hk-button-row", ..toolbar }
                     }
                     ..vec![content]
                 }
@@ -526,12 +511,10 @@ fn global_config_page(st: &AppState) -> VNode {
         }
     };
 
+    let mut parts: Vec<VNode> = vec![hk::page_header("全局配置", None, Vec::new()), body];
     rsx! {
         section { class: "admin-page admin-config-page",
-            div { class: "admin-page-header",
-                h2 { "全局配置" }
-            }
-            ..vec![body]
+            ..parts
         }
     }
 }
@@ -5220,16 +5203,13 @@ fn config_form_body(st: &AppState) -> VNode {
     let flush = |section: &mut Vec<VNode>, title: Option<&'static str>, blocks: &mut Vec<VNode>| {
         if let Some(t) = title {
             let rows: Vec<VNode> = section.drain(..).collect();
-            blocks.push(rsx! {
-                div { class: "adm-cfg-section",
-                    div { class: "adm-cfg-section-title", "{t}" }
-                    div { class: "adm-cfg-grid",
-                        for i in 0..rows.len() {
-                            ..vec![rows[i].clone()]
-                        }
-                    }
-                }
-            });
+            blocks.push(hk::section_card(
+                t,
+                Vec::new(),
+                vec![rsx! {
+                    div { class: "adm-cfg-grid", ..rows }
+                }],
+            ));
         }
     };
 
@@ -5245,24 +5225,16 @@ fn config_form_body(st: &AppState) -> VNode {
         match kind {
             CfgKind::Bool => {
                 let on = config_value_bool(&config, key);
-                let text = if on { "是" } else { "否" };
-                let cls = if on {
-                    "admin-btn admin-btn--primary adm-cfg-toggle"
-                } else {
-                    "admin-btn adm-cfg-toggle"
-                };
                 let toggle_state = st.clone();
                 let toggle_key = k.clone();
+                let hint_text = hint.to_string();
                 section.push(rsx! {
                     div { class: "adm-cfg-field",
                         span { class: "adm-cfg-label", "{label}" }
-                        button {
-                            class: cls,
-                            "data-test-adm-cfg-toggle": k.clone(),
-                            onclick: move |_| toggle_config_bool(&toggle_state, &toggle_key),
-                            "{text}"
-                        }
-                        if !hint.is_empty() {
+                        {hk::switch(on, "", move || {
+                            toggle_config_bool(&toggle_state, &toggle_key)
+                        })}
+                        if !hint_text.is_empty() {
                             span { class: "adm-cfg-hint", "{hint}" }
                         }
                     }
@@ -5273,18 +5245,24 @@ fn config_form_body(st: &AppState) -> VNode {
                 let is_num = *kind == CfgKind::Num;
                 let field_state = st.clone();
                 let field_key = k.clone();
+                let input = Input(InputProps {
+                    id: Some(format!("cfg-{k}")),
+                    model_value: value,
+                    input_type: Some(if is_num { "number" } else { "text" }.to_string()),
+                    size: InputSize::Small,
+                    align: InputAlign::Start,
+                    oninput: Some(EventHandler::new(move |_inserted: String| {
+                        // 整值从 DOM 读：镜像只回传本次插入的片段（hikari#1583）。
+                        if let Some(text) = hk::dom_value(&format!("#cfg-{field_key}")) {
+                            set_config_field(&field_state, &field_key, &text, false);
+                        }
+                    })),
+                    ..Default::default()
+                });
                 section.push(rsx! {
                     div { class: "adm-cfg-field",
                         span { class: "adm-cfg-label", "{label}" }
-                        input {
-                            class: "adm-filter-input adm-cfg-input",
-                            r#type: if is_num { "number" } else { "text" },
-                            value: value,
-                            "data-test-adm-cfg": k.clone(),
-                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                set_config_field(&field_state, &field_key, &e.value, false);
-                            }
-                        }
+                        {input}
                         if !hint.is_empty() {
                             span { class: "adm-cfg-hint", "{hint}" }
                         }
@@ -5302,59 +5280,52 @@ fn config_form_body(st: &AppState) -> VNode {
     for (i, item) in items.iter().enumerate() {
         let title = json_str(item, "title");
         let url = json_str(item, "url");
-        let idx = i.to_string();
         let edit_state = st.clone();
         let del_state = st.clone();
+        let actions: Vec<VNode> = vec![
+            hk::button("编辑", ButtonVariant::Secondary, ButtonSize::Xs, false, move || {
+                open_announcement(&edit_state, Some(i))
+            }),
+            hk::button("删除", ButtonVariant::Ghost, ButtonSize::Xs, false, move || {
+                remove_announcement(&del_state, i)
+            }),
+        ];
         ann_rows.push(rsx! {
             div { class: "adm-cfg-ann-row",
                 span { class: "adm-cfg-ann-title", "{title}" }
                 span { class: "adm-cfg-ann-url", "{url}" }
-                div { class: "adm-cfg-ann-actions",
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-ann-edit": idx.clone(),
-                        onclick: move |_| open_announcement(&edit_state, Some(i)),
-                        "编辑"
-                    }
-                    button {
-                        class: "admin-btn adm-row-edit",
-                        "data-test-adm-ann-del": idx,
-                        onclick: move |_| remove_announcement(&del_state, i),
-                        "删除"
-                    }
-                }
+                div { class: "adm-cfg-ann-actions", ..actions }
             }
         });
     }
     let can_add = items.len() < 6;
     let new_ann_state = st.clone();
-    let ann_body = if ann_rows.is_empty() {
-        rsx! { p { class: "adm-editor-hint", "暂无公告" } }
+    let ann_hint = format!(
+        "{}（最多 6 条，当前 {} 条）",
+        if ann_rows.is_empty() { "暂无公告" } else { "" },
+        items.len()
+    )
+    .trim()
+    .to_string();
+    let ann_list: Vec<VNode> = if ann_rows.is_empty() {
+        vec![rsx! { p { class: "adm-editor-hint", "{ann_hint}" } }]
     } else {
-        rsx! {
-            div { class: "adm-cfg-ann-list",
-                for i in 0..ann_rows.len() {
-                    ..vec![ann_rows[i].clone()]
-                }
-            }
-        }
+        vec![rsx! {
+            div { class: "adm-cfg-ann-list", ..ann_rows }
+        }]
     };
-    blocks.push(rsx! {
-        div { class: "adm-cfg-section",
-            div { class: "adm-cfg-section-title",
-                "首页新闻公告"
-                span { class: "adm-cfg-hint", "（最多 6 条）" }
-            }
-            ..vec![ann_body]
-            button {
-                class: "admin-btn adm-cfg-add",
-                disabled: !can_add,
-                "data-test-adm-ann-new": "1",
-                onclick: move |_| open_announcement(&new_ann_state, None),
-                "新增公告"
-            }
-        }
-    });
+    let add_button = hk::button(
+        "新增公告",
+        ButtonVariant::Secondary,
+        ButtonSize::Sm,
+        !can_add,
+        move || open_announcement(&new_ann_state, None),
+    );
+    blocks.push(hk::section_card(
+        "首页新闻公告",
+        vec![add_button],
+        ann_list,
+    ));
 
     // 未建模的键原样列出，避免用户以为它们不存在。
     let mut extra_rows: Vec<VNode> = Vec::new();
@@ -5377,16 +5348,13 @@ fn config_form_body(st: &AppState) -> VNode {
         }
     }
     if !extra_rows.is_empty() {
-        blocks.push(rsx! {
-            div { class: "adm-cfg-section",
-                div { class: "adm-cfg-section-title", "其他键（只读，原样保留）" }
-                div { class: "adm-cfg-grid",
-                    for i in 0..extra_rows.len() {
-                        ..vec![extra_rows[i].clone()]
-                    }
-                }
-            }
-        });
+        blocks.push(hk::section_card(
+            "其他键（只读，原样保留）",
+            Vec::new(),
+            vec![rsx! {
+                div { class: "adm-cfg-grid", ..extra_rows }
+            }],
+        ));
     }
 
     // 公告编辑弹窗
@@ -5438,10 +5406,13 @@ fn config_form_body(st: &AppState) -> VNode {
     };
 
     blocks.push(ann_modal);
+    // 卡片之间留出间距；弹窗不参与这个列（它自己 fixed 铺满视口）。
+    let cards: Vec<VNode> = blocks
+        .into_iter()
+        .filter(|node| !matches!(node, VNode::Text(text) if text.text.is_empty()))
+        .collect();
     rsx! {
-        for i in 0..blocks.len() {
-            ..vec![blocks[i].clone()]
-        }
+        div { class: "adm-config-cards", ..cards }
     }
 }
 
