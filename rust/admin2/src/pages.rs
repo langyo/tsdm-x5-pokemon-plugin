@@ -359,6 +359,11 @@ pub fn Admin(state: Box<AppState>) -> VNode {
     let busy = st.config.saving.get();
     let dirty = st.config.is_dirty();
 
+    let main_class = match route {
+        AdminRoute::GlobalConfig => "admin-scrollable",
+        _ => "",
+    };
+
     let nav_items: Vec<(AdminRoute, VNode)> = [
         AdminRoute::GlobalConfig,
         AdminRoute::PokemonData,
@@ -374,10 +379,11 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         let key = r.key();
         let title = r.title();
         let ported = r.ported();
-        let cls = if *r == route {
-            "admin-nav-item active"
+        // 与旧版 AdminLayout 的导航按钮同一套行内样式（选中态深蓝底白字）。
+        let style = if *r == route {
+            "display:block;width:100%;margin:4px 0;padding:8px 6px;border:1px solid #2f6aa0;background:#2f6aa0;color:#fff;text-align:center;cursor:pointer;font-size:13px;"
         } else {
-            "admin-nav-item"
+            "display:block;width:100%;margin:4px 0;padding:8px 6px;border:1px solid #c7d4e6;background:#fff;color:#234;text-align:center;cursor:pointer;font-size:13px;"
         };
         let badge = if ported {
             VNode::empty()
@@ -388,7 +394,8 @@ pub fn Admin(state: Box<AppState>) -> VNode {
             *r,
             rsx! {
                 button {
-                    class: cls,
+                    class: "admin-nav-item",
+                    style: style,
                     "data-pm-adm-nav": key,
                     span { "{title}" }
                     ..vec![badge]
@@ -454,24 +461,30 @@ pub fn Admin(state: Box<AppState>) -> VNode {
     };
 
     rsx! {
-        div { class: "admin-layout",
-            aside { class: "admin-sidebar",
-                div { class: "admin-sidebar-header",
-                    span { class: "admin-sidebar-title", "宠物管理后台" }
-                    span { class: "admin-sidebar-sub", "tairitsu v2" }
-                }
-                nav { class: "admin-nav",
-                    for i in 0..nav_items.len() {
-                        ..vec![nav_items[i].1.clone()]
-                    }
+        div {
+            class: "admin-shell",
+            // 外壳与旧版（rust/admin 的 AdminLayout）逐像素一致：标题条、
+            // 192px 侧栏、主区都在行内样式里定尺寸，不依赖 admin.css
+            // （旧版就是这样，admin.css 的 .admin-shell 只管边框）。
+            style: "--admin-sidebar-width:192px;display:flex;flex-direction:column;height:80vh;font-family:'Microsoft YaHei',sans-serif;",
+            header { style: "padding:10px 16px;background:#2f6aa0;color:#fff;font-size:20px;font-weight:700;text-align:center;user-select:none;",
+                div { style: "display:flex;align-items:center;justify-content:center;gap:12px;user-select:none;",
+                    span { style: "user-select:none;", "天使动漫 · 宠物插件后台" }
                 }
             }
-            main { class: "admin-main",
-                header { class: "admin-topbar",
-                    span { class: "admin-topbar-title", "Online Void Pokemon 管理后台" }
-                    ..vec![dirty_hint, busy_hint]
+            div { style: "display:flex;flex:1;min-height:0;min-width:0;",
+                aside { style: "flex:0 0 192px;width:192px;background:#f4f7fb;border-right:1px solid #d8e0ea;padding:12px 0;overflow:auto;display:flex;flex-direction:column;justify-content:space-between;align-items:stretch;",
+                    div { style: "width:100%;display:flex;flex-direction:column;align-items:stretch;padding:0 14px;box-sizing:border-box;",
+                        for i in 0..nav_items.len() {
+                            ..vec![nav_items[i].1.clone()]
+                        }
+                    }
                 }
-                ..vec![content]
+                main {
+                    class: main_class,
+                    style: "flex:1 1 auto;padding:16px;min-height:0;min-width:0;",
+                    ..vec![content]
+                }
             }
             ..vec![toast, delete_confirm_modal(&st)]
         }
@@ -504,9 +517,9 @@ fn global_config_page(st: &AppState) -> VNode {
         }
         Some(Ok(())) => {
             let save_cls = if dirty && !saving {
-                "admin-btn admin-btn-primary"
+                "admin-btn admin-btn--primary"
             } else {
-                "admin-btn admin-btn-primary disabled"
+                "admin-btn admin-btn--primary disabled"
             };
             let reset_cls = if dirty && !saving {
                 "admin-btn"
@@ -798,7 +811,7 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-f-a": "pk"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-l-apply": "pk",
                     "筛选"
@@ -816,7 +829,7 @@ fn pokemon_data_page(st: &AppState) -> VNode {
                     "刷新"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-pk-new": "1",
                     "新增宠物"
@@ -1019,7 +1032,7 @@ fn item_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-f-b": "it"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-l-apply": "it",
                     "筛选"
@@ -1037,7 +1050,7 @@ fn item_data_page(st: &AppState) -> VNode {
                     "刷新"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-it-new": "1",
                     "新增物品"
@@ -1256,7 +1269,7 @@ fn map_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-f-b": "mp"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-l-apply": "mp",
                     "筛选"
@@ -1274,7 +1287,7 @@ fn map_data_page(st: &AppState) -> VNode {
                     "刷新"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-mp-new": "1",
                     "新增地图"
@@ -1473,7 +1486,7 @@ fn user_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-f-b": "us"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-l-apply": "us",
                     "筛选"
@@ -1674,7 +1687,7 @@ fn evolution_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-f-a": "ev"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-l-apply": "ev",
                     "筛选"
@@ -1692,7 +1705,7 @@ fn evolution_data_page(st: &AppState) -> VNode {
                     "刷新"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-ev-new": "1",
                     "新增进化链"
@@ -1873,7 +1886,7 @@ fn skill_data_page(st: &AppState) -> VNode {
                     "data-pm-adm-f-a": "sk"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-l-apply": "sk",
                     "筛选"
@@ -1891,7 +1904,7 @@ fn skill_data_page(st: &AppState) -> VNode {
                     "刷新"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-sk-new": "1",
                     "新增技能"
@@ -2047,7 +2060,7 @@ fn effect_data_page(st: &AppState) -> VNode {
                     "刷新"
                 }
                 button {
-                    class: "admin-btn admin-btn-primary",
+                    class: "admin-btn admin-btn--primary",
                     disabled: busy,
                     "data-pm-adm-efx-new": "1",
                     "新增效果"
@@ -2391,12 +2404,12 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
     };
     let save_label = if saving { "保存中..." } else { "保存" };
     let selling_cls = if ed.is_selling.get() {
-        "admin-btn admin-btn-primary adm-editor-toggle"
+        "admin-btn admin-btn--primary adm-editor-toggle"
     } else {
         "admin-btn adm-editor-toggle"
     };
     let legendary_cls = if ed.is_legendary.get() {
-        "admin-btn admin-btn-primary adm-editor-toggle"
+        "admin-btn admin-btn--primary adm-editor-toggle"
     } else {
         "admin-btn adm-editor-toggle"
     };
@@ -2541,7 +2554,7 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
                         "取消"
                     }
                     button {
-                        class: "admin-btn admin-btn-primary",
+                        class: "admin-btn admin-btn--primary",
                         disabled: saving,
                         "data-pm-adm-pk-save": "1",
                         "{save_label}"
@@ -2868,7 +2881,7 @@ fn item_editor_modal(st: &AppState) -> VNode {
         "可购买：否"
     };
     let selling_cls = if ed.is_selling.get() {
-        "admin-btn admin-btn-primary adm-editor-toggle"
+        "admin-btn admin-btn--primary adm-editor-toggle"
     } else {
         "admin-btn adm-editor-toggle"
     };
@@ -3044,7 +3057,7 @@ fn item_editor_modal(st: &AppState) -> VNode {
                         "取消"
                     }
                     button {
-                        class: "admin-btn admin-btn-primary",
+                        class: "admin-btn admin-btn--primary",
                         disabled: saving,
                         "data-pm-adm-it-save": "1",
                         "{save_label}"
@@ -3690,7 +3703,7 @@ fn map_editor_modal(st: &AppState) -> VNode {
         "启用：否"
     };
     let enabled_cls = if ed.is_enabled.get() {
-        "admin-btn admin-btn-primary adm-editor-toggle"
+        "admin-btn admin-btn--primary adm-editor-toggle"
     } else {
         "admin-btn adm-editor-toggle"
     };
@@ -3931,7 +3944,7 @@ fn map_editor_modal(st: &AppState) -> VNode {
                             ..vec![boss_err_block]
                             div { class: "adm-editor-actions",
                                 button {
-                                    class: "admin-btn admin-btn-primary",
+                                    class: "admin-btn admin-btn--primary",
                                     "data-pm-adm-mp-boss-save": "1",
                                     "保存"
                                 }
@@ -4148,7 +4161,7 @@ fn map_editor_modal(st: &AppState) -> VNode {
                         "取消"
                     }
                     button {
-                        class: "admin-btn admin-btn-primary",
+                        class: "admin-btn admin-btn--primary",
                         disabled: saving,
                         "data-pm-adm-mp-save": "1",
                         "{save_label}"
@@ -4711,7 +4724,7 @@ fn skill_editor_modal(st: &AppState) -> VNode {
                         "取消"
                     }
                     button {
-                        class: "admin-btn admin-btn-primary",
+                        class: "admin-btn admin-btn--primary",
                         disabled: saving,
                         "data-pm-adm-sk-save": "1",
                         "{save_label}"
@@ -5061,7 +5074,7 @@ fn evolution_editor_modal(st: &AppState) -> VNode {
                         "取消"
                     }
                     button {
-                        class: "admin-btn admin-btn-primary",
+                        class: "admin-btn admin-btn--primary",
                         disabled: saving,
                         "data-pm-adm-ev-save": "1",
                         "{save_label}"
@@ -5484,7 +5497,7 @@ fn grant_modal(st: &AppState) -> VNode {
         for (rid, rname) in g.results.get().into_iter() {
             let rid_text = rid.to_string();
             let cls = if picked == Some(rid) {
-                "admin-btn admin-btn-primary adm-grant-result"
+                "admin-btn admin-btn--primary adm-grant-result"
             } else {
                 "admin-btn adm-grant-result"
             };
@@ -5646,7 +5659,7 @@ fn grant_modal(st: &AppState) -> VNode {
         }
         let shiny_label = if d.is_shiny { "闪光：是" } else { "闪光：否" };
         let shiny_cls = if d.is_shiny {
-            "admin-btn admin-btn-primary adm-editor-toggle"
+            "admin-btn admin-btn--primary adm-editor-toggle"
         } else {
             "admin-btn adm-editor-toggle"
         };
@@ -5764,7 +5777,7 @@ fn grant_modal(st: &AppState) -> VNode {
     let next_btn = if step == 1 {
         rsx! {
             button {
-                class: "admin-btn admin-btn-primary",
+                class: "admin-btn admin-btn--primary",
                 disabled: saving,
                 "data-pm-adm-grant-step": "2",
                 "下一步"
@@ -5773,7 +5786,7 @@ fn grant_modal(st: &AppState) -> VNode {
     } else {
         rsx! {
             button {
-                class: "admin-btn admin-btn-primary",
+                class: "admin-btn admin-btn--primary",
                 disabled: saving,
                 "data-pm-adm-grant-submit": "1",
                 "{save_label}"
@@ -6201,7 +6214,7 @@ fn config_form_body(st: &AppState) -> VNode {
                 let on = config_value_bool(&config, key);
                 let text = if on { "是" } else { "否" };
                 let cls = if on {
-                    "admin-btn admin-btn-primary adm-cfg-toggle"
+                    "admin-btn admin-btn--primary adm-cfg-toggle"
                 } else {
                     "admin-btn adm-cfg-toggle"
                 };
@@ -6373,7 +6386,7 @@ fn config_form_body(st: &AppState) -> VNode {
                             "取消"
                         }
                         button {
-                            class: "admin-btn admin-btn-primary",
+                            class: "admin-btn admin-btn--primary",
                             "data-pm-adm-ann-save": "1",
                             "确定"
                         }
@@ -6580,7 +6593,7 @@ fn delete_confirm_modal(st: &AppState) -> VNode {
                         "取消"
                     }
                     button {
-                        class: "admin-btn admin-btn-danger",
+                        class: "admin-btn admin-btn--danger",
                         disabled: busy,
                         "data-pm-adm-del-ok": "1",
                         "{confirm_label}"
@@ -6860,7 +6873,7 @@ fn effect_editor_modal(st: &AppState) -> VNode {
                         "取消"
                     }
                     button {
-                        class: "admin-btn admin-btn-primary",
+                        class: "admin-btn admin-btn--primary",
                         disabled: saving,
                         "data-pm-adm-efx-save": "1",
                         "{save_label}"
@@ -7697,7 +7710,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
     };
     let pm_tab_btn = |code: &str, label: &str, active: &str| -> VNode {
         let cls = if active == code {
-            "admin-btn admin-btn-primary adm-tab-btn"
+            "admin-btn admin-btn--primary adm-tab-btn"
         } else {
             "admin-btn adm-tab-btn"
         };
@@ -7713,7 +7726,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
     };
     let item_tab_btn = |code: &str, label: &str, active: &str| -> VNode {
         let cls = if active == code {
-            "admin-btn admin-btn-primary adm-tab-btn"
+            "admin-btn admin-btn--primary adm-tab-btn"
         } else {
             "admin-btn adm-tab-btn"
         };
@@ -7740,7 +7753,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
             let save_label = if saving { "保存中..." } else { "保存" };
             let shiny_label = if ed.is_shiny.get() { "闪光：是" } else { "闪光：否" };
             let shiny_cls = if ed.is_shiny.get() {
-                "admin-btn admin-btn-primary adm-editor-toggle"
+                "admin-btn admin-btn--primary adm-editor-toggle"
             } else {
                 "admin-btn adm-editor-toggle"
             };
@@ -7961,7 +7974,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                                 "取消"
                             }
                             button {
-                                class: "admin-btn admin-btn-primary",
+                                class: "admin-btn admin-btn--primary",
                                 disabled: saving,
                                 "data-pm-adm-ipe-save": "1",
                                 "{save_label}"
@@ -8028,7 +8041,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                                 "取消"
                             }
                             button {
-                                class: "admin-btn admin-btn-primary",
+                                class: "admin-btn admin-btn--primary",
                                 disabled: saving,
                                 "data-pm-adm-iie-save": "1",
                                 "{save_label}"
@@ -8085,7 +8098,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                                 "取消"
                             }
                             button {
-                                class: "admin-btn admin-btn-danger",
+                                class: "admin-btn admin-btn--danger",
                                 disabled: busy,
                                 "data-pm-adm-idel-ok": "1",
                                 "{confirm_label}"
@@ -8143,7 +8156,7 @@ fn user_drill_modal(st: &AppState) -> VNode {
                 }
                 ..vec![err_block]
                 button {
-                    class: "admin-btn admin-btn-primary adm-cfg-add",
+                    class: "admin-btn admin-btn--primary adm-cfg-add",
                     disabled: saving,
                     "data-pm-adm-um-save": "1",
                     "{save_label}"
