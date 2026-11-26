@@ -324,6 +324,7 @@ fn pets_card(
                     class: "sidebar-arrow-btn",
                     r#type: "button",
                     title: "宠物仓库",
+                    "data-test-nav": "storage",
                     onclick: move |_| {
                         crate::navigate(&storage_state, crate::app_state::Route::PokemonStorage)
                     },
@@ -390,6 +391,7 @@ fn bag_card(state: &AppState) -> VNode {
                     class: "sidebar-arrow-btn",
                     r#type: "button",
                     title: "查看背包",
+                    "data-test-nav": "inventory",
                     onclick: move |_| {
                         crate::navigate(&inv_state, crate::app_state::Route::Inventory)
                     },

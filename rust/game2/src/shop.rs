@@ -384,10 +384,13 @@ fn CategoryBar(state: Box<ShopState>) -> VNode {
                         let class = if active == cat_id { "category-btn active" } else { "category-btn" };
                         let img_class = if is_pet { "cat-icon-img pet-cat-icon" } else { "cat-icon-img" };
                         let img_src = format!("{IMG_PATH}/{cat_icon}");
+                        // 测试钩子：回归脚本按名字/序号定位分类按钮。
+                        let cat_key = cat_id.map(|n| n.to_string()).unwrap_or_else(|| "pet".to_string());
                         rsx! {
                             button {
                                 class: class,
                                 disabled: buying,
+                                "data-test-cat": cat_key,
                                 onclick: move |_| select_category(&state, cat_id),
                                 span { class: "cat-icon",
                                     img { class: img_class, src: img_src }

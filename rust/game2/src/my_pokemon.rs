@@ -867,16 +867,19 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
             div { class: "mypm-tab-menu",
                 button {
                     class: stats_cls,
+                    "data-test-my-pm-tab": "stats",
                     onclick: move |_| switch_tab(&st_tab_stats, crate::state::MyPokemonTab::Stats),
                     "属性"
                 }
                 button {
                     class: equip_cls,
+                    "data-test-my-pm-tab": "equipment",
                     onclick: move |_| switch_tab(&st_tab_equip, crate::state::MyPokemonTab::Equipment),
                     "装备"
                 }
                 button {
                     class: skills_cls,
+                    "data-test-my-pm-tab": "skills",
                     onclick: move |_| switch_tab(&st_tab_skills, crate::state::MyPokemonTab::Skills),
                     "技能"
                 }

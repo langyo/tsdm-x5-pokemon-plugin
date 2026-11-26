@@ -321,9 +321,11 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                         let hp_style = format!("width: {hp_percent}%; background: {hp_color};");
                         // 回调须 'static：每行各持一份状态克隆。
                         let pick_state = state.clone();
+                        let pick_key = id.to_string();
                         rsx! {
                             div {
                                 class: "pokemon-select-item",
+                                "data-test-inv-pick": pick_key,
                                 onclick: move |_| confirm_use_on_pokemon(&pick_state, id),
                                 div { class: "pokemon-select-body",
                                     div { class: "pokemon-select-info",
@@ -371,12 +373,18 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
         let close_btn_state = state.clone();
         rsx! {
             div { class: "modal-overlay",
+                "data-test-inv-modal-close": "1",
                 onclick: move |_| close_target_modal(&overlay_state),
                 div { class: "modal-container",
                     onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
                     div { class: "modal-header",
                         h3 { "{title}" }
-                        button { class: "modal-close-btn", onclick: move |_| close_target_modal(&close_btn_state), "×" }
+                        button {
+                            class: "modal-close-btn",
+                            "data-test-inv-modal-close": "1",
+                            onclick: move |_| close_target_modal(&close_btn_state),
+                            "×"
+                        }
                     }
                     div { class: "modal-body", ..vec![pokemon_body] }
                 }
@@ -402,6 +410,7 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                             r#type: "search",
                             placeholder: "按物品名称搜索",
                             value: search_input,
+                            "data-test-inv-search": "1",
                             onchange: move |e: tairitsu_vdom::ChangeEvent| {
                                 let value = e.value;
                                 search_state.inv.search_input.set(value.clone());
@@ -415,6 +424,7 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                         }
                         button {
                             class: "inventory-search-clear",
+                            "data-test-inv-search-clear": "1",
                             onclick: move |_| {
                                 clear_state.inv.search_input.set(String::new());
                                 apply_search(&clear_state, "");
@@ -431,9 +441,12 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                                     let cls = if active { "category-btn active" } else { "category-btn" };
                                     let img_src = format!("{IMG_PATH}/{cat_icon}");
                                     let cat_state = state.clone();
+                                    // 测试钩子：回归脚本按它定位分类按钮（all / 分类号）。
+                                    let cat_key = cat_id.map(|n| n.to_string()).unwrap_or_else(|| "all".to_string());
                                     rsx! {
                                         button {
                                             class: cls,
+                                            "data-test-inv-cat": cat_key,
                                             onclick: move |_| select_category(&cat_state, cat_id),
                                             span { class: "cat-icon",
                                                 img { class: "cat-icon-img", src: img_src }
@@ -493,6 +506,8 @@ fn InventoryTile(
     let item_id = item.type_id;
     let item_type = item.item_type;
     let use_target = item.use_target.clone();
+    // 测试钩子：回归脚本按物品类型 ID 定位使用按钮。
+    let use_key = item_id.to_string();
 
     rsx! {
         div { class: "shop-item-card",
@@ -512,6 +527,7 @@ fn InventoryTile(
                     button {
                         class: button_class,
                         disabled: !usable,
+                        "data-test-inv-use": use_key,
                         onclick: move |_| use_item(&state, item_id, item_type, use_target.clone()),
                         "{button_text}"
                     }

@@ -865,6 +865,7 @@ fn adventure_map_view(
                             let detail_btn_state = st.clone();
                             cards.push(rsx! {
                                 div { class: card_cls,
+                                    "data-test-bt-map-open": map_id.to_string(),
                                     onclick: move |_| open_map_detail(&card_state, map_id),
                                     div { class: "zoomed-map-header",
                                         span { class: "map-icon", "{icon}" }
@@ -939,6 +940,7 @@ fn adventure_map_view(
                         div {
                             class: "map-marker",
                             style: style,
+                            "data-test-bt-region": name.clone(),
                             onclick: move |_| select_region(&marker_state, Some(region_id.clone())),
                             div { class: "marker-dot" }
                             div { class: "marker-info",
@@ -1094,6 +1096,7 @@ fn battle_scene(
                             class: if loading { "normal-attack-btn disabled" } else { "normal-attack-btn" },
                             r#type: "button",
                             disabled: loading,
+                            "data-test-bt-attack": "1",
                             onclick: move |_| normal_attack(&attack_state),
                             span { class: "attack-btn-label", "普通攻击" }
                         }

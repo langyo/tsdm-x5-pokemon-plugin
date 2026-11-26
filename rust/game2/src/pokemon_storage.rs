@@ -473,6 +473,7 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
         rsx! {
             button {
                 class: "select-mode-btn",
+                "data-test-st-select-mode": "1",
                 onclick: move |_| enter_select_mode(&enter_state),
                 "多选"
             }
@@ -519,6 +520,7 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                 r#type: "text",
                                 placeholder: "搜索名字 / 昵称",
                                 value: search_value,
+                                "data-test-st-search": "1",
                                 oninput: move |e: tairitsu_vdom::InputEvent| {
                                     set_filter(&search_state, "search", &e.value)
                                 }
@@ -528,6 +530,7 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                     "属性"
                                     select {
                                         value: type_value,
+                                        "data-test-st-type": "1",
                                         onchange: move |e: tairitsu_vdom::ChangeEvent| {
                                             set_filter(&type_state, "type", &e.value)
                                         },
@@ -547,6 +550,7 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                         r#type: "number", min: "1", step: "1",
                                         placeholder: "不限",
                                         value: min_value,
+                                        "data-test-st-min": "1",
                                         onchange: move |e: tairitsu_vdom::ChangeEvent| {
                                             set_filter(&min_state, "min", &e.value)
                                         }
@@ -579,6 +583,7 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                     "排序"
                                     select {
                                         value: sort_value,
+                                        "data-test-st-sort": "1",
                                         onchange: move |e: tairitsu_vdom::ChangeEvent| {
                                             set_filter(&sort_state, "sort", &e.value)
                                         },
@@ -590,6 +595,7 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                 }
                                 button {
                                     class: "select-action-btn",
+                                    "data-test-st-clear": "1",
                                     onclick: move |_| clear_filters(&clear_state),
                                     "清除筛选"
                                 }
@@ -694,9 +700,11 @@ fn slot_card(
                 }
             } else {
                 let to_bag_state = st.clone();
+                let to_bag_key = id.to_string();
                 rsx! {
                     button {
                         class: "popup-menu-item",
+                        "data-test-st-to-bag": to_bag_key,
                         onclick: move |e: tairitsu_vdom::MouseEvent| {
                             e.stop_propagation();
                             move_to_site(&to_bag_state, id, 2, "放入背包");
@@ -712,9 +720,11 @@ fn slot_card(
                 }
             } else {
                 let release_state = st.clone();
+                let release_key = id.to_string();
                 rsx! {
                     button {
                         class: "popup-menu-item danger",
+                        "data-test-st-release": release_key,
                         onclick: move |e: tairitsu_vdom::MouseEvent| {
                             e.stop_propagation();
                             release_one(&release_state, id);
@@ -765,8 +775,10 @@ fn slot_card(
 
     // 卡片自身的点击：多选模式切换勾选，否则展开/收起操作行。
     let card_state = st.clone();
+    let card_key = id.to_string();
     rsx! {
         div { class: slot_class,
+            "data-test-st-card": card_key,
             onclick: move |_: tairitsu_vdom::MouseEvent| click_card(&card_state, id),
             title: title,
             div { class: "pokemon-sprite",

@@ -238,6 +238,7 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                     let legendary = pm.is_legendary;
                     // 回调须 'static：每张卡片各持一份状态克隆。
                     let row_state = st.clone();
+                    let heal_key = pm.id.to_string();
                     rsx! {
                         div { class: "heal-pokemon-card",
                             div { class: "heal-pm-sprite",
@@ -274,6 +275,10 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                             button {
                                 class: btn_cls,
                                 disabled: healing,
+                                "data-test-center-heal": heal_key,
+                                if is_in_battle {
+                                    "data-test-center-flee": "1"
+                                }
                                 onclick: move |_| heal_one(&row_state, id, is_in_battle),
                                 "{btn_text}"
                             }
@@ -320,6 +325,7 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                             button {
                                 class: heal_all_cls,
                                 disabled: healing,
+                                "data-test-center-heal-all": "1",
                                 onclick: move |_| heal_all(&heal_all_state),
                                 "全部治疗"
                             }

@@ -200,6 +200,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                         button {
                             r#type: "button",
                             class: "logo-link",
+                            "data-test-nav": "home",
                             onclick: move |_| navigate(&logo_state, Route::Home),
                             img { class: "logo-mascot", src: img_logo, alt: "Pokeball" }
                             span { class: "logo-text", "Online Void Pokemon" }
@@ -209,24 +210,28 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                         button {
                             r#type: "button",
                             class: mypm_cls,
+                            "data-test-nav": "my-pokemon",
                             onclick: move |_| navigate(&mypm_state, Route::MyPokemon),
                             "个人中心"
                         }
                         button {
                             r#type: "button",
                             class: shop_cls,
+                            "data-test-nav": "shop",
                             onclick: move |_| navigate(&shop_state, Route::Shop),
                             "商店"
                         }
                         button {
                             r#type: "button",
                             class: center_cls,
+                            "data-test-nav": "center",
                             onclick: move |_| navigate(&center_state, Route::PokemonCenter),
                             "宠物中心"
                         }
                         button {
                             r#type: "button",
                             class: adventure_cls,
+                            "data-test-nav": "adventure",
                             onclick: move |_| navigate(&adventure_state, Route::Adventure),
                             "野外冒险"
                         }
