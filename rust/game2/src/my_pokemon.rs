@@ -8,6 +8,7 @@
 //! 未接入：装备 / 技能标签页、努力值计算器、进化路径与进化弹窗——这些依赖
 //! 各自端点的写流程，随后续阶段补齐；对应按钮不渲染，避免给出无法完成的入口。
 
+use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
@@ -791,10 +792,7 @@ pub fn evolve_to(state: &AppState, to_id: u64, to_name: &str) {
                     }));
                 }
                 Err(e) => {
-                    toast::show(
-                        crate::state::ToastKind::Error,
-                        format!("进化失败：{e}"),
-                    );
+                    toast::show(crate::state::ToastKind::Error, format!("进化失败：{e}"));
                 }
             }
             my.evolving.inner().set(false);
@@ -865,24 +863,21 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
         let st_tab_skills = st.clone();
         let tab_menu = rsx! {
             div { class: "mypm-tab-menu",
-                button {
-                    class: stats_cls,
-                    "data-test-my-pm-tab": "stats",
-                    onclick: move |_| switch_tab(&st_tab_stats, crate::state::MyPokemonTab::Stats),
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: (stats_cls).to_string(),
+                    onclick: crate::button::click(move || switch_tab(&st_tab_stats, crate::state::MyPokemonTab::Stats)),
                     "属性"
-                }
-                button {
-                    class: equip_cls,
-                    "data-test-my-pm-tab": "equipment",
-                    onclick: move |_| switch_tab(&st_tab_equip, crate::state::MyPokemonTab::Equipment),
+                                } }, [("data-test-my-pm-tab", ("stats").to_string())]) }
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: (equip_cls).to_string(),
+                    onclick: crate::button::click(move || switch_tab(&st_tab_equip, crate::state::MyPokemonTab::Equipment)),
                     "装备"
-                }
-                button {
-                    class: skills_cls,
-                    "data-test-my-pm-tab": "skills",
-                    onclick: move |_| switch_tab(&st_tab_skills, crate::state::MyPokemonTab::Skills),
+                                } }, [("data-test-my-pm-tab", ("equipment").to_string())]) }
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: (skills_cls).to_string(),
+                    onclick: crate::button::click(move || switch_tab(&st_tab_skills, crate::state::MyPokemonTab::Skills)),
                     "技能"
-                }
+                                } }, [("data-test-my-pm-tab", ("skills").to_string())]) }
             }
         };
 
@@ -1043,12 +1038,11 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
             rsx! {
                 div { class: "equipment-tab",
                     div { role: "alert", class: "error-message", "{msg}" }
-                    button {
-                        class: "btn btn-primary",
-                        "data-test-eq-reload": "1",
-                        onclick: move |_| retry_equipment_load(&retry_state),
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: ("btn btn-primary").to_string(),
+                        onclick: crate::button::click(move || retry_equipment_load(&retry_state)),
                         "重新加载装备"
-                    }
+                                        } }, [("data-test-eq-reload", ("1").to_string())]) }
                 }
             }
         }
@@ -1243,13 +1237,12 @@ fn pet_selector(list: &[crate::state::PokemonBasic], selected_id: u64, st: &AppS
             let label = p.display_name();
             let level = format!("Lv.{}", p.level);
             rsx! {
-                button {
-                    class: cls,
-                    "data-test-my-pm-select": id,
-                    onclick: move |_| select_pokemon(&chip_state, pid),
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: (cls).to_string(),
+                    onclick: crate::button::click(move || select_pokemon(&chip_state, pid)),
                     span { class: "pet-chip-name", "{label}" }
                     span { class: "pet-chip-level", "{level}" }
-                }
+                                } }, [("data-test-my-pm-select", (id).to_string())]) }
             }
         })
         .collect();
@@ -1389,24 +1382,18 @@ fn stats_panel(
                     }
                 }
                 div { class: "edit-actions-inline",
-                    button {
-                        class: "edit-action-btn save",
-                        r#type: "button",
-                        title: "保存",
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: ("edit-action-btn save").to_string(),
                         disabled: saving,
-                        "data-test-my-pm-nick-save": "1",
-                        onclick: move |_| submit_rename(&save_state),
+                        onclick: crate::button::click(move || submit_rename(&save_state)),
                         "✓"
-                    }
-                    button {
-                        class: "edit-action-btn cancel",
-                        r#type: "button",
-                        title: "取消",
+                                        } }, [("title", ("保存").to_string()), ("data-test-my-pm-nick-save", ("1").to_string())]) }
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: ("edit-action-btn cancel").to_string(),
                         disabled: saving,
-                        "data-test-my-pm-nick-cancel": "1",
-                        onclick: move |_| cancel_edit(&cancel_state),
+                        onclick: crate::button::click(move || cancel_edit(&cancel_state)),
                         "×"
-                    }
+                                        } }, [("title", ("取消").to_string()), ("data-test-my-pm-nick-cancel", ("1").to_string())]) }
                 }
                 ..vec![err_block]
             }
@@ -1430,14 +1417,11 @@ fn stats_panel(
         let mut nodes: Vec<VNode> = Vec::with_capacity(2);
         nodes.push(name_node);
         nodes.push(rsx! {
-            button {
-                class: "edit-icon-btn",
-                r#type: "button",
-                "aria-label": "修改昵称",
-                "data-test-my-pm-nick-edit": "1",
-                onclick: move |_| begin_edit(&edit_state, &edit_seed),
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: ("edit-icon-btn").to_string(),
+                onclick: crate::button::click(move || begin_edit(&edit_state, &edit_seed)),
                 "✎"
-            }
+                        } }, [("aria-label", ("修改昵称").to_string()), ("data-test-my-pm-nick-edit", ("1").to_string())]) }
         });
         let container: Vec<VNode> = nodes;
         rsx! {
@@ -1571,24 +1555,21 @@ fn stats_panel(
                     }
                     ..vec![iv_rows]
                     div { class: "tool-buttons-col",
-                        button {
-                            class: "ev-calculator-btn",
-                            "data-test-my-pm-ev-open": "1",
-                            onclick: move |_| open_ev_modal(&ev_state),
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: ("ev-calculator-btn").to_string(),
+                            onclick: crate::button::click(move || open_ev_modal(&ev_state)),
                             "努力值计算器"
-                        }
-                        button {
-                            class: "ev-calculator-btn",
-                            "data-test-my-pm-evo-path-open": "1",
-                            onclick: move |_| open_evo_path_modal(&evo_path_state),
+                                                } }, [("data-test-my-pm-ev-open", ("1").to_string())]) }
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: ("ev-calculator-btn").to_string(),
+                            onclick: crate::button::click(move || open_evo_path_modal(&evo_path_state)),
                             "进化路径"
-                        }
-                        button {
-                            class: "ev-calculator-btn",
-                            "data-test-my-pm-evo-open": "1",
-                            onclick: move |_| open_evolution_modal(&evo_state),
+                                                } }, [("data-test-my-pm-evo-path-open", ("1").to_string())]) }
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: ("ev-calculator-btn").to_string(),
+                            onclick: crate::button::click(move || open_evolution_modal(&evo_state)),
                             "进化"
-                        }
+                                                } }, [("data-test-my-pm-evo-open", ("1").to_string())]) }
                     }
                 }
                 ..vec![radar]
@@ -1782,18 +1763,16 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
                 "skill-forget-btn disabled"
             };
             rsx! {
-                button {
-                    class: btn_cls,
-                    r#type: "button",
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: (btn_cls).to_string(),
                     disabled: loading,
-                    "data-test-skill-forget": tid.clone(),
-                    onclick: move |e: tairitsu_vdom::MouseEvent| {
+                    onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
                         // 遗忘按钮在技能卡内部：不挡住冒泡会连卡片一起 toggle。
                         e.stop_propagation();
                         forget_skill(&forget_state, skill_type_id);
-                    },
+                    })),
                     "遗忘此技能"
-                }
+                                } }, [("data-test-skill-forget", (tid.clone()).to_string())]) }
             }
         } else {
             VNode::empty()
@@ -1826,15 +1805,13 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
     for _ in 0..empty_count {
         let learn_slot_state = st.clone();
         cards.push(rsx! {
-            button {
-                r#type: "button",
-                class: "skill-slot-empty",
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: ("skill-slot-empty").to_string(),
                 disabled: loading,
-                "data-test-skill-learn-slot": "1",
-                onclick: move |_| open_learn_modal(&learn_slot_state),
+                onclick: crate::button::click(move || open_learn_modal(&learn_slot_state)),
                 div { class: "skill-slot-plus", "+" }
                 div { class: "skill-slot-hint", "点击学习新技能" }
-            }
+                        } }, [("data-test-skill-learn-slot", ("1").to_string())]) }
         });
     }
 
@@ -1881,12 +1858,11 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
             let reload_state = st.clone();
             rsx! {
                 div { role: "alert", class: "error-message", "{msg}" }
-                button {
-                    class: "btn btn-primary",
-                    "data-test-learn-reload": "1",
-                    onclick: move |_| retry_learnable_load(&reload_state),
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: ("btn btn-primary").to_string(),
+                    onclick: crate::button::click(move || retry_learnable_load(&reload_state)),
                     "重新加载技能"
-                }
+                                } }, [("data-test-learn-reload", ("1").to_string())]) }
             }
         }
         Some(Ok((available, locked))) if available.is_empty() && locked.is_empty() => {
@@ -1920,20 +1896,15 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
     }];
     crate::modal::modal_hooked(
         crate::modal::ModalSpec::new(&title, false),
-        crate::modal::hook_close_button!(
-            "data-test-learn-close",
-            move || close_learn_modal(&close_state)
-        ),
+        crate::modal::hook_close_button("data-test-learn-close", move || {
+            close_learn_modal(&close_state)
+        }),
         move || close_learn_modal(&overlay_state),
         body,
     )
 }
 
-fn learn_item(
-    skill: &crate::state::LearnableSkill,
-    loading: bool,
-    st: Option<&AppState>,
-) -> VNode {
+fn learn_item(skill: &crate::state::LearnableSkill, loading: bool, st: Option<&AppState>) -> VNode {
     let sid = skill.id.to_string();
     let skill_id = skill.id;
     let click_state = st.cloned();
@@ -1961,16 +1932,14 @@ fn learn_item(
     let sdesc = skill.description.clone();
 
     rsx! {
-        button {
-            r#type: "button",
-            class: cls,
+        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+            class: (cls).to_string(),
             disabled: !skill.is_available || loading,
-            "data-test-learn-item": sid,
-            onclick: move |_| {
+            onclick: crate::button::click(move || {
                 if let Some(st) = &click_state {
                     learn_skill(st, skill_id);
                 }
-            },
+            }),
             div { class: "skill-learn-item-header",
                 span { class: "skill-learn-name", "{sname}" }
                 span { class: "skill-learn-hint", "{hint}" }
@@ -1986,7 +1955,7 @@ fn learn_item(
             if !skill.description.is_empty() {
                 div { class: "skill-description", "{sdesc}" }
             }
-        }
+                } }, [("data-test-learn-item", (sid).to_string())]) }
     }
 }
 
@@ -2131,7 +2100,9 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
     };
     crate::modal::modal_hooked(
         crate::modal::ModalSpec::new("努力值计算器", true),
-        crate::modal::hook_close_button!("data-test-ev-close", move || close_ev_modal(&ev_close_state)),
+        crate::modal::hook_close_button("data-test-ev-close", move || {
+            close_ev_modal(&ev_close_state)
+        }),
         move || close_ev_modal(&ev_overlay_state),
         vec![body],
     )
@@ -2211,27 +2182,24 @@ fn evo_path_modal(st: &AppState) -> VNode {
     // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
     let mut body_nodes: Vec<VNode> = vec![rsx! {
         div { class: "evo-path-tab-bar",
-            button {
-                class: fwd_cls,
-                "data-test-evo-path-tab": "forward",
-                onclick: move |_| switch_evo_path_tab(&fwd_state, true),
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: (fwd_cls).to_string(),
+                onclick: crate::button::click(move || switch_evo_path_tab(&fwd_state, true)),
                 "进化路线"
-            }
-            button {
-                class: bwd_cls,
-                "data-test-evo-path-tab": "backward",
-                onclick: move |_| switch_evo_path_tab(&bwd_state, false),
+                        } }, [("data-test-evo-path-tab", ("forward").to_string())]) }
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: (bwd_cls).to_string(),
+                onclick: crate::button::click(move || switch_evo_path_tab(&bwd_state, false)),
                 "退化路线"
-            }
+                        } }, [("data-test-evo-path-tab", ("backward").to_string())]) }
         }
     }];
     body_nodes.push(body);
     crate::modal::modal_hooked(
         crate::modal::ModalSpec::new("进化路径", false),
-        crate::modal::hook_close_button!(
-            "data-test-evo-path-close",
-            move || close_evo_path_modal(&path_close_state)
-        ),
+        crate::modal::hook_close_button("data-test-evo-path-close", move || {
+            close_evo_path_modal(&path_close_state)
+        }),
         move || close_evo_path_modal(&path_overlay_state),
         body_nodes,
     )
@@ -2276,15 +2244,15 @@ fn evolution_modal(st: &AppState) -> VNode {
                         let to_name = evo.to_name.clone();
                         let evo_id = evo.to_id;
                         let evo_state = evolve_state.clone();
-                        rsx! {
-                            button {
-                                class: "ev-calculator-btn",
+                        {
+                            // 钩子里要用的名字先留一份：下面的闭包会把 to_name 挪走。
+                            let hook_name = to_name.clone();
+                            crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                class: ("ev-calculator-btn").to_string(),
                                 disabled: evolving,
-                                "data-test-evo-do": to_id,
-                                "data-test-evo-do-name": to_name.clone(),
-                                onclick: move |_| evolve_to(&evo_state, evo_id, &to_name),
+                                onclick: crate::button::click(move || evolve_to(&evo_state, evo_id, &to_name)),
                                 "进化"
-                            }
+                            } }, [("data-test-evo-do", to_id.to_string()), ("data-test-evo-do-name", hook_name)])
                         }
                     } else {
                         VNode::empty()
@@ -2315,10 +2283,9 @@ fn evolution_modal(st: &AppState) -> VNode {
     // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
     crate::modal::modal_hooked(
         crate::modal::ModalSpec::new("进化", false),
-        crate::modal::hook_close_button!(
-            "data-test-evo-modal-close",
-            move || close_evolution_modal(&evo_close_state)
-        ),
+        crate::modal::hook_close_button("data-test-evo-modal-close", move || {
+            close_evolution_modal(&evo_close_state)
+        }),
         move || close_evolution_modal(&evo_overlay_state),
         vec![body],
     )

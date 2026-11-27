@@ -11,6 +11,7 @@
 //!
 //! 本模块只在 wasm 下编译（依赖 fetch 回调桥）。
 
+use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
@@ -387,16 +388,15 @@ fn CategoryBar(state: Box<ShopState>) -> VNode {
                         // 测试钩子：回归脚本按名字/序号定位分类按钮。
                         let cat_key = cat_id.map(|n| n.to_string()).unwrap_or_else(|| "pet".to_string());
                         rsx! {
-                            button {
-                                class: class,
+                            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                class: (class).to_string(),
                                 disabled: buying,
-                                "data-test-cat": cat_key,
-                                onclick: move |_| select_category(&state, cat_id),
+                                onclick: crate::button::click(move || select_category(&state, cat_id)),
                                 span { class: "cat-icon",
                                     img { class: img_class, src: img_src }
                                 }
                                 span { "{cat_name}" }
-                            }
+                                                        } }, [("data-test-cat", (cat_key).to_string())]) }
                         }
                     }
                 }
@@ -412,14 +412,12 @@ fn FilterToggle(state: Box<ShopState>, filter_class: String) -> VNode {
     let toggle_state = state.clone();
     rsx! {
         div { class: "shop-filter",
-            button {
-                class: filter_class,
-                r#type: "button",
-                title: "按名称筛选商品",
-                onclick: move |_| {
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: (filter_class).to_string(),
+                onclick: crate::button::click(move || {
                     toggle_state.filter_open.set(!toggle_state.filter_open.get());
                     refresh(&toggle_state);
-                },
+                }),
                 if has_value {
                     span { class: "filter-icon filter-icon-filled",
                         svg {
@@ -447,7 +445,7 @@ fn FilterToggle(state: Box<ShopState>, filter_class: String) -> VNode {
                         }
                     }
                 }
-            }
+                        } }, [("title", ("按名称筛选商品").to_string())]) }
             if state.filter_open.get() {
                 FilterPopover { state: Some(state) }
             }
@@ -491,13 +489,11 @@ fn FilterPopover(state: Box<ShopState>) -> VNode {
                     },
                 }
                 if has_value {
-                    button {
-                        class: "shop-filter-clear",
-                        r#type: "button",
-                        title: "清除筛选",
-                        onclick: move |_| reload_from_filter(&clear_state, ""),
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: ("shop-filter-clear").to_string(),
+                        onclick: crate::button::click(move || reload_from_filter(&clear_state, "")),
                         Icon { name: Some(IconName::X), size: Some(12), class: Some(String::new()) }
-                    }
+                                        } }, [("title", ("清除筛选").to_string())]) }
                 }
             }
             p { class: "shop-filter-hint", "留空显示当前分类全部商品" }
@@ -617,11 +613,11 @@ fn ItemTile(state: Box<ShopState>, idx: usize, item: ShopItem) -> VNode {
                     Icon { name: Some(IconName::Coins), size: Some(12), class: Some("price-icon".to_string()) }
                     span { class: "price-value", "{price}" }
                 }
-                button {
-                    class: buy_class,
+                Button {
+                    class: (buy_class).to_string(),
                     disabled: !item.can_buy || buying,
                     "购买"
-                }
+                                }
             }
             if show_tooltip {
                 ItemTooltip { item: Some(item.clone()), x: Some(tip_x), y: Some(tip_y) }
@@ -725,11 +721,11 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
                     Icon { name: Some(IconName::Coins), size: Some(12), class: Some("price-icon".to_string()) }
                     span { class: "price-value", "{price}" }
                 }
-                button {
-                    class: buy_class,
+                Button {
+                    class: (buy_class).to_string(),
                     disabled: !pet.can_buy || buying,
                     "购买"
-                }
+                                }
             }
             if show_tooltip {
                 PetTooltip {
@@ -815,15 +811,14 @@ fn Paginator(state: Box<ShopState>) -> VNode {
 
     rsx! {
         div { class: "shop-pagination",
-            button {
-                class: "pager-btn pager-nav",
-                r#type: "button",
+            Button {
+                class: ("pager-btn pager-nav").to_string(),
                 disabled: current <= 1,
-                onclick: move |_| {
+                onclick: crate::button::click(move || {
                     goto_page(&prev_state, prev_state.page.get().saturating_sub(1).max(1))
-                },
+                }),
                 Icon { name: Some(IconName::ChevronLeft), size: Some(14), class: Some(String::new()) }
-            }
+                        }
             for i in 0..entries.len() {
                 {
                     match entries[i] {
@@ -833,26 +828,24 @@ fn Paginator(state: Box<ShopState>) -> VNode {
                             let class = if active { "pager-btn pager-num active" } else { "pager-btn pager-num" };
                             let label = p.to_string();
                             rsx! {
-                                button {
-                                    class: class,
-                                    r#type: "button",
+                                Button {
+                                    class: (class).to_string(),
                                     disabled: total == 1,
-                                    onclick: move |_| goto_page(&state, p as u32),
+                                    onclick: crate::button::click(move || goto_page(&state, p as u32)),
                                     "{label}"
-                                }
+                                                                }
                             }
                         }
                         PagerEntry::Ellipsis => rsx! { span { class: "pager-ellipsis", "…" } },
                     }
                 }
             }
-            button {
-                class: "pager-btn pager-nav",
-                r#type: "button",
+            Button {
+                class: ("pager-btn pager-nav").to_string(),
                 disabled: current >= total,
-                onclick: move |_| goto_page(&next_state, next_state.page.get() + 1),
+                onclick: crate::button::click(move || goto_page(&next_state, next_state.page.get() + 1)),
                 Icon { name: Some(IconName::ChevronRight), size: Some(14), class: Some(String::new()) }
-            }
+                        }
         }
     }
 }

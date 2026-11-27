@@ -13,16 +13,17 @@
 //! 事件用 tairitsu 原生绑定：搜索框逐字过滤（oninput，与 Dioxus 版一致）；
 //! 属性 / 等级区间 / 闪光 / 排序走 change（Dioxus 版等级区间同样是 oninput）。
 
+use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
 use crate::app_state::AppState;
 use crate::state::{ToastKind, STORAGE_PAGE_SIZE};
-use crate::toast;
 use crate::storage_logic::{
     hp_class_storage, hp_health_status, is_weak_state, matching_storage_ids, parse_level_range,
     selected_matching_ids, StorageEntry, StorageFilters, StorageSort,
 };
+use crate::toast;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
 
@@ -387,11 +388,11 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
             let more_state = st.clone();
             rsx! {
                 div { class: "storage-load-more",
-                    button {
-                        class: "select-action-btn",
-                        onclick: move |_| load_more(&more_state),
+                    Button {
+                        class: ("select-action-btn").to_string(),
+                        onclick: crate::button::click(move || load_more(&more_state)),
                         "{label}"
-                    }
+                                        }
                 }
             }
         } else {
@@ -420,17 +421,17 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
         let release_state = st.clone();
         rsx! {
             div { class: "select-actions-bar",
-                button {
-                    class: "select-action-btn",
-                    onclick: move |_| select_all(&all_state),
+                Button {
+                    class: ("select-action-btn").to_string(),
+                    onclick: crate::button::click(move || select_all(&all_state)),
                     "{all_label}"
-                }
-                button {
-                    class: release_cls,
+                                }
+                Button {
+                    class: (release_cls).to_string(),
                     disabled: selected_count == 0,
-                    onclick: move |_| batch_release(&release_state),
+                    onclick: crate::button::click(move || batch_release(&release_state)),
                     "{release_label}"
-                }
+                                }
             }
         }
     } else {
@@ -462,21 +463,20 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
     let select_btn = if select_mode {
         let exit_state = st.clone();
         rsx! {
-            button {
-                class: "select-mode-btn exit",
-                onclick: move |_| exit_select_mode(&exit_state),
+            Button {
+                class: ("select-mode-btn exit").to_string(),
+                onclick: crate::button::click(move || exit_select_mode(&exit_state)),
                 "取消选择"
-            }
+                        }
         }
     } else if storage_count > 0 {
         let enter_state = st.clone();
         rsx! {
-            button {
-                class: "select-mode-btn",
-                "data-test-st-select-mode": "1",
-                onclick: move |_| enter_select_mode(&enter_state),
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: ("select-mode-btn").to_string(),
+                onclick: crate::button::click(move || enter_select_mode(&enter_state)),
                 "多选"
-            }
+                        } }, [("data-test-st-select-mode", ("1").to_string())]) }
         }
     } else {
         VNode::empty()
@@ -593,12 +593,11 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
                                         option { value: "level_desc", "等级从高到低" }
                                     }
                                 }
-                                button {
-                                    class: "select-action-btn",
-                                    "data-test-st-clear": "1",
-                                    onclick: move |_| clear_filters(&clear_state),
+                                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                    class: ("select-action-btn").to_string(),
+                                    onclick: crate::button::click(move || clear_filters(&clear_state)),
                                     "清除筛选"
-                                }
+                                                                } }, [("data-test-st-clear", ("1").to_string())]) }
                             }
                             ..vec![err_block]
                         }
@@ -696,41 +695,39 @@ fn slot_card(
         if in_storage {
             let bag_btn = if bag_full {
                 rsx! {
-                    button { class: "popup-menu-item disabled", disabled: true, "背包已满（6/6）" }
+                    Button { class: ("popup-menu-item disabled").to_string(), disabled: true, "背包已满（6/6）"                     }
                 }
             } else {
                 let to_bag_state = st.clone();
                 let to_bag_key = id.to_string();
                 rsx! {
-                    button {
-                        class: "popup-menu-item",
-                        "data-test-st-to-bag": to_bag_key,
-                        onclick: move |e: tairitsu_vdom::MouseEvent| {
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: ("popup-menu-item").to_string(),
+                        onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
                             e.stop_propagation();
                             move_to_site(&to_bag_state, id, 2, "放入背包");
-                        },
+                        })),
                         "放入背包"
-                    }
+                                        } }, [("data-test-st-to-bag", (to_bag_key).to_string())]) }
                 }
             };
             actions.push(bag_btn);
             let release_btn = if cannot_release {
                 rsx! {
-                    button { class: "popup-menu-item danger disabled", disabled: true, "放生" }
+                    Button { class: ("popup-menu-item danger disabled").to_string(), disabled: true, "放生"                     }
                 }
             } else {
                 let release_state = st.clone();
                 let release_key = id.to_string();
                 rsx! {
-                    button {
-                        class: "popup-menu-item danger",
-                        "data-test-st-release": release_key,
-                        onclick: move |e: tairitsu_vdom::MouseEvent| {
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: ("popup-menu-item danger").to_string(),
+                        onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
                             e.stop_propagation();
                             release_one(&release_state, id);
-                        },
+                        })),
                         "放生"
-                    }
+                                        } }, [("data-test-st-release", (release_key).to_string())]) }
                 }
             };
             actions.push(release_btn);
@@ -738,27 +735,27 @@ fn slot_card(
             if pm.site != 1 {
                 let first_state = st.clone();
                 let first_btn = rsx! {
-                    button {
-                        class: "popup-menu-item",
-                        onclick: move |e: tairitsu_vdom::MouseEvent| {
+                    Button {
+                        class: ("popup-menu-item").to_string(),
+                        onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
                             e.stop_propagation();
                             set_first(&first_state, id);
-                        },
+                        })),
                         "设为首位"
-                    }
+                                        }
                 };
                 actions.push(first_btn);
             }
             let to_storage_state = st.clone();
             let store_btn = rsx! {
-                button {
-                    class: "popup-menu-item",
-                    onclick: move |e: tairitsu_vdom::MouseEvent| {
+                Button {
+                    class: ("popup-menu-item").to_string(),
+                    onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
                         e.stop_propagation();
                         move_to_site(&to_storage_state, id, 3, "放入仓库");
-                    },
+                    })),
                     "放入仓库"
-                }
+                                }
             };
             actions.push(store_btn);
         }

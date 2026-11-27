@@ -11,6 +11,7 @@ pub mod app_state;
 #[cfg(target_family = "wasm")]
 pub mod battle;
 pub mod battle_types;
+pub mod button;
 #[cfg(target_family = "wasm")]
 pub mod footer;
 #[cfg(target_family = "wasm")]
@@ -24,12 +25,12 @@ pub mod mini_grid;
 pub mod modal;
 #[cfg(target_family = "wasm")]
 pub mod my_pokemon;
+/// 宠物状态说明表（纯数据 + 单测，可在 host 上测）。
+pub mod pet_state;
 #[cfg(target_family = "wasm")]
 pub mod pokemon_center;
 #[cfg(target_family = "wasm")]
 pub mod pokemon_storage;
-/// 宠物状态说明表（纯数据 + 单测，可在 host 上测）。
-pub mod pet_state;
 pub mod quality;
 #[cfg(target_family = "wasm")]
 pub mod shop;
@@ -44,6 +45,7 @@ pub mod toast;
 pub mod welcome;
 
 #[cfg(target_family = "wasm")]
+use hikari_components::{Button, ButtonProps};
 use anyhow::Result;
 #[cfg(target_family = "wasm")]
 use tairitsu_web::WitPlatform;
@@ -75,8 +77,8 @@ pub fn request_remount() {
 #[cfg(target_family = "wasm")]
 fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     use app_state::Route;
-    use tairitsu_macros::rsx;
     use sidebar::{Sidebar, SidebarProps};
+    use tairitsu_macros::rsx;
 
     // 账户资料回来之前是加载态；拉取失败给出「重新载入」（对齐 Dioxus 版 Layout）。
     match &state.sidebar.profile.get() {
@@ -150,7 +152,13 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
 
     // 顶部导航与 Dioxus 版 Header 完全一致：个人中心 / 商店 / 宠物中心 / 野外冒险。
     // 首页走左上角 logo，背包与仓库走侧栏。
-    let nav_cls = |active: bool| if active { "nav-link active" } else { "nav-link" };
+    let nav_cls = |active: bool| {
+        if active {
+            "nav-link active"
+        } else {
+            "nav-link"
+        }
+    };
     let mypm_cls = nav_cls(state.route.get() == Route::MyPokemon);
     let shop_cls = nav_cls(state.route.get() == Route::Shop);
     let center_cls = nav_cls(state.route.get() == Route::PokemonCenter);
@@ -164,13 +172,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     };
     let show_sidebar = state.route.get() != Route::Home;
     let img_logo = "source/plugin/pokemon/images/item/jlq.gif";
-    let (
-        logo_state,
-        mypm_state,
-        shop_state,
-        center_state,
-        adventure_state,
-    ) = (
+    let (logo_state, mypm_state, shop_state, center_state, adventure_state) = (
         state.clone(),
         state.clone(),
         state.clone(),
@@ -197,44 +199,34 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
             header { class: "app-header",
                 div { class: "header-inner",
                     div { class: "header-logo",
-                        button {
-                            r#type: "button",
-                            class: "logo-link",
-                            "data-test-nav": "home",
-                            onclick: move |_| navigate(&logo_state, Route::Home),
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: ("logo-link").to_string(),
+                            onclick: crate::button::click(move || navigate(&logo_state, Route::Home)),
                             img { class: "logo-mascot", src: img_logo, alt: "Pokeball" }
                             span { class: "logo-text", "Online Void Pokemon" }
-                        }
+                                                } }, [("data-test-nav", ("home").to_string())]) }
                     }
                     nav { class: "header-nav",
-                        button {
-                            r#type: "button",
-                            class: mypm_cls,
-                            "data-test-nav": "my-pokemon",
-                            onclick: move |_| navigate(&mypm_state, Route::MyPokemon),
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: (mypm_cls).to_string(),
+                            onclick: crate::button::click(move || navigate(&mypm_state, Route::MyPokemon)),
                             "个人中心"
-                        }
-                        button {
-                            r#type: "button",
-                            class: shop_cls,
-                            "data-test-nav": "shop",
-                            onclick: move |_| navigate(&shop_state, Route::Shop),
+                                                } }, [("data-test-nav", ("my-pokemon").to_string())]) }
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: (shop_cls).to_string(),
+                            onclick: crate::button::click(move || navigate(&shop_state, Route::Shop)),
                             "商店"
-                        }
-                        button {
-                            r#type: "button",
-                            class: center_cls,
-                            "data-test-nav": "center",
-                            onclick: move |_| navigate(&center_state, Route::PokemonCenter),
+                                                } }, [("data-test-nav", ("shop").to_string())]) }
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: (center_cls).to_string(),
+                            onclick: crate::button::click(move || navigate(&center_state, Route::PokemonCenter)),
                             "宠物中心"
-                        }
-                        button {
-                            r#type: "button",
-                            class: adventure_cls,
-                            "data-test-nav": "adventure",
-                            onclick: move |_| navigate(&adventure_state, Route::Adventure),
+                                                } }, [("data-test-nav", ("center").to_string())]) }
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: (adventure_cls).to_string(),
+                            onclick: crate::button::click(move || navigate(&adventure_state, Route::Adventure)),
                             "野外冒险"
-                        }
+                                                } }, [("data-test-nav", ("adventure").to_string())]) }
                     }
                 }
             }
@@ -269,15 +261,15 @@ fn loading_container(state: &app_state::AppState, error: Option<&str>) -> tairit
     rsx! {
         div { class: "loading-container",
             p { role: "alert", "{message}" }
-            button {
-                class: "btn btn-primary",
-                onclick: move |_| {
+            Button {
+                class: ("btn btn-primary").to_string(),
+                onclick: crate::button::click(move || {
                     reload_state.sidebar.profile.inner().set(None);
                     request_remount();
                     load_profile(&reload_state);
-                },
+                }),
                 "重新载入"
-            }
+                        }
         }
     }
 }

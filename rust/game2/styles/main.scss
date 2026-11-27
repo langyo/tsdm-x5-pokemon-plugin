@@ -186,3 +186,39 @@
     scrollbar-color: #dee2e6 #f2f4f5; // $color-gray-300 $color-gray-100
   }
 }
+
+// =============================================================================
+// hikari 的样式表只在 hikari 组件里生效
+// =============================================================================
+
+// 构建脚本把 hikari 的全部样式表包在 @layer hikari 里：凡是 game.css / Discuz /
+// 本皮肤声明了的属性，未分层的宿主赢，不必再比特异度。hikari 的元素级规则
+// （`* { box-sizing: border-box }`、`button { font: inherit }`、`svg { display: block }`……）
+// 在宿主样式里没有对手，由构建脚本生成在 @layer hikari-reset 里逐属性 revert，只
+// 落在「宿主的内容」上。实测背景（对 Dioxus 原版，2026-11-27）：不撤的话 v2 每个
+// 元素的 border-style 都是 solid、点击高亮都是透明，顶部导航一行高 44.8px 而原版
+// 是 43px。「宿主的内容」是哪些元素、为什么不用 `all: revert`、为什么得是平级的
+// 顶层分层，都写在构建脚本的 HOST_CONTENT / element_level_resets 那里。
+
+// hikari `Button` 带着旧版类名渲染（见 `src/button.rs`）：观感要是 game.css 的，而
+// 按钮表声明、旧规则没声明的属性（gap、min-height、white-space、outline、悬停时的
+// filter……）会漏出来。按钮自己整表退回——`button` 没有呈现属性，`all: revert` 在它
+// 身上是安全的；里面的内容只撤按钮表声明过的两条，元素级规则由生成的部分处理。
+// 不能对子树整个 `all: revert`：SVG 的呈现属性（fill、d、stroke……）在层叠里算作者
+// 来源，会一起被退掉——页脚的 ⓘ 图标就这么丢过。
+//
+// 以后哪处要 hikari 的原生观感，在本皮肤里（未分层）写规则即可：未分层压得过这一层。
+@layer hikari-reset {
+  .hk-btn {
+    all: revert;
+  }
+
+  // HkButton.scss：`.hk-btn > svg { flex: none }` 与 `.hk-btn-* svg { color: … }`。
+  .hk-btn > svg {
+    flex: revert;
+  }
+
+  .hk-btn svg {
+    color: revert;
+  }
+}
