@@ -203,20 +203,33 @@
 // 这一层，照常生效。必须是平级的顶层分层，不能是 hikari 的子层——子层压不过父层
 // 自己的规则（和「未分层压过分层」同理）。层序由构建脚本写在文件开头。
 //
-// 「属于 hikari」看类名前缀：自己带 hk- 类，或者在带 hk- 类的元素里面。两处例外：
-// - Modal 的正文（`.hk-modal-body-inner`）是宿主的内容，连同里面的东西一起算宿主；
-//   里面再嵌的 hikari 组件（带 hk- 类）不算。
+// 「属于 hikari」看类名前缀：自己带 hk- 类，或者在带 hk- 类的元素里面。三类元素
+// 例外，算宿主的内容：
+// - Modal 的正文：`.hk-modal-body-inner` 连同里面的东西。里面再嵌的 hikari 组件
+//   （带 hk- 类的元素和它的内容）不算。
+// - ThemeProvider 的内容：`.hk-theme-provider` 里面的东西（商店页用它包着整页），
+//   同上。它自己是 hikari 的元素。
 // - hikari `Button` 带着旧版类名渲染（见 `src/button.rs`）：它带 hk- 类，但观感要
 //   是 game.css 的，而按钮表声明、旧规则没声明的属性（gap、min-height、
 //   white-space、outline、悬停时的 filter……）会漏出来——按钮连同内容整棵退回。
 //
+// 这份「宿主内容」的清单和构建脚本生成的两条令牌规则是一致的，改一处要改另一处。
+//
 // 以后哪处要 hikari 的原生观感，在本皮肤里（未分层）写规则即可：未分层压得过这一层。
+$host-content: (
+  // hikari 区域之外的一切。
+  ':where(*):not([class*="hk-"], [class*="hk-"] *)',
+  // 两处容器里、不在（嵌套的）hikari 组件内的部分。
+  ':where(.hk-modal-body-inner, .hk-modal-body-inner *, .hk-theme-provider *):not(:where(.hk-modal-body-inner [class*="hk-"], .hk-modal-body-inner [class*="hk-"] *, .hk-theme-provider [class*="hk-"], .hk-theme-provider [class*="hk-"] *))'
+);
+
 @layer hikari-reset {
-  :where(*):not([class*="hk-"], [class*="hk-"] *),
-  :where(.hk-modal-body-inner, .hk-modal-body-inner *):not([class*="hk-"], [class*="hk-"] *),
-  :where(*):not([class*="hk-"], [class*="hk-"] *)::before,
-  :where(*):not([class*="hk-"], [class*="hk-"] *)::after {
-    all: revert;
+  @each $selector in $host-content {
+    #{$selector},
+    #{$selector}::before,
+    #{$selector}::after {
+      all: revert;
+    }
   }
 
   .hk-btn,
