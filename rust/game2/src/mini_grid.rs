@@ -35,13 +35,16 @@ fn has_negative_state(state: u8) -> bool {
 }
 
 /// 迷你格。`team` 是携带中的宠物（site 1/2，最多 6 只），`active_id` 是
-/// 当前高亮的宠物 id，`on_select(index)` 由侧栏决定点击后去哪。
+/// 当前高亮的宠物 id，`on_select(index)` 由侧栏决定点击后去哪。`user_in_battle`
+/// 是用户此刻是否在战斗里：战斗中的图标只给「在战斗且是首位」的那只（旧版
+/// `is_user_in_battle && p.site == 1`），光看 site 的话平时首只头上也一直有。
 ///
 /// `hover_slot` / `set_hover` 是悬浮态：tairitsu 的信号不跨渲染保留，所以
 /// tooltip 的显隐放在侧栏状态里（旧版是组件内 `use_signal`）。
 pub fn mini_grid(
     team: &[PokemonBasic],
     active_id: Option<u64>,
+    user_in_battle: bool,
     hover_slot: Option<usize>,
     set_hover: std::rc::Rc<dyn Fn(Option<usize>)>,
     on_select: std::rc::Rc<dyn Fn(usize)>,
@@ -52,6 +55,7 @@ pub fn mini_grid(
                 pm,
                 i,
                 Some(pm.id) == active_id,
+                user_in_battle,
                 hover_slot == Some(i),
                 set_hover.clone(),
                 on_select.clone(),
@@ -84,6 +88,7 @@ fn slot(
     pm: &PokemonBasic,
     index: usize,
     is_active: bool,
+    user_in_battle: bool,
     hovered: bool,
     set_hover: std::rc::Rc<dyn Fn(Option<usize>)>,
     on_select: std::rc::Rc<dyn Fn(usize)>,
@@ -97,7 +102,7 @@ fn slot(
     } else {
         "pm-mini-slot"
     };
-    let in_battle = pm.site == 1;
+    let in_battle = user_in_battle && pm.site == 1;
     let negative = has_negative_state(pm.state);
     let hp_low = !hp_cls.is_empty() && hp_cls != "fainted";
     let hover_enter = set_hover.clone();
@@ -178,7 +183,9 @@ fn Tooltip(pm: Box<PokemonBasic>, hp_class: String) -> VNode {
     let hp_text = format!("{}/{}", pm.hp, pm.max_hp);
 
     let in_level = pm.exp.saturating_sub(pm.exp_for_current_level);
-    let needed = pm.exp_for_next_level.saturating_sub(pm.exp_for_current_level);
+    let needed = pm
+        .exp_for_next_level
+        .saturating_sub(pm.exp_for_current_level);
     let exp_pct = if needed > 0 {
         ((in_level as f64 / needed as f64) * 100.0).min(100.0) as u64
     } else {

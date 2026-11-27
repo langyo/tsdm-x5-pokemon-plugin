@@ -193,7 +193,8 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                 .iter()
                 .map(|pm| {
                     let id = pm.id;
-                    let name = pm.display_name();
+                    // 治疗卡片上用的是物种名（旧版 `pm.name`），不是昵称。
+                    let name = pm.name.clone();
                     let alt_name = name.clone();
                     let level = format!("Lv.{}", pm.level);
                     let sprite = format!("{IMG_PATH}/spm/{}.gif", pm.type_id);
