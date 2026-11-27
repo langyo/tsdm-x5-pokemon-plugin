@@ -596,30 +596,33 @@ async function stepMyPokemon() {
     && !!document.querySelector('[data-test-my-pm-evo-open]'));
   ok('属性页三个工具按钮存在', hasTools);
   if (hasTools) {
-    // 努力值计算器：输入联动合计
+    // 努力值分配计算器：输入联动合计（对齐 Dioxus 版——只有「待分配」一行
+    // 有 6 个输入，事件是 input；总分配行的总计格 = 六项总和）
     await evaljs(() => document.querySelector('[data-test-my-pm-ev-open]')?.click());
     await waitFor(async () => (await evaljs(() => !!document.querySelector('.ev-calculator'))), 8000, '计算器弹窗');
     const evOk = await evaljs(() => {
       const set = (key, val) => {
         const el = document.querySelector(`[data-test-ev-input="${key}"]`);
         el.value = String(val);
-        el.dispatchEvent(new Event('change', { bubbles: true }));
+        el.dispatchEvent(new Event('input', { bubbles: true }));
       };
-      set('cur-1', 100);
+      set('add-1', 100);
       set('add-3', 60);
       return true;
     });
     await sleep(900);
     const evState = await evaljs(() => ({
       status: document.querySelector('[class*="ev-status-"]')?.textContent?.trim() ?? null,
-      // 表格行是 `.ev-table-row`（.ev-row 是更早的名字，样式表里没有）。
-      lastRow: [...document.querySelectorAll('.ev-table-row')]
-        .pop()
+      // 第一行数据行是「总分配」，其总计格应为 100 + 60 = 160。
+      totalRow: [...document.querySelectorAll('.ev-table-row')]
+        .shift()
         ?.textContent?.replace(/\s+/g, '') ?? '',
       inputs: document.querySelectorAll('[data-test-ev-input]').length,
+      evTitle: document.querySelector('.hk-modal-title')?.textContent?.trim() ?? null,
     }));
-    ok('计算器 12 输入 + 合计联动', evOk && evState.inputs === 12
-      && evState.lastRow.includes('160'), JSON.stringify(evState));
+    ok('计算器 6 输入 + 总计联动', evOk && evState.inputs === 6
+      && evState.totalRow.includes('160'), JSON.stringify(evState));
+    ok('计算器标题对齐 Dioxus', evState.evTitle === '努力值分配计算器', evState.evTitle ?? '');
     await evaljs(() => document.querySelector('[data-test-ev-close]')?.click());
     await sleep(600);
 
