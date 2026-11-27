@@ -798,7 +798,7 @@ fn adventure_map_view(
                 let region = regions.iter().find(|r| r.id == region_id);
                 match region {
                     Some(region) => {
-                        let region_name = region.id.clone();
+                        let region_name = region.name.clone();
                         let count_text = format!("共 {} 个冒险地点", region.maps.len());
                         let x = region.x;
                         let y = region.y;
@@ -944,7 +944,8 @@ fn adventure_map_view(
                 for region in &regions {
                     let count_text = format!("{}个地点", region.maps.len());
                     let style = format!("left: {}%; top: {}%;", region.x, region.y);
-                    let name = region.id.clone();
+                    // 标签是显示名（「山脉地区」），不是 id（「山脉」）——旧版用 region.name。
+                    let name = region.name.clone();
                     let region_id = region.id.clone();
                     let marker_state = st.clone();
                     markers.push(rsx! {

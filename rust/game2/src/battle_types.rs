@@ -392,10 +392,13 @@ impl MapInfo {
     }
 }
 
-/// 地图区域（服务端 region 即中文名，无需再映射）。
+/// 地图区域。`id` 是服务端给的 region（英文或中文名），`name` 是地图上显示的
+/// 名字（「山脉地区」），由 [`region_display_name`] 按 id 查出来——旧版
+/// `MapRegion::from_maps` 就是这样，并不是把 id 直接当标签。
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct MapRegion {
     pub id: String,
+    pub name: String,
     pub x: f32,
     pub y: f32,
     pub maps: Vec<MapInfo>,
@@ -406,22 +409,105 @@ pub fn regions_from_maps(maps: &[MapInfo]) -> Vec<MapRegion> {
     let mut grouped: std::collections::HashMap<String, Vec<MapInfo>> =
         std::collections::HashMap::new();
     for m in maps {
-        if !grouped.contains_key(&m.region) {
-            order.push(m.region.clone());
+        // 空 region 归到 unknown（旧版如此）。
+        let id = if m.region.is_empty() {
+            "unknown".to_string()
+        } else {
+            m.region.clone()
+        };
+        if !grouped.contains_key(&id) {
+            order.push(id.clone());
         }
-        grouped.entry(m.region.clone()).or_default().push(m.clone());
+        grouped.entry(id).or_default().push(m.clone());
     }
-    order
+    let mut regions: Vec<MapRegion> = order
         .into_iter()
         .map(|id| {
+            let name = region_display_name(&id).to_string();
             let maps = grouped.remove(&id).unwrap_or_default();
             let (x, y) = maps
                 .first()
                 .map(|m| (m.pos_x as f32, m.pos_y as f32))
                 .unwrap_or((50.0, 50.0));
-            MapRegion { id, x, y, maps }
+            MapRegion {
+                id,
+                name,
+                x,
+                y,
+                maps,
+            }
         })
-        .collect()
+        .collect();
+    // 旧版按地区次序排（中央、北、东、南、西……，未知最后）；次序相同的保持
+    // 首次出现的先后。
+    regions.sort_by_key(|r| region_order(&r.id));
+    regions
+}
+
+/// 地图上显示的地区名（旧版 `get_region_names` 那张表）。表里没有的叫「未知地区」。
+pub fn region_display_name(region_id: &str) -> &'static str {
+    match region_id {
+        // 英文 region id
+        "central" => "中央地区",
+        "north" => "北部地区",
+        "east" => "东部地区",
+        "south" => "南部地区",
+        "west" => "西部地区",
+        "ocean" => "海洋地区",
+        "cave" => "洞窟地区",
+        "mountain" => "山脉地区",
+        "sky" => "天空地区",
+        "desert" => "沙漠地区",
+        "city" => "城市地区",
+        "volcano" => "火山地区",
+        "wild" => "野外地区",
+        "special" => "特殊地区",
+        "unknown" => "未知地区",
+        // 中文 region（兼容旧数据库）
+        "中央" => "中央地区",
+        "北部" => "北部地区",
+        "东部" => "东部地区",
+        "南部" => "南部地区",
+        "西部" => "西部地区",
+        "西北" => "西北地区",
+        "东北" => "东北地区",
+        "西南" => "西南地区",
+        "东南" => "东南地区",
+        "海洋" => "海洋地区",
+        "洞窟" => "洞窟地区",
+        "山洞" => "洞窟地区",
+        "山脉" => "山脉地区",
+        "山谷" => "山脉地区",
+        "天空" => "天空地区",
+        "沙漠" => "沙漠地区",
+        "城市" => "城市地区",
+        "火山" => "火山地区",
+        "野外" => "野外地区",
+        "特殊" => "特殊地区",
+        "未知" => "未知地区",
+        _ => "未知地区",
+    }
+}
+
+/// 地区的排列次序（旧版 `get_region_order`）。
+fn region_order(region_id: &str) -> u8 {
+    match region_id {
+        "central" | "中央" => 1,
+        "north" | "北部" | "东北" => 2,
+        "east" | "东部" | "东南" => 3,
+        "south" | "南部" | "西南" => 4,
+        "west" | "西部" | "西北" => 5,
+        "ocean" | "海洋" => 6,
+        "cave" | "洞窟" | "山洞" => 7,
+        "mountain" | "山脉" | "山谷" => 8,
+        "sky" | "天空" => 9,
+        "desert" | "沙漠" => 10,
+        "city" | "城市" => 11,
+        "volcano" | "火山" => 12,
+        "wild" | "野外" => 13,
+        "special" | "特殊" => 14,
+        _ => 99,
+    }
 }
 
 /// 战报行（battle_log 端点）。
@@ -526,5 +612,37 @@ mod tests {
         assert_eq!(regions.len(), 2);
         assert_eq!(regions[0].id, "北部");
         assert_eq!(regions[1].maps.len(), 1);
+    }
+
+    #[test]
+    fn region_labels_and_order_follow_the_dioxus_table() {
+        let map = |n: u32, region: &str| MapInfo {
+            id: u64::from(n),
+            region: region.to_string(),
+            pos_x: n * 10,
+            pos_y: 20,
+            ..Default::default()
+        };
+        let regions = regions_from_maps(&[
+            map(1, "野外"),
+            map(2, "山洞"),
+            map(3, ""),
+            map(4, "ocean"),
+            map(5, "山脉"),
+        ]);
+        // 排列按旧版的地区次序（海洋 6、洞窟 7、山脉 8、野外 13、未知 99），
+        // 不是首次出现的次序；空 region 归到 unknown。
+        let ids: Vec<&str> = regions.iter().map(|r| r.id.as_str()).collect();
+        assert_eq!(ids, ["ocean", "山洞", "山脉", "野外", "unknown"]);
+        // 标签是显示名，不是 id。
+        let names: Vec<&str> = regions.iter().map(|r| r.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["海洋地区", "洞窟地区", "山脉地区", "野外地区", "未知地区"]
+        );
+        // 标记位置取该地区第一张地图的坐标。
+        assert_eq!((regions[1].x, regions[1].y), (20.0, 20.0));
+        assert_eq!(region_display_name("东北"), "东北地区");
+        assert_eq!(region_display_name("no-such-region"), "未知地区");
     }
 }
