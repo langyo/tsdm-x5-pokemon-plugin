@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/dom-token-list
-import { INTERFACES } from '../glue/css/index.js?v=1795801099';
+import { INTERFACES } from '../glue/css/index.js?v=1795804610';
 const obj = INTERFACES['@tairitsu-glue/dom-token-list'];
 export const add = obj.add;
 export const contains = obj.contains;

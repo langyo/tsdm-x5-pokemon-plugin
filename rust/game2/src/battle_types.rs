@@ -533,6 +533,149 @@ pub struct BattleLogTurn {
     pub lines: Vec<String>,
 }
 
+// ---------------------------------------------------------------------------
+// 冒险建议与品质门槛（对齐 Dioxus 版 adventure.rs 的闭包）。
+// ---------------------------------------------------------------------------
+
+/// 活动地图品质门槛：出战宠物的品质档位是否低于地图要求（对齐 Dioxus 版
+/// quality_gate_notice）。None = 无门槛或已达要求；旧端点未返回个体值时
+/// 不做客户端预判（服务端仍会拦截）。
+pub fn quality_gate_notice(
+    map: &MapInfo,
+    first: Option<&crate::state::PokemonBasic>,
+) -> Option<String> {
+    if map.min_quality == 0 {
+        return None;
+    }
+    let rank = first
+        .and_then(|p| p.iv_total)
+        .map(crate::quality::quality_rank)?;
+    if u32::from(rank) < u32::from(map.min_quality) {
+        Some(format!(
+            "需要出战宠物品质达到 {}（当前 {}）",
+            map.min_quality_name,
+            crate::quality::quality_grade(rank)
+        ))
+    } else {
+        None
+    }
+}
+
+/// 挑战建议文案（对齐 Dioxus 版 get_recommendation）：门槛优先，其次等级。
+pub fn recommendation(map: &MapInfo, first: Option<&crate::state::PokemonBasic>) -> String {
+    let Some(pm) = first else {
+        return "请先获得一只宝可梦".to_string();
+    };
+    if let Some(notice) = quality_gate_notice(map, first) {
+        return notice;
+    }
+    let level = pm.level;
+    if level < map.min_level {
+        format!("等级不足，建议等级 Lv.{} 以上", map.min_level)
+    } else if level > map.max_level + 10 {
+        "等级过高，经验收益较低".to_string()
+    } else if level >= map.min_level && level <= map.max_level {
+        "等级适中，推荐挑战".to_string()
+    } else {
+        "可以挑战".to_string()
+    }
+}
+
+/// 卡片难度配色（对齐 Dioxus 版 get_difficulty_class）。
+pub fn difficulty_class(map: &MapInfo, first: Option<&crate::state::PokemonBasic>) -> &'static str {
+    let Some(pm) = first else {
+        return "difficulty-unknown";
+    };
+    let level = pm.level;
+    if level < map.min_level {
+        "difficulty-hard"
+    } else if level > map.max_level + 10 {
+        "difficulty-easy"
+    } else if level >= map.min_level && level <= map.max_level {
+        "difficulty-medium"
+    } else {
+        "difficulty-normal"
+    }
+}
+
+#[cfg(test)]
+mod parity_tests {
+    use super::*;
+    use crate::state::PokemonBasic;
+
+    fn map(min_level: u64, max_level: u64, min_quality: u8) -> MapInfo {
+        MapInfo {
+            min_level,
+            max_level,
+            min_quality,
+            min_quality_name: if min_quality == 0 {
+                String::new()
+            } else {
+                "C".to_string()
+            },
+            ..Default::default()
+        }
+    }
+
+    fn pet(level: u64, iv_total: Option<u64>) -> PokemonBasic {
+        PokemonBasic {
+            level,
+            iv_total,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn recommendation_prefers_the_quality_gate_and_names_the_current_grade() {
+        let m = map(2, 5, 4); // 门槛 C（rank 4）
+                              // 无个体值（旧载荷）不做客户端预判。
+        assert_eq!(
+            recommendation(&m, Some(&pet(3, None))),
+            "等级适中，推荐挑战"
+        );
+        // rank 3（C）< 4：门槛文案覆盖等级建议。
+        assert_eq!(
+            recommendation(&m, Some(&pet(3, Some(80)))),
+            "需要出战宠物品质达到 C（当前 C）"
+        );
+        // 无门槛时恢复等级建议。
+        assert_eq!(
+            recommendation(&map(2, 5, 0), Some(&pet(1, Some(80)))),
+            "等级不足，建议等级 Lv.2 以上"
+        );
+    }
+
+    #[test]
+    fn recommendation_follows_the_dioxus_level_branches() {
+        let m = map(10, 20, 0);
+        assert_eq!(recommendation(&m, None), "请先获得一只宝可梦");
+        assert_eq!(
+            recommendation(&m, Some(&pet(9, None))),
+            "等级不足，建议等级 Lv.10 以上"
+        );
+        assert_eq!(
+            recommendation(&m, Some(&pet(15, None))),
+            "等级适中，推荐挑战"
+        );
+        // 高于上限但在 +10 容差内：可以挑战。
+        assert_eq!(recommendation(&m, Some(&pet(28, None))), "可以挑战");
+        assert_eq!(
+            recommendation(&m, Some(&pet(31, None))),
+            "等级过高，经验收益较低"
+        );
+    }
+
+    #[test]
+    fn quality_gate_notice_ignores_maps_without_a_gate() {
+        assert_eq!(
+            quality_gate_notice(&map(2, 5, 0), Some(&pet(3, Some(10)))),
+            None
+        );
+        assert_eq!(quality_gate_notice(&map(2, 5, 2), None), None);
+        assert!(quality_gate_notice(&map(2, 5, 6), Some(&pet(3, Some(120)))).is_some());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

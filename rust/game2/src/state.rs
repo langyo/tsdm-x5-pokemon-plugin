@@ -226,6 +226,12 @@ pub struct PokemonBasic {
     pub state: u8,
     pub state_text: String,
     pub state_class: String,
+    /// 六项个体值总和（0-186，历史宠物可能溢出；旧版载荷无此字段）。
+    pub iv_total: Option<u64>,
+    /// 品质档位（1=E .. 8=SS+，9=UnKnow；缺失表示旧版载荷）。
+    pub quality_rank: Option<u8>,
+    /// 品质名（E/D/C/B/A/S/SS/SS+，溢出历史数据为 UnKnow）。
+    pub quality_grade: Option<String>,
     /// 技能槽（list 载荷恒定 4 槽，空槽 type_id=0）。
     pub skills: Vec<PokemonSkill>,
     /// 属性 1（list 载荷 base_info；仓库页属性筛选用）。

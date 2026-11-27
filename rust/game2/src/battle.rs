@@ -19,8 +19,11 @@ use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
 use crate::app_state::AppState;
-use crate::battle_types::{BattleStatus, MapInfo};
-use crate::state::{PendingBattleAction, ToastKind};
+use crate::battle_types::{
+    difficulty_class, quality_gate_notice, recommendation, BattleStatus, MapInfo,
+};
+use crate::icon::{Icon, IconName, IconProps};
+use crate::state::{PendingBattleAction, PokemonBasic, ToastKind};
 use crate::toast;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
@@ -462,38 +465,6 @@ fn hp_pct_class(hp: i64, max_hp: i64) -> (u32, &'static str) {
     (pct, cls)
 }
 
-fn recommendation(map: &MapInfo, first_level: Option<u64>) -> String {
-    match first_level {
-        None => "请先获得一只宝可梦".to_string(),
-        Some(level) => {
-            if level < map.min_level {
-                format!("等级不足，建议等级 Lv.{} 以上", map.min_level)
-            } else if level > map.max_level + 10 {
-                "等级过高，经验收益较低".to_string()
-            } else {
-                "等级适中，推荐挑战".to_string()
-            }
-        }
-    }
-}
-
-fn difficulty_class(map: &MapInfo, first_level: Option<u64>) -> &'static str {
-    match first_level {
-        None => "difficulty-unknown",
-        Some(level) => {
-            if level < map.min_level {
-                "difficulty-hard"
-            } else if level > map.max_level + 10 {
-                "difficulty-easy"
-            } else if level >= map.min_level && level <= map.max_level {
-                "difficulty-medium"
-            } else {
-                "difficulty-normal"
-            }
-        }
-    }
-}
-
 #[component]
 pub fn Adventure(state: Box<AppState>) -> VNode {
     let st = state;
@@ -510,7 +481,7 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
         .get()
         .and_then(|r| r.ok())
         .unwrap_or_default();
-    let first_level = list.first().map(|p| p.level);
+    let first_pm = list.first();
     let pokemon_empty = list.is_empty();
 
     // 连接错误弹窗（上次动作结果未确认）。
@@ -566,7 +537,7 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
         Some(scene) if !scene.event_scene_hidden() => {
             battle_scene(&st, scene, loading, pokemon_empty)
         }
-        _ => adventure_map_view(&st, &maps_state, first_level, pokemon_empty, loading),
+        _ => adventure_map_view(&st, &maps_state, first_pm, pokemon_empty, loading),
     };
 
     rsx! {
@@ -594,11 +565,13 @@ impl SceneExt for crate::battle_types::BattleScene {
 fn adventure_map_view(
     st: &AppState,
     maps_state: &Option<Result<Vec<MapInfo>, String>>,
-    first_level: Option<u64>,
+    first_pm: Option<&PokemonBasic>,
     pokemon_empty: bool,
     loading: bool,
 ) -> VNode {
     let bt = st.battle.clone();
+    // 对齐 Dioxus 版 actions_blocked：加载中 / 有未确认动作 / 连接异常都禁用。
+    let actions_blocked = loading || bt.pending.get().is_some() || bt.conn_error.get().is_some();
     let maps_err = maps_state.as_ref().and_then(|r| r.as_ref().err()).cloned();
     let maps_loading = maps_state.is_none() || maps_err.as_deref() == Some(MAPS_LOADING);
     let maps = maps_state
@@ -623,10 +596,11 @@ fn adventure_map_view(
             let area_name2 = map.area_type_name.clone();
             let icon = map.area_icon();
             let area_name = map.area_type_name.clone();
-            let color_cls = format!("badge-area-{}", map.area_color());
+            let color_cls = format!("area-type-badge badge-area-{}", map.area_color());
             let level_text = map.level_range_text();
             let mode_label = map.mode_label();
-            let rec = recommendation(&map, first_level);
+            let rec = recommendation(&map, first_pm);
+            let quality_blocked = quality_gate_notice(&map, first_pm).is_some();
             let has_wild = map.has_wild();
             let min_quality = map.min_quality;
             let quality_name = map.min_quality_name.clone();
@@ -679,7 +653,7 @@ fn adventure_map_view(
                 boss_rows.push(rsx! {
                     Button {
                         class: ("boss-row-btn").to_string(),
-                        disabled: loading || pokemon_empty,
+                        disabled: actions_blocked || pokemon_empty || quality_blocked,
                         onclick: crate::button::click(move || {
                             start_boss(&boss_state, boss_map_id, boss_type_id, Some(boss_index))
                         }),
@@ -689,7 +663,14 @@ fn adventure_map_view(
                                 span { class: "boss-row-name", "{name}" }
                                 span { class: "boss-row-details", "{detail}" }
                             }
-                            span { class: "boss-row-action", "挑战" }
+                            span { class: "boss-row-action",
+                                {Icon(IconProps {
+                                    name: Some(IconName::Swords),
+                                    size: Some(12),
+                                    class: Some("lucide-inline".to_string()),
+                                })}
+                                "挑战"
+                            }
                         }
                                         }
                 });
@@ -697,7 +678,14 @@ fn adventure_map_view(
             let boss_section = if !boss_rows.is_empty() {
                 rsx! {
                     div { class: "map-detail-section boss-challenge-section",
-                        h4 { "Boss 挑战" }
+                        h4 {
+                            {Icon(IconProps {
+                                name: Some(IconName::Crown),
+                                size: Some(14),
+                                class: Some("lucide-inline".to_string()),
+                            })}
+                            "Boss 挑战"
+                        }
                         div { class: "boss-list-simple",
                             for i in 0..boss_rows.len() {
                                 ..vec![boss_rows[i].clone()]
@@ -714,7 +702,7 @@ fn adventure_map_view(
                 rsx! {
                     Button {
                         class: ("modal-action-btn").to_string(),
-                        disabled: loading || pokemon_empty,
+                        disabled: actions_blocked || pokemon_empty || quality_blocked,
                         onclick: crate::button::click(move || start_adventure(&start_state, start_map_id)),
                         "开始冒险"
                                         }
@@ -745,6 +733,12 @@ fn adventure_map_view(
                     div { class: "map-detail-section",
                         h4 { "基本信息" }
                         div { class: "detail-grid",
+                            if has_wild {
+                                div { class: "detail-item",
+                                    span { class: "detail-label", "等级范围" }
+                                    span { class: "detail-value", "{level_text}" }
+                                }
+                            }
                             div { class: "detail-item",
                                 span { class: "detail-label", "地形类型" }
                                 span { class: "detail-value", "{area_name2}" }
@@ -752,12 +746,6 @@ fn adventure_map_view(
                             div { class: "detail-item",
                                 span { class: "detail-label", "地图模式" }
                                 span { class: "detail-value", "{mode_label}" }
-                            }
-                            if has_wild {
-                                div { class: "detail-item",
-                                    span { class: "detail-label", "等级范围" }
-                                    span { class: "detail-value", "{level_text}" }
-                                }
                             }
                         }
                     }
@@ -809,9 +797,10 @@ fn adventure_map_view(
                             let icon = map.area_icon();
                             let name = map.name.clone();
                             let area_name = map.area_type_name.clone();
-                            let color_cls = format!("badge-area-{}", map.area_color());
-                            let rec = recommendation(map, first_level);
-                            let diff = difficulty_class(map, first_level);
+                            let color_cls =
+                                format!("area-type-badge badge-area-{}", map.area_color());
+                            let rec = recommendation(map, first_pm);
+                            let diff = difficulty_class(map, first_pm);
                             let card_cls = format!("zoomed-map-card {diff}");
                             let level_text = map.level_range_text();
                             let has_wild = map.has_wild();
