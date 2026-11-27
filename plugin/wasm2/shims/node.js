@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/node
-import { INTERFACES } from '../glue/dom/index.js?v=1795795922';
+import { INTERFACES } from '../glue/dom/index.js?v=1795796961';
 const obj = INTERFACES['@tairitsu-glue/node'];
 export const appendChild = obj.appendChild;
 export const getFirstChild = obj.getFirstChild;
