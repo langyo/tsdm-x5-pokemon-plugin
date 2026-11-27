@@ -743,6 +743,12 @@ struct PokemonBasicDto {
     #[serde(default)]
     state_class: String,
     #[serde(default)]
+    iv_total: Option<u64>,
+    #[serde(default)]
+    quality_rank: Option<u8>,
+    #[serde(default)]
+    quality_grade: Option<String>,
+    #[serde(default)]
     skills: Vec<PokemonSkillDto>,
     #[serde(default)]
     base_info: Option<PokemonBaseInfoDto>,
@@ -814,6 +820,9 @@ pub fn pokemon_list(on_done: Box<dyn FnOnce(Result<Vec<crate::state::PokemonBasi
                             state: p.state,
                             state_text: p.state_text,
                             state_class: p.state_class,
+                            iv_total: p.iv_total,
+                            quality_rank: p.quality_rank,
+                            quality_grade: p.quality_grade,
                             skills,
                             type_1: p
                                 .base_info
@@ -1634,9 +1643,7 @@ pub fn get_battle_log(battle_id: u64, on_done: Box<dyn FnOnce(BattleLogResult)>)
         "battle",
         &format!("battle_log&battle_id={battle_id}"),
         None,
-        Box::new(
-            |result: Result<crate::battle_types::BattleLogResponse, String>| on_done(result),
-        ),
+        Box::new(|result: Result<crate::battle_types::BattleLogResponse, String>| on_done(result)),
     );
 }
 

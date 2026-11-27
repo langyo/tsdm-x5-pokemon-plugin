@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/window
-import { INTERFACES } from '../glue/html/index.js?v=1795801099';
+import { INTERFACES } from '../glue/html/index.js?v=1795804150';
 const obj = INTERFACES['@tairitsu-glue/window'];
 export const getComputedStyle = obj.getComputedStyle;
 export const getInnerHeight = obj.getInnerHeight;
