@@ -134,6 +134,7 @@ try {
     echo "Pokemon state database checks passed: $passed", PHP_EOL;
 } finally {
     // The name is generated in this process and never comes from caller or site configuration.
+    if (!preg_match('/^tsdm_test_state_[a-f0-9]{16}$/D', $database)) throw new RuntimeException('Unsafe database name');
     $db->query("DROP DATABASE `$database`");
     $db->close();
 }

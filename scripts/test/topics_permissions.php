@@ -165,14 +165,26 @@ try {
         $connection->query('CREATE TABLE pm_config (`key` VARCHAR(100) PRIMARY KEY, value TEXT)');
         $connection->query("INSERT INTO pm_config VALUES ('news_announcements','[{\"title\":\"Public news\",\"url\":\"https://example.com/news\"}]')");
     }
+    // 夹具行按列名绑定插入。列名是本文件里的常量，值全部走参数——不再把值
+    // 转义成 SQL 字面量拼进语句。
+    $insert_row = static function (mysqli $connection, string $table, array $columns, array $row): void {
+        $statement = $connection->prepare(
+            'INSERT INTO `' . $table . '` (`' . implode('`,`', $columns) . '`) VALUES ('
+            . implode(',', array_fill(0, count($columns), '?')) . ')'
+        );
+        $values = array_map('strval', array_map(fn($column) => $row[$column], $columns));
+        $statement->bind_param(str_repeat('s', count($columns)), ...$values);
+        $statement->execute();
+    };
     foreach ($cases as [$label, $allowed, $case]) {
         if ($connection) {
             $connection->query('DELETE FROM forum_forum');
             $connection->query('DELETE FROM forum_forumfield');
             if ($case['forum']) {
-                $values = array_map(function ($v) use ($connection) { return "'" . $connection->real_escape_string((string)$v) . "'"; }, $case['forum']);
-                $connection->query('INSERT INTO forum_forum VALUES (' . implode(',', array_slice($values, 0, 4)) . ')');
-                $connection->query('INSERT INTO forum_forumfield VALUES (' . $values['fid'] . ',' . implode(',', array_slice($values, 4)) . ')');
+                $insert_row($connection, 'forum_forum', ['fid', 'fup', 'type', 'status'], $case['forum']);
+                $insert_row($connection, 'forum_forumfield',
+                    ['fid', 'viewperm', 'password', 'formulaperm', 'price', 'redirect', 'level', 'moderators', 'founderuid', 'jointype', 'gviewperm'],
+                    $case['forum']);
             }
             $case['database'] = $database;
         }
@@ -193,7 +205,11 @@ try {
     }
 } finally {
     try {
-        if ($owned) $connection->query('DROP DATABASE `' . $database . '`');
+        if ($owned) {
+            // Only the name generated and exclusively created by this process can be dropped.
+            if (!preg_match('/^tsdm_test_topics_[a-f0-9]{16}$/D', $database)) throw new RuntimeException('Unsafe database name');
+            $connection->query('DROP DATABASE `' . $database . '`');
+        }
     } finally {
         if ($connection) $connection->close();
     }
