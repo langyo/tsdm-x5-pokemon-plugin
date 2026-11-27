@@ -1,8 +1,8 @@
 {
-  "build_id": "1795804610",
+  "build_id": "1795805765",
   "base": "/source/plugin/pokemon/wasm2",
-  "entry": "/source/plugin/pokemon/wasm2/boot.js?v=1795804610",
-  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_game2.js?b=1795804610",
+  "entry": "/source/plugin/pokemon/wasm2/boot.js?v=1795805765",
+  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_game2.js?b=1795805765",
   "interfaces": [
     "canvas-fill-stroke-styles",
     "canvas-rect",

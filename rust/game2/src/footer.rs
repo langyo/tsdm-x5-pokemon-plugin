@@ -63,6 +63,8 @@ pub fn Footer(state: Box<AppState>) -> VNode {
 
 /// 关于本项目弹窗：信息展示 + AI 模型披露（只读，无表单）。
 pub fn about_modal(state: &AppState) -> VNode {
+    // 版本徽章沿用旧版的格式（v + 前端 crate 版本）。
+    let version = concat!("v", env!("CARGO_PKG_VERSION"));
     let tech_tags: Vec<VNode> = TECH_TAGS
         .iter()
         .map(|tag| rsx! { span { class: "about-tech-tag", "{*tag}" } })
@@ -91,7 +93,7 @@ pub fn about_modal(state: &AppState) -> VNode {
                                 alt: "宝可梦插件",
                             }
                             div { class: "about-hero-name", "天使动漫 · 宝可梦插件" }
-                            span { class: "about-hero-version", "tairitsu" }
+                            span { class: "about-hero-version", "{version}" }
                             p { class: "about-hero-desc",
                                 "天使动漫论坛的宝可梦养成游戏插件，基于 Discuz X5 构建，前端由 Rust + tairitsu 编译为 WebAssembly 运行。"
                             }

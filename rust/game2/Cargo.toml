@@ -1,6 +1,6 @@
 [package]
 name = "_game2"
-version = "0.1.0"
+version = "0.1.33"
 edition = "2021"
 publish = false
 description = "tairitsu + hikari rebuild of the game frontend (docs/refactor-tairitsu-hikari-research.md)"

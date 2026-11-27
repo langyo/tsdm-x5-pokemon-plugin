@@ -683,11 +683,19 @@ pub fn close_ev_modal(state: &AppState) {
 }
 
 /// 努力值输入变更：idx 0-5，`added` 区分当前值/追加值，夹在 0-255。
+/// 输入一个待分配值。对齐 Dioxus 版 create_handler：解析成 u32 且 ≤255 才
+/// 接受（超限/解析失败都保持旧值）；`added` 参数保留给未来可能恢复的
+/// 「已分配」输入位。
 pub fn set_ev_value(state: &AppState, idx: usize, added: bool, raw: &str) {
     if idx >= 6 {
         return;
     }
-    let value: u32 = raw.trim().parse::<u32>().map(|v| v.min(255)).unwrap_or(0);
+    let Ok(value) = raw.trim().parse::<u32>() else {
+        return;
+    };
+    if value > 255 {
+        return;
+    }
     let my = state.my_pm.clone();
     if added {
         let mut arr = my.ev_added.get();
@@ -2127,7 +2135,8 @@ fn learn_item(skill: &crate::state::LearnableSkill, loading: bool, st: Option<&A
 
 const EV_STAT_NAMES: [&str; 6] = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
 
-/// 努力值计算器（纯客户端）：当前值 + 计划追加，单项 ≤255、总计 ≤510。
+/// 努力值分配计算器（纯客户端）：总分配 = 已分配 + 待分配，单项 ≤255、总计 ≤510。
+/// 输入只放在「待分配」一行（对齐 Dioxus 版：已分配行是纯文本）。
 fn ev_calculator_modal(st: &AppState) -> VNode {
     let current = st.my_pm.ev_current.get();
     let added = st.my_pm.ev_added.get();
@@ -2138,10 +2147,10 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
         .collect();
     let grand: u32 = totals.iter().sum();
     let valid = totals.iter().all(|t| *t <= 255) && grand <= 510;
-    let (status_cls, status_text) = if valid {
-        ("ev-status-valid", "配置有效")
+    let (status_cls, status_text, status_icon) = if valid {
+        ("ev-status-valid", "配置有效", IconName::Check)
     } else {
-        ("ev-status-invalid", "配置无效（超过限制）")
+        ("ev-status-invalid", "配置无效（超过限制）", IconName::X)
     };
 
     let header_cells: Vec<VNode> = EV_STAT_NAMES
@@ -2152,26 +2161,16 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
         })
         .collect();
 
+    let total_cells: Vec<VNode> = (0..6)
+        .map(|i| {
+            let t = totals[i].to_string();
+            rsx! { div { class: "ev-cell", "{t}" } }
+        })
+        .collect();
     let cur_cells: Vec<VNode> = (0..6)
         .map(|i| {
-            let attr = format!("cur-{i}");
-            let value = current[i].to_string();
-            let cell_state = st.clone();
-            rsx! {
-                div { class: "ev-cell",
-                    input {
-                        class: "ev-input",
-                        r#type: "number",
-                        min: "0",
-                        max: "255",
-                        value: value,
-                        "data-test-ev-input": attr,
-                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                            set_ev_value(&cell_state, i, false, &e.value);
-                        }
-                    }
-                }
-            }
+            let t = current[i].to_string();
+            rsx! { div { class: "ev-cell", "{t}" } }
         })
         .collect();
     let add_cells: Vec<VNode> = (0..6)
@@ -2188,7 +2187,7 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
                         max: "255",
                         value: value,
                         "data-test-ev-input": attr,
-                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
+                        oninput: move |e: tairitsu_vdom::InputEvent| {
                             set_ev_value(&cell_state, i, true, &e.value);
                         }
                     }
@@ -2196,15 +2195,9 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
             }
         })
         .collect();
-    let total_cells: Vec<VNode> = (0..6)
-        .map(|i| {
-            let t = totals[i].to_string();
-            rsx! { div { class: "ev-cell", "{t}" } }
-        })
-        .collect();
+    let cur_sum = current.iter().sum::<u32>().to_string();
+    let added_sum = added.iter().sum::<u32>().to_string();
     let grand_text = grand.to_string();
-    let added_sum: u32 = added.iter().sum();
-    let added_sum_text = added_sum.to_string();
     // 合计超出 510 时整格转红（.grand-total.invalid）。
     let grand_cls = if valid {
         "ev-cell ev-total grand-total"
@@ -2217,8 +2210,6 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
     // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
     let body = rsx! {
         div { class: "ev-calculator",
-            // 表格结构与类名沿用 Dioxus 版（.ev-table > .ev-table-row > .ev-cell）：
-            // 样式表里只有这一套规则。
             div { class: "ev-notice",
                 p { "注意事项：" }
                 ul {
@@ -2229,39 +2220,48 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
             }
             div { class: "ev-table",
                 div { class: "ev-table-header",
-                    div { class: "ev-cell ev-label", "属性" }
+                    div { class: "ev-cell ev-label", "努力值" }
                     for i in 0..header_cells.len() {
                         ..vec![header_cells[i].clone()]
                     }
+                    div { class: "ev-cell ev-total", "总计" }
                 }
                 div { class: "ev-table-row",
-                    div { class: "ev-cell ev-label", "当前" }
-                    for i in 0..cur_cells.len() {
-                        ..vec![cur_cells[i].clone()]
-                    }
-                }
-                div { class: "ev-table-row input-row",
-                    div { class: "ev-cell ev-label", "追加" }
-                    for i in 0..add_cells.len() {
-                        ..vec![add_cells[i].clone()]
-                    }
-                    div { class: "ev-cell ev-total", "{added_sum_text}" }
-                }
-                div { class: "ev-table-row",
-                    div { class: "ev-cell ev-label", "合计" }
+                    div { class: "ev-cell ev-label", "总分配" }
                     for i in 0..total_cells.len() {
                         ..vec![total_cells[i].clone()]
                     }
                     div { class: grand_cls, "{grand_text}" }
                 }
+                div { class: "ev-table-row",
+                    div { class: "ev-cell ev-label", "已分配" }
+                    for i in 0..cur_cells.len() {
+                        ..vec![cur_cells[i].clone()]
+                    }
+                    div { class: "ev-cell ev-total", "{cur_sum}" }
+                }
+                div { class: "ev-table-row input-row",
+                    div { class: "ev-cell ev-label", "待分配" }
+                    for i in 0..add_cells.len() {
+                        ..vec![add_cells[i].clone()]
+                    }
+                    div { class: "ev-cell ev-total", "{added_sum}" }
+                }
             }
             div { class: "ev-status",
-                span { class: status_cls, "{status_text}" }
+                span { class: status_cls,
+                    {Icon(IconProps {
+                        name: Some(status_icon),
+                        size: Some(12),
+                        class: Some("lucide-inline".to_string()),
+                    })}
+                    "{status_text}"
+                }
             }
         }
     };
     crate::modal::modal_hooked(
-        crate::modal::ModalSpec::new("努力值计算器", true),
+        crate::modal::ModalSpec::new("努力值分配计算器", true),
         crate::modal::hook_close_button("data-test-ev-close", move || {
             close_ev_modal(&ev_close_state)
         }),
