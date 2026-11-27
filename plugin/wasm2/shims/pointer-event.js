@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/pointer-event
-import { INTERFACES } from '../glue/events/index.js?v=1795804150';
+import { INTERFACES } from '../glue/events/index.js?v=1795804610';
 const obj = INTERFACES['@tairitsu-glue/pointer-event'];
 export const getHeight = obj.getHeight;
 export const getIsPrimary = obj.getIsPrimary;

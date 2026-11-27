@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/mouse-event
-import { INTERFACES } from '../glue/events/index.js?v=1795804150';
+import { INTERFACES } from '../glue/events/index.js?v=1795804610';
 const obj = INTERFACES['@tairitsu-glue/mouse-event'];
 export const getAltKey = obj.getAltKey;
 export const getButton = obj.getButton;

@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/html-input-element
-import { INTERFACES } from '../glue/html/index.js?v=1795804150';
+import { INTERFACES } from '../glue/html/index.js?v=1795804610';
 const obj = INTERFACES['@tairitsu-glue/html-input-element'];
 export const getChecked = obj.getChecked;
 export const getType = obj.getType;

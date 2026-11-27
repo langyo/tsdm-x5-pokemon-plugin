@@ -2072,7 +2072,9 @@ fn learn_item(skill: &crate::state::LearnableSkill, loading: bool, st: Option<&A
         None
     };
     let pp_text = format!("PP: {}", skill.max_pp);
-    let hint = if skill.is_available {
+    // 可用/锁定是两个不同的 span 类（Dioxus：learn-btn 蓝色药丸、level-hint 灰字）。
+    let learn_hint = skill.is_available;
+    let hint_text = if skill.is_available {
         "学习".to_string()
     } else {
         format!("需要 Lv.{}", skill.required_level)
@@ -2093,11 +2095,17 @@ fn learn_item(skill: &crate::state::LearnableSkill, loading: bool, st: Option<&A
             }),
             div { class: "skill-learn-item-header",
                 span { class: "skill-learn-name", "{sname}" }
-                span { class: "skill-learn-hint", "{hint}" }
+                if learn_hint {
+                    span { class: "skill-learn-learn-btn", "{hint_text}" }
+                } else {
+                    span { class: "skill-learn-level-hint", "{hint_text}" }
+                }
             }
             div { class: "skill-learn-item-body",
                 span { class: type_cls, "{stype}" }
-                span { class: cat_cls, "{scat}" }
+                if !scat.is_empty() {
+                    span { class: cat_cls, "{scat}" }
+                }
                 if let Some(_p) = power_text {
                     span { class: "skill-power", "{_p}" }
                 }
@@ -2106,7 +2114,10 @@ fn learn_item(skill: &crate::state::LearnableSkill, loading: bool, st: Option<&A
             if !skill.description.is_empty() {
                 div { class: "skill-description", "{sdesc}" }
             }
-                } }, [("data-test-learn-item", (sid).to_string())]) }
+                } }, [
+                ("style", ("width: 100%; text-align: left; font: inherit;").to_string()),
+                ("data-test-learn-item", (sid).to_string()),
+            ]) }
     }
 }
 
