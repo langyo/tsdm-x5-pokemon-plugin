@@ -323,11 +323,26 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
         let pokemon_body = match inv.usable_pokemon.get() {
             None => plain("正在加载可用宠物列表...", "loading-pokemon-list"),
             Some(Err(_)) => plain("加载宠物列表失败，请关闭后重试", "error-pokemon-list"),
-            Some(Ok(list)) if list.is_empty() => {
-                plain("没有可以使用该物品的宠物", "empty-pokemon-list")
+            Some(Ok(list)) if list.usable_pokemon.is_empty() => {
+                let carried_only = is_carried_only_module(&list.item_module);
+                let text = if carried_only {
+                    "没有携带中的宠物可以使用该物品"
+                } else {
+                    "没有可以使用该物品的宝可梦"
+                };
+                plain(text, "empty-pokemon-list")
             }
             Some(Ok(list)) => {
+                // 品质重洗药（quality）与怠惰药片（clean_equipment）只作用于
+                // 携带中的宠物：服务端只返回携带中的目标，选择器展示精灵图
+                // 与品质/努力值摘要（对齐 Dioxus 版的目标选择器）。
+                let is_quality = list.item_module == "quality";
+                let is_ev_reset = list.item_module == "clean_equipment";
+                let carried_only = is_carried_only_module(&list.item_module);
+                let item_name = list.item_name.clone();
+                let unusable_count = list.unusable_count;
                 let rows: Vec<VNode> = list
+                    .usable_pokemon
                     .iter()
                     .map(|p| {
                         let id = p.id;
@@ -347,19 +362,79 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                             "#2ecc71"
                         };
                         let hp_style = format!("width: {hp_percent}%; background: {hp_color};");
+                        let show_quality = is_quality;
+                        let show_sprite = carried_only;
+                        let sprite_src =
+                            crate::state::front_sprite_url(p.type_id, p.is_shiny);
+                        let sprite_alt = name.clone();
+                        let quality_block = if show_quality {
+                            match &p.quality_grade {
+                                Some(grade) if !grade.is_empty() => {
+                                    let rank = p.quality_rank.unwrap_or(0);
+                                    let badge_cls =
+                                        format!("quality-badge quality-rank-{rank}");
+                                    let grade_text = grade.clone();
+                                    rsx! { span { class: badge_cls, "{grade_text}" } }
+                                }
+                                _ => VNode::empty(),
+                            }
+                        } else {
+                            VNode::empty()
+                        };
+                        let iv_block = if show_quality {
+                            match p.iv_total {
+                                Some(total) => {
+                                    let t = format!("总个体值 {total} / 186");
+                                    rsx! { div { class: "pokemon-select-stat-total", "{t}" } }
+                                }
+                                None => VNode::empty(),
+                            }
+                        } else {
+                            VNode::empty()
+                        };
+                        let ev_block = if is_ev_reset {
+                            match p.ev_total {
+                                Some(total) => {
+                                    let t = format!("努力值总和 {total} / 510");
+                                    rsx! { div { class: "pokemon-select-stat-total", "{t}" } }
+                                }
+                                None => VNode::empty(),
+                            }
+                        } else {
+                            VNode::empty()
+                        };
+                        let row_cls = if show_quality {
+                            "pokemon-select-item is-detailed is-quality"
+                        } else if show_sprite {
+                            "pokemon-select-item is-detailed is-ev-reset"
+                        } else {
+                            "pokemon-select-item"
+                        };
+                        let shiny_block = if p.is_shiny && show_sprite {
+                            rsx! { span { class: "pet-mark pet-mark-shiny pet-mark-compact", title: "异色（闪光）宠物", "闪" } }
+                        } else {
+                            VNode::empty()
+                        };
                         // 回调须 'static：每行各持一份状态克隆。
                         let pick_state = state.clone();
                         let pick_key = id.to_string();
                         rsx! {
                             div {
-                                class: "pokemon-select-item",
+                                class: row_cls,
                                 "data-test-inv-pick": pick_key,
                                 onclick: move |_| confirm_use_on_pokemon(&pick_state, id),
+                                if show_sprite {
+                                    div { class: "pokemon-select-sprite",
+                                        img { class: "pokemon-select-sprite-img", src: sprite_src, alt: sprite_alt }
+                                        ..vec![shiny_block]
+                                    }
+                                }
                                 div { class: "pokemon-select-body",
                                     div { class: "pokemon-select-info",
                                         span { class: "pokemon-select-name", "{name}" }
                                         span { class: "pokemon-select-level", "{level}" }
                                     }
+                                    ..vec![quality_block, iv_block, ev_block]
                                     div { class: "hp-bar-container",
                                         div { class: "hp-bar", style: hp_style }
                                         span { class: "hp-text", "{hp_text}" }
@@ -369,11 +444,26 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                         }
                     })
                     .collect();
+                let unusable_block = if !carried_only && unusable_count > 0 {
+                    let t = format!("剩余 {unusable_count} 个宠物无法使用该物品");
+                    rsx! { div { class: "unusable-pokemon-hint", "{t}" } }
+                } else {
+                    VNode::empty()
+                };
+                let picker_hint = if carried_only {
+                    rsx! { div { class: "quality-picker-hint", "{item_name}只显示携带中的宠物（最多 6 只）" } }
+                } else {
+                    VNode::empty()
+                };
                 rsx! {
-                    div { class: "pokemon-select-list custom-scrollbar",
-                        for i in 0..rows.len() {
-                            ..vec![rows[i].clone()]
+                    div { class: "pokemon-select-modal",
+                        ..vec![picker_hint]
+                        div { class: "pokemon-select-list custom-scrollbar",
+                            for i in 0..rows.len() {
+                                ..vec![rows[i].clone()]
+                            }
                         }
+                        ..vec![unusable_block]
                     }
                 }
             }
@@ -485,6 +575,12 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
 fn plain(text: &str, class: &str) -> VNode {
     let t = text.to_string();
     rsx! { div { class: "pokemon-select-modal", div { class: class, "{t}" } } }
+}
+
+/// 品质重洗药（quality）与怠惰药片（clean_equipment）只作用于携带中的宠物，
+/// 服务端只返回携带中的目标（对齐 Dioxus 版 is_carried_only）。
+fn is_carried_only_module(module: &str) -> bool {
+    matches!(module, "quality" | "clean_equipment")
 }
 
 /// 单个物品卡片。use_item 需要整个 AppState（装备道具会切到个人中心页），

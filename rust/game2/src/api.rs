@@ -560,6 +560,8 @@ struct InventoryDto {
 struct UsablePokemonDto {
     id: u64,
     #[serde(default)]
+    type_id: u64,
+    #[serde(default)]
     nickname: String,
     #[serde(default)]
     level: u64,
@@ -567,12 +569,28 @@ struct UsablePokemonDto {
     hp: i64,
     #[serde(default)]
     max_hp: i64,
+    #[serde(default)]
+    is_shiny: bool,
+    #[serde(default)]
+    iv_total: Option<u64>,
+    #[serde(default)]
+    quality_rank: Option<u8>,
+    #[serde(default)]
+    quality_grade: Option<String>,
+    #[serde(default)]
+    ev_total: Option<u64>,
 }
 
 #[derive(Deserialize)]
 struct UsableListDto {
     #[serde(default)]
+    item_name: String,
+    #[serde(default)]
+    item_module: String,
+    #[serde(default)]
     usable_pokemon: Vec<UsablePokemonDto>,
+    #[serde(default)]
+    unusable_count: usize,
 }
 
 #[derive(Deserialize)]
@@ -639,7 +657,7 @@ pub fn inventory(
 
 pub fn usable_pokemon(
     item_id: u64,
-    on_done: Box<dyn FnOnce(Result<Vec<crate::state::UsablePokemon>, String>)>,
+    on_done: Box<dyn FnOnce(Result<crate::state::UsablePokemonList, String>)>,
 ) {
     request(
         "user",
@@ -647,16 +665,28 @@ pub fn usable_pokemon(
         None,
         Box::new(|result: Result<UsableListDto, String>| {
             on_done(result.map(|dto| {
-                dto.usable_pokemon
-                    .into_iter()
-                    .map(|p| crate::state::UsablePokemon {
-                        id: p.id,
-                        nickname: p.nickname,
-                        level: p.level,
-                        hp: p.hp,
-                        max_hp: p.max_hp,
-                    })
-                    .collect()
+                crate::state::UsablePokemonList {
+                    item_name: dto.item_name,
+                    item_module: dto.item_module,
+                    unusable_count: dto.unusable_count,
+                    usable_pokemon: dto
+                        .usable_pokemon
+                        .into_iter()
+                        .map(|p| crate::state::UsablePokemon {
+                            id: p.id,
+                            type_id: p.type_id,
+                            nickname: p.nickname,
+                            level: p.level,
+                            hp: p.hp,
+                            max_hp: p.max_hp,
+                            is_shiny: p.is_shiny,
+                            iv_total: p.iv_total,
+                            quality_rank: p.quality_rank,
+                            quality_grade: p.quality_grade,
+                            ev_total: p.ev_total,
+                        })
+                        .collect(),
+                }
             }))
         }),
     );
