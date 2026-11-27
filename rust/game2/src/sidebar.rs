@@ -307,7 +307,16 @@ fn pets_card(
     set_hover: Rc<dyn Fn(Option<usize>)>,
     on_select: Rc<dyn Fn(usize)>,
 ) -> VNode {
-    let grid = crate::mini_grid::mini_grid(team, active_id, hover_slot, set_hover, on_select);
+    // 与 select_slot 同一个「在战斗里」的判断。
+    let user_in_battle = matches!(state.battle.scene.get(), Some(Some(_)));
+    let grid = crate::mini_grid::mini_grid(
+        team,
+        active_id,
+        user_in_battle,
+        hover_slot,
+        set_hover,
+        on_select,
+    );
     let storage_state = state.clone();
     rsx! {
         div { class: "sidebar-card",

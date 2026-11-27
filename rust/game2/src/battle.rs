@@ -230,7 +230,8 @@ pub fn continue_battle(state: &AppState) {
         .and_then(|r| r.ok())
         .map(|list| {
             list.iter()
-                .filter(|p| (p.site == 1 || p.site == 2) && p.needs_healing())
+                // 战斗前的自动治疗不看 PP（旧版 `get_injured_pokemons`）。
+                .filter(|p| (p.site == 1 || p.site == 2) && p.is_injured())
                 .map(|p| p.id)
                 .collect()
         })

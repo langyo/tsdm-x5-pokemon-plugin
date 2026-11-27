@@ -242,13 +242,90 @@ impl PokemonBasic {
         }
     }
 
-    /// 该宠物身上的负面状态是否需要用治疗（对齐服务端负面码表）。
+    /// 掉了血或处于负面状态。战斗前后的自动治疗只看这两样，不看 PP——不然连续
+    /// 野战时 PP 永远是满的，PP 道具就没有意义了（旧版 `get_injured_pokemons`）。
+    pub fn is_injured(&self) -> bool {
+        self.hp < self.max_hp || is_negative_state(self.state)
+    }
+
+    /// 治疗中心的判定：除了掉血与异常状态，任一技能 PP 未满同样需要治疗——后端
+    /// 治疗会一并补满全部技能 PP（旧版 `needs_healing`）。
     pub fn needs_healing(&self) -> bool {
-        self.hp <= 0
-            || matches!(
-                self.state,
-                0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15 | 20 | 21 | 22
-            )
+        self.is_injured() || self.skills.iter().any(|s| s.max_pp > 0 && s.pp < s.max_pp)
+    }
+}
+
+/// 负面状态码表（对齐服务端；20–22 是虚弱状态，同样要治疗）。
+pub fn is_negative_state(state: u8) -> bool {
+    matches!(state, 0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15 | 20 | 21 | 22)
+}
+
+#[cfg(test)]
+mod healing_tests {
+    use super::{is_negative_state, PokemonBasic, PokemonSkill};
+
+    fn pokemon(hp: i64, max_hp: i64, state: u8, pp: Option<(u64, u64)>) -> PokemonBasic {
+        PokemonBasic {
+            hp,
+            max_hp,
+            state,
+            skills: pp
+                .map(|(pp, max_pp)| {
+                    vec![PokemonSkill {
+                        pp,
+                        max_pp,
+                        name: "撞击".to_string(),
+                        ..Default::default()
+                    }]
+                })
+                .unwrap_or_default(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_pokemon_below_full_hp_needs_healing_in_the_center_and_before_battle() {
+        // 11/19：旧版宠物中心给治疗卡片，之前这里只认晕倒。
+        let p = pokemon(11, 19, 1, None);
+        assert!(p.needs_healing());
+        assert!(p.is_injured());
+    }
+
+    #[test]
+    fn a_fainted_pokemon_needs_healing() {
+        assert!(pokemon(0, 19, 1, None).needs_healing());
+    }
+
+    #[test]
+    fn a_pokemon_with_unfilled_pp_needs_the_center_but_not_the_battle_heal() {
+        let p = pokemon(19, 19, 1, Some((3, 15)));
+        assert!(p.needs_healing());
+        assert!(!p.is_injured());
+    }
+
+    #[test]
+    fn an_empty_skill_slot_does_not_count() {
+        // 空槽 type_id=0、max_pp=0。
+        assert!(!pokemon(19, 19, 1, Some((0, 0))).needs_healing());
+    }
+
+    #[test]
+    fn a_negative_state_needs_healing_even_at_full_hp() {
+        for state in [0u8, 2, 3, 4, 5, 6, 7, 11, 15, 20, 21, 22] {
+            assert!(is_negative_state(state), "state {state}");
+            assert!(
+                pokemon(19, 19, state, None).needs_healing(),
+                "state {state}"
+            );
+        }
+        for state in [1u8, 8, 10, 19, 23, 255] {
+            assert!(!is_negative_state(state), "state {state}");
+        }
+    }
+
+    #[test]
+    fn a_healthy_pokemon_does_not() {
+        assert!(!pokemon(19, 19, 1, Some((15, 15))).needs_healing());
     }
 }
 
