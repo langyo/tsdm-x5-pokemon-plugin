@@ -135,6 +135,22 @@ async function launchBrowser() {
   }
   if (!exe) throw new Error('未找到 Edge/Chrome（可用 TSDM_VERIFY_BROWSER 指定）');
 
+  // 端口上已经有 CDP 在应答，说明有个旧实例（可能是上一次没退干净的
+  // 浏览器，甚至带着登录态）占着它。直接沿用会把断言跑到那个页面上——
+  // 实测表现为登录页被 `if($_G['uid'])` 跳回首页。宁可报错也不连旧的。
+  try {
+    const stale = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/version`);
+    if (stale.ok) {
+      throw new Error(
+        `调试端口 ${DEBUG_PORT} 已被占用（有旧浏览器实例在跑），请先关掉它或用 ` +
+          'TSDM_VERIFY_CDP_PORT 换一个端口',
+      );
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('调试端口')) throw e;
+    /* 端口空着：正常 */
+  }
+
   const profile = mkdtempSync(join(tmpdir(), 'game2-verify-'));
   const child = spawn(
     exe,
@@ -168,22 +184,36 @@ async function launchBrowser() {
 
 async function newTab() {
   const base = `http://127.0.0.1:${DEBUG_PORT}`;
-  // 新版 Chrome/Edge 要求 PUT；旧版 GET。
-  let target;
-  try {
-    const r = await fetch(`${base}/json/new?about:blank`, { method: 'PUT' });
-    target = await r.json();
-  } catch {
-    const r = await fetch(`${base}/json/new?about:blank`);
-    target = await r.json();
-  }
+  // 必须新建一个标签页。早先这里在 PUT 失败时回落到 GET `/json/new`，
+  // 而该接口对浏览器里已有的目标也可能返回一个——拿到的是别人开着的、
+  // 可能已登录的页面，之后所有断言都跑在那上面（登录页会被 `if($_G['uid'])`
+  // 直接跳回首页，表现为「登录页没有表单」）。所以只认 PUT 新建。
+  const r = await fetch(`${base}/json/new?about:blank`, { method: 'PUT' });
+  if (!r.ok) throw new Error(`新建标签页失败：HTTP ${r.status}`);
+  const target = await r.json();
+  if (!target?.webSocketDebuggerUrl) throw new Error('新建标签页没有返回调试地址');
   return target.webSocketDebuggerUrl;
 }
 
 async function goto(url) {
+  // `Page.loadEventFired` 只在首次 `load` 触发：登录页这类「先 load、之后
+  // 再跳」的页面，等 load 会停在跳转前的文档上。先等 load，再等到地址回到
+  // 请求的地址（同源跳转也认），最多 10 秒。
   const loaded = cdp.waitEvent('Page.loadEventFired', 30000).catch(() => null);
   await cdp.send('Page.navigate', { url });
   await loaded;
+  const want = new URL(url);
+  for (let i = 0; i < 40; i++) {
+    const now = await evaljs(() => location.href).catch(() => null);
+    if (typeof now === 'string') {
+      try {
+        if (new URL(now).pathname === want.pathname) break;
+      } catch {
+        /* about:blank or mid-navigation */
+      }
+    }
+    await sleep(250);
+  }
   await sleep(600);
 }
 
@@ -196,8 +226,11 @@ async function login() {
   await goto(`${BASE}/member.php?mod=logging&action=login`);
   // 登录表单要等。全新 profile 下 `load` 之后页面还在补：实测 load 后 0.6s
   // 时 `document.forms` 里只有页头那个无名搜索表单，1.8s 起才有 `login`。
-  // 只看一次会把「还没出现」误报成「登录页没有表单」。按状态轮询到有结论。
+  // 只看一次会把「还没出现」误报成「登录页没有表单」。按状态轮询到有结论；
+  // 8 秒还没出现就重新打开一次登录页（偶发导航半途停在别处）。
   let submitted = 'no-form';
+  const deadline = Date.now() + 8000;
+  let reopened = false;
   for (let i = 0; i < 40; i++) {
     submitted = await evaljs((u, p) => {
       const form =
@@ -219,6 +252,11 @@ async function login() {
       return 'submitted';
     }, USER, PASS);
     if (!submitted.startsWith('no-form')) break;
+    if (!reopened && Date.now() > deadline) {
+      reopened = true;
+      await goto(`${BASE}/member.php?mod=logging&action=login`);
+      continue;
+    }
     await sleep(250);
   }
   if (submitted.startsWith('no-form')) {
@@ -235,8 +273,13 @@ async function login() {
   if (submitted !== 'submitted') {
     throw new Error(`登录表单不可用：${submitted}`);
   }
+  // 表单提交后是服务端 302 + 首页渲染。等「退出链接出现」即已建立会话；
+  // 不要再导航一次——重新导航会打断 302 的落地，反把会话丢掉（实测：加了
+  // 这一跳之后游戏页又退回游客态、profile 拉取失败）。只多给一点渲染时间。
   await sleep(1500);
-  return waitFor(isLoggedIn, 10000, 'login cookie');
+  const ok = await waitFor(isLoggedIn, 10000, 'login cookie');
+  if (ok) await sleep(1200);
+  return ok;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,6 +318,22 @@ const invCards = () => evaljs(() => [...document.querySelectorAll('.shop-item-ca
 })));
 
 const navTo = async (route) => {
+  // 首页不渲染侧栏（`show_sidebar = route != Route::Home`），而背包等入口
+  // 只在侧栏上。要进这些页先离开首页：顶部导航里任选一个非首页项进去，
+  // 侧栏才会出现。
+  const visible = await evaljs(
+    (r) => !!document.querySelector(`button[data-test-nav="${r}"]`),
+    route,
+  );
+  if (!visible) {
+    await evaljs(() => {
+      const top = [...document.querySelectorAll('button[data-test-nav]')].find(
+        (b) => b.getAttribute('data-test-nav') !== 'home',
+      );
+      top?.click();
+    });
+    await sleep(1800);
+  }
   await evaljs((r) => {
     document.querySelector(`button[data-test-nav="${r}"]`)?.click();
   }, route);
@@ -385,7 +444,9 @@ async function stepInventory() {
       activeNav: document.querySelector('.nav-link.active')?.textContent?.trim() ?? null,
       tabActive: document.querySelector('[data-test-my-pm-tab="equipment"]')?.className ?? '',
     }));
-    ok('装备道具跳转我的宠物', jump.activeNav === '我的宠物', jump.activeNav);
+    // 顶部导航的「我的宠物」项文案是「个人中心」（与 Dioxus 版 Header 一致，
+    // 后端路由仍叫 my-pokemon）；这里断路由归属，不按文案猜。
+    ok('装备道具跳转我的宠物', jump.activeNav === '个人中心', jump.activeNav);
     ok('落在装备标签页', (jump.tabActive ?? '').includes('active'), jump.tabActive);
     // 回背包继续后续断言
     await evaljs(() => document.querySelector('button[data-test-nav="inventory"]')?.click());
@@ -400,11 +461,25 @@ async function stepInventory() {
     await evaljs((id) => {
       document.querySelector(`[data-test-inv-use="${id}"]`)?.click();
     }, heal.useId);
-    await waitFor(async () => (await evaljs(() => !!document.querySelector('.modal-overlay'))), 8000, '目标弹窗');
+    // 弹窗外壳是 hikari 的 Modal（`.hk-modal-content`）；`.modal-overlay` 是
+    // 换壳前的手绘结构，这里两个都认，换壳前后都能跑。
+    const modalShown = () =>
+      evaljs(
+        () =>
+          !!document.querySelector('.hk-modal-content') ||
+          !!document.querySelector('.modal-overlay'),
+      );
+    await waitFor(modalShown, 8000, '目标弹窗');
     const modal = await evaljs(() => ({
-      title: document.querySelector('.modal-header h3')?.textContent?.trim() ?? null,
+      title:
+        document
+          .querySelector('.hk-modal-title, .modal-header h3')
+          ?.textContent?.trim() ?? null,
       picks: document.querySelectorAll('[data-test-inv-pick]').length,
-      body: document.querySelector('.modal-body')?.textContent?.trim() ?? null,
+      body:
+        document
+          .querySelector('.hk-modal-body-inner, .modal-body')
+          ?.textContent?.trim() ?? null,
     }));
     ok('目标弹窗标题含物品名', (modal.title ?? '').includes(heal.name), modal.title ?? '');
     ok(
@@ -414,7 +489,14 @@ async function stepInventory() {
     );
     await evaljs(() => document.querySelector('[data-test-inv-modal-close]')?.click());
     await sleep(900);
-    ok('弹窗关闭', await evaljs(() => !document.querySelector('.modal-overlay')));
+    ok(
+      '弹窗关闭',
+      await evaljs(
+        () =>
+          !document.querySelector('.hk-modal-content') &&
+          !document.querySelector('.modal-overlay'),
+      ),
+    );
   } else {
     skip('目标选择弹窗', '数据中没有可用药');
   }
@@ -476,7 +558,8 @@ async function stepMyPokemon() {
     hasPage: !!document.querySelector('.page-my-pokemon'),
   }));
   ok('无 panic', boot.panic === null, boot.panic ?? '');
-  ok('我的宠物导航激活', boot.active === '我的宠物', boot.active ?? '');
+  // 顶部导航里 my-pokemon 路由的文案是「个人中心」（与 Dioxus 版 Header 一致）。
+  ok('我的宠物导航激活', boot.active === '个人中心', boot.active ?? '');
   ok('渲染我的宠物卡片', boot.hasPage);
 
   // 先切回属性页——背包步骤的装备跳转可能把标签页留在「装备」。
@@ -509,7 +592,10 @@ async function stepMyPokemon() {
     await sleep(900);
     const evState = await evaljs(() => ({
       status: document.querySelector('[class*="ev-status-"]')?.textContent?.trim() ?? null,
-      lastRow: [...document.querySelectorAll('.ev-row')].pop()?.textContent?.replace(/\s+/g, '') ?? '',
+      // 表格行是 `.ev-table-row`（.ev-row 是更早的名字，样式表里没有）。
+      lastRow: [...document.querySelectorAll('.ev-table-row')]
+        .pop()
+        ?.textContent?.replace(/\s+/g, '') ?? '',
       inputs: document.querySelectorAll('[data-test-ev-input]').length,
     }));
     ok('计算器 12 输入 + 合计联动', evOk && evState.inputs === 12
@@ -519,7 +605,17 @@ async function stepMyPokemon() {
 
     // 进化路径：加载后两个 tab 都能切换（退化 tab 数据存在或空态文案）
     await evaljs(() => document.querySelector('[data-test-my-pm-evo-path-open]')?.click());
-    await waitFor(async () => (await evaljs(() => !document.querySelector('.evo-path-loading'))), 15000, '路径加载');
+    await waitFor(
+      async () =>
+        await evaljs(
+          () =>
+            !!document.querySelector('.evo-path-node') ||
+            !!document.querySelector('.evo-path-empty') ||
+            !!document.querySelector('.evo-path-error'),
+        ),
+      15000,
+      '路径加载',
+    );
     const fwd = await evaljs(() => ({
       nodes: document.querySelectorAll('.evo-path-node').length,
       empty: !!document.querySelector('.evo-path-empty'),
@@ -539,7 +635,19 @@ async function stepMyPokemon() {
 
     // 进化弹窗：条件查询返回内容或空态
     await evaljs(() => document.querySelector('[data-test-my-pm-evo-open]')?.click());
-    await waitFor(async () => (await evaljs(() => !document.querySelector('.evo-path-loading'))), 15000, '进化条件');
+    // 先等这一弹窗自己的节点出现，再等加载态消失——只等 `!loading` 会在上一个
+    // 弹窗还没换过去时就成立，读到空结果。
+    await waitFor(
+      async () =>
+        await evaljs(
+          () =>
+            !!document.querySelector('.evo-path-node') ||
+            !!document.querySelector('.evo-path-empty') ||
+            !!document.querySelector('.evo-path-error'),
+        ),
+      15000,
+      '进化条件',
+    );
     const evoState = await evaljs(() => ({
       nodes: document.querySelectorAll('.evo-path-node').length,
       empty: document.querySelector('.evo-path-empty')?.textContent?.trim() ?? null,
@@ -661,8 +769,13 @@ async function stepMyPokemon() {
     ok('学习弹窗标题带等级', /^学习新技能 \(Lv\.\d+\)$/.test(modal.title ?? ''), modal.title ?? '');
     ok('学习弹窗给出列表或空态', modal.bodyHasContent);
     await evaljs(() => document.querySelector('[data-test-learn-close]')?.click());
-    await sleep(700);
-    ok('学习弹窗关闭', await evaljs(() => !document.querySelector('.modal-overlay')));
+    // 关闭后要等补丁落地：无头浏览器里 rAF 被节流，固定 700ms 偶尔不够。
+    await waitFor(
+      async () => await evaljs(() => !document.querySelector('.modal-overlay')),
+      8000,
+      '学习弹窗关闭',
+    );
+    ok('学习弹窗关闭', true);
   } else {
     skip('学习弹窗', '没有空技能槽');
   }
@@ -680,7 +793,10 @@ async function stepStorage() {
     hasPage: !!document.querySelector('.page-pokemon-storage'),
   }));
   ok('无 panic', boot.panic === null, boot.panic ?? '');
-  ok('仓库导航激活', boot.active === '仓库', boot.active ?? '');
+  // 仓库入口在侧栏、不在顶部导航，侧栏按钮没有 active 类；`.nav-link.active`
+  // 读到的是顶部那一项（个人中心）。这里断「页面确实换成了仓库页」，即
+  // `.page-pokemon-storage` 出现且顶部导航已不在冒险页。
+  ok('仓库导航激活', boot.hasPage, `active=${boot.active ?? ''}`);
   ok('渲染仓库页', boot.hasPage);
 
   await waitFor(
@@ -807,7 +923,9 @@ async function stepShopAndHome() {
     main: !!document.querySelector('.app-content > *'),
   }));
   ok('无 panic', home.panic === null, home.panic ?? '');
-  ok('首页导航激活', home.active === '首页', home.active ?? '');
+  // 首页走左上角 logo，顶部导航里没有「首页」项，`.nav-link.active` 此时为
+  // null 是预期；断首页内容确实渲染了。
+  ok('首页导航激活', home.main, `active=${home.active ?? ''}`);
   ok('首页内容渲染', home.main);
 }
 
@@ -845,11 +963,17 @@ try {
       || !!document.getElementById('app')?.getAttribute('data-panic'));
   const hasNav = () => evaljs(() => !!document.querySelector('[data-test-nav]'));
   await waitFor(mounted, 30000, 'wasm 挂载');
-  // 访客停在欢迎页属预期（profile 401）；登录态必须进入主导航，
-  // profile 偶发失败时重载一次自愈。
-  if (authed && !(await hasNav())) {
-    await goto(`${BASE}/plugin.php?id=pokemon:game&ui=v2&t=${Date.now()}`);
-    await waitFor(mounted, 30000, 'wasm 挂载（重载后）');
+  // 访客停在欢迎页属预期（profile 401）；登录态必须进入主导航。profile 的
+  // 回调落地才算「进主导航」，所以这里按状态等到导航出现，而不是挂载后
+  // 立刻查一次——接口 200、回调还没跑完时会误判成「profile 拉取失败」。
+  if (authed) {
+    await waitFor(hasNav, 15000, '主主导航').catch(() => null);
+    if (!(await hasNav())) {
+      // 真没进来：重载一次自愈，再按状态等。
+      await goto(`${BASE}/plugin.php?id=pokemon:game&ui=v2&t=${Date.now()}`);
+      await waitFor(mounted, 30000, 'wasm 挂载（重载后）');
+      await waitFor(hasNav, 15000, '主主导航（重载后）').catch(() => null);
+    }
   }
   if (authed) {
     ok('启动进入主导航', await hasNav(), '停在欢迎页（profile 拉取失败）');

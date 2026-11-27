@@ -21,13 +21,48 @@ use tairitsu_vdom::{EventHandler, VNode};
 const WIDTH: &str = "600px";
 const WIDTH_LG: &str = "800px";
 
+/// 一处弹窗在外壳上的差异。默认值就是旧版 `modal()` 的形状：
+/// 宽度按 `large` 取，自带关闭键（没有测试钩子），没有额外的标题栏动作。
+pub struct ModalSpec<'a> {
+    pub title: &'a str,
+    pub large: bool,
+    /// hikari 自带的关闭键。关掉它就得自己出一枚（`header_actions`）——
+    /// 回归脚本要找带 `data-test-*` 的关闭键，而自带的那个没有属性槽。
+    pub closable: bool,
+    /// 标题右侧的动作槽。自带关闭键时排在它前面。
+    pub header_actions: Option<VNode>,
+}
+
+impl<'a> ModalSpec<'a> {
+    pub fn new(title: &'a str, large: bool) -> Self {
+        Self {
+            title,
+            large,
+            closable: true,
+            header_actions: None,
+        }
+    }
+}
+
 /// 弹窗外壳。`large` 对应旧版的 `modal-lg`。
 pub fn modal(title: &str, large: bool, on_close: Rc<dyn Fn()>, body: Vec<VNode>) -> VNode {
-    let close = Rc::clone(&on_close);
+    let on_close = Rc::clone(&on_close);
+    modal_with(ModalSpec::new(title, large), move || on_close(), body)
+}
+
+/// 同上，差异由 `spec` 给。
+pub fn modal_with(
+    spec: ModalSpec<'_>,
+    on_close: impl Fn() + 'static,
+    body: Vec<VNode>,
+) -> VNode {
+    let close = Rc::new(on_close);
     Modal(ModalProps {
         open: true,
-        title: Some(title.to_string()),
-        width: if large { WIDTH_LG } else { WIDTH }.to_string(),
+        title: Some(spec.title.to_string()),
+        closable: spec.closable,
+        header_actions: spec.header_actions,
+        width: if spec.large { WIDTH_LG } else { WIDTH }.to_string(),
         content_class: "game-modal".to_string(),
         children: rsx! {
             div { class: "game-modal-body", ..body }

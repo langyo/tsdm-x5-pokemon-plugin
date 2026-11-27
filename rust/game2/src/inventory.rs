@@ -367,29 +367,33 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
             })
             .unwrap_or_default();
         let title = format!("选择宝可梦 - {item_name}");
-        // 遮罩与关闭按钮都关闭弹窗；容器上 stop_propagation，点弹窗内部
-        // （含选宠行）不冒泡到遮罩——与 Dioxus 版共用 Modal 一致。
-        let overlay_state = state.clone();
-        let close_btn_state = state.clone();
-        rsx! {
-            div { class: "modal-overlay",
+        // 外壳是 hikari 的 Modal（见 crate::modal）：点遮罩与关闭键都走
+        // on_close，点弹窗本体不关（hikari 只把遮罩上的点击当关闭请求）。
+        // 关闭键由 header_actions 自己出一个，为的是挂
+        // `data-test-inv-modal-close`——回归脚本按它找关闭键，而 Modal 自带
+        // 那个没有属性槽。
+        let close_state = state.clone();
+        let close_for_button = state.clone();
+        let close_actions = rsx! {
+            button {
+                class: "hk-window-close hk-modal-close",
+                r#type: "button",
+                "aria-label": "关闭",
                 "data-test-inv-modal-close": "1",
-                onclick: move |_| close_target_modal(&overlay_state),
-                div { class: "modal-container",
-                    onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                    div { class: "modal-header",
-                        h3 { "{title}" }
-                        button {
-                            class: "modal-close-btn",
-                            "data-test-inv-modal-close": "1",
-                            onclick: move |_| close_target_modal(&close_btn_state),
-                            "×"
-                        }
-                    }
-                    div { class: "modal-body", ..vec![pokemon_body] }
-                }
+                onclick: move |_| close_target_modal(&close_for_button),
+                "×"
             }
-        }
+        };
+        crate::modal::modal_with(
+            crate::modal::ModalSpec {
+                title: &title,
+                large: false,
+                closable: false,
+                header_actions: Some(close_actions),
+            },
+            move || close_target_modal(&close_state),
+            vec![pokemon_body],
+        )
     } else {
         tairitsu_vdom::VNode::empty()
     };
