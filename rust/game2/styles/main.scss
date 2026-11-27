@@ -144,15 +144,15 @@
     }
   }
 
-  // 正文：面框自己限高 80vh，正文交给 flex 去分；滚动条回到旧版的 6px 细条
-  // （hikari 默认把原生滚动条藏掉、走覆盖式滚动条）。
+  // 正文：面框自己限高 80vh，正文交给 flex 去分；滚动条回到旧版 `.modal-body` 的
+  // 6px 细条（hikari 默认把原生滚动条藏掉、走覆盖式滚动条）。`scrollbar-width`
+  // 必须是 auto：设成 thin 时 Chromium 会忽略下面这组 `::-webkit-scrollbar`。
   .hk-modal-body {
     max-height: none;
   }
 
   .hk-modal-body-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: #dee2e6 #f2f4f5; // $color-gray-300 $color-gray-100
+    scrollbar-width: auto;
 
     &::-webkit-scrollbar {
       display: block;
@@ -173,5 +173,12 @@
         background: #ced4da; // $color-gray-400
       }
     }
+  }
+
+  // 旧版正文多一个 `custom-scrollbar` 的弹窗（`modal()` 入口，如「关于本项目」）：
+  // 那条规则设了 `scrollbar-width: thin`，实测 10px。
+  &.game-modal--thin-scroll .hk-modal-body-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #dee2e6 #f2f4f5; // $color-gray-300 $color-gray-100
   }
 }

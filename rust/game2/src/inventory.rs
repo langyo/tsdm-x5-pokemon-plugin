@@ -369,28 +369,16 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
         let title = format!("选择宝可梦 - {item_name}");
         // 外壳是 hikari 的 Modal（见 crate::modal）：点遮罩与关闭键都走
         // on_close，点弹窗本体不关（hikari 只把遮罩上的点击当关闭请求）。
-        // 关闭键由 header_actions 自己出一个，为的是挂
-        // `data-test-inv-modal-close`——回归脚本按它找关闭键，而 Modal 自带
-        // 那个没有属性槽。
-        let close_state = state.clone();
+        // 关闭键带 `data-test-inv-modal-close`：回归脚本按它找关闭键。
         let close_for_button = state.clone();
-        let close_actions = rsx! {
-            button {
-                class: "hk-window-close hk-modal-close",
-                r#type: "button",
-                "aria-label": "关闭",
-                "data-test-inv-modal-close": "1",
-                onclick: move |_| close_target_modal(&close_for_button),
-                "×"
-            }
-        };
-        crate::modal::modal_with(
-            crate::modal::ModalSpec {
-                title: &title,
-                large: false,
-                closable: false,
-                header_actions: Some(close_actions),
-            },
+        let close_state = state.clone();
+        crate::modal::modal_hooked(
+            &title,
+            false,
+            crate::modal::hook_close_button!(
+                "data-test-inv-modal-close",
+                move || close_target_modal(&close_for_button)
+            ),
             move || close_target_modal(&close_state),
             vec![pokemon_body],
         )

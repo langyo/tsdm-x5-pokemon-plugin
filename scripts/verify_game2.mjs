@@ -9,6 +9,11 @@
 // 用法：
 //   TSDM_VERIFY_USER=admin TSDM_VERIFY_PASS=*** node scripts/verify_game2.mjs [baseUrl]
 //   可选 TSDM_VERIFY_BROWSER 指定浏览器可执行文件；默认 baseUrl=https://localhost。
+//   可选 TSDM_VERIFY_CDP_PORT 换调试端口（端口上已有浏览器在应答时脚本会报错
+//   而不是连上去）。可选 TSDM_VERIFY_COOKIES=<JSON 文件> 直接带入一份已登录
+//   的论坛 Cookie（CDP Network.getAllCookies 的格式）：本地论坛给登录页开了
+//   图形验证码时，脚本自己登不进去，这是不改论坛设置的路子；文件里是会话
+//   凭据，别提交进仓库。
 //
 // 凭据只从环境变量读取（源码不含任何字面量口令）。未提供凭据时跳过
 // 登录，仅执行无需会话的「外壳」断言并以 SKIPPED 报告其余步骤。
@@ -17,7 +22,7 @@
 // 纯客户端分支（装备道具提示）与只读弹窗（get_usable_pokemon）。
 
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -223,6 +228,8 @@ async function isLoggedIn() {
 
 async function login() {
   if (!USER || !PASS) return false;
+  // 带了现成 Cookie（TSDM_VERIFY_COOKIES）且会话有效：不用再走登录表单。
+  if (await isLoggedIn()) return true;
   await goto(`${BASE}/member.php?mod=logging&action=login`);
   // 登录表单要等。全新 profile 下 `load` 之后页面还在补：实测 load 后 0.6s
   // 时 `document.forms` 里只有页头那个无名搜索表单，1.8s 起才有 `login`。
@@ -759,19 +766,31 @@ async function stepMyPokemon() {
   }
   if (skView.emptySlots > 0) {
     await evaljs(() => document.querySelector('[data-test-skill-learn-slot]')?.click());
-    await waitFor(async () => (await evaljs(() => !!document.querySelector('.modal-overlay'))), 10000, '学习弹窗');
+    // 弹窗外壳是 hikari 的 Modal（`.hk-modal-content`）；`.modal-overlay` 是
+    // 换壳前的手绘结构，两种都认。
+    await waitFor(
+      async () => await evaljs(() => !!document.querySelector('.hk-modal-content, .modal-overlay')),
+      10000,
+      '学习弹窗',
+    );
     await waitFor(async () => (await evaljs(() => !document.querySelector('.skill-learn-loading'))), 15000, '技能列表加载');
     const modal = await evaljs(() => ({
-      title: document.querySelector('.modal-header h3')?.textContent?.trim() ?? null,
+      title: document.querySelector('.hk-modal-title, .modal-header h3')?.textContent?.trim() ?? null,
       sections: [...document.querySelectorAll('.skill-section-title')].map((s) => s.textContent?.trim()),
-      bodyHasContent: (document.querySelector('.modal-body')?.textContent ?? '').length > 0,
+      bodyHasContent:
+        (document.querySelector('.hk-modal-body-inner, .modal-body')?.textContent ?? '').length > 0,
     }));
     ok('学习弹窗标题带等级', /^学习新技能 \(Lv\.\d+\)$/.test(modal.title ?? ''), modal.title ?? '');
     ok('学习弹窗给出列表或空态', modal.bodyHasContent);
     await evaljs(() => document.querySelector('[data-test-learn-close]')?.click());
     // 关闭后要等补丁落地：无头浏览器里 rAF 被节流，固定 700ms 偶尔不够。
     await waitFor(
-      async () => await evaljs(() => !document.querySelector('.modal-overlay')),
+      async () =>
+        await evaljs(
+          () =>
+            !document.querySelector('.hk-modal-content') &&
+            !document.querySelector('.modal-overlay'),
+        ),
       8000,
       '学习弹窗关闭',
     );
@@ -944,6 +963,12 @@ try {
   cdp = await Cdp.connect(tabWs);
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
+  if (process.env.TSDM_VERIFY_COOKIES) {
+    await cdp.send('Network.enable');
+    await cdp.send('Network.setCookies', {
+      cookies: JSON.parse(readFileSync(process.env.TSDM_VERIFY_COOKIES, 'utf8')),
+    });
+  }
 
   await goto(BASE);
   let authed = false;

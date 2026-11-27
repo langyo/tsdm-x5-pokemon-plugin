@@ -1914,28 +1914,20 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
         }
     };
 
-    rsx! {
-        div { class: "modal-overlay",
-            "data-test-learn-close": "1",
-            onclick: move |_| close_learn_modal(&overlay_state),
-            div {
-                class: "modal-container",
-                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                div { class: "modal-header",
-                    h3 { "{title}" }
-                    button {
-                        class: "modal-close-btn",
-                        "data-test-learn-close": "1",
-                        onclick: move |_| close_learn_modal(&close_state),
-                        "×"
-                    }
-                }
-                div { class: "modal-body",
-                    div { class: "skill-learn-content", ..vec![body] }
-                }
-            }
-        }
-    }
+    // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
+    let body: Vec<VNode> = vec![rsx! {
+        div { class: "skill-learn-content", ..vec![body] }
+    }];
+    crate::modal::modal_hooked(
+        &title,
+        false,
+        crate::modal::hook_close_button!(
+            "data-test-learn-close",
+            move || close_learn_modal(&close_state)
+        ),
+        move || close_learn_modal(&overlay_state),
+        body,
+    )
 }
 
 fn learn_item(
@@ -2092,70 +2084,59 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
 
     let ev_overlay_state = st.clone();
     let ev_close_state = st.clone();
-    rsx! {
-        div { class: "modal-overlay",
-            "data-test-ev-close": "1",
-            onclick: move |_| close_ev_modal(&ev_overlay_state),
-            div {
-                class: "modal-container modal-lg",
-                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                div { class: "modal-header",
-                    h3 { "努力值计算器" }
-                    button {
-                        class: "modal-close-btn",
-                        "data-test-ev-close": "1",
-                        onclick: move |_| close_ev_modal(&ev_close_state),
-                        "×"
-                    }
-                }
-                div { class: "modal-body",
-                    div { class: "ev-calculator",
-                        // 表格结构与类名沿用 Dioxus 版（.ev-table > .ev-table-row > .ev-cell）：
-                        // 样式表里只有这一套规则。
-                        div { class: "ev-notice",
-                            p { "注意事项：" }
-                            ul {
-                                li { "每项努力值最高 255 点" }
-                                li { "6 项努力值总计最高 510 点" }
-                                li { "本工具仅用于计算，不会保存数据" }
-                            }
-                        }
-                        div { class: "ev-table",
-                            div { class: "ev-table-header",
-                                div { class: "ev-cell ev-label", "属性" }
-                                for i in 0..header_cells.len() {
-                                    ..vec![header_cells[i].clone()]
-                                }
-                            }
-                            div { class: "ev-table-row",
-                                div { class: "ev-cell ev-label", "当前" }
-                                for i in 0..cur_cells.len() {
-                                    ..vec![cur_cells[i].clone()]
-                                }
-                            }
-                            div { class: "ev-table-row input-row",
-                                div { class: "ev-cell ev-label", "追加" }
-                                for i in 0..add_cells.len() {
-                                    ..vec![add_cells[i].clone()]
-                                }
-                                div { class: "ev-cell ev-total", "{added_sum_text}" }
-                            }
-                            div { class: "ev-table-row",
-                                div { class: "ev-cell ev-label", "合计" }
-                                for i in 0..total_cells.len() {
-                                    ..vec![total_cells[i].clone()]
-                                }
-                                div { class: grand_cls, "{grand_text}" }
-                            }
-                        }
-                        div { class: "ev-status",
-                            span { class: status_cls, "{status_text}" }
-                        }
-                    }
+    // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
+    let body = rsx! {
+        div { class: "ev-calculator",
+            // 表格结构与类名沿用 Dioxus 版（.ev-table > .ev-table-row > .ev-cell）：
+            // 样式表里只有这一套规则。
+            div { class: "ev-notice",
+                p { "注意事项：" }
+                ul {
+                    li { "每项努力值最高 255 点" }
+                    li { "6 项努力值总计最高 510 点" }
+                    li { "本工具仅用于计算，不会保存数据" }
                 }
             }
+            div { class: "ev-table",
+                div { class: "ev-table-header",
+                    div { class: "ev-cell ev-label", "属性" }
+                    for i in 0..header_cells.len() {
+                        ..vec![header_cells[i].clone()]
+                    }
+                }
+                div { class: "ev-table-row",
+                    div { class: "ev-cell ev-label", "当前" }
+                    for i in 0..cur_cells.len() {
+                        ..vec![cur_cells[i].clone()]
+                    }
+                }
+                div { class: "ev-table-row input-row",
+                    div { class: "ev-cell ev-label", "追加" }
+                    for i in 0..add_cells.len() {
+                        ..vec![add_cells[i].clone()]
+                    }
+                    div { class: "ev-cell ev-total", "{added_sum_text}" }
+                }
+                div { class: "ev-table-row",
+                    div { class: "ev-cell ev-label", "合计" }
+                    for i in 0..total_cells.len() {
+                        ..vec![total_cells[i].clone()]
+                    }
+                    div { class: grand_cls, "{grand_text}" }
+                }
+            }
+            div { class: "ev-status",
+                span { class: status_cls, "{status_text}" }
+            }
         }
-    }
+    };
+    crate::modal::modal_hooked(
+        "努力值计算器",
+        true,
+        crate::modal::hook_close_button!("data-test-ev-close", move || close_ev_modal(&ev_close_state)),
+        move || close_ev_modal(&ev_overlay_state),
+        vec![body],
+    )
 }
 
 /// 进化路径弹窗：进化 / 退化两个 tab。
@@ -2229,42 +2210,34 @@ fn evo_path_modal(st: &AppState) -> VNode {
     let path_close_state = st.clone();
     let fwd_state = st.clone();
     let bwd_state = st.clone();
-    rsx! {
-        div { class: "modal-overlay",
-            "data-test-evo-path-close": "1",
-            onclick: move |_| close_evo_path_modal(&path_overlay_state),
-            div {
-                class: "modal-container",
-                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                div { class: "modal-header",
-                    h3 { "进化路径" }
-                    button {
-                        class: "modal-close-btn",
-                        "data-test-evo-path-close": "1",
-                        onclick: move |_| close_evo_path_modal(&path_close_state),
-                        "×"
-                    }
-                }
-                div { class: "modal-body",
-                    div { class: "evo-path-tab-bar",
-                        button {
-                            class: fwd_cls,
-                            "data-test-evo-path-tab": "forward",
-                            onclick: move |_| switch_evo_path_tab(&fwd_state, true),
-                            "进化路线"
-                        }
-                        button {
-                            class: bwd_cls,
-                            "data-test-evo-path-tab": "backward",
-                            onclick: move |_| switch_evo_path_tab(&bwd_state, false),
-                            "退化路线"
-                        }
-                    }
-                    ..vec![body]
-                }
+    // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
+    let mut body_nodes: Vec<VNode> = vec![rsx! {
+        div { class: "evo-path-tab-bar",
+            button {
+                class: fwd_cls,
+                "data-test-evo-path-tab": "forward",
+                onclick: move |_| switch_evo_path_tab(&fwd_state, true),
+                "进化路线"
+            }
+            button {
+                class: bwd_cls,
+                "data-test-evo-path-tab": "backward",
+                onclick: move |_| switch_evo_path_tab(&bwd_state, false),
+                "退化路线"
             }
         }
-    }
+    }];
+    body_nodes.push(body);
+    crate::modal::modal_hooked(
+        "进化路径",
+        false,
+        crate::modal::hook_close_button!(
+            "data-test-evo-path-close",
+            move || close_evo_path_modal(&path_close_state)
+        ),
+        move || close_evo_path_modal(&path_overlay_state),
+        body_nodes,
+    )
 }
 
 /// 进化弹窗：可进化路线（条件 + 状态 + 执行按钮）。
@@ -2342,24 +2315,15 @@ fn evolution_modal(st: &AppState) -> VNode {
         }
     };
 
-    rsx! {
-        div { class: "modal-overlay",
-            "data-test-evo-modal-close": "1",
-            onclick: move |_| close_evolution_modal(&evo_overlay_state),
-            div {
-                class: "modal-container",
-                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                div { class: "modal-header",
-                    h3 { "进化" }
-                    button {
-                        class: "modal-close-btn",
-                        "data-test-evo-modal-close": "1",
-                        onclick: move |_| close_evolution_modal(&evo_close_state),
-                        "×"
-                    }
-                }
-                div { class: "modal-body", ..vec![body] }
-            }
-        }
-    }
+    // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
+    crate::modal::modal_hooked(
+        "进化",
+        false,
+        crate::modal::hook_close_button!(
+            "data-test-evo-modal-close",
+            move || close_evolution_modal(&evo_close_state)
+        ),
+        move || close_evolution_modal(&evo_overlay_state),
+        vec![body],
+    )
 }
