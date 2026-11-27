@@ -199,8 +199,10 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
             header { class: "app-header",
                 div { class: "header-inner",
                     div { class: "header-logo",
+                        // 内联样式与 Dioxus 版（components/layout/header.rs）相同。
                         { crate::button::hooked(tairitsu_macros::rsx! { Button {
                             class: ("logo-link").to_string(),
+                            style: ("border: 0; background: transparent; padding: 0; font: inherit; color: inherit;").to_string(),
                             onclick: crate::button::click(move || navigate(&logo_state, Route::Home)),
                             img { class: "logo-mascot", src: img_logo, alt: "Pokeball" }
                             span { class: "logo-text", "Online Void Pokemon" }
@@ -209,21 +211,25 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                     nav { class: "header-nav",
                         { crate::button::hooked(tairitsu_macros::rsx! { Button {
                             class: (mypm_cls).to_string(),
+                            style: ("border: 0; background: transparent;").to_string(),
                             onclick: crate::button::click(move || navigate(&mypm_state, Route::MyPokemon)),
                             "个人中心"
                                                 } }, [("data-test-nav", ("my-pokemon").to_string())]) }
                         { crate::button::hooked(tairitsu_macros::rsx! { Button {
                             class: (shop_cls).to_string(),
+                            style: ("border: 0; background: transparent;").to_string(),
                             onclick: crate::button::click(move || navigate(&shop_state, Route::Shop)),
                             "商店"
                                                 } }, [("data-test-nav", ("shop").to_string())]) }
                         { crate::button::hooked(tairitsu_macros::rsx! { Button {
                             class: (center_cls).to_string(),
+                            style: ("border: 0; background: transparent;").to_string(),
                             onclick: crate::button::click(move || navigate(&center_state, Route::PokemonCenter)),
                             "宠物中心"
                                                 } }, [("data-test-nav", ("center").to_string())]) }
                         { crate::button::hooked(tairitsu_macros::rsx! { Button {
                             class: (adventure_cls).to_string(),
+                            style: ("border: 0; background: transparent;").to_string(),
                             onclick: crate::button::click(move || navigate(&adventure_state, Route::Adventure)),
                             "野外冒险"
                                                 } }, [("data-test-nav", ("adventure").to_string())]) }

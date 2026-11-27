@@ -635,13 +635,14 @@ fn slot_card(
     let menu_open = st.storage.open_menu.get() == Some(pm.id) && !select_mode;
 
     let slot_class = if critical {
-        "pokemon-slot critical"
+        "pokemon-slot critical".to_string()
     } else if weak {
-        "pokemon-slot weak"
+        "pokemon-slot weak".to_string()
     } else if is_selected {
-        "pokemon-slot selected"
+        "pokemon-slot selected".to_string()
     } else {
-        "pokemon-slot"
+        // 健康状态落在类上（`.pokemon-slot.healthy` 之类），底色由它给。
+        format!("pokemon-slot {status}")
     };
 
     let id = pm.id;
@@ -658,8 +659,11 @@ fn slot_card(
     } else if weak {
         rsx! { div { class: "weak-hp-text", "虚弱" } }
     } else if hp_pct < 100 {
-        let t = format!("{}/{}", pm.hp, pm.max_hp);
-        rsx! { span { "{t}" } }
+        // 旧版这里是直接的文本节点，不包 span。
+        VNode::Text(tairitsu_vdom::VText::new(&format!(
+            "{}/{}",
+            pm.hp, pm.max_hp
+        )))
     } else {
         VNode::empty()
     };
@@ -776,6 +780,8 @@ fn slot_card(
     rsx! {
         div { class: slot_class,
             "data-test-st-card": card_key,
+            "data-pokemon-id": id.to_string(),
+            "data-shiny": if pm.is_shiny { "true" } else { "false" },
             onclick: move |_: tairitsu_vdom::MouseEvent| click_card(&card_state, id),
             title: title,
             div { class: "pokemon-sprite",
@@ -794,7 +800,8 @@ fn slot_card(
             div { class: "pokemon-level", "{level}" }
             div { class: "pokemon-hp-bar",
                 if !critical {
-                    div { class: hp_cls, style: hp_fill_style }
+                    // 高度和渐变在 `.hp-bar-fill` 上，`hp_cls` 只给颜色档。
+                    div { class: "hp-bar-fill {hp_cls}", style: hp_fill_style }
                 }
             }
             div { class: "pokemon-hp-text", ..vec![hp_text] }
