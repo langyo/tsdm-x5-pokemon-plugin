@@ -683,18 +683,25 @@ async function stepMyPokemon() {
 
   const view = await evaljs(() => {
     const radar = document.querySelector('.radar-svg');
+    // 等级在雷达图中心（旧版如此）；名字行没有等级，也没有宠物切换条——
+    // 切换走侧栏迷你格。
+    const radarTexts = radar ? [...radar.querySelectorAll('text')].map((t) => t.textContent.trim()) : [];
     return {
       empty: !!document.querySelector('.empty-hint'),
       hasStats: !!document.querySelector('.stats-tab-layout'),
       name: document.querySelector('.pokemon-name')?.textContent?.trim() ?? null,
-      level: document.querySelector('.heal-pm-level')?.textContent?.trim() ?? null,
+      level: radarTexts.find((t) => /^Lv\s*\d+$/.test(t)) ?? null,
       hpBar: !!document.querySelector('.hp-bar .bar-text'),
       expBar: !!document.querySelector('.exp-bar .bar-text'),
       ivChips: document.querySelectorAll('.iv-chip').length,
       qualityBadge: document.querySelector('.quality-badge')?.textContent?.trim() ?? null,
       radarPaths: radar ? radar.querySelectorAll('path').length : 0,
+      radarDots: radar ? radar.querySelectorAll('circle').length : 0,
+      radarValues: radarTexts.filter((t) => /^\d+$/.test(t)).length,
+      radarLabels: radarTexts.filter((t) => /^● /.test(t)).length,
       editBtn: !!document.querySelector('[data-test-my-pm-nick-edit]'),
-      selectorChips: document.querySelectorAll('[data-test-my-pm-select]').length,
+      tabArrows: document.querySelectorAll('.mypm-tab .tab-arrow').length,
+      petChips: document.querySelectorAll('.pet-chip').length,
       err: document.querySelector('.error-message')?.textContent?.trim() ?? null,
     };
   });
@@ -709,6 +716,10 @@ async function stepMyPokemon() {
   ok('六项个体值齐全', view.ivChips === 6, `got ${view.ivChips}`);
   ok('品质徽章出现', !!view.qualityBadge, view.qualityBadge ?? '');
   ok('雷达图有网格+数据描边', view.radarPaths >= 4, `paths=${view.radarPaths}`);
+  ok('雷达图带数据点、数值与属性标签', view.radarDots >= 5 && view.radarValues >= 5 && view.radarLabels >= 5,
+    `dots=${view.radarDots} values=${view.radarValues} labels=${view.radarLabels}`);
+  ok('选中页签两侧有箭头', view.tabArrows === 2, `arrows=${view.tabArrows}`);
+  ok('没有宠物切换条（与 Dioxus 版一致）', view.petChips === 0, `chips=${view.petChips}`);
   ok('昵称编辑入口存在', view.editBtn);
 
   // 昵称编辑：进入编辑态 → 取消（不写库）
@@ -725,6 +736,22 @@ async function stepMyPokemon() {
   }));
   ok('编辑框带当前昵称', !!editing.inputValue, editing.inputValue ?? '');
   ok('编辑框有保存/取消', editing.hasSave && editing.hasCancel);
+  // Esc 取消（Dioxus 版 handle_key_down 的行为），同样不写库
+  await evaljs(() => {
+    const input = document.querySelector('[data-test-my-pm-nick-input]');
+    input?.focus();
+    input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+  });
+  await sleep(700);
+  ok('Esc 取消后退出编辑态',
+    await evaljs(() => !document.querySelector('[data-test-my-pm-nick-input]')));
+  // 再进一次编辑态，用取消按钮退出（原有路径）
+  await evaljs(() => document.querySelector('[data-test-my-pm-nick-edit]')?.click());
+  await waitFor(
+    async () => (await evaljs(() => !!document.querySelector('[data-test-my-pm-nick-input]'))),
+    8000,
+    '昵称编辑框',
+  );
   await evaljs(() => document.querySelector('[data-test-my-pm-nick-cancel]')?.click());
   await sleep(700);
   ok('取消后退出编辑态',
@@ -759,14 +786,20 @@ async function stepMyPokemon() {
     cards: document.querySelectorAll('[data-test-skill-card]').length,
     emptySlots: document.querySelectorAll('[data-test-skill-learn-slot]').length,
     totalSlots: document.querySelectorAll('.skill-card-v2, [data-test-skill-learn-slot]').length,
-    pp: document.querySelector('.skill-card-v2 .skill-pp')?.textContent?.trim() ?? null,
+    // Dioxus 的技能卡有两处 PP：右上角 `<em>PP </em><strong>15</strong> /15`，
+    // 底部数据行 `PP：<strong>15/15</strong>`。
+    ppTop: document.querySelector('.skill-card-v2 .skill-card-top > .skill-pp')?.textContent?.trim() ?? null,
+    ppBottom:
+      document.querySelector('.skill-card-v2 .skill-card-bottom .skill-stats > .skill-pp')?.textContent?.trim()
+      ?? null,
     panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
   }));
   ok('技能页无 panic', skView.panic === null, skView.panic ?? '');
   ok('技能槽恒定 4 个（卡 + 空槽）', skView.totalSlots === 4,
     `cards=${skView.cards}, empty=${skView.emptySlots}`);
   if (skView.cards > 0) {
-    ok('技能卡带 PP', /^PP\s*\d+\/\d+/.test(skView.pp ?? ''), skView.pp ?? '');
+    ok('技能卡右上角带 PP', /^PP\s*\d+\s*\/\d+$/.test(skView.ppTop ?? ''), skView.ppTop ?? '');
+    ok('技能卡底部带 PP', /^PP：\d+(\/\d+)?$/.test(skView.ppBottom ?? ''), skView.ppBottom ?? '');
     // 选中卡片展开遗忘按钮，再点一次收起（不执行遗忘）
     await evaljs(() => document.querySelector('[data-test-skill-card]')?.click());
     await waitFor(async () => (await evaljs(() => !!document.querySelector('[data-test-skill-forget]'))), 8000, '遗忘按钮');

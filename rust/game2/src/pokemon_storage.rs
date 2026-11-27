@@ -25,8 +25,6 @@ use crate::storage_logic::{
 };
 use crate::toast;
 
-const IMG_PATH: &str = "source/plugin/pokemon/images";
-
 /// 18 种属性（对齐 Dioxus 版 pokemon_types）。
 const POKEMON_TYPES: [&str; 18] = [
     "普通", "火", "水", "草", "电", "冰", "格斗", "毒", "地面", "飞行", "超能", "虫", "岩石",
@@ -646,7 +644,8 @@ fn slot_card(
     };
 
     let id = pm.id;
-    let sprite = format!("{IMG_PATH}/spm/{}.gif", pm.type_id);
+    // 正面精灵图走远程 CDN 的动画大图（旧版 PokemonSlot 用 front_sprite_url）。
+    let sprite = crate::state::front_sprite_url(pm.type_id, pm.is_shiny);
     let title = format!("{display_name} · Lv.{}", pm.level);
     let level = format!("Lv.{}", pm.level);
     let hp_fill_style = if critical {
@@ -791,10 +790,10 @@ fn slot_card(
             div { class: "pokemon-slot-name",
                 span { class: "pokemon-slot-name-text", "{name_text}" }
                 if pm.is_shiny {
-                    span { class: "pet-mark-compact", "★" }
+                    span { class: "pet-mark pet-mark-shiny pet-mark-compact", title: "异色（闪光）宠物", "闪" }
                 }
                 if pm.is_legendary {
-                    span { class: "pet-mark-compact", "◆" }
+                    span { class: "pet-mark pet-mark-god pet-mark-compact", title: "神兽 / 活动定制宠物", "神" }
                 }
             }
             div { class: "pokemon-level", "{level}" }

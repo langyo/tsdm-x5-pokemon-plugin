@@ -1462,7 +1462,7 @@ fn battle_scene(
                                                     div { class: "enemy-name-row",
                                                         span { class: "enemy-name", "{wild_name}" }
                                                         if wild_shiny {
-                                                            span { class: "pet-mark", "★" }
+                                                            span { class: "pet-mark pet-mark-shiny", title: "异色（闪光）宠物", "闪" }
                                                         }
                                                         span { class: "enemy-gender", "{wild_gender}" }
                                                     }
@@ -1484,7 +1484,7 @@ fn battle_scene(
                                                     div { class: "player-name-row",
                                                         span { class: "player-name", "{my_name}" }
                                                         if my_shiny {
-                                                            span { class: "pet-mark", "★" }
+                                                            span { class: "pet-mark pet-mark-shiny", title: "异色（闪光）宠物", "闪" }
                                                         }
                                                         span { class: "player-level", "{my_level}" }
                                                     }

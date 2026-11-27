@@ -117,6 +117,9 @@ fn select_slot(state: &AppState, team: &[PokemonBasic], index: usize) {
     };
     let pid = pm.id;
     state.sidebar.selected_id.inner().set(Some(pid));
+    // 旧版迷你格和个人中心页读的是同一个 SELECTED_POKEMON_INDEX：点格子就是
+    // 选中「个人中心要显示的那只」。这边分成两个信号，所以两处都要写。
+    crate::my_pokemon::select_pokemon(state, pid);
 
     match state.route.get() {
         Route::MyPokemon | Route::PokemonStorage => {}

@@ -250,10 +250,10 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                                 div { class: "heal-pm-name-row",
                                     span { class: "heal-pm-name", "{name}" }
                                     if shiny {
-                                        span { class: "pet-mark-compact", "★" }
+                                        span { class: "pet-mark pet-mark-shiny pet-mark-compact", title: "异色（闪光）宠物", "闪" }
                                     }
                                     if legendary {
-                                        span { class: "pet-mark-compact", "◆" }
+                                        span { class: "pet-mark pet-mark-god pet-mark-compact", title: "神兽 / 活动定制宠物", "神" }
                                     }
                                     span { class: "heal-pm-level", "{level}" }
                                 }

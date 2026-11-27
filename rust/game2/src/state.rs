@@ -6,6 +6,18 @@
 
 use tairitsu_hooks::{use_signal, ReactiveSignal};
 
+/// 远程 CDN 的精灵图库——X3 时代的动画 GIF 素材（正面 pm / 异色 pmsg），覆盖含
+/// 自定宠在内的全部物种（旧版 utils/sprite.rs 的 `IMG_PATH_REMOTE`）。
+pub const IMG_PATH_REMOTE: &str = "https://img.tsdm39.com/Pokemon";
+
+/// 正面精灵图地址（旧版 `front_sprite_url`）。CDN 缺图或不可达时，由页面模板
+/// （game_v2.inc.php）的 onerror 回退到本地静态 PNG——个人中心的展示图、仓库格子、
+/// 选宠列表都用它；迷你格、进化路径这些小图标位仍用本地 `spm/` 小图。
+pub fn front_sprite_url(species_id: u64, is_shiny: bool) -> String {
+    let dir = if is_shiny { "pmsg" } else { "pm" };
+    format!("{IMG_PATH_REMOTE}/{dir}/{species_id}.gif")
+}
+
 /// 商店商品（与 rust/utils/src/types/api_shop.rs 字段一致）。
 #[derive(Debug, Clone, Default)]
 pub struct ShopItem {

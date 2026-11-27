@@ -13,6 +13,7 @@ use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
 use crate::app_state::AppState;
+use crate::icon::{Icon, IconName, IconProps};
 use crate::quality::{quality_grade, quality_rank, UNKNOWN_RANK};
 use crate::toast;
 
@@ -406,13 +407,13 @@ pub fn unequip_selected_from_section(state: &AppState) {
     if my.equip_loading.get() {
         return;
     }
+    // 对齐 Dioxus 版：section 的点击只处理「已装备物品被选中」的卸下，
+    // 背包物品的选择不在此取消（点了物品的事件会冒泡到这里，取消逻辑会
+    // 把刚选中的立刻清掉）。背包选择用再点一次同一件物品来取消。
     let Some(sel) = my.equip_selected.get() else {
         return;
     };
     if sel.from_inventory {
-        // 背包物品选中时点空白：取消选择。
-        my.equip_selected.inner().set(None);
-        crate::request_remount();
         return;
     }
     let Some(slot_index) = sel.slot_index else {
@@ -839,9 +840,8 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
         let msg = format!("加载失败：{err}");
         rsx! { div { class: "error-message", "{msg}" } }
     } else if let Some(pm) = current.clone() {
-        let selector = pet_selector(&list, pm.id, &st);
-
-        // 标签页菜单。
+        // 标签页菜单。旧版（pages/my_pokemon.rs）：选中的页签两侧各有一个箭头，
+        // 文字包在 span 里。
         let stats_cls = if tab == crate::state::MyPokemonTab::Stats {
             "mypm-tab active"
         } else {
@@ -866,40 +866,62 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
                 { crate::button::hooked(tairitsu_macros::rsx! { Button {
                     class: (stats_cls).to_string(),
                     onclick: crate::button::click(move || switch_tab(&st_tab_stats, crate::state::MyPokemonTab::Stats)),
-                    "属性"
+                    if tab == crate::state::MyPokemonTab::Stats {
+                        span { class: "tab-arrow left", ">" }
+                    }
+                    span { "属性" }
+                    if tab == crate::state::MyPokemonTab::Stats {
+                        span { class: "tab-arrow right", "<" }
+                    }
                                 } }, [("data-test-my-pm-tab", ("stats").to_string())]) }
                 { crate::button::hooked(tairitsu_macros::rsx! { Button {
                     class: (equip_cls).to_string(),
                     onclick: crate::button::click(move || switch_tab(&st_tab_equip, crate::state::MyPokemonTab::Equipment)),
-                    "装备"
+                    if tab == crate::state::MyPokemonTab::Equipment {
+                        span { class: "tab-arrow left", ">" }
+                    }
+                    span { "装备" }
+                    if tab == crate::state::MyPokemonTab::Equipment {
+                        span { class: "tab-arrow right", "<" }
+                    }
                                 } }, [("data-test-my-pm-tab", ("equipment").to_string())]) }
                 { crate::button::hooked(tairitsu_macros::rsx! { Button {
                     class: (skills_cls).to_string(),
                     onclick: crate::button::click(move || switch_tab(&st_tab_skills, crate::state::MyPokemonTab::Skills)),
-                    "技能"
+                    if tab == crate::state::MyPokemonTab::Skills {
+                        span { class: "tab-arrow left", ">" }
+                    }
+                    span { "技能" }
+                    if tab == crate::state::MyPokemonTab::Skills {
+                        span { class: "tab-arrow right", "<" }
+                    }
                                 } }, [("data-test-my-pm-tab", ("skills").to_string())]) }
             }
         };
 
-        // 精灵图区（装备页时两侧展示六维加成合计）。
-        let bonus_tags = if tab == crate::state::MyPokemonTab::Equipment {
-            st.my_pm
-                .equipment
-                .get()
-                .and_then(|r| r.ok())
-                .map(|eq| bonus_tags_vnode(&eq.total_bonuses()))
-                .unwrap_or_else(VNode::empty)
+        // 精灵图区（装备页时两侧展示六维加成合计：左 HP/攻击/防御，右 特攻/特防/速度，
+        // 两个容器在装备页总是渲染——旧版 BonusTagsLeft / BonusTagsRight）。
+        let (bonus_left, bonus_right) = if tab == crate::state::MyPokemonTab::Equipment {
+            match st.my_pm.equipment.get().and_then(|r| r.ok()) {
+                Some(eq) => {
+                    let total = eq.total_bonuses();
+                    (bonus_tags(&total, true), bonus_tags(&total, false))
+                }
+                None => (VNode::empty(), VNode::empty()),
+            }
         } else {
-            VNode::empty()
+            (VNode::empty(), VNode::empty())
         };
-        let sprite = format!("{IMG_PATH}/spm/{}.gif", pm.type_id);
-        let sprite_alt = pm.display_name();
+        // 正面精灵图走远程 CDN 的动画大图（旧版 `front_sprite_url`）；alt 是物种名。
+        let sprite = crate::state::front_sprite_url(pm.type_id, pm.is_shiny);
+        let sprite_alt = pm.name.clone();
         let sprite_area = rsx! {
             div { class: "mypm-main-content",
                 div { class: "pokemon-sprite-area",
                     div { class: "pokemon-display-with-tags",
-                        ..vec![bonus_tags]
+                        ..vec![bonus_left]
                         img { class: "pokemon-sprite-img", src: sprite, alt: sprite_alt }
+                        ..vec![bonus_right]
                     }
                 }
                 div { class: "mypm-tab-content",
@@ -935,7 +957,7 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
 
         rsx! {
             div { class: "mypm-content-area",
-                ..vec![selector, tab_menu]
+                ..vec![tab_menu]
                 div { class: "mypm-divider" }
                 ..vec![sprite_area]
             }
@@ -987,9 +1009,9 @@ pub fn MyPokemon(state: Box<AppState>) -> VNode {
     }
 }
 
-/// 装备加成合计标签（左 HP/攻击/防御，右 特攻/特防/速度；对齐 Dioxus
-/// BonusTagsLeft/Right，非零才显示）。
-fn bonus_tags_vnode(total: &[i64; 6]) -> VNode {
+/// 装备加成合计标签的一侧（旧版 BonusTagsLeft / BonusTagsRight）：容器总是渲染，
+/// 里面只列非零的项；`left` 取 HP/攻击/防御，否则特攻/特防/速度。
+fn bonus_tags(total: &[i64; 6], left: bool) -> VNode {
     let names = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
     let classes = [
         "bonus-tag-small hp",
@@ -999,23 +1021,26 @@ fn bonus_tags_vnode(total: &[i64; 6]) -> VNode {
         "bonus-tag-small spdef",
         "bonus-tag-small spd",
     ];
-    let chips: Vec<VNode> = names
-        .iter()
-        .zip(classes.iter())
-        .enumerate()
-        .filter(|(i, _)| total[*i] != 0)
-        .map(|(i, (name, cls))| {
+    let range = if left { 0..3 } else { 3..6 };
+    let chips: Vec<VNode> = range
+        .filter(|&i| total[i] != 0)
+        .map(|i| {
             let text = if total[i] > 0 {
-                format!("+{} {}", total[i], name)
+                format!("+{} {}", total[i], names[i])
             } else {
-                format!("{} {}", total[i], name)
+                format!("{} {}", total[i], names[i])
             };
-            let c = cls.to_string();
+            let c = classes[i].to_string();
             rsx! { span { class: c, "{text}" } }
         })
         .collect();
+    let side = if left {
+        "side-tags left"
+    } else {
+        "side-tags right"
+    };
     rsx! {
-        div { class: "side-tags",
+        div { class: side,
             for i in 0..chips.len() {
                 ..vec![chips[i].clone()]
             }
@@ -1056,13 +1081,6 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                 "equipment-inventory-section can-unequip"
             } else {
                 "equipment-inventory-section"
-            };
-            let hint = if has_inv_selected {
-                "点击装备槽以装载"
-            } else if has_equip_selected {
-                "点击空白处卸下 / 点击槽位移动"
-            } else {
-                ""
             };
 
             let slot_nodes: Vec<VNode> = eq
@@ -1205,51 +1223,15 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                         onclick: move |_| unequip_selected_from_section(&section_state),
                         div { class: "inventory-header",
                             span { class: "inventory-title", "物品栏" }
-                            span { class: "equip-hint", "{hint}" }
+                            if has_inv_selected {
+                                span { class: "equip-hint", "点击装备槽以装载" }
+                            }
                         }
                         div { class: "equipment-inventory-grid",
                             ..vec![inv_body]
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-/// 宠物选择条（列表 ≤ 1 时不渲染，避免无意义交互）。
-fn pet_selector(list: &[crate::state::PokemonBasic], selected_id: u64, st: &AppState) -> VNode {
-    if list.len() <= 1 {
-        return VNode::empty();
-    }
-    let chips: Vec<VNode> = list
-        .iter()
-        .map(|p| {
-            let id = p.id.to_string();
-            let pid = p.id;
-            let chip_state = st.clone();
-            let active = p.id == selected_id;
-            let cls = if active {
-                "pet-chip active"
-            } else {
-                "pet-chip"
-            };
-            let label = p.display_name();
-            let level = format!("Lv.{}", p.level);
-            rsx! {
-                { crate::button::hooked(tairitsu_macros::rsx! { Button {
-                    class: (cls).to_string(),
-                    onclick: crate::button::click(move || select_pokemon(&chip_state, pid)),
-                    span { class: "pet-chip-name", "{label}" }
-                    span { class: "pet-chip-level", "{level}" }
-                                } }, [("data-test-my-pm-select", (id).to_string())]) }
-            }
-        })
-        .collect();
-    rsx! {
-        div { class: "mypm-tab-menu",
-            for i in 0..chips.len() {
-                ..vec![chips[i].clone()]
             }
         }
     }
@@ -1277,16 +1259,17 @@ fn stats_panel(
 
     let no = format!("No {}", d.type_id);
     let pid = format!("ID {}", d.id);
-    let level = format!("Lv.{}", d.level);
+    // 性别：类是 `pokemon-gender male|female`（未知时只有前一个，旧版留了个尾随空格），
+    // 符号 ♂ / ♀，未知为空——不是「—」。
     let gender_cls = match d.gender {
-        1 => "pokemon-gender gender-male",
-        2 => "pokemon-gender gender-female",
-        _ => "pokemon-gender gender-none",
+        1 => "pokemon-gender male",
+        2 => "pokemon-gender female",
+        _ => "pokemon-gender ",
     };
     let gender_sym = match d.gender {
         1 => "♂",
         2 => "♀",
-        _ => "—",
+        _ => "",
     };
     let type1_cls = format!("badge badge-type-{}", d.type_1);
     let type1 = d.type_1.clone();
@@ -1338,17 +1321,15 @@ fn stats_panel(
             .unwrap_or_else(|| quality_grade(rank).to_string());
         (ivs, total, rank, grade)
     });
-    let badge_grade = iv_block
-        .as_ref()
-        .map(|(_, _, _, g)| g.clone())
-        .filter(|g| !g.is_empty());
-    let badge_rank = iv_block
-        .as_ref()
-        .map(|(_, _, r, _)| *r)
-        .unwrap_or_else(|| quality_rank(0));
+    // 名字旁的评级徽章只在载荷带 quality_grade 时出现（旧版如此）；等级取载荷的
+    // quality_rank，没有则按个体值总和判定。
+    let badge_grade = d.quality_grade.clone().filter(|g| !g.is_empty());
+    let badge_rank = d
+        .quality_rank
+        .unwrap_or_else(|| quality_rank(d.ivs.map(|ivs| ivs.iter().sum()).unwrap_or(0)));
 
     let stats = d.stats.unwrap_or([0; 5]);
-    let radar = radar_chart(stats[0], stats[1], stats[2], stats[3], stats[4]);
+    let radar = radar_chart(d.level, stats[0], stats[1], stats[2], stats[3], stats[4]);
     let ev_state = st.clone();
     let evo_path_state = st.clone();
     let evo_state = st.clone();
@@ -1363,6 +1344,7 @@ fn stats_panel(
             })
             .unwrap_or_else(|| VNode::empty());
         let input_state = st.clone();
+        let key_state = st.clone();
         let save_state = st.clone();
         let cancel_state = st.clone();
         rsx! {
@@ -1379,6 +1361,18 @@ fn stats_panel(
                         // 只记草稿值，不重渲染（输入框是受控的，重渲染会把
                         // 光标顶回末尾）。
                         input_state.my_pm.edit_value.inner().set(e.value.clone());
+                    },
+                    onkeydown: move |e: tairitsu_vdom::KeyboardEvent| {
+                        // 对齐 Dioxus 版 handle_key_down：回车提交（空昵称在
+                        // submit_rename 里拦下）、Esc 取消；保存中忽略按键。
+                        if saving {
+                            return;
+                        }
+                        if e.key == "Enter" {
+                            submit_rename(&key_state);
+                        } else if e.key == "Escape" {
+                            cancel_edit(&key_state);
+                        }
                     }
                 }
                 div { class: "edit-actions-inline",
@@ -1386,13 +1380,21 @@ fn stats_panel(
                         class: ("edit-action-btn save").to_string(),
                         disabled: saving,
                         onclick: crate::button::click(move || submit_rename(&save_state)),
-                        "✓"
+                        {Icon(IconProps {
+                            name: Some(IconName::Check),
+                            size: Some(14),
+                            class: Some("lucide-icon".to_string()),
+                        })}
                                         } }, [("title", ("保存").to_string()), ("data-test-my-pm-nick-save", ("1").to_string())]) }
                     { crate::button::hooked(tairitsu_macros::rsx! { Button {
                         class: ("edit-action-btn cancel").to_string(),
                         disabled: saving,
                         onclick: crate::button::click(move || cancel_edit(&cancel_state)),
-                        "×"
+                        {Icon(IconProps {
+                            name: Some(IconName::X),
+                            size: Some(14),
+                            class: Some("lucide-icon".to_string()),
+                        })}
                                         } }, [("title", ("取消").to_string()), ("data-test-my-pm-nick-cancel", ("1").to_string())]) }
                 }
                 ..vec![err_block]
@@ -1414,16 +1416,23 @@ fn stats_panel(
         };
         let edit_seed = display_name.clone();
         let edit_state = st.clone();
-        let mut nodes: Vec<VNode> = Vec::with_capacity(2);
-        nodes.push(name_node);
-        nodes.push(rsx! {
-            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+        // 旧版是铅笔图标（lucide Pencil，12px），不是文字。
+        let edit_button = crate::button::hooked(
+            tairitsu_macros::rsx! { Button {
                 class: ("edit-icon-btn").to_string(),
                 onclick: crate::button::click(move || begin_edit(&edit_state, &edit_seed)),
-                "✎"
-                        } }, [("aria-label", ("修改昵称").to_string()), ("data-test-my-pm-nick-edit", ("1").to_string())]) }
-        });
-        let container: Vec<VNode> = nodes;
+                {Icon(IconProps {
+                    name: Some(IconName::Pencil),
+                    size: Some(12),
+                    class: Some("lucide-icon".to_string()),
+                })}
+            } },
+            [
+                ("aria-label", ("修改昵称").to_string()),
+                ("data-test-my-pm-nick-edit", ("1").to_string()),
+            ],
+        );
+        let container: Vec<VNode> = vec![name_node, edit_button];
         rsx! {
             for i in 0..container.len() {
                 ..vec![container[i].clone()]
@@ -1443,13 +1452,14 @@ fn stats_panel(
         }
         None => VNode::empty(),
     };
+    // 闪光 / 神兽标记（旧版 ShinyMark / GodMark）：「闪」「神」字徽标，带说明。
     let shiny_block = if d.is_shiny {
-        rsx! { span { class: "pet-mark", "★" } }
+        rsx! { span { class: "pet-mark pet-mark-shiny", title: "异色（闪光）宠物", "闪" } }
     } else {
         VNode::empty()
     };
     let god_block = if d.is_legendary {
-        rsx! { span { class: "pet-mark", "◆" } }
+        rsx! { span { class: "pet-mark pet-mark-god", title: "神兽 / 活动定制宠物", "神" } }
     } else {
         VNode::empty()
     };
@@ -1460,14 +1470,19 @@ fn stats_panel(
         }
         None => VNode::empty(),
     };
-    let name_row: Vec<VNode> = vec![
-        name_area,
-        rsx! { span { class: gender_cls, "{gender_sym}" } },
-        shiny_block,
-        god_block,
-        quality_badge,
-        rsx! { span { class: "heal-pm-level", "{level}" } },
-    ];
+    // 名字行：名字、性别、标记、徽章。旧版这一行没有等级；编辑态整行只有
+    // 编辑框（Dioxus 把性别/标记/徽章放在 else 分支里）。
+    let name_row: Vec<VNode> = if editing {
+        vec![name_area]
+    } else {
+        vec![
+            name_area,
+            rsx! { span { class: gender_cls, "{gender_sym}" } },
+            shiny_block,
+            god_block,
+            quality_badge,
+        ]
+    };
     let name_row = rsx! {
         div { class: "pokemon-name-row",
             for i in 0..name_row.len() {
@@ -1482,7 +1497,7 @@ fn stats_panel(
     };
 
     let iv_rows = match iv_block {
-        Some((ivs, total, rank, _)) => {
+        Some((ivs, total, rank, grade)) => {
             let total_text = if rank == UNKNOWN_RANK {
                 format!("{total}")
             } else {
@@ -1493,6 +1508,8 @@ fn stats_panel(
             } else {
                 VNode::empty()
             };
+            // 这一行总带着评级徽章：载荷有 quality_grade 就用它，没有按总和判定。
+            let badge_cls = format!("quality-badge quality-rank-{rank}");
             let chips: Vec<VNode> = ["HP", "攻击", "防御", "特攻", "特防", "速度"]
                 .iter()
                 .enumerate()
@@ -1506,6 +1523,7 @@ fn stats_panel(
                     span { class: "affection-label", "总个体值" }
                     span { class: "affection-value", "{total_text}" }
                     ..vec![overflow]
+                    span { class: badge_cls, "{grade}" }
                 }
                 div { class: "iv-detail-row",
                     for i in 0..chips.len() {
@@ -1519,7 +1537,8 @@ fn stats_panel(
 
     rsx! {
         div { class: "stats-tab-layout",
-            div { class: "stats-header",
+            // 旧版这里带着内联的 8px 下边距（game.css 里是 0）。
+            div { class: "stats-header", style: "margin-bottom: 8px;",
                 div { class: "info-tags",
                     span { class: "info-tag", "{no}" }
                     span { class: "info-tag", "{pid}" }
@@ -1578,9 +1597,16 @@ fn stats_panel(
     }
 }
 
-/// 五维雷达图（SVG，对齐 Dioxus 版 RadarChart 的几何：五边形网格、
-/// 最小半径 20%、上限 300 点）。
-fn radar_chart(attack: i64, defense: i64, sp_attack: i64, sp_defense: i64, speed: i64) -> VNode {
+/// 五维雷达图（SVG，旧版 `RadarChart`）：五边形网格、最小半径 20%、上限 300 点，
+/// 数据点、中心的等级、每个顶点上的数值与带色点的标签。
+fn radar_chart(
+    level: u64,
+    attack: i64,
+    defense: i64,
+    sp_attack: i64,
+    sp_defense: i64,
+    speed: i64,
+) -> VNode {
     let cx = 140.0f64;
     let cy = 140.0f64;
     let max_r = 70.0f64;
@@ -1590,6 +1616,9 @@ fn radar_chart(attack: i64, defense: i64, sp_attack: i64, sp_defense: i64, speed
     let angles: Vec<f64> = (0..5)
         .map(|i| (-90.0 + i as f64 * 72.0).to_f64_radians())
         .collect();
+    let labels = ["攻击", "防御", "特攻", "特防", "速度"];
+    let values = [attack, defense, sp_attack, sp_defense, speed];
+    let colors = ["#E74C3C", "#F5A623", "#9B59B6", "#1ABC9C", "#3498DB"];
 
     let grid_paths: Vec<String> = [1.0, 0.6, 0.3]
         .iter()
@@ -1603,60 +1632,104 @@ fn radar_chart(attack: i64, defense: i64, sp_attack: i64, sp_defense: i64, speed
         })
         .collect();
 
-    let values = [attack, defense, sp_attack, sp_defense, speed];
-    let data_path = {
-        let points: Vec<String> = values
-            .iter()
-            .zip(angles.iter())
-            .map(|(v, a)| {
-                let ratio = (*v as f64 / max_stat).min(1.0).max(0.0);
-                let r = min_r + ratio * (max_r - min_r);
-                format!("{:.1},{:.1}", cx + r * a.cos(), cy + r * a.sin())
-            })
-            .collect();
-        format!("M {} Z", points.join(" L "))
-    };
-
-    let labels = ["攻击", "防御", "特攻", "特防", "速度"];
-    let label_nodes: Vec<VNode> = angles
+    // 旧版的数值是无符号的；这边的六维可能为负，低于 0 的按 0 画。
+    let data_points: Vec<(f64, f64)> = values
         .iter()
-        .enumerate()
-        .map(|(i, a)| {
-            let r = max_r + 15.0;
-            let x = cx + r * a.cos();
-            let y = cy + r * a.sin();
-            let text = labels[i];
-            let x_s = format!("{x:.1}");
-            let y_s = format!("{y:.1}");
-            rsx! {
-                text {
-                    x: x_s,
-                    y: y_s,
-                    text_anchor: "middle",
-                    dominant_baseline: "middle",
-                    font_size: "10",
-                    fill: "#666",
-                    "{text}"
-                }
-            }
+        .zip(angles.iter())
+        .map(|(&v, &a)| {
+            let ratio = (v.max(0) as f64 / max_stat).min(1.0);
+            let r = min_r + ratio * (max_r - min_r);
+            (cx + r * a.cos(), cy + r * a.sin())
         })
         .collect();
+    let data_path = format!(
+        "M {} Z",
+        data_points
+            .iter()
+            .map(|(x, y)| format!("{:.1},{:.1}", x, y))
+            .collect::<Vec<_>>()
+            .join(" L ")
+    );
+    let label_positions: Vec<(f64, f64)> = angles
+        .iter()
+        .map(|&a| {
+            let r = max_r + 15.0;
+            (cx + r * a.cos(), cy + r * a.sin())
+        })
+        .collect();
+    let level_text = format!("Lv {level}");
 
+    // 轴线与数据点的坐标照旧版原样 Display（不四舍五入）。
     let axis_nodes: Vec<VNode> = angles
         .iter()
         .map(|a| {
-            let x2 = format!("{:.1}", cx + max_r * a.cos());
-            let y2 = format!("{:.1}", cy + max_r * a.sin());
+            let x1 = format!("{cx}");
+            let y1 = format!("{cy}");
+            let x2 = format!("{}", cx + max_r * a.cos());
+            let y2 = format!("{}", cy + max_r * a.sin());
             rsx! {
                 line {
-                    x1: "140",
-                    y1: "140",
+                    x1: x1,
+                    y1: y1,
                     x2: x2,
                     y2: y2,
                     stroke: "#e0e0e0",
                     "stroke-width": "0.5"
                 }
             }
+        })
+        .collect();
+    let dot_nodes: Vec<VNode> = data_points
+        .iter()
+        .map(|(x, y)| {
+            let cx_s = format!("{x}");
+            let cy_s = format!("{y}");
+            rsx! {
+                circle {
+                    cx: cx_s,
+                    cy: cy_s,
+                    r: "4",
+                    fill: "#3498db",
+                    stroke: "white",
+                    "stroke-width": "2"
+                }
+            }
+        })
+        .collect();
+    // 每个顶点两行：上面是数值（粗体），下面是带色点的属性名。
+    let label_nodes: Vec<VNode> = label_positions
+        .iter()
+        .enumerate()
+        .flat_map(|(i, (lx, ly))| {
+            let x = format!("{lx}");
+            let y_value = format!("{}", ly - 8.0);
+            let y_label = format!("{}", ly + 4.0);
+            let value = format!("{}", values[i]);
+            let color = colors[i];
+            let label = format!("● {}", labels[i]);
+            vec![
+                rsx! {
+                    text {
+                        x: x.clone(),
+                        y: y_value,
+                        "text-anchor": "middle",
+                        "font-size": "12",
+                        fill: color,
+                        "font-weight": "bold",
+                        "{value}"
+                    }
+                },
+                rsx! {
+                    text {
+                        x: x,
+                        y: y_label,
+                        "text-anchor": "middle",
+                        "font-size": "12",
+                        fill: color,
+                        "{label}"
+                    }
+                },
+            ]
         })
         .collect();
 
@@ -1680,9 +1753,21 @@ fn radar_chart(attack: i64, defense: i64, sp_attack: i64, sp_defense: i64, speed
                 }
                 path {
                     d: data_path,
-                    fill: "rgba(52, 152, 219, 0.25)",
+                    fill: "rgba(52, 152, 219, 0.2)",
                     stroke: "#3498db",
                     "stroke-width": "2"
+                }
+                for i in 0..dot_nodes.len() {
+                    ..vec![dot_nodes[i].clone()]
+                }
+                text {
+                    x: "140",
+                    y: "144",
+                    "text-anchor": "middle",
+                    "font-size": "16",
+                    "font-weight": "bold",
+                    fill: "#333",
+                    "{level_text}"
                 }
                 for i in 0..label_nodes.len() {
                     ..vec![label_nodes[i].clone()]
@@ -1706,6 +1791,43 @@ impl ToRadians for f64 {
 // ---------------------------------------------------------------------------
 // 技能标签页面板与学习弹窗
 // ---------------------------------------------------------------------------
+
+/// 技能属性 → 徽章类（旧版 `TypeBadge` 的对照表；表里没有的算「未知」）。
+fn skill_type_badge_class(skill_type: &str) -> String {
+    let name = match skill_type.to_lowercase().as_str() {
+        "火" | "fire" => "火",
+        "水" | "water" => "水",
+        "草" | "grass" => "草",
+        "电" | "electric" => "电",
+        "超能" | "psychic" => "超能",
+        "冰" | "ice" => "冰",
+        "龙" | "dragon" => "龙",
+        "恶" | "dark" => "恶",
+        "妖精" | "fairy" => "妖精",
+        "格斗" | "fighting" => "格斗",
+        "飞行" | "flying" => "飞行",
+        "地面" | "ground" => "地面",
+        "岩石" | "rock" => "岩石",
+        "虫" | "bug" => "虫",
+        "幽灵" | "ghost" => "幽灵",
+        "钢" | "steel" => "钢",
+        "毒" | "poison" => "毒",
+        "普通" | "normal" => "普通",
+        _ => "未知",
+    };
+    format!("badge-type-{name}")
+}
+
+/// 技能分类 → 徽章类（旧版 `TypeBadge`；其余算「其他」）。
+fn skill_category_badge_class(category: &str) -> String {
+    let name = match category.to_lowercase().as_str() {
+        "物攻" | "物理" | "physical" => "物攻",
+        "特攻" | "特殊" | "special" => "特攻",
+        "变化" | "status" => "变化",
+        _ => "其他",
+    };
+    format!("badge-cat-{name}")
+}
 
 /// 技能标签页面板：技能卡（点击展开遗忘）+ 空槽（点击学习）。
 fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
@@ -1733,21 +1855,35 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
         } else {
             skill.name.clone()
         };
-        let pp_head = format!("PP {}", skill.pp);
+        // 右上角的 PP：`<em>PP </em><strong>15</strong> /15`（旧版如此，不是一整段文字）。
+        let pp_str = skill.pp.to_string();
         let pp_tail = if skill.max_pp > 0 {
-            format!("/{}", skill.max_pp)
+            format!(" /{}", skill.max_pp)
         } else {
-            format!("/{}", skill.pp)
+            format!(" /{}", skill.pp)
         };
-        let type_badge_cls = format!("badge badge-type-{}", skill.skill_type);
-        let cat_badge_cls = format!("badge badge-cat-{}", skill.category);
+        // 徽章走旧版 TypeBadge 的对照表（属性、分类各一张），包在 .skill-type-badges 里。
+        let type_badge_cls = format!(
+            "badge badge-skill-type {}",
+            skill_type_badge_class(&skill.skill_type)
+        );
+        let cat_badge_cls = format!(
+            "badge badge-category {}",
+            skill_category_badge_class(&skill.category)
+        );
         let power_label = match skill.category.as_str() {
-            "特攻" | "特殊" => "特攻",
-            "物攻" | "物理" => "物攻",
-            _ => "威力",
+            "特攻" | "特殊" => "特攻：",
+            "物攻" | "物理" => "物攻：",
+            _ => "威力：",
         };
-        let power_text = format!("{}：{}", power_label, skill.power);
-        let pp_text = format!("PP：{}/{}", skill.pp, skill.max_pp);
+        let power_str = skill.power.to_string();
+        // 底部那行 PP：`PP：<strong>15/15</strong>`，上限在 strong 里面（旧版如此）；
+        // 没有上限时只有当前值。
+        let pp_stat = if skill.max_pp > 0 {
+            format!("{}/{}", skill.pp, skill.max_pp)
+        } else {
+            skill.pp.to_string()
+        };
         let level_text = if skill.level > 0 {
             Some(format!("Lv {}", skill.level))
         } else {
@@ -1785,15 +1921,30 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
                 div { class: "skill-card-top",
                     span { class: "skill-name", "{name}" }
                     span { class: "skill-pp",
-                        "{pp_head}"
-                        strong { "{pp_tail}" }
+                        em { "PP " }
+                        strong { "{pp_str}" }
+                        "{pp_tail}"
                     }
                 }
                 div { class: "skill-card-bottom",
-                    span { class: type_badge_cls, "{stype}" }
-                    span { class: cat_badge_cls, "{scat}" }
-                    span { class: "skill-power", "{power_text}" }
-                    span { class: "skill-pp", "{pp_text}" }
+                    div { class: "skill-type-badges",
+                        if !stype.is_empty() {
+                            span { class: type_badge_cls, "{stype}" }
+                        }
+                        if !scat.is_empty() {
+                            span { class: cat_badge_cls, "{scat}" }
+                        }
+                    }
+                    div { class: "skill-stats",
+                        span { class: "skill-power",
+                            "{power_label}"
+                            strong { "{power_str}" }
+                        }
+                        span { class: "skill-pp",
+                            "PP："
+                            strong { "{pp_stat}" }
+                        }
+                    }
                     if let Some(_lv) = level_text {
                         span { class: "skill-level", "{_lv}" }
                     }
