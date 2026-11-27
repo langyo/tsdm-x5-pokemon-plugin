@@ -526,32 +526,36 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
                 "重新同步战斗"
             };
             let conn_state = st.clone();
-            rsx! {
-                div { class: "modal-overlay",
-                    div { class: "modal-container",
-                        div { class: "modal-header",
-                            h3 { "确认战斗状态" }
-                        }
-                        div { class: "modal-body battle-connection",
-                            p { role: "alert", "{err}" }
-                            p { "{hint}" }
-                            button {
-                                class: "btn btn-primary",
-                                disabled: loading,
-                                onclick: move |_| {
-                                    // 有无未确认的动作在点击时判断（与原委托分支一致）。
-                                    if conn_state.battle.pending.get().is_some() {
-                                        retry(&conn_state);
-                                    } else {
-                                        reconnect(&conn_state);
-                                    }
-                                },
-                                "{btn_label}"
+            // 外壳是共用的 hikari Modal（见 crate::modal）；这一框旧 markup 既没有
+            // 关闭键、遮罩点击也不关，只能由正文里的按钮离开。旧正文的类
+            // `battle-connection` 落在 body_class 上，子节点与旧版相同。
+            let body: Vec<VNode> = vec![
+                rsx! { p { role: "alert", "{err}" } },
+                rsx! { p { "{hint}" } },
+                rsx! {
+                    button {
+                        class: "btn btn-primary",
+                        disabled: loading,
+                        onclick: move |_| {
+                            // 有无未确认的动作在点击时判断（与原委托分支一致）。
+                            if conn_state.battle.pending.get().is_some() {
+                                retry(&conn_state);
+                            } else {
+                                reconnect(&conn_state);
                             }
-                        }
+                        },
+                        "{btn_label}"
                     }
-                }
-            }
+                },
+            ];
+            crate::modal::modal_with(
+                crate::modal::ModalSpec {
+                    body_class: "battle-connection",
+                    ..crate::modal::ModalSpec::unclosable("确认战斗状态", false)
+                },
+                || {},
+                body,
+            )
         }
         None => VNode::empty(),
     };
@@ -717,52 +721,57 @@ fn adventure_map_view(
                 VNode::empty()
             };
             let map_overlay_state = st.clone();
-            let map_close_state = st.clone();
-            rsx! {
-                div { class: "modal-overlay",
-                    onclick: move |_| close_map_detail(&map_overlay_state),
-                    div { class: "modal-container",
-                        // 对齐 Dioxus 版 Modal：点弹窗内部不冒泡到遮罩（内部点击不关闭）。
-                        onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                        div { class: "modal-header",
-                            h3 { "{title}" }
-                            button { class: "modal-close-btn", onclick: move |_| close_map_detail(&map_close_state), "×" }
-                        }
-                        div { class: "modal-body modal-map-details",
-                            div { class: "map-detail-header",
-                                span { class: "map-icon", "{icon}" }
-                                h2 { "{map.name}" }
-                                span { class: color_cls, "{area_name}" }
+            // 外壳是共用的 hikari Modal（见 crate::modal）：点弹窗内部不关（hikari
+            // 只把遮罩上的点击当关闭请求）。旧正文的类 `modal-map-details` 落在
+            // body_class 上，子节点与旧版相同、样式不动。
+            let body: Vec<VNode> = vec![
+                rsx! {
+                    div { class: "map-detail-header",
+                        span { class: "map-icon", "{icon}" }
+                        h2 { "{map.name}" }
+                        span { class: color_cls, "{area_name}" }
+                    }
+                },
+                rsx! {
+                    div { class: "map-detail-section",
+                        h4 { "挑战建议" }
+                        p { class: "recommendation-text", "{rec}" }
+                    }
+                },
+                quality_row,
+                rsx! {
+                    div { class: "map-detail-section",
+                        h4 { "基本信息" }
+                        div { class: "detail-grid",
+                            div { class: "detail-item",
+                                span { class: "detail-label", "地形类型" }
+                                span { class: "detail-value", "{area_name2}" }
                             }
-                            div { class: "map-detail-section",
-                                h4 { "挑战建议" }
-                                p { class: "recommendation-text", "{rec}" }
+                            div { class: "detail-item",
+                                span { class: "detail-label", "地图模式" }
+                                span { class: "detail-value", "{mode_label}" }
                             }
-                            ..vec![quality_row]
-                            div { class: "map-detail-section",
-                                h4 { "基本信息" }
-                                div { class: "detail-grid",
-                                    div { class: "detail-item",
-                                        span { class: "detail-label", "地形类型" }
-                                        span { class: "detail-value", "{area_name2}" }
-                                    }
-                                    div { class: "detail-item",
-                                        span { class: "detail-label", "地图模式" }
-                                        span { class: "detail-value", "{mode_label}" }
-                                    }
-                                    if has_wild {
-                                        div { class: "detail-item",
-                                            span { class: "detail-label", "等级范围" }
-                                            span { class: "detail-value", "{level_text}" }
-                                        }
-                                    }
+                            if has_wild {
+                                div { class: "detail-item",
+                                    span { class: "detail-label", "等级范围" }
+                                    span { class: "detail-value", "{level_text}" }
                                 }
                             }
-                            ..vec![wild_section, boss_section, start_btn]
                         }
                     }
-                }
-            }
+                },
+                wild_section,
+                boss_section,
+                start_btn,
+            ];
+            crate::modal::modal_with(
+                crate::modal::ModalSpec {
+                    body_class: "modal-map-details",
+                    ..crate::modal::ModalSpec::new(&title, false)
+                },
+                move || close_map_detail(&map_overlay_state),
+                body,
+            )
         }
         None => VNode::empty(),
     };
@@ -1288,28 +1297,26 @@ fn battle_scene(
                 });
             }
             let sel_overlay_state = st.clone();
-            let sel_close_state = st.clone();
-            rsx! {
-                div { class: "modal-overlay",
-                    onclick: move |_| cancel_selection(&sel_overlay_state),
-                    div { class: "modal-container",
-                        // 对齐 Dioxus 版 Modal：点弹窗内部不冒泡到遮罩（内部点击不关闭）。
-                        onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                        div { class: "modal-header",
-                            h3 { "{title}" }
-                            button { class: "modal-close-btn", onclick: move |_| cancel_selection(&sel_close_state), "×" }
-                        }
-                        div { class: "modal-body skill-selection-modal",
-                            p { class: "skill-selection-hint", "请选择要恢复PP的技能：" }
-                            div { class: "skill-selection-list",
-                                for i in 0..rows.len() {
-                                    ..vec![rows[i].clone()]
-                                }
-                            }
+            // 外壳是共用的 hikari Modal（见 crate::modal）。旧正文的类
+            // `skill-selection-modal` 落在 body_class 上，子节点与旧版相同。
+            let body: Vec<VNode> = vec![
+                rsx! { p { class: "skill-selection-hint", "请选择要恢复PP的技能：" } },
+                rsx! {
+                    div { class: "skill-selection-list",
+                        for i in 0..rows.len() {
+                            ..vec![rows[i].clone()]
                         }
                     }
-                }
-            }
+                },
+            ];
+            crate::modal::modal_with(
+                crate::modal::ModalSpec {
+                    body_class: "skill-selection-modal",
+                    ..crate::modal::ModalSpec::new(&title, false)
+                },
+                move || cancel_selection(&sel_overlay_state),
+                body,
+            )
         }
         None => VNode::empty(),
     };
@@ -1389,26 +1396,20 @@ fn battle_scene(
         };
         let log_overlay_state = st.clone();
         let log_close_state = st.clone();
-        rsx! {
-            div { class: "modal-overlay",
-                "data-test-bt-log-close": "1",
-                onclick: move |_| close_log(&log_overlay_state),
-                div {
-                    class: "modal-container",
-                    onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                    div { class: "modal-header",
-                        h3 { "战报" }
-                        button {
-                            class: "modal-close-btn",
-                            "data-test-bt-log-close": "1",
-                            onclick: move |_| close_log(&log_close_state),
-                            "×"
-                        }
-                    }
-                    div { class: "modal-body battle-log-body", ..vec![body] }
-                }
-            }
-        }
+        // 外壳是共用的 hikari Modal（见 crate::modal）。旧正文的类
+        // `battle-log-body` 落在 body_class 上，子节点与旧版相同。
+        crate::modal::modal_hooked(
+            crate::modal::ModalSpec {
+                body_class: "battle-log-body",
+                ..crate::modal::ModalSpec::new("战报", false)
+            },
+            crate::modal::hook_close_button!(
+                "data-test-bt-log-close",
+                move || close_log(&log_close_state)
+            ),
+            move || close_log(&log_overlay_state),
+            vec![body],
+        )
     } else {
         VNode::empty()
     };
@@ -1613,35 +1614,45 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
     };
     let _ = bt;
 
-    rsx! {
-        div { class: "modal-overlay",
-            div { class: "modal-container",
-                div { class: "modal-header", h3 { "{title}" } }
-                div { class: "modal-body battle-result-section",
-                    div { class: result_cls,
-                        h2 { "{title}" }
-                        ..vec![rewards_block, level_up_block]
-                    }
-                    div { class: "battle-end-buttons",
-                        button {
-                            class: "battle-end-btn",
-                            "data-test-bt-log-open": "1",
-                            onclick: move |_| open_log(&result_log_state),
-                            "查看战报"
-                        }
-                        button {
-                            class: "battle-end-btn",
-                            disabled: loading,
-                            "data-test-bt-end": "1",
-                            onclick: move |_| end_battle(&end_state),
-                            "返回冒险地图"
-                        }
-                        ..vec![continue_btn]
-                    }
-                }
+    // 外壳是共用的 hikari Modal（见 crate::modal）。旧 markup 既没有关闭键、
+    // 遮罩点击也不关：只能由正文里的按钮离开。旧正文的类
+    // `battle-result-section` 落在 body_class 上（窄屏下它的 `padding: 0` 与
+    // `.modal-body` 的 `20px` 同权重，同一个元素上才是旧版的结果），子节点与
+    // 旧版相同。
+    let body: Vec<VNode> = vec![
+        rsx! {
+            div { class: result_cls,
+                h2 { "{title}" }
+                ..vec![rewards_block, level_up_block]
             }
-        }
-    }
+        },
+        rsx! {
+            div { class: "battle-end-buttons",
+                button {
+                    class: "battle-end-btn",
+                    "data-test-bt-log-open": "1",
+                    onclick: move |_| open_log(&result_log_state),
+                    "查看战报"
+                }
+                button {
+                    class: "battle-end-btn",
+                    disabled: loading,
+                    "data-test-bt-end": "1",
+                    onclick: move |_| end_battle(&end_state),
+                    "返回冒险地图"
+                }
+                ..vec![continue_btn]
+            }
+        },
+    ];
+    crate::modal::modal_with(
+        crate::modal::ModalSpec {
+            body_class: "battle-result-section",
+            ..crate::modal::ModalSpec::unclosable(&title, false)
+        },
+        || {},
+        body,
+    )
 }
 
 /// 我方倒下但有替补：选择替换宠物（或无惩罚逃跑）。
@@ -1710,30 +1721,38 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
         });
     }
 
-    rsx! {
-        div { class: "modal-overlay",
-            div { class: "modal-container",
-                div { class: "modal-header", h3 { "选择替换宠物" } }
-                div { class: "modal-body faint-replace-modal",
-                    p { class: "faint-message", "{message}" }
-                    div { class: "replacement-pokemon-list",
-                        for i in 0..rows.len() {
-                            ..vec![rows[i].clone()]
-                        }
-                    }
-                    div { class: "faint-replace-actions",
-                        button {
-                            class: "btn btn-warning",
-                            disabled: loading,
-                            "data-test-bt-flee": "1",
-                            onclick: move |_| flee(&replace_flee_state),
-                            "逃跑（无惩罚）"
-                        }
-                    }
+    // 替换宠物的选择框：外壳是共用的 hikari Modal。旧 markup 既没有关闭键、
+    // 遮罩点击也不关，只能选一只或逃跑。旧正文的类 `faint-replace-modal` 落在
+    // body_class 上，子节点与旧版相同。
+    let body: Vec<VNode> = vec![
+        rsx! { p { class: "faint-message", "{message}" } },
+        rsx! {
+            div { class: "replacement-pokemon-list",
+                for i in 0..rows.len() {
+                    ..vec![rows[i].clone()]
                 }
             }
-        }
-    }
+        },
+        rsx! {
+            div { class: "faint-replace-actions",
+                button {
+                    class: "btn btn-warning",
+                    disabled: loading,
+                    "data-test-bt-flee": "1",
+                    onclick: move |_| flee(&replace_flee_state),
+                    "逃跑（无惩罚）"
+                }
+            }
+        },
+    ];
+    crate::modal::modal_with(
+        crate::modal::ModalSpec {
+            body_class: "faint-replace-modal",
+            ..crate::modal::ModalSpec::unclosable("选择替换宠物", false)
+        },
+        || {},
+        body,
+    )
 }
 
 /// 手动换宠确认。
@@ -1742,42 +1761,44 @@ fn switch_modal(st: &AppState, loading: bool) -> VNode {
     let close_state = st.clone();
     let cancel_state = st.clone();
     let confirm_state = st.clone();
-    rsx! {
-        div { class: "modal-overlay",
-            "data-test-bt-switch-cancel": "1",
-            onclick: move |_| close_switch_modal(&overlay_state),
-            div {
-                class: "modal-container",
-                onclick: move |e: tairitsu_vdom::MouseEvent| e.stop_propagation(),
-                div { class: "modal-header",
-                    h3 { "切换上场宠物" }
-                    button {
-                        class: "modal-close-btn",
-                        "data-test-bt-switch-cancel": "1",
-                        onclick: move |_| close_switch_modal(&close_state),
-                        "×"
-                    }
+    // 外壳是共用的 hikari Modal（见 crate::modal）。旧正文的类
+    // `switch-pokemon-modal` 落在 body_class 上（它的 `padding` 规则与
+    // `.modal-body` 的同权重，同一个元素上才是旧版的结果），子节点与旧版相同。
+    let body: Vec<VNode> = vec![
+        rsx! {
+            p { class: "switch-pokemon-warning", "切换宠物可能会让当前上场宠物再受到一次攻击！" }
+        },
+        rsx! {
+            p { class: "switch-pokemon-hint", "确定要切换吗？（将轮换背包中的下一只宠物）" }
+        },
+        rsx! {
+            div { class: "switch-pokemon-actions",
+                button {
+                    class: "btn btn-secondary",
+                    "data-test-bt-switch-cancel": "1",
+                    onclick: move |_| close_switch_modal(&cancel_state),
+                    "取消"
                 }
-                div { class: "modal-body switch-pokemon-modal",
-                    p { class: "switch-pokemon-warning", "切换宠物可能会让当前上场宠物再受到一次攻击！" }
-                    p { class: "switch-pokemon-hint", "确定要切换吗？（将轮换背包中的下一只宠物）" }
-                    div { class: "switch-pokemon-actions",
-                        button {
-                            class: "btn btn-secondary",
-                            "data-test-bt-switch-cancel": "1",
-                            onclick: move |_| close_switch_modal(&cancel_state),
-                            "取消"
-                        }
-                        button {
-                            class: "btn btn-primary",
-                            disabled: loading,
-                            "data-test-bt-switch-confirm": "1",
-                            onclick: move |_| switch_pokemon(&confirm_state),
-                            "确定切换"
-                        }
-                    }
+                button {
+                    class: "btn btn-primary",
+                    disabled: loading,
+                    "data-test-bt-switch-confirm": "1",
+                    onclick: move |_| switch_pokemon(&confirm_state),
+                    "确定切换"
                 }
             }
-        }
-    }
+        },
+    ];
+    crate::modal::modal_hooked(
+        crate::modal::ModalSpec {
+            body_class: "switch-pokemon-modal",
+            ..crate::modal::ModalSpec::new("切换上场宠物", false)
+        },
+        crate::modal::hook_close_button!(
+            "data-test-bt-switch-cancel",
+            move || close_switch_modal(&close_state)
+        ),
+        move || close_switch_modal(&overlay_state),
+        body,
+    )
 }

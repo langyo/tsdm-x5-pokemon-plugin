@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/mutation-observer
-import { INTERFACES } from '../glue/observers/index.js?v=1795769315';
+import { INTERFACES } from '../glue/observers/index.js?v=1795780310';
 const obj = INTERFACES['@tairitsu-glue/mutation-observer'];
 export const observe = obj.observe;
 export const disconnect = obj.disconnect;
