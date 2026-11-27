@@ -11,6 +11,7 @@ use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
 use crate::app_state::AppState;
+use crate::icon::{Icon, IconName, IconProps};
 use crate::state::ToastKind;
 use crate::toast;
 
@@ -35,6 +36,22 @@ pub fn ensure_loaded(state: &AppState) {
     if state.inv.items.get().is_none() {
         reload(&state.inv);
     }
+}
+
+/// 进入背包页时把页状态重置成旧版挂载时的样子。旧版的分类、页码、搜索词都是
+/// 组件内的信号，离开页面就销毁，回来是一张新页：分类是
+/// `INITIAL_INVENTORY_CATEGORY.take().or(Some(1))`——侧栏小格留下的那一类，没有就是
+/// 「回复药」——页码回到 1，搜索词清空，列表重新拉取（期间是加载态）。这边各页
+/// 状态是持久的，所以由 `navigate` 在路由切换时显式调这里。
+pub fn on_enter(state: &AppState) {
+    let inv = &state.inv;
+    let initial = inv.entry_category.replace(None);
+    inv.category.set(Some(initial.unwrap_or(1)));
+    inv.page.set(1);
+    inv.search_input.set(String::new());
+    inv.search_query.set(String::new());
+    // 清掉上次的列表；下一次渲染时 ensure_loaded 会按新分类重新拉取。
+    inv.items.inner().set(None);
 }
 
 fn reload(inv: &crate::state::InventoryState) {
@@ -277,6 +294,11 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                                 let page = prev_state.inv.page.get().saturating_sub(1).max(1);
                                 goto_page(&prev_state, page);
                             }),
+                            {Icon(IconProps {
+                                name: Some(IconName::ChevronLeft),
+                                size: Some(12),
+                                class: Some("lucide-inline".to_string()),
+                            })}
                             "上一页"
                                                 }
                         span { class: "page-info", "{page_info}" }
@@ -285,6 +307,11 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                             disabled: next_disabled,
                             onclick: crate::button::click(move || goto_page(&next_state, next_state.inv.page.get() + 1)),
                             "下一页"
+                            {Icon(IconProps {
+                                name: Some(IconName::ChevronRight),
+                                size: Some(12),
+                                class: Some("lucide-inline-end".to_string()),
+                            })}
                                                 }
                     }
                 }
@@ -479,9 +506,12 @@ fn InventoryTile(state: Box<AppState>, item: crate::state::InventoryItem) -> VNo
         },
     };
     let show_button = target != "battle";
-    let usable = !is_using && !any_using;
+    // 能用：显示按钮、目标是宠物或全体（旧版的 `ItemTargetType::Pokemon | Global`）。
+    let usable = show_button && matches!(target.as_str(), "pokemon" | "global");
+    // 再加上「当前没有别的物品在用」才是可点。
+    let enabled = usable && !is_using && !any_using;
     let button_text = if is_using { "使用中..." } else { "使用" };
-    let button_class = if usable {
+    let button_class = if enabled {
         "buy-btn"
     } else {
         "buy-btn disabled"
@@ -494,11 +524,14 @@ fn InventoryTile(state: Box<AppState>, item: crate::state::InventoryItem) -> VNo
     let use_target = item.use_target.clone();
     // 测试钩子：回归脚本按物品类型 ID 定位使用按钮。
     let use_key = item_id.to_string();
+    let alt_name = item.name.clone();
 
     rsx! {
         div { class: "shop-item-card",
+            "data-item-id": use_key.clone(),
             div { class: "item-icon-area",
-                img { class: "item-icon-img", src: img_src }
+                // alt 是物品名：图片加载失败时浏览器用它画占位框（旧版如此）。
+                img { class: "item-icon-img", src: img_src, alt: alt_name }
             }
             div { class: "item-info",
                 div { class: "item-name", "{item.name}" }
@@ -512,7 +545,7 @@ fn InventoryTile(state: Box<AppState>, item: crate::state::InventoryItem) -> VNo
                 if show_button {
                     { crate::button::hooked(tairitsu_macros::rsx! { Button {
                         class: (button_class).to_string(),
-                        disabled: !usable,
+                        disabled: !enabled,
                         onclick: crate::button::click(move || use_item(&state, item_id, item_type, use_target.clone())),
                         "{button_text}"
                                         } }, [("data-test-inv-use", (use_key).to_string())]) }

@@ -350,12 +350,11 @@ fn bag_card(state: &AppState) -> VNode {
                     class: "bag-grid-item",
                     title: tile_tip,
                     onclick: move |_| {
-                        // 旧版：先记下初始分类，再切到背包页（同一页则不跳）。
-                        tile_state.inv.category.inner().set(Some(cat as u32));
+                        // 旧版：只记下初始分类，不在背包页时才切过去（背包页挂载时
+                        // 取用，见 inventory::on_enter）。已经在背包页时什么都不发生。
+                        tile_state.inv.entry_category.set(Some(cat as u32));
                         if tile_state.route.get() != crate::app_state::Route::Inventory {
                             crate::navigate(&tile_state, crate::app_state::Route::Inventory);
-                        } else {
-                            crate::request_remount();
                         }
                     },
                     {Icon(IconProps {

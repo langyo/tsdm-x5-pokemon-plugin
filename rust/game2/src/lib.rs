@@ -306,9 +306,16 @@ fn load_profile(state: &app_state::AppState) {
 }
 
 /// 页面切换（对齐 Dioxus 版 `*CURRENT_PAGE.write() = page`）。
+///
+/// 旧版的页状态是组件内的，离开页面就销毁，回来是一张新页；这边各页的状态是
+/// 持久的，所以换页时由各页自己的 `on_enter` 把它重置成旧版挂载时的样子。
 #[cfg(target_family = "wasm")]
 pub fn navigate(state: &app_state::AppState, route: app_state::Route) {
+    let changed = state.route.get() != route;
     state.route.inner().set(route);
+    if changed && route == app_state::Route::Inventory {
+        inventory::on_enter(state);
+    }
     request_remount();
 }
 
