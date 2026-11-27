@@ -14,6 +14,10 @@
 //! 实测可达。`data-dbg-*` 属性是管线仪表（写在 #app 上，验收脚本可读），
 //! 稳定后可摘除。
 
+// rsx 的子节点按语法写成 `{expr}`，宏把它们展开成调用参数，rustc 的
+// `unused_braces` 就报在源码跨度上（与 hikari components 同一处理）。
+#![allow(unused_braces)]
+
 #[cfg(target_family = "wasm")]
 pub mod api;
 pub mod app_state;

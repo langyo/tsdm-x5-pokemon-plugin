@@ -60,3 +60,118 @@
 .toast-spacer {
   height: 0;
 }
+
+// =============================================================================
+// Modal：hikari `Modal`（.hk-modal-*）压回旧版 .modal-* 的观感
+// =============================================================================
+//
+// 外壳见 `src/modal.rs`，面框带 `content_class = "game-modal"`。下面的数值取自
+// 旧版 `_modal.scss` 在 1280×700 下的计算样式（2026-11-27 实测），不是估的。
+// hikari 的表把多数旋钮做成 `--hk-modal-*` 变量：有变量的用变量，没有变量的
+// （阴影、边框、最高高度）直接写规则。皮肤排在组件表之后，同权重覆盖。
+
+// 遮罩与面框是 .hk-modal-root 下的兄弟节点，content_class 只落在面框上，
+// 所以遮罩的两个变量、层叠高度与视口边距挂在 root 上。
+.hk-modal-root:has(.game-modal) {
+  z-index: 1000;
+  --hk-modal-overlay-bg: rgba(0, 0, 0, 0.6);
+  --hk-modal-overlay-blur: blur(4px);
+  // 旧版遮罩四周留 $spacing-lg；hikari 的面框上限是「视口减去两侧边距」。
+  --viewport-gutter: 20px;
+
+  .hk-modal-overlay {
+    animation: modal-fade-in 0.2s ease-out;
+  }
+}
+
+.game-modal {
+  // 面框（旧版 .modal-container）
+  --hk-modal-bg: #ffffff; // $color-white
+  --hk-modal-border-color: transparent;
+  --hk-modal-radius: 12px; // $radius-lg
+  --hk-modal-padding-header: 16px 20px; // $spacing-base $spacing-lg
+  --hk-modal-padding-body: 20px; // $spacing-lg
+  --hk-modal-divider-color: transparent; // 旧版标题栏下没有分隔线
+  --hk-modal-title-font-size: 16px; // $font-size-lg
+  --hk-modal-title-font-weight: 600;
+  --hk-modal-title-color: #ffffff; // $color-white
+
+  max-height: 80vh;
+  border: 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  backdrop-filter: none;
+  // 旧版的进场动画；关键帧 modal-slide-in / modal-fade-in 在 game.css 里。
+  animation: modal-slide-in 0.3s ease-out;
+
+  .hk-modal-header {
+    background: linear-gradient(135deg, #8ed1f0, #5cb8e6); // $color-primary
+    border-bottom: 0;
+  }
+
+  .hk-modal-title {
+    line-height: 1.6;
+  }
+
+  // 关闭键：旧版是 32×32 的白色「×」，悬停时半透明白底。tairitsu 渲染出的这个
+  // 键只有 `hk-window-close hk-modal-close` 两个类（Vue 那边另有
+  // `hk-icon-button`），样式表里按 `.hk-icon-button` 写的规则一条都不命中，
+  // 所以这里按普通按钮从头写。图标盒子带组件写死的 16px 内联尺寸。
+  .hk-modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px; // $radius-sm
+    background: none;
+    color: #ffffff; // $color-white
+    cursor: pointer;
+    line-height: 1;
+    transition: background 150ms ease; // $transition-fast
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    // 旧版是 20px 字号的「×」字形，笔画约 11px；叉形路径占 24 格里的 14 格，
+    // 18px 的图标正好是这个尺寸。
+    .hk-icon {
+      width: 18px !important;
+      height: 18px !important;
+    }
+  }
+
+  // 正文：面框自己限高 80vh，正文交给 flex 去分；滚动条回到旧版的 6px 细条
+  // （hikari 默认把原生滚动条藏掉、走覆盖式滚动条）。
+  .hk-modal-body {
+    max-height: none;
+  }
+
+  .hk-modal-body-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #dee2e6 #f2f4f5; // $color-gray-300 $color-gray-100
+
+    &::-webkit-scrollbar {
+      display: block;
+      width: 6px;
+      height: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f2f4f5; // $color-gray-100
+      border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #dee2e6; // $color-gray-300
+      border-radius: 3px;
+
+      &:hover {
+        background: #ced4da; // $color-gray-400
+      }
+    }
+  }
+}

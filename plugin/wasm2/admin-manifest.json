@@ -1,8 +1,8 @@
 {
-  "build_id": "1795722996",
+  "build_id": "1795765587",
   "base": "/source/plugin/pokemon/wasm2",
-  "entry": "/source/plugin/pokemon/wasm2/admin-boot.js?v=1795722996",
-  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_admin2.js?b=1795722996",
+  "entry": "/source/plugin/pokemon/wasm2/admin-boot.js?v=1795765587",
+  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_admin2.js?b=1795765587",
   "interfaces": [
     "canvas-fill-stroke-styles",
     "canvas-rect",
@@ -16,6 +16,7 @@
     "history",
     "html-canvas-element",
     "html-input-element",
+    "html-option-element",
     "location",
     "media-query-list",
     "mouse-event",
