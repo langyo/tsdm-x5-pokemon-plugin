@@ -98,14 +98,34 @@ pub struct InventoryItem {
     pub type_name: String,
 }
 
-/// 弹窗里可选的目标宠物（get_usable_pokemon）。
+/// 弹窗里可选的目标宠物（get_usable_pokemon）。品质重洗药/怠惰药片的
+/// 选择器需要精灵图与品质/努力值摘要，字段与 Dioxus 版 UsablePokemon 对齐。
 #[derive(Debug, Clone, Default)]
 pub struct UsablePokemon {
     pub id: u64,
+    pub type_id: u64,
     pub nickname: String,
     pub level: u64,
     pub hp: i64,
     pub max_hp: i64,
+    pub is_shiny: bool,
+    /// 总个体值（旧载荷无此字段时为 None）。
+    pub iv_total: Option<u64>,
+    /// 品质档位（1=E .. 8=SS+，9=UnKnow）。
+    pub quality_rank: Option<u8>,
+    /// 品质名（E/D/C/B/A/S/SS/SS+）。
+    pub quality_grade: Option<String>,
+    /// 努力值总和（怠惰药片的目标选择器展示用）。
+    pub ev_total: Option<u64>,
+}
+
+/// get_usable_pokemon 的完整载荷：物品元信息 + 可选列表 + 不可用计数。
+#[derive(Debug, Clone, Default)]
+pub struct UsablePokemonList {
+    pub item_name: String,
+    pub item_module: String,
+    pub usable_pokemon: Vec<UsablePokemon>,
+    pub unusable_count: usize,
 }
 
 /// 背包页持久状态。
@@ -128,7 +148,7 @@ pub struct InventoryState {
     /// 选中的物品（弹窗打开时的使用目标判定）。
     pub selected_item: ReactiveSignal<Option<u64>>,
     pub show_target_modal: ReactiveSignal<bool>,
-    pub usable_pokemon: ReactiveSignal<Option<Result<Vec<UsablePokemon>, String>>>,
+    pub usable_pokemon: ReactiveSignal<Option<Result<UsablePokemonList, String>>>,
 }
 
 impl InventoryState {
