@@ -119,8 +119,9 @@ foreach (['', 'forum_'] as $prefix) {
         fn($r) => $preserved($r) && $r['reads'] === 1 && str_contains($r['message'], '原状态栏已保留'),
         "Failed read preserves the existing badge with prefix '$prefix'");
     check_refresh(['prefix' => $prefix, 'empty' => true],
+        // 徽章是 PHP 序列化串；与规范序列化结果比较，等价于「解码后等于 ['creeps' => []]」。
         fn($r) => $r['message'] === '已刷新状态栏' && $r['writes'] === 1 && $r['members'][8] === 'other-member-badge'
-            && unserialize($r['members'][7], ['allowed_classes' => false]) === ['creeps' => []],
+            && $r['members'][7] === serialize(['creeps' => []]),
         "Empty successful result clears stale pets with prefix '$prefix'");
 }
 foreach ([[], ['hide' => '1']] as $query) {

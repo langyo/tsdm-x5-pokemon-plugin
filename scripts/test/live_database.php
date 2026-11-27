@@ -741,6 +741,7 @@ try {
         foreach (['', '.err', '.ready', '.ready.resume'] as $suffix) if (is_file($worker['base'] . $suffix)) unlink($worker['base'] . $suffix);
     }
     // This name is generated here, never accepted from a caller or site config.
+    if (!preg_match('/^tsdm_test_[a-f0-9]{16}$/D', $database)) throw new RuntimeException('Unsafe database name');
     $db->query('DROP DATABASE `' . $database . '`');
     $db->close();
 }

@@ -105,6 +105,8 @@ try {
     filter_case('filter_item_type',[condition('是否出售','invalid')],[],'Unknown boolean values do not silently mean true');
     echo "Admin filter database: $checks checks, $failures failures.\n";
 } finally {
+    // Only the name generated and exclusively created by this process can be dropped.
+    if (!preg_match('/^tsdm_test_filters_[a-f0-9]{16}$/D', $database)) throw new RuntimeException('Unsafe database name');
     $db->query("DROP DATABASE `$database`");
     $db->close();
 }

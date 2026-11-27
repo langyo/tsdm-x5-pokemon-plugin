@@ -191,6 +191,7 @@ try {
     echo "Admin identity database checks: $checks, failures: $failures", PHP_EOL;
 } finally {
     // Only the name generated and exclusively created by this process can be dropped.
+    if (!preg_match('/^tsdm_test_identity_[a-f0-9]{16}$/D', $database)) throw new RuntimeException('Unsafe database name');
     $db->query("DROP DATABASE `$database`"); $db->close();
 }
 exit($failures ? 1 : 0);

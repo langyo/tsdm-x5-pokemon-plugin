@@ -151,7 +151,7 @@ function input_request($request)
     $pipes = [];
     $process = proc_open([PHP_BINARY, __FILE__, base64_encode(json_encode($request, JSON_UNESCAPED_UNICODE))], [
         0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w'],
-    ], $pipes);
+    ], $pipes, null, null, ['bypass_shell' => true]);
     if (!is_resource($process)) throw new RuntimeException('Cannot start input test subprocess');
     fclose($pipes[0]);
     $stdout = stream_get_contents($pipes[1]);
