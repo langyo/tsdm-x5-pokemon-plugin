@@ -14,6 +14,7 @@
 //! - 品质门槛不做客户端预判（list 载荷无个体值；服务端仍会拦截），
 //!   地图卡仍显示门槛要求文案。
 
+use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
@@ -533,19 +534,19 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
                 rsx! { p { role: "alert", "{err}" } },
                 rsx! { p { "{hint}" } },
                 rsx! {
-                    button {
-                        class: "btn btn-primary",
+                    Button {
+                        class: ("btn btn-primary").to_string(),
                         disabled: loading,
-                        onclick: move |_| {
+                        onclick: crate::button::click(move || {
                             // 有无未确认的动作在点击时判断（与原委托分支一致）。
                             if conn_state.battle.pending.get().is_some() {
                                 retry(&conn_state);
                             } else {
                                 reconnect(&conn_state);
                             }
-                        },
+                        }),
                         "{btn_label}"
-                    }
+                                        }
                 },
             ];
             crate::modal::modal_with(
@@ -675,12 +676,12 @@ fn adventure_map_view(
                 let boss_index = boss.boss_index.unwrap_or(0);
                 let boss_state = st.clone();
                 boss_rows.push(rsx! {
-                    button {
-                        class: "boss-row-btn",
+                    Button {
+                        class: ("boss-row-btn").to_string(),
                         disabled: loading || pokemon_empty,
-                        onclick: move |_| {
+                        onclick: crate::button::click(move || {
                             start_boss(&boss_state, boss_map_id, boss_type_id, Some(boss_index))
-                        },
+                        }),
                         div { class: "boss-row-content",
                             img { class: "boss-row-avatar", src: sprite, alt: alt_name }
                             div { class: "boss-row-info",
@@ -689,7 +690,7 @@ fn adventure_map_view(
                             }
                             span { class: "boss-row-action", "挑战" }
                         }
-                    }
+                                        }
                 });
             }
             let boss_section = if !boss_rows.is_empty() {
@@ -710,12 +711,12 @@ fn adventure_map_view(
                 let start_map_id = map.id;
                 let start_state = st.clone();
                 rsx! {
-                    button {
-                        class: "modal-action-btn",
+                    Button {
+                        class: ("modal-action-btn").to_string(),
                         disabled: loading || pokemon_empty,
-                        onclick: move |_| start_adventure(&start_state, start_map_id),
+                        onclick: crate::button::click(move || start_adventure(&start_state, start_map_id)),
                         "开始冒险"
-                    }
+                                        }
                 }
             } else {
                 VNode::empty()
@@ -891,16 +892,16 @@ fn adventure_map_view(
                                         }
                                     }
                                     ..vec![boss_block]
-                                    button {
-                                        class: "zoomed-start-btn",
+                                    Button {
+                                        class: ("zoomed-start-btn").to_string(),
                                         disabled: loading || pokemon_empty,
                                         // 卡片自身也开详情：按钮上拦住冒泡，一次点击只打开一次（对齐 Dioxus 版）。
-                                        onclick: move |e: tairitsu_vdom::MouseEvent| {
+                                        onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
                                             e.stop_propagation();
                                             open_map_detail(&detail_btn_state, map_id);
-                                        },
+                                        })),
                                         "查看详情"
-                                    }
+                                                                        }
                                 }
                             });
                         }
@@ -914,11 +915,11 @@ fn adventure_map_view(
                         let back_state = st.clone();
                         rsx! {
                             div { class: "hoenn-map-zoomed",
-                                button {
-                                    class: "back-to-world-btn",
-                                    onclick: move |_| select_region(&back_state, None),
+                                Button {
+                                    class: ("back-to-world-btn").to_string(),
+                                    onclick: crate::button::click(move || select_region(&back_state, None)),
                                     "← 返回世界地图"
-                                }
+                                                                }
                                 div { class: "zoomed-region-title",
                                     h2 { "{region_name}" }
                                     p { "{count_text}" }
@@ -1049,8 +1050,8 @@ fn battle_scene(
             for skill in &my.skills {
                 let sid = skill.id;
                 let skill_state = st.clone();
-                let disabled = loading || skill.pp == 0;
-                let cls = if disabled {
+                let is_disabled = loading || skill.pp == 0;
+                let cls = if is_disabled {
                     "skill-btn disabled"
                 } else {
                     "skill-btn"
@@ -1075,11 +1076,10 @@ fn battle_scene(
                 let stype = skill.skill_type.clone();
                 let scat = skill.category.clone();
                 skill_btns.push(rsx! {
-                    button {
-                        class: cls,
-                        r#type: "button",
-                        disabled: disabled,
-                        onclick: move |_| use_skill(&skill_state, sid),
+                    Button {
+                        class: (cls).to_string(),
+                        disabled: is_disabled,
+                        onclick: crate::button::click(move || use_skill(&skill_state, sid)),
                         div { class: "skill-btn-content",
                             div { class: "skill-name", "{name}" }
                             span { class: type_badge, "{stype}" }
@@ -1089,7 +1089,7 @@ fn battle_scene(
                                 span { class: pp_cls, "{pp_text}" }
                             }
                         }
-                    }
+                                        }
                 });
             }
             for _ in my.skills.len()..4 {
@@ -1101,14 +1101,12 @@ fn battle_scene(
             rsx! {
                 div { class: "skills-panel",
                     div { class: "attack-button-section",
-                        button {
-                            class: if loading { "normal-attack-btn disabled" } else { "normal-attack-btn" },
-                            r#type: "button",
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: (if loading { "normal-attack-btn disabled" } else { "normal-attack-btn" }).to_string(),
                             disabled: loading,
-                            "data-test-bt-attack": "1",
-                            onclick: move |_| normal_attack(&attack_state),
+                            onclick: crate::button::click(move || normal_attack(&attack_state)),
                             span { class: "attack-btn-label", "普通攻击" }
-                        }
+                                                } }, [("data-test-bt-attack", ("1").to_string())]) }
                     }
                     div { class: "skills-grid-section",
                         div { class: "skills-grid",
@@ -1130,8 +1128,8 @@ fn battle_scene(
                     let item_id = item.id;
                     let item_state = st.clone();
                     let usable = item.can_use_on(my);
-                    let disabled = loading || !usable;
-                    let cls = if disabled {
+                    let is_disabled = loading || !usable;
+                    let cls = if is_disabled {
                         "battle-item-card disabled"
                     } else {
                         "battle-item-card"
@@ -1156,12 +1154,10 @@ fn battle_scene(
                         "当前HP已满，暂时不需要恢复。".to_string()
                     };
                     cards.push(rsx! {
-                        button {
-                            class: cls,
-                            r#type: "button",
-                            disabled: disabled,
-                            onclick: move |_| use_item_in_battle(&item_state, item_id),
-                            title: condition,
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: (cls).to_string(),
+                            disabled: is_disabled,
+                            onclick: crate::button::click(move || use_item_in_battle(&item_state, item_id)),
                             div { class: "battle-item-icon",
                                 img { src: img_src, alt: alt_name }
                             }
@@ -1171,7 +1167,7 @@ fn battle_scene(
                                 span { class: "battle-item-type", "{label}" }
                             }
                             span { class: "battle-item-qty", "{qty}" }
-                        }
+                                                } }, [("title", (condition).to_string())]) }
                     });
                 }
                 rsx! {
@@ -1194,8 +1190,8 @@ fn battle_scene(
                 for ball in balls.iter() {
                     let ball_id = ball.type_id;
                     let ball_state = st.clone();
-                    let disabled = loading || ball.quantity <= 0;
-                    let cls = if disabled {
+                    let is_disabled = loading || ball.quantity <= 0;
+                    let cls = if is_disabled {
                         "battle-item-card disabled"
                     } else {
                         "battle-item-card"
@@ -1210,11 +1206,10 @@ fn battle_scene(
                         "投掷精灵球尝试捕捉野生的宝可梦。".to_string()
                     };
                     cards.push(rsx! {
-                        button {
-                            class: cls,
-                            r#type: "button",
-                            disabled: disabled,
-                            onclick: move |_| capture(&ball_state, ball_id),
+                        Button {
+                            class: (cls).to_string(),
+                            disabled: is_disabled,
+                            onclick: crate::button::click(move || capture(&ball_state, ball_id)),
                             div { class: "battle-item-icon",
                                 img { src: img_src, alt: alt_name }
                             }
@@ -1223,7 +1218,7 @@ fn battle_scene(
                                 div { class: "battle-item-desc", "{desc}" }
                             }
                             span { class: "battle-item-qty", "{qty}" }
-                        }
+                                                }
                     });
                 }
                 rsx! {
@@ -1242,13 +1237,12 @@ fn battle_scene(
             rsx! {
                 div { class: "flee-panel",
                     p { class: "flee-hint", "确定要离开这场战斗吗？离开后将无法获得本场奖励。" }
-                    button {
-                        class: "btn btn-warning",
-                        r#type: "button",
+                    Button {
+                        class: ("btn btn-warning").to_string(),
                         disabled: loading,
-                        onclick: move |_| flee(&flee_state),
+                        onclick: crate::button::click(move || flee(&flee_state)),
                         "退出战斗"
-                    }
+                                        }
                 }
             }
         }
@@ -1283,17 +1277,16 @@ fn battle_scene(
                     "skill-selection-pp"
                 };
                 rows.push(rsx! {
-                    button {
-                        class: "skill-selection-item",
-                        r#type: "button",
+                    Button {
+                        class: ("skill-selection-item").to_string(),
                         disabled: loading,
-                        onclick: move |_| use_item_on_skill(&row_state, item_id, skill_id),
+                        onclick: crate::button::click(move || use_item_on_skill(&row_state, item_id, skill_id)),
                         div { class: "skill-selection-info",
                             span { class: "skill-selection-name", "{name}" }
                             span { class: pp_cls, "{pp_text}" }
                         }
                         span { class: "skill-selection-action", "选择" }
-                    }
+                                        }
                 });
             }
             let sel_overlay_state = st.clone();
@@ -1383,13 +1376,11 @@ fn battle_scene(
                     }
                     label { "可贴到论坛的战报" }
                     textarea { class: "battle-share-text", readonly: true, rows: "5", "{bbcode}" }
-                    button {
-                        class: "btn btn-primary",
-                        r#type: "button",
-                        "data-test-bt-log-copy": "1",
-                        onclick: move |_| copy_log(&copy_state),
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: ("btn btn-primary").to_string(),
+                        onclick: crate::button::click(move || copy_log(&copy_state)),
                         "复制战报"
-                    }
+                                        } }, [("data-test-bt-log-copy", ("1").to_string())]) }
                     p { role: "status", class: "battle-copy-status", "{copy_status}" }
                 }
             }
@@ -1403,10 +1394,9 @@ fn battle_scene(
                 body_class: "battle-log-body",
                 ..crate::modal::ModalSpec::new("战报", false)
             },
-            crate::modal::hook_close_button!(
-                "data-test-bt-log-close",
-                move || close_log(&log_close_state)
-            ),
+            crate::modal::hook_close_button("data-test-bt-log-close", move || {
+                close_log(&log_close_state)
+            }),
             move || close_log(&log_overlay_state),
             vec![body],
         )
@@ -1424,42 +1414,37 @@ fn battle_scene(
     rsx! {
         div { class: "page-battle",
             div { class: "battle-tools",
-                button {
-                    class: "btn btn-secondary",
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    variant: hikari_components::ButtonVariant::Secondary,,                    class: ("btn btn-secondary").to_string(),
                     disabled: scene.engine_battle_id == 0,
-                    "data-test-bt-log-open": "1",
-                    onclick: move |_| open_log(&log_open_state),
+                    onclick: crate::button::click(move || open_log(&log_open_state)),
                     "查看战报"
-                }
+                                } }, [("data-test-bt-log-open", ("1").to_string())]) }
             }
             div { class: "battle-card",
                 div { class: "battle-card-body",
                     div { class: "battle-content-area",
                         div { class: "battle-tab-menu",
-                            button {
-                                class: skills_cls,
-                                "data-test-bt-tab": "0",
-                                onclick: move |_| switch_tab(&skills_tab_state, 0),
+                            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                class: (skills_cls).to_string(),
+                                onclick: crate::button::click(move || switch_tab(&skills_tab_state, 0)),
                                 "技能"
-                            }
-                            button {
-                                class: items_cls,
-                                "data-test-bt-tab": "1",
-                                onclick: move |_| switch_tab(&items_tab_state, 1),
+                                                        } }, [("data-test-bt-tab", ("0").to_string())]) }
+                            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                class: (items_cls).to_string(),
+                                onclick: crate::button::click(move || switch_tab(&items_tab_state, 1)),
                                 "道具"
-                            }
-                            button {
-                                class: capture_cls,
-                                "data-test-bt-tab": "2",
-                                onclick: move |_| switch_tab(&capture_tab_state, 2),
+                                                        } }, [("data-test-bt-tab", ("1").to_string())]) }
+                            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                class: (capture_cls).to_string(),
+                                onclick: crate::button::click(move || switch_tab(&capture_tab_state, 2)),
                                 "捕捉"
-                            }
-                            button {
-                                class: flee_cls,
-                                "data-test-bt-tab": "3",
-                                onclick: move |_| switch_tab(&flee_tab_state, 3),
+                                                        } }, [("data-test-bt-tab", ("2").to_string())]) }
+                            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                class: (flee_cls).to_string(),
+                                onclick: crate::button::click(move || switch_tab(&flee_tab_state, 3)),
                                 "退出战斗"
-                            }
+                                                        } }, [("data-test-bt-tab", ("3").to_string())]) }
                         }
                         div { class: "battle-divider" }
                         div { class: "battle-main-content",
@@ -1601,13 +1586,12 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
     let can_continue = scene.status == BattleStatus::Victory && scene.my_pokemon.hp > 0;
     let continue_btn = if can_continue {
         rsx! {
-            button {
-                class: "battle-continue-btn",
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: ("battle-continue-btn").to_string(),
                 disabled: loading,
-                "data-test-bt-continue": "1",
-                onclick: move |_| continue_battle(&continue_state),
+                onclick: crate::button::click(move || continue_battle(&continue_state)),
                 "继续战斗"
-            }
+                        } }, [("data-test-bt-continue", ("1").to_string())]) }
         }
     } else {
         VNode::empty()
@@ -1628,19 +1612,17 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
         },
         rsx! {
             div { class: "battle-end-buttons",
-                button {
-                    class: "battle-end-btn",
-                    "data-test-bt-log-open": "1",
-                    onclick: move |_| open_log(&result_log_state),
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: ("battle-end-btn").to_string(),
+                    onclick: crate::button::click(move || open_log(&result_log_state)),
                     "查看战报"
-                }
-                button {
-                    class: "battle-end-btn",
+                                } }, [("data-test-bt-log-open", ("1").to_string())]) }
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: ("battle-end-btn").to_string(),
                     disabled: loading,
-                    "data-test-bt-end": "1",
-                    onclick: move |_| end_battle(&end_state),
+                    onclick: crate::button::click(move || end_battle(&end_state)),
                     "返回冒险地图"
-                }
+                                } }, [("data-test-bt-end", ("1").to_string())]) },
                 ..vec![continue_btn]
             }
         },
@@ -1700,12 +1682,10 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
             VNode::empty()
         };
         rows.push(rsx! {
-            button {
-                class: cls,
-                r#type: "button",
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: (cls).to_string(),
                 disabled: loading || is_fainted,
-                "data-test-bt-replace": attr,
-                onclick: move |_| replace_pokemon(&replace_state, pm_id),
+                onclick: crate::button::click(move || replace_pokemon(&replace_state, pm_id)),
                 img { class: "replacement-pokemon-sprite", src: sprite, alt: alt_name }
                 div { class: "replacement-pokemon-info",
                     div { class: "replacement-pokemon-name",
@@ -1717,7 +1697,7 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
                 div { class: "replacement-pokemon-hp",
                     span { class: "hp-text", "{hp_text}" }
                 }
-            }
+                        } }, [("data-test-bt-replace", (attr).to_string())]) }
         });
     }
 
@@ -1735,13 +1715,12 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
         },
         rsx! {
             div { class: "faint-replace-actions",
-                button {
-                    class: "btn btn-warning",
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: ("btn btn-warning").to_string(),
                     disabled: loading,
-                    "data-test-bt-flee": "1",
-                    onclick: move |_| flee(&replace_flee_state),
+                    onclick: crate::button::click(move || flee(&replace_flee_state)),
                     "逃跑（无惩罚）"
-                }
+                                } }, [("data-test-bt-flee", ("1").to_string())]) }
             }
         },
     ];
@@ -1773,19 +1752,17 @@ fn switch_modal(st: &AppState, loading: bool) -> VNode {
         },
         rsx! {
             div { class: "switch-pokemon-actions",
-                button {
-                    class: "btn btn-secondary",
-                    "data-test-bt-switch-cancel": "1",
-                    onclick: move |_| close_switch_modal(&cancel_state),
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    variant: hikari_components::ButtonVariant::Secondary,,                    class: ("btn btn-secondary").to_string(),
+                    onclick: crate::button::click(move || close_switch_modal(&cancel_state)),
                     "取消"
-                }
-                button {
-                    class: "btn btn-primary",
+                                } }, [("data-test-bt-switch-cancel", ("1").to_string())]) }
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: ("btn btn-primary").to_string(),
                     disabled: loading,
-                    "data-test-bt-switch-confirm": "1",
-                    onclick: move |_| switch_pokemon(&confirm_state),
+                    onclick: crate::button::click(move || switch_pokemon(&confirm_state)),
                     "确定切换"
-                }
+                                } }, [("data-test-bt-switch-confirm", ("1").to_string())]) }
             }
         },
     ];
@@ -1794,10 +1771,9 @@ fn switch_modal(st: &AppState, loading: bool) -> VNode {
             body_class: "switch-pokemon-modal",
             ..crate::modal::ModalSpec::new("切换上场宠物", false)
         },
-        crate::modal::hook_close_button!(
-            "data-test-bt-switch-cancel",
-            move || close_switch_modal(&close_state)
-        ),
+        crate::modal::hook_close_button("data-test-bt-switch-cancel", move || {
+            close_switch_modal(&close_state)
+        }),
         move || close_switch_modal(&overlay_state),
         body,
     )

@@ -8,6 +8,7 @@
 //! 状态判定对齐服务端负面码表（0/2-7/11/15/20-22 与 hp<=0）；
 //! 箱子里的宠物（site 非 1/2）不在此页显示（对齐 Dioxus 版）。
 
+use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
@@ -272,16 +273,18 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                                     }
                                 }
                             }
-                            button {
-                                class: btn_cls,
+                            { crate::button::with_attrs(tairitsu_macros::rsx! { Button {
+                                class: (btn_cls).to_string(),
                                 disabled: healing,
-                                "data-test-center-heal": heal_key,
-                                if is_in_battle {
-                                    "data-test-center-flee": "1"
-                                }
-                                onclick: move |_| heal_one(&row_state, id, is_in_battle),
+                                onclick: crate::button::click(move || heal_one(&row_state, id, is_in_battle)),
                                 "{btn_text}"
-                            }
+                            } }, |el| {
+                                // 战斗中的那一个治疗键同时是「逃跑」入口，多一个钩子。
+                                el.attributes.insert("data-test-center-heal".to_string(), heal_key.to_string());
+                                if is_in_battle {
+                                    el.attributes.insert("data-test-center-flee".to_string(), "1".to_string());
+                                }
+                            }) }
                         }
                     }
                 })
@@ -322,13 +325,12 @@ pub fn PokemonCenter(state: Box<AppState>) -> VNode {
                             p { "辛苦了！这里可以恢复宠物的体力。" }
                         }
                         if has_healable {
-                            button {
-                                class: heal_all_cls,
+                            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                class: (heal_all_cls).to_string(),
                                 disabled: healing,
-                                "data-test-center-heal-all": "1",
-                                onclick: move |_| heal_all(&heal_all_state),
+                                onclick: crate::button::click(move || heal_all(&heal_all_state)),
                                 "全部治疗"
-                            }
+                                                        } }, [("data-test-center-heal-all", ("1").to_string())]) }
                         }
                     }
                     ..vec![body]

@@ -6,6 +6,7 @@
 //! equip 提示「装备管理随个人中心页移植后接入」）。品质重洗药的
 //! 「原位前后对比面板」与个人中心页联动，随该页移植后补齐。
 
+use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
@@ -269,22 +270,22 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                 }
                 if total_pages > 1 {
                     div { class: "shop-pagination",
-                        button {
-                            class: "page-btn",
+                        Button {
+                            class: ("page-btn").to_string(),
                             disabled: prev_disabled,
-                            onclick: move |_| {
+                            onclick: crate::button::click(move || {
                                 let page = prev_state.inv.page.get().saturating_sub(1).max(1);
                                 goto_page(&prev_state, page);
-                            },
+                            }),
                             "上一页"
-                        }
+                                                }
                         span { class: "page-info", "{page_info}" }
-                        button {
-                            class: "page-btn",
+                        Button {
+                            class: ("page-btn").to_string(),
                             disabled: next_disabled,
-                            onclick: move |_| goto_page(&next_state, next_state.inv.page.get() + 1),
+                            onclick: crate::button::click(move || goto_page(&next_state, next_state.inv.page.get() + 1)),
                             "下一页"
-                        }
+                                                }
                     }
                 }
             }
@@ -374,10 +375,9 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
         let close_state = state.clone();
         crate::modal::modal_hooked(
             crate::modal::ModalSpec::new(&title, false),
-            crate::modal::hook_close_button!(
-                "data-test-inv-modal-close",
-                move || close_target_modal(&close_for_button)
-            ),
+            crate::modal::hook_close_button("data-test-inv-modal-close", move || {
+                close_target_modal(&close_for_button)
+            }),
             move || close_target_modal(&close_state),
             vec![pokemon_body],
         )
@@ -408,20 +408,19 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                                 apply_search(&search_state, &value);
                             }
                         }
-                        button {
-                            class: "inventory-search-btn",
-                            onclick: move |_| apply_search(&submit_state, &submit_state.inv.search_input.get()),
+                        Button {
+                            class: ("inventory-search-btn").to_string(),
+                            onclick: crate::button::click(move || apply_search(&submit_state, &submit_state.inv.search_input.get())),
                             "搜索"
-                        }
-                        button {
-                            class: "inventory-search-clear",
-                            "data-test-inv-search-clear": "1",
-                            onclick: move |_| {
+                                                }
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: ("inventory-search-clear").to_string(),
+                            onclick: crate::button::click(move || {
                                 clear_state.inv.search_input.set(String::new());
                                 apply_search(&clear_state, "");
-                            },
+                            }),
                             "清除"
-                        }
+                                                } }, [("data-test-inv-search-clear", ("1").to_string())]) }
                     }
                     div { class: "shop-category-bar",
                         div { class: "shop-category-group",
@@ -435,15 +434,14 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                                     // 测试钩子：回归脚本按它定位分类按钮（all / 分类号）。
                                     let cat_key = cat_id.map(|n| n.to_string()).unwrap_or_else(|| "all".to_string());
                                     rsx! {
-                                        button {
-                                            class: cls,
-                                            "data-test-inv-cat": cat_key,
-                                            onclick: move |_| select_category(&cat_state, cat_id),
+                                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                            class: (cls).to_string(),
+                                            onclick: crate::button::click(move || select_category(&cat_state, cat_id)),
                                             span { class: "cat-icon",
                                                 img { class: "cat-icon-img", src: img_src }
                                             }
                                             span { "{cat_name}" }
-                                        }
+                                                                                } }, [("data-test-inv-cat", (cat_key).to_string())]) }
                                     }
                                 }
                             }
@@ -465,10 +463,7 @@ fn plain(text: &str, class: &str) -> VNode {
 /// 单个物品卡片。use_item 需要整个 AppState（装备道具会切到个人中心页），
 /// 所以这里收 state，而不是只收背包子状态。
 #[component]
-fn InventoryTile(
-    state: Box<AppState>,
-    item: crate::state::InventoryItem,
-) -> VNode {
+fn InventoryTile(state: Box<AppState>, item: crate::state::InventoryItem) -> VNode {
     let using = state.inv.using.get();
     let img_src = format!("{IMG_PATH}/item/{}.gif", item.image);
     let qty = format!("×{}", item.quantity);
@@ -515,13 +510,12 @@ fn InventoryTile(
             }
             div { class: "item-action",
                 if show_button {
-                    button {
-                        class: button_class,
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: (button_class).to_string(),
                         disabled: !usable,
-                        "data-test-inv-use": use_key,
-                        onclick: move |_| use_item(&state, item_id, item_type, use_target.clone()),
+                        onclick: crate::button::click(move || use_item(&state, item_id, item_type, use_target.clone())),
                         "{button_text}"
-                    }
+                                        } }, [("data-test-inv-use", (use_key).to_string())]) }
                 }
             }
         }

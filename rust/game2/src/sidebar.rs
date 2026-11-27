@@ -6,6 +6,7 @@
 //! - 宠物卡：携带宠物 2×3 迷你格 + 去仓库的箭头。
 //! - 背包卡：四个分类迷你块（数量取自 inventory_stats）+ 去背包的箭头。
 
+use hikari_components::{Button, ButtonProps};
 use std::rc::Rc;
 
 use tairitsu_macros::{component, rsx};
@@ -18,9 +19,7 @@ use crate::toast;
 const IMG_PATH: &str = "source/plugin/pokemon/images";
 
 fn avatar_url(uid: u64) -> String {
-    format!(
-        "plugin.php?id=pokemon:pokemon&endpoint=avatar&uid={uid}&size=middle"
-    )
+    format!("plugin.php?id=pokemon:pokemon&endpoint=avatar&uid={uid}&size=middle")
 }
 
 /// 首次进入主界面时装载侧栏数据（缺什么补什么）。
@@ -68,10 +67,7 @@ fn apply_badge(state: &AppState, hide: Option<bool>) {
         Box::new(move |result| {
             match result {
                 Ok(status) => {
-                    st.sidebar
-                        .badge_hidden
-                        .inner()
-                        .set(Some(Ok(status.hidden)));
+                    st.sidebar.badge_hidden.inner().set(Some(Ok(status.hidden)));
                     toast::show(
                         ToastKind::Success,
                         if status.hidden {
@@ -274,21 +270,18 @@ fn trainer_card(state: &AppState, profile: &UserProfile) -> VNode {
                             }
                         }
                         div { class: "trainer-right",
-                            button {
-                                class: "admin-btn badge-refresh-btn",
-                                r#type: "button",
+                            Button {
+                                class: ("admin-btn badge-refresh-btn").to_string(),
                                 disabled: busy,
-                                onclick: move |_| apply_badge(&refresh_state, None),
+                                onclick: crate::button::click(move || apply_badge(&refresh_state, None)),
                                 "{refresh_label}"
-                            }
-                            button {
-                                class: "admin-btn badge-toggle-btn",
-                                r#type: "button",
+                                                        }
+                            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                                class: ("admin-btn badge-toggle-btn").to_string(),
                                 disabled: toggle_disabled,
-                                title: "控制帖子旁是否显示携带的宠物",
-                                onclick: move |_| apply_badge(&toggle_state, Some(toggle_hide)),
+                                onclick: crate::button::click(move || apply_badge(&toggle_state, Some(toggle_hide))),
                                 "{toggle_label}"
-                            }
+                                                        } }, [("title", ("控制帖子旁是否显示携带的宠物").to_string())]) }
                             if is_admin {
                                 a {
                                     class: "admin-btn",
@@ -320,21 +313,18 @@ fn pets_card(
         div { class: "sidebar-card",
             div { class: "sidebar-card-header",
                 span { class: "sidebar-section-title", "宠物" }
-                button {
-                    class: "sidebar-arrow-btn",
-                    r#type: "button",
-                    title: "宠物仓库",
-                    "data-test-nav": "storage",
-                    onclick: move |_| {
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: ("sidebar-arrow-btn").to_string(),
+                    onclick: crate::button::click(move || {
                         crate::navigate(&storage_state, crate::app_state::Route::PokemonStorage)
-                    },
+                    }),
                     svg {
                         xmlns: "http://www.w3.org/2000/svg",
                         "viewBox": "0 0 24 24",
                         fill: "currentColor",
                         dangerous_inner_html: r#"<path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />"#,
                     }
-                }
+                                } }, [("title", ("宠物仓库").to_string()), ("data-test-nav", ("storage").to_string())]) }
             }
             div { class: "sidebar-card-body", ..vec![grid] }
         }
@@ -387,21 +377,18 @@ fn bag_card(state: &AppState) -> VNode {
         div { class: "sidebar-card",
             div { class: "sidebar-card-header",
                 span { class: "sidebar-section-title", "背包" }
-                button {
-                    class: "sidebar-arrow-btn",
-                    r#type: "button",
-                    title: "查看背包",
-                    "data-test-nav": "inventory",
-                    onclick: move |_| {
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: ("sidebar-arrow-btn").to_string(),
+                    onclick: crate::button::click(move || {
                         crate::navigate(&inv_state, crate::app_state::Route::Inventory)
-                    },
+                    }),
                     svg {
                         xmlns: "http://www.w3.org/2000/svg",
                         "viewBox": "0 0 24 24",
                         fill: "currentColor",
                         dangerous_inner_html: r#"<path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />"#,
                     }
-                }
+                                } }, [("title", ("查看背包").to_string()), ("data-test-nav", ("inventory").to_string())]) }
             }
             div { class: "sidebar-card-body",
                 div { class: "bag-grid-mini", ..tiles }

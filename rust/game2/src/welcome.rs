@@ -4,6 +4,7 @@
 //! 同名同类（.welcome-page 系列，game.css 直用）。初始化成功后
 //! 1.5s 刷新整页（对齐 Dioxus 版的 location.reload 行为）。
 
+use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
@@ -145,11 +146,11 @@ pub fn Welcome(state: Box<AppState>) -> VNode {
                             }
                         }
                         // 回调须 'static：state 此后不再使用，直接移入闭包。
-                        button {
-                            class: button_class,
-                            onclick: move |_| initialize(&state),
+                        Button {
+                            class: (button_class).to_string(),
+                            onclick: crate::button::click(move || initialize(&state)),
                             "{button_text}"
-                        }
+                                                }
                     }
                 }
                 if !is_success {

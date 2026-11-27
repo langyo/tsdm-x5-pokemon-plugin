@@ -4,6 +4,7 @@
 //! 样式表（.app-footer / .about-*）两版共用同一份 game.css。
 //! 其中 AI 模型披露是 #86 引入的项目约定，迁移时不应丢失。
 
+use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
@@ -43,12 +44,9 @@ pub fn Footer(state: Box<AppState>) -> VNode {
         footer { class: "app-footer",
             div { class: "footer-inner",
                 span { class: "footer-copyright", "© TSDM 天使动漫 宝可梦插件 V3" }
-                button {
-                    class: "footer-about-btn",
-                    r#type: "button",
-                    title: "关于本项目",
-                    "aria-label": "关于本项目",
-                    onclick: move |_| open_state.show_about.set(true),
+                { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                    class: ("footer-about-btn").to_string(),
+                    onclick: crate::button::click(move || open_state.show_about.set(true)),
                     svg {
                         xmlns: "http://www.w3.org/2000/svg",
                         "viewBox": "0 0 24 24",
@@ -57,7 +55,7 @@ pub fn Footer(state: Box<AppState>) -> VNode {
                         fill: "currentColor",
                         dangerous_inner_html: INFO_ICON,
                     }
-                }
+                                } }, [("title", ("关于本项目").to_string()), ("aria-label", ("关于本项目").to_string())]) }
             }
         }
     }

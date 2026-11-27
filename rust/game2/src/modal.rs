@@ -83,11 +83,7 @@ pub fn modal(title: &str, large: bool, on_close: Rc<dyn Fn()>, body: Vec<VNode>)
 /// `.modal-body` 的 `20px`；落进内层另一个 div 就会生效，弹窗高出 24px。调用
 /// 方因此不要再包一层根 div，`body` 里直接放旧 `.modal-body` 的子节点。hikari
 /// 正文层的内边距归零（皮肤里 `--hk-pad: 0px`），内边距由这个 div 给。
-pub fn modal_with(
-    spec: ModalSpec<'_>,
-    on_close: impl Fn() + 'static,
-    body: Vec<VNode>,
-) -> VNode {
+pub fn modal_with(spec: ModalSpec<'_>, on_close: impl Fn() + 'static, body: Vec<VNode>) -> VNode {
     let close = Rc::new(on_close);
     let mut body_class = String::from("modal-body game-modal-body");
     let mut content_class = String::from("game-modal");
@@ -109,15 +105,15 @@ pub fn modal_with(
         children: rsx! {
             div { class: body_class, ..body }
         },
-        on_close: Some(EventHandler::new(move |_event: tairitsu_vdom::MouseEvent| {
-            close()
-        })),
+        on_close: Some(EventHandler::new(
+            move |_event: tairitsu_vdom::MouseEvent| close(),
+        )),
         ..Default::default()
     })
 }
 
 /// 关闭键要带回归钩子的弹窗。`close_button` 是调用方用
-/// [`hook_close_button!`] 出的那一枚；点遮罩与点它走同一个 `on_close`。
+/// [`hook_close_button`] 出的那一枚；点遮罩与点它走同一个 `on_close`。
 /// `spec` 照常给（标题、宽度、`body_class`），这里只把自带关闭键换掉。
 pub fn modal_hooked(
     spec: ModalSpec<'_>,
@@ -134,32 +130,33 @@ pub fn modal_hooked(
 }
 
 /// 出一枚带回归钩子的关闭键，长相与 hikari 自带的那枚相同（同一个图标、同一
-/// 组类名，皮肤按 `.game-modal .hk-modal-close` 调）。
-///
-/// 写成宏只为让 `data-test-*` 的属性名能写成字面值：rsx 的属性名必须是字面值，
-/// 函数传不进去。`$close` 是点击时调用的闭包（要 `move`，它得活得比渲染久）；
-/// 宏里的路径按调用处解析，所以全写全限定。
+/// 组类名，皮肤按 `.game-modal .hk-modal-close` 调）。`hook` 是 `data-test-*` 的
+/// 属性名；`on_close` 是点击时调用的闭包（要 `move`，它得活得比渲染久）。
 ///
 /// ```ignore
-/// hook_close_button!("data-test-ev-close", move || close_ev_modal(&state))
+/// hook_close_button("data-test-ev-close", move || close_ev_modal(&state))
 /// ```
-macro_rules! hook_close_button {
-    ($hook:literal, $close:expr) => {{
-        let close = $close;
+///
+/// 有意不是 hikari `Button`：它是 Modal 的外壳部件，布局来自 hikari 的
+/// window-close 表和皮肤，不是 game.css——换成 `Button` 的话皮肤里给旧观感按钮
+/// 准备的撤销层会把这些一起退掉。这里就是 hikari 自带关闭键的那份标记，多一个属性。
+pub fn hook_close_button(hook: &'static str, on_close: impl Fn() + 'static) -> VNode {
+    crate::button::with_attrs(
         tairitsu_macros::rsx! {
             button {
                 class: "hk-window-close hk-modal-close",
                 r#type: "button",
                 "aria-label": "关闭",
-                $hook: "1",
-                onclick: move |_| close(),
+                onclick: move |_| on_close(),
                 {hikari_components::prelude::Icon(hikari_components::prelude::IconProps {
                     icon: hikari_components::prelude::MdiIcon::Close,
                     size: 16,
                     ..Default::default()
                 })}
             }
-        }
-    }};
+        },
+        |el| {
+            el.attributes.insert(hook.to_string(), "1".to_string());
+        },
+    )
 }
-pub(crate) use hook_close_button;
