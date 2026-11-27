@@ -24,6 +24,10 @@ use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::nod
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::html_input_element::{
     get_checked, get_value,
 };
+// option 的实时选中态：getSelected 供表单用例逐项读回（selected 属性落在
+// 实时状态那条路由上游 html-option-element glue 提供）。
+#[cfg(target_family = "wasm")]
+use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::html_option_element::get_selected;
 #[cfg(target_family = "wasm")]
 use tairitsu_web::wit_platform::wasm_impl::bindings::tairitsu_browser::full::non_element_parent_node::get_element_by_id;
 
@@ -78,10 +82,12 @@ pub struct CapResult {
 pub struct CapState {
     pub results: tairitsu_hooks::ReactiveSignal<Vec<CapResult>>,
     pub evt_counters: tairitsu_hooks::ReactiveSignal<Vec<u32>>,
-    /// 表单控件用例的三个模型：文本框与多行框共用的值、复选框、下拉框。
+    /// 表单控件用例的模型：文本框与多行框共用的值、复选框、下拉框；
+    /// 第二个下拉框改把 selected 写在 option 上，模型与第一个共用初值。
     pub form_text: tairitsu_hooks::ReactiveSignal<String>,
     pub form_checked: tairitsu_hooks::ReactiveSignal<bool>,
     pub form_pick: tairitsu_hooks::ReactiveSignal<String>,
+    pub form_pick_opt: tairitsu_hooks::ReactiveSignal<String>,
 }
 
 /// done 回调：测试结束时调用一次（守护定时器有代际防晚到）。
@@ -95,6 +101,7 @@ pub fn new_state(component_id: usize) -> CapState {
         form_text: tairitsu_hooks::use_signal(|| FORM_MODEL_TEXT.to_string()),
         form_checked: tairitsu_hooks::use_signal(|| false),
         form_pick: tairitsu_hooks::use_signal(|| FORM_MODEL_PICK.to_string()),
+        form_pick_opt: tairitsu_hooks::use_signal(|| FORM_MODEL_PICK.to_string()),
     }
 }
 
@@ -263,6 +270,7 @@ fn form_probe_reset(state: &CapState) {
     state.form_text.inner().set(FORM_MODEL_TEXT.to_string());
     state.form_checked.inner().set(false);
     state.form_pick.inner().set(FORM_MODEL_PICK.to_string());
+    state.form_pick_opt.inner().set(FORM_MODEL_PICK.to_string());
     request_remount();
     let st = state.clone();
     if let Ok(platform) = WitPlatform::new() {
@@ -283,12 +291,23 @@ fn form_probe_verify(state: &CapState) {
     let area = live("cap-form-area");
     let pick = live("cap-form-select");
     let checked = get_element_by_id(0, "cap-form-check").map(|handle| get_checked(handle));
+    // 第二个下拉框：整值与逐项选中态都要回到模型。元素缺失记为 None，
+    // 不折成 false——否则「元素不在」会被当成「本来就不该选中」而蒙混过关。
+    let selected: Vec<Option<bool>> = ["a", "b", "c"]
+        .iter()
+        .map(|key| {
+            get_element_by_id(0, &format!("cap-form-opt-{key}")).map(|handle| get_selected(handle))
+        })
+        .collect();
+    let expected = [Some(false), Some(false), Some(true)];
     let ok = text == FORM_MODEL_TEXT
         && area == FORM_MODEL_TEXT
         && pick == FORM_MODEL_PICK
-        && checked == Some(false);
+        && checked == Some(false)
+        && live("cap-form-select-opt") == FORM_MODEL_PICK
+        && selected == expected;
     let detail = format!(
-        "input={text:?} textarea={area:?} select={pick:?} checked={checked:?}；模型：{FORM_MODEL_TEXT:?} / {FORM_MODEL_TEXT:?} / {FORM_MODEL_PICK:?} / false"
+        "input={text:?} textarea={area:?} select={pick:?} checked={checked:?} opt_selected={selected:?}；模型：{FORM_MODEL_TEXT:?} / {FORM_MODEL_TEXT:?} / {FORM_MODEL_PICK:?} / false / [false, false, true]"
     );
     let Some(index) = form_test_index(state) else {
         return;
@@ -912,28 +931,36 @@ fn run_test(state: &CapState, idx: usize, done: Done) {
         }
         // ---- scroll ----
         32 => {
-            let st = state.clone();
+            // 回调到了就地判过，没到才等满 4s 判失败。内置浏览器里滚动事件
+            // 晚 0.5–1.5s 才派发，原先 600ms 的死限把通的场景判成了失败。
+            // once 闩锁：回调与定时器谁先到谁落牌。
+            let latch = std::rc::Rc::new(std::cell::RefCell::new(Some(done)));
+            let l1 = latch.clone();
             let got = std::rc::Rc::new(std::cell::Cell::new(false));
             let g2 = got.clone();
             platform.on_scroll(Box::new(move |_x, _y| {
-                g2.set(true);
+                if !g2.replace(true) {
+                    if let Some(f) = l1.borrow_mut().take() {
+                        f(CapStatus::Pass, "onScroll 回调".into());
+                    }
+                }
             }));
             platform.scroll_to(200.0, "auto");
             if let Ok(p2) = WitPlatform::new() {
                 use tairitsu_vdom::platform::TimerOps;
                 let g3 = got.clone();
+                let l2 = latch.clone();
                 p2.set_timeout(
                     Box::new(move || {
-                        if g3.get() {
-                            done(CapStatus::Pass, "onScroll 回调".into());
-                        } else {
-                            done(CapStatus::Fail, "scroll 后未回调".into());
+                        if !g3.get() {
+                            if let Some(f) = l2.borrow_mut().take() {
+                                f(CapStatus::Fail, "scroll 后 4s 未回调".into());
+                            }
                         }
                     }),
-                    600,
+                    4000,
                 );
             }
-            let _ = st;
         }
         33 => {
             platform.scroll_to(300.0, "instant");
@@ -1068,7 +1095,21 @@ fn run_test(state: &CapState, idx: usize, done: Done) {
             if let Some(el) = get_element_by_id(0, "app") {
                 let el = WitElement::from_raw(el);
                 platform.request_fullscreen(&el);
-                done(CapStatus::Skip, "已发起（headless 全屏结果不可观测，fire 即通）".into());
+                // 全屏会留下来：之后的用例全跑在一张 overflow:hidden 的页面上
+                // （滚动类全部失真）。发起后随即退出。
+                if let Ok(p2) = WitPlatform::new() {
+                    use tairitsu_vdom::platform::TimerOps;
+                    p2.set_timeout(
+                        Box::new(move || {
+                            if let Ok(p3) = WitPlatform::new() {
+                                use tairitsu_vdom::platform::ScrollOps;
+                                p3.exit_fullscreen();
+                            }
+                        }),
+                        400,
+                    );
+                }
+                done(CapStatus::Skip, "已发起并退出（headless 全屏结果不可观测，fire 即通）".into());
             } else {
                 done(CapStatus::Fail, "无锚元素".into());
             }
@@ -1259,7 +1300,7 @@ fn stop_probe(state: &CapState) -> tairitsu_vdom::VNode {
     }
 }
 
-/// 表单控件用例的触发结构：四个受控控件 + 「重置为模型值」。
+/// 表单控件用例的触发结构：五个受控控件 + 「重置为模型值」。
 ///
 /// HTML 把表单控件的 `value` / `checked` 属性只当**默认值**：用户输入过
 /// （"dirty"）之后，再 `setAttribute` 改不动屏幕上的值；`<textarea>` 与
@@ -1268,11 +1309,20 @@ fn stop_probe(state: &CapState) -> tairitsu_vdom::VNode {
 ///
 /// 1. 在文本框里输入（受控：模型跟着输入走）→ 文本框变 dirty；
 /// 2. 勾上复选框（受控：模型变 true）→ 复选框变 dirty；
-/// 3. 点「重置为模型值」：模型回到初值，补丁落地后读回四个控件的实时值。
+/// 3. 第一个下拉框（value 写在 select 上）选 a（受控：模型跟着走）；
+/// 4. 第二个下拉框（selected 写在 option 上）依次选 c、a（受控：模型
+///    跟着走）→ c 与 a 都变 dirty；
+/// 5. 点「重置为模型值」：模型回到初值，补丁落地后读回各控件的实时值。
 ///
-/// 预期：input / textarea 都显示「模型值」，select 选中 c，复选框未勾选。
-/// 平台只写属性时，文本框停在用户输入、多行框是空的、下拉框选着 a、
-/// 复选框仍勾着——四项里至少三项对不上。
+/// `<option>` 的 `selected` 同理，而且实测（Chromium 152）更干脆：对用户
+/// 动过的 option 增删 `selected` 属性，选中态纹丝不动，只有没动过的才跟
+/// 属性走。所以第 4 步之后 a、c 都是 dirty 的，第 5 步的两处属性写正好
+/// 都落在动过的 option 上。
+///
+/// 预期：input / textarea 都显示「模型值」，两个 select 都选中 c（第二个
+/// 逐项读回为 [false, false, true]），复选框未勾选。
+/// 平台只写属性时，文本框停在用户输入、多行框是空的、第一个下拉框选着 a、
+/// 复选框仍勾着；第二个下拉框停在 a——模型是 c、页面显示 a。
 #[cfg(target_family = "wasm")]
 fn form_probe(state: &CapState) -> tairitsu_vdom::VNode {
     use tairitsu_macros::rsx;
@@ -1280,8 +1330,11 @@ fn form_probe(state: &CapState) -> tairitsu_vdom::VNode {
     let area_text = text.clone();
     let checked = state.form_checked.get();
     let pick = state.form_pick.get();
+    let pick_opt = state.form_pick_opt.get();
     let type_state = state.clone();
     let check_state = state.clone();
+    let opt_state = state.clone();
+    let pick_state = state.clone();
     let reset_state = state.clone();
     rsx! {
         div {
@@ -1319,9 +1372,33 @@ fn form_probe(state: &CapState) -> tairitsu_vdom::VNode {
                 id: "cap-form-select",
                 "data-test-cap": "form-select",
                 value: pick,
+                onchange: move |_event: tairitsu_vdom::ChangeEvent| {
+                    // 模型跟着用户走。没有这一手它就不是受控的：重置把模型设回
+                    // 原值时新旧虚拟节点相同、不出补丁，页面停在用户的选择上——
+                    // 那是 diff 的本意，不是平台的问题，但会让用例测不到它想测的。
+                    if let Some(picked) = get_element_by_id(0, "cap-form-select").map(|handle| get_value(handle)) {
+                        pick_state.form_pick.inner().set(picked);
+                    }
+                    request_remount();
+                },
                 option { value: "a", "A" }
                 option { value: "b", "B" }
                 option { value: "c", "C" }
+            }
+            span { "　下拉（selected 在 option 上）：" }
+            select {
+                id: "cap-form-select-opt",
+                "data-test-cap": "form-select-opt",
+                onchange: move |_event: tairitsu_vdom::ChangeEvent| {
+                    // 模型跟着用户走：整值从 DOM 读。
+                    if let Some(picked) = get_element_by_id(0, "cap-form-select-opt").map(|handle| get_value(handle)) {
+                        opt_state.form_pick_opt.inner().set(picked);
+                    }
+                    request_remount();
+                },
+                option { id: "cap-form-opt-a", value: "a", selected: pick_opt == "a", "A" }
+                option { id: "cap-form-opt-b", value: "b", selected: pick_opt == "b", "B" }
+                option { id: "cap-form-opt-c", value: "c", selected: pick_opt == "c", "C" }
             }
             br {}
             textarea {

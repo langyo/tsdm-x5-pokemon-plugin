@@ -3,7 +3,7 @@
 use hikari_components::prelude::MdiIcon;
 use hikari_components::{
     AlertVariant, ButtonSize, ButtonVariant, ConfirmDialog, ConfirmDialogProps, ConfirmVariant,
-    Input, InputAlign, InputProps, InputSize,
+    Input, InputAlign, InputProps, InputSize, Textarea, TextareaProps,
 };
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::{EventHandler, VNode};
@@ -57,7 +57,6 @@ pub fn ensure_loaded(state: &AppState) {
                 reload_list(crate::state::EFFECT_SPEC, &state.effect);
             }
         }
-        _ => {}
     }
 }
 
@@ -372,18 +371,6 @@ pub fn Admin(state: Box<AppState>) -> VNode {
         AdminRoute::EvolutionData => evolution_data_page(&st),
         AdminRoute::SkillType => skill_data_page(&st),
         AdminRoute::EffectData => effect_data_page(&st),
-        _ => {
-            let title = route.title();
-            rsx! {
-                section { class: "admin-page",
-                    div { class: "admin-page-header", h2 { "{title}" } }
-                    div { class: "admin-card admin-placeholder",
-                        p { "该页面尚未移植到 tairitsu 版后台，正在按切片推进。" }
-                        p { class: "admin-placeholder-hint", "可切回原后台操作：plugin.php?id=pokemon:game&index=admin" }
-                    }
-                }
-            }
-        }
     };
 
     // 壳、导航、提示全归 hikari 标准件（见 shell.rs）。挂在壳的 overlays 槽的
@@ -456,22 +443,28 @@ fn global_config_page(st: &AppState) -> VNode {
                 "切换到原始 JSON"
             };
             let content = if raw_mode {
-                let rows = draft.lines().count().max(4).min(30);
+                let rows = draft.lines().count().clamp(4, 30) as u32;
+                // 原始 JSON 也是一份 hikari Textarea。它不收 id，`cfg-raw-json`
+                // 落在包着它的那层上，选择器按 `data-hk-field` 找里面的多行框。
                 let draft_state = st.clone();
+                let area = Textarea(TextareaProps {
+                    model_value: draft.clone(),
+                    rows,
+                    oninput: Some(EventHandler::new(move |_inserted: String| {
+                        // 整值从 DOM 读：事件的 data 只是本次插入的片段。
+                        if let Some(text) = hk::dom_value("[data-hk-field=\"cfg-raw-json\"] textarea") {
+                            draft_state.config.draft.inner().set(text);
+                            crate::request_remount();
+                        }
+                    })),
+                    ..Default::default()
+                });
                 rsx! {
-                    textarea {
+                    div {
                         id: "cfg-raw-json",
-                        class: "adm-config-textarea",
-                        rows: rows,
-                        spellcheck: "false",
-                        oninput: move |_event: tairitsu_vdom::InputEvent| {
-                            // 整值从 DOM 读：事件的 data 只是本次插入的片段。
-                            if let Some(text) = hk::dom_value("#cfg-raw-json") {
-                                draft_state.config.draft.inner().set(text);
-                                crate::request_remount();
-                            }
-                        },
-                        "{draft}"
+                        class: "adm-editor-field adm-editor-wide",
+                        "data-hk-field": "cfg-raw-json",
+                        ..vec![area]
                     }
                 }
             } else {
@@ -511,7 +504,7 @@ fn global_config_page(st: &AppState) -> VNode {
         }
     };
 
-    let mut parts: Vec<VNode> = vec![hk::page_header("全局配置", None, Vec::new()), body];
+    let parts: Vec<VNode> = vec![hk::page_header("全局配置", None, Vec::new()), body];
     rsx! {
         section { class: "admin-page admin-config-page",
             ..parts
@@ -1341,7 +1334,35 @@ pub fn submit_pokemon_editor(state: &AppState) {
     }
 }
 
-/// 编辑弹窗渲染（未打开时为空 VNode）。
+/// 宠物编辑器六维格子的 DOM 键与字段名：两栏都在循环里生成，`hk::text_field`
+/// 靠键拼出稳定的 id。
+const PK_STAT_KEYS: [&str; 6] = [
+    "pk-stat-0",
+    "pk-stat-1",
+    "pk-stat-2",
+    "pk-stat-3",
+    "pk-stat-4",
+    "pk-stat-5",
+];
+const PK_STAT_FIELDS: [&str; 6] = ["stat:0", "stat:1", "stat:2", "stat:3", "stat:4", "stat:5"];
+const PK_BASE_KEYS: [&str; 6] = [
+    "pk-base-0",
+    "pk-base-1",
+    "pk-base-2",
+    "pk-base-3",
+    "pk-base-4",
+    "pk-base-5",
+];
+const PK_BASE_FIELDS: [&str; 6] = ["base:0", "base:1", "base:2", "base:3", "base:4", "base:5"];
+
+/// `hk::text_field` 的 `Setter` 形状适配：文本字段不带勾选态。
+fn set_pokemon_editor_text(state: &AppState, key: &str, value: &str) {
+    set_pokemon_editor_field(state, key, value, false);
+}
+
+/// 编辑弹窗渲染（未打开时为空 VNode）。字段全部是 hikari 控件：Input、
+/// Switch、Textarea，外壳是 `hk::modal`。布尔两项原先是「商店出售：是/否」
+/// 双态按钮——那时读不到 checkbox 的勾选态；现在走 Switch 的 `on_change`。
 fn pokemon_editor_modal(st: &AppState) -> VNode {
     let ed = st.pokemon_editor.clone();
     if !ed.open.get() {
@@ -1356,75 +1377,30 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
     let err = ed.err.get();
     let stat = ed.stat.get();
     let base = ed.base.get();
-    // 布尔字段用双态按钮而不是 checkbox：jco 下 ChangeEvent 只带 value，
-    // 读不到 checkbox 的 checked（要额外接 html-input-element.get_checked
-    // 与 shim 导出），按钮 + 重挂是同一份架构里最省的一条路。
-    let selling_label = if ed.is_selling.get() {
-        "商店出售：是"
-    } else {
-        "商店出售：否"
-    };
-    let legendary_label = if ed.is_legendary.get() {
-        "神兽：是"
-    } else {
-        "神兽：否"
-    };
     let save_label = if saving { "保存中..." } else { "保存" };
-    let selling_cls = if ed.is_selling.get() {
-        "admin-btn admin-btn--primary adm-editor-toggle"
-    } else {
-        "admin-btn adm-editor-toggle"
-    };
-    let legendary_cls = if ed.is_legendary.get() {
-        "admin-btn admin-btn--primary adm-editor-toggle"
-    } else {
-        "admin-btn adm-editor-toggle"
-    };
 
+    let set: crate::hk::Setter = set_pokemon_editor_text;
     let mut stat_inputs: Vec<VNode> = Vec::new();
     let mut base_inputs: Vec<VNode> = Vec::new();
     for i in 0..6 {
-        let sv = stat[i].clone();
-        let sa = format!("stat:{i}");
-        let sl = STAT_LABELS[i];
-        let stat_state = st.clone();
-        let stat_key = sa.clone();
-        stat_inputs.push(rsx! {
-            label { class: "adm-editor-field",
-                span { "{sl}" }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "number",
-                    min: "0",
-                    max: "255",
-                    value: sv,
-                    "data-test-adm-pkf": sa,
-                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                        set_pokemon_editor_field(&stat_state, &stat_key, &e.value, false);
-                    }
-                }
-            }
-        });
-        let bv = base[i].clone();
-        let ba = format!("base:{i}");
-        let base_state = st.clone();
-        let base_key = ba.clone();
-        base_inputs.push(rsx! {
-            label { class: "adm-editor-field",
-                span { "{sl}" }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "number",
-                    min: "0",
-                    max: "3",
-                    value: bv,
-                    "data-test-adm-pkf": ba,
-                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                        set_pokemon_editor_field(&base_state, &base_key, &e.value, false);
-                    }
-                }
-            }
-        });
+        stat_inputs.push(crate::hk::text_field(
+            st,
+            set,
+            PK_STAT_KEYS[i],
+            PK_STAT_FIELDS[i],
+            STAT_LABELS[i],
+            stat[i].clone(),
+            "number",
+        ));
+        base_inputs.push(crate::hk::text_field(
+            st,
+            set,
+            PK_BASE_KEYS[i],
+            PK_BASE_FIELDS[i],
+            STAT_LABELS[i],
+            base[i].clone(),
+            "number",
+        ));
     }
 
     let err_block = match err {
@@ -1436,14 +1412,8 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
     let overlay_close_state = st.clone();
     let cancel_close_state = st.clone();
     let save_state = st.clone();
-    let toggle_selling_state = st.clone();
-    let toggle_legendary_state = st.clone();
-    let field_state_0 = st.clone();
-    let field_state_1 = st.clone();
-    let field_state_2 = st.clone();
-    let field_state_3 = st.clone();
-    let ta_desc_state = st.clone();
-    let ta_extra_state = st.clone();
+    let selling_state = st.clone();
+    let legendary_state = st.clone();
 
     let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
         close_pokemon_editor(&cancel_close_state)
@@ -1453,6 +1423,75 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
         submit_pokemon_editor(&save_state)
     })
     .disabled(saving);
+
+    // 开关的标签由 FormField 出，Switch 自己那份留空——两处都给会在同一格里
+    // 画两遍（与全局配置页同一写法）。
+    let selling = crate::hk::switch(ed.is_selling.get(), "", move || {
+        toggle_pokemon_editor_flag(&selling_state, "selling")
+    });
+    let legendary = crate::hk::switch(ed.is_legendary.get(), "", move || {
+        toggle_pokemon_editor_flag(&legendary_state, "legendary")
+    });
+    let fields: Vec<VNode> = vec![
+        crate::hk::text_field(st, set, "pk-name", "name", "名称", ed.name.get(), "text"),
+        crate::hk::text_field(st, set, "pk-cost", "cost", "售价", ed.cost.get(), "number"),
+        crate::hk::text_field(
+            st,
+            set,
+            "pk-kind1",
+            "kind1",
+            "属性 1（中文，如 火）",
+            ed.kind1.get(),
+            "text",
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "pk-kind2",
+            "kind2",
+            "属性 2（可空）",
+            ed.kind2.get(),
+            "text",
+        ),
+        crate::hk::form_field("商店出售", None, selling),
+        crate::hk::form_field("神兽", None, legendary),
+    ];
+    let body: Vec<VNode> = vec![
+        rsx! {
+            div { class: "adm-editor-grid", ..fields }
+        },
+        crate::hk::textarea_field(
+            st,
+            set,
+            "pk-description",
+            "description",
+            "描述",
+            ed.description.get(),
+            2,
+        ),
+        rsx! {
+            div { class: "adm-editor-section-title", "初始个体值（0-255）" }
+        },
+        rsx! {
+            div { class: "adm-editor-grid", ..stat_inputs }
+        },
+        rsx! {
+            div { class: "adm-editor-section-title", "初始努力值（0-3）" }
+        },
+        rsx! {
+            div { class: "adm-editor-grid", ..base_inputs }
+        },
+        crate::hk::textarea_field(
+            st,
+            set,
+            "pk-extra",
+            "extra",
+            "扩展字段 JSON（sex_weight / map_ids / evolution_info_ids / capture_weight / meet_weight / birth_order / strength_weight / drop_money_range）",
+            ed.extra_json.get(),
+            8,
+        ),
+        err_block,
+    ];
     crate::hk::modal(
         &title,
         "lg",
@@ -1461,108 +1500,7 @@ fn pokemon_editor_modal(st: &AppState) -> VNode {
             div {
                 class: "adm-editor-body",
                 "data-test-adm-pk-modal": "1",
-                    div { class: "adm-editor-grid",
-                        label { class: "adm-editor-field",
-                            span { "名称" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.name.get(),
-                                "data-test-adm-pkf": "name",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_pokemon_editor_field(&field_state_0, "name", &e.value, false);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "售价" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "0",
-                                value: ed.cost.get(),
-                                "data-test-adm-pkf": "cost",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_pokemon_editor_field(&field_state_1, "cost", &e.value, false);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "属性 1（中文，如 火）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.kind1.get(),
-                                "data-test-adm-pkf": "kind1",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_pokemon_editor_field(&field_state_2, "kind1", &e.value, false);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "属性 2（可空）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.kind2.get(),
-                                "data-test-adm-pkf": "kind2",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_pokemon_editor_field(&field_state_3, "kind2", &e.value, false);
-                                }
-                            }
-                        }
-                        button {
-                            class: selling_cls,
-                            disabled: saving,
-                            "data-test-adm-pk-toggle": "selling",
-                            onclick: move |_| toggle_pokemon_editor_flag(&toggle_selling_state, "selling"),
-                            "{selling_label}"
-                        }
-                        button {
-                            class: legendary_cls,
-                            disabled: saving,
-                            "data-test-adm-pk-toggle": "legendary",
-                            onclick: move |_| toggle_pokemon_editor_flag(&toggle_legendary_state, "legendary"),
-                            "{legendary_label}"
-                        }
-                    }
-                    label { class: "adm-editor-field adm-editor-wide",
-                        span { "描述" }
-                        textarea {
-                            class: "adm-editor-textarea",
-                            rows: 2,
-                            "data-test-adm-pkf": "description",
-                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                set_pokemon_editor_field(&ta_desc_state, "description", &e.value, false);
-                            },
-                            "{ed.description.get()}"
-                        }
-                    }
-                    div { class: "adm-editor-section-title", "初始个体值（0-255）" }
-                    div { class: "adm-editor-grid",
-                        for i in 0..stat_inputs.len() {
-                            ..vec![stat_inputs[i].clone()]
-                        }
-                    }
-                    div { class: "adm-editor-section-title", "初始努力值（0-3）" }
-                    div { class: "adm-editor-grid",
-                        for i in 0..base_inputs.len() {
-                            ..vec![base_inputs[i].clone()]
-                        }
-                    }
-                    label { class: "adm-editor-field adm-editor-wide",
-                        span { "扩展字段 JSON（sex_weight / map_ids / evolution_info_ids / capture_weight / meet_weight / birth_order / strength_weight / drop_money_range）" }
-                        textarea {
-                            class: "adm-editor-textarea",
-                            rows: 8,
-                            "data-test-adm-pkf": "extra",
-                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                set_pokemon_editor_field(&ta_extra_state, "extra", &e.value, false);
-                            },
-                            "{ed.extra_json.get()}"
-                        }
-                    }
-                    ..vec![err_block]
+                ..body
             }
         },
         vec![cancel, save],
@@ -1879,76 +1817,44 @@ fn item_editor_modal(st: &AppState) -> VNode {
     let effects = ed.effects.get();
     let tag_kind = ed.tag_kind.get();
     let tag_value = ed.tag_value.get();
-    let selling_label = if ed.is_selling.get() {
-        "可购买：是"
-    } else {
-        "可购买：否"
-    };
-    let selling_cls = if ed.is_selling.get() {
-        "admin-btn admin-btn--primary adm-editor-toggle"
-    } else {
-        "admin-btn adm-editor-toggle"
-    };
     let save_label = if saving { "保存中..." } else { "保存" };
 
-    // 类型选择：下拉在 jco 下 change 会带 value，可直接用。
-    let mut kind_options: Vec<VNode> = Vec::new();
-    for (code, label, _) in item_tag_kinds() {
-        kind_options.push(rsx! {
-            option {
-                value: code,
-                selected: code == tag_kind,
-                "{label}"
-            }
-        });
-    }
-    // 附加值输入框（药品没有）。
-    let extra_placeholder = item_tag_kinds()
+    let set: crate::hk::Setter = set_item_editor_field;
+    let kind_options: Vec<(String, String)> = item_tag_kinds()
+        .into_iter()
+        .map(|(code, label, _)| ((*code).to_string(), (*label).to_string()))
+        .collect();
+    // 附加值输入框（药品没有）。它的标签就是该类型那句提示。
+    let extra_label = item_tag_kinds()
         .into_iter()
         .find(|(code, _, _)| *code == tag_kind)
         .and_then(|(_, _, hint)| hint)
         .unwrap_or("");
-    // 附加值输入的处理函数在下面 rsx! 里用到，状态句柄得先备好。
-    let tagv_state = st.clone();
     let tag_extra = if tag_kind == "drug" {
         rsx! { p { class: "adm-editor-hint", "药品无附加配置" } }
     } else {
-        rsx! {
-            label { class: "adm-editor-field",
-                span { "{extra_placeholder}" }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "text",
-                    value: tag_value,
-                    "data-test-adm-itf": "tag_value",
-                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                        set_item_editor_field(&tagv_state, "tag_value", &e.value);
-                    }
-                }
-            }
-        }
+        crate::hk::text_field(
+            st,
+            set,
+            "it-tag-value",
+            "tag_value",
+            extra_label,
+            tag_value,
+            "text",
+        )
     };
 
     let mut effect_inputs: Vec<VNode> = Vec::new();
-    for i in 0..11 {
-        let label = ITEM_EFFECT_LABELS[i];
-        let attr = format!("effect:{i}");
-        let eff_key = attr.clone();
-        let eff_state = st.clone();
-        effect_inputs.push(rsx! {
-            label { class: "adm-editor-field",
-                span { "{label}" }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "number",
-                    value: effects[i].clone(),
-                    "data-test-adm-itf": attr,
-                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                        set_item_editor_field(&eff_state, &eff_key, &e.value);
-                    }
-                }
-            }
-        });
+    for (i, effect) in effects.iter().enumerate() {
+        effect_inputs.push(crate::hk::text_field(
+            st,
+            set,
+            &format!("it-effect-{i}"),
+            &format!("effect:{i}"),
+            ITEM_EFFECT_LABELS[i],
+            effect.clone(),
+            "number",
+        ));
     }
 
     let err_block = match err {
@@ -1975,13 +1881,6 @@ fn item_editor_modal(st: &AppState) -> VNode {
     let cancel_state = st.clone();
     let save_state = st.clone();
     let toggle_state = st.clone();
-    let itf_state_0 = st.clone();
-    let itf_state_1 = st.clone();
-    let itf_state_2 = st.clone();
-    let itf_state_3 = st.clone();
-    let itf_state_4 = st.clone();
-    let itf_state_5 = st.clone();
-    let itf_kind_state = st.clone();
 
     let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
         close_item_editor(&cancel_state)
@@ -1991,6 +1890,80 @@ fn item_editor_modal(st: &AppState) -> VNode {
         submit_item_editor(&save_state)
     })
     .disabled(saving);
+
+    // 开关的标签由 FormField 出，Switch 自己那份留空（同一格里只画一遍）。
+    let selling = crate::hk::switch(ed.is_selling.get(), "", move || {
+        toggle_item_editor_selling(&toggle_state)
+    });
+    let fields: Vec<VNode> = vec![
+        crate::hk::text_field(st, set, "it-name", "name", "名称", ed.name.get(), "text"),
+        crate::hk::text_field(
+            st,
+            set,
+            "it-img-name",
+            "img_name",
+            "图片文件名（不含扩展名）",
+            img_name.clone(),
+            "text",
+        ),
+        crate::hk::text_field(st, set, "it-price", "price", "价格", ed.price.get(), "number"),
+        crate::hk::text_field(
+            st,
+            set,
+            "it-min-level",
+            "min_level",
+            "最低等级",
+            ed.min_level.get(),
+            "number",
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "it-kind-require",
+            "kind_require",
+            "种族限制（中文名，可空）",
+            ed.kind_require.get(),
+            "text",
+        ),
+        crate::hk::form_field("可购买", None, selling),
+    ];
+    let tag_row: Vec<VNode> = vec![
+        crate::hk::select_field(
+            st,
+            set,
+            "it-tag-kind",
+            "tag_kind",
+            "类型",
+            kind_options,
+            tag_kind,
+        ),
+        tag_extra,
+    ];
+    let body: Vec<VNode> = vec![
+        rsx! {
+            div { class: "adm-editor-grid", ..fields }
+        },
+        rsx! {
+            div { class: "adm-editor-grid", ..tag_row }
+        },
+        crate::hk::textarea_field(
+            st,
+            set,
+            "it-description",
+            "description",
+            "描述",
+            ed.description.get(),
+            2,
+        ),
+        rsx! {
+            div { class: "adm-editor-section-title", "效果" }
+        },
+        rsx! {
+            div { class: "adm-editor-grid", ..effect_inputs }
+        },
+        preview,
+        err_block,
+    ];
     crate::hk::modal(
         &title,
         "lg",
@@ -1999,112 +1972,7 @@ fn item_editor_modal(st: &AppState) -> VNode {
             div {
                 class: "adm-editor-body",
                 "data-test-adm-it-modal": "1",
-                    div { class: "adm-editor-grid",
-                        label { class: "adm-editor-field",
-                            span { "名称" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.name.get(),
-                                "data-test-adm-itf": "name",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_item_editor_field(&itf_state_0, "name", &e.value);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "图片文件名（不含扩展名）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: img_name,
-                                "data-test-adm-itf": "img_name",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_item_editor_field(&itf_state_1, "img_name", &e.value);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "价格" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "0",
-                                value: ed.price.get(),
-                                "data-test-adm-itf": "price",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_item_editor_field(&itf_state_2, "price", &e.value);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "最低等级" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "0",
-                                value: ed.min_level.get(),
-                                "data-test-adm-itf": "min_level",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_item_editor_field(&itf_state_3, "min_level", &e.value);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "种族限制（中文名，可空）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.kind_require.get(),
-                                "data-test-adm-itf": "kind_require",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_item_editor_field(&itf_state_4, "kind_require", &e.value);
-                                }
-                            }
-                        }
-                        button {
-                            class: selling_cls,
-                            disabled: saving,
-                            "data-test-adm-it-toggle": "selling",
-                            onclick: move |_| toggle_item_editor_selling(&toggle_state),
-                            "{selling_label}"
-                        }
-                    }
-                    div { class: "adm-editor-grid",
-                        label { class: "adm-editor-field",
-                            span { "类型" }
-                            select {
-                                class: "adm-filter-input",
-                                "data-test-adm-itf": "tag_kind",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_item_editor_field(&itf_kind_state, "tag_kind", &e.value);
-                                },
-                                for i in 0..kind_options.len() {
-                                    ..vec![kind_options[i].clone()]
-                                }
-                            }
-                        }
-                        ..vec![tag_extra]
-                    }
-                    label { class: "adm-editor-field adm-editor-wide",
-                        span { "描述" }
-                        textarea {
-                            class: "adm-editor-textarea",
-                            rows: 2,
-                            "data-test-adm-itf": "description",
-                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                set_item_editor_field(&itf_state_5, "description", &e.value);
-                            },
-                            "{ed.description.get()}"
-                        }
-                    }
-                    div { class: "adm-editor-section-title", "效果" }
-                    div { class: "adm-editor-grid",
-                        for i in 0..effect_inputs.len() {
-                            ..vec![effect_inputs[i].clone()]
-                        }
-                    }
-                    ..vec![preview, err_block]
+                ..body
             }
         },
         vec![cancel, save],
@@ -2726,6 +2594,23 @@ pub fn submit_map_editor(state: &AppState) {
     }
 }
 
+/// 地图编辑器地形下拉的选项：地形码 → 「中文名（英文全名）」。
+fn map_area_options() -> Vec<(String, String)> {
+    AREA_TYPES
+        .iter()
+        .map(|(code, full, cn)| ((*code).to_string(), format!("{cn}（{full}）")))
+        .collect()
+}
+
+/// 地图编辑器模式下拉的选项。
+fn map_mode_options() -> Vec<(String, String)> {
+    [("wild", "野生"), ("boss", "Boss"), ("hybrid", "混合")]
+        .iter()
+        .map(|(code, label)| ((*code).to_string(), (*label).to_string()))
+        .collect()
+}
+
+/// 地图编辑弹窗（含 Boss 二级弹窗与已保存地图的野生宠物管理）。
 fn map_editor_modal(st: &AppState) -> VNode {
     let ed = st.map_editor.clone();
     if !ed.open.get() {
@@ -2740,152 +2625,77 @@ fn map_editor_modal(st: &AppState) -> VNode {
     let err = ed.err.get();
     let mode = ed.mode.get();
     let area_type = ed.area_type.get();
-    let enabled_label = if ed.is_enabled.get() {
-        "启用：是"
-    } else {
-        "启用：否"
-    };
-    // 各处理器各持一份状态句柄（闭包要求 'static）。
-    let mpf_state_0 = st.clone();
-    let mpf_state_1 = st.clone();
-    let mpf_state_2 = st.clone();
-    let mpf_state_3 = st.clone();
-    let mpsel_state_0 = st.clone();
-    let mpsel_state_1 = st.clone();
-    let mx_state_0 = st.clone();
-    let mx_state_1 = st.clone();
-    let mx_state_2 = st.clone();
-    let wild_q_state = st.clone();
-    let wild_search_state = st.clone();
-    let mp_toggle_state = st.clone();
-    let mp_x_state = st.clone();
-    let mp_cancel_state = st.clone();
-    let mp_save_state = st.clone();
-    let boss_overlay_state = st.clone();
-    let boss_cancel_state = st.clone();
-    let boss_save_state = st.clone();
-    let boss_search_state = st.clone();
-    let boss_add_state = st.clone();
-    let bossq_state = st.clone();
-    let bosslv_state = st.clone();
-    let bossmult_state = st.clone();
-
-    let enabled_cls = if ed.is_enabled.get() {
-        "admin-btn admin-btn--primary adm-editor-toggle"
-    } else {
-        "admin-btn adm-editor-toggle"
-    };
     let save_label = if saving { "保存中..." } else { "保存" };
 
-    let mut area_options: Vec<VNode> = Vec::new();
-    for (code, full, cn) in AREA_TYPES {
-        let label = format!("{cn}（{full}）");
-        area_options.push(rsx! {
-            option {
-                value: code,
-                selected: code == area_type,
-                "{label}"
-            }
-        });
-    }
-    let mut mode_options: Vec<VNode> = Vec::new();
-    for (code, label) in [("wild", "野生"), ("boss", "Boss"), ("hybrid", "混合")] {
-        mode_options.push(rsx! {
-            option {
-                value: code,
-                selected: code == mode,
-                "{label}"
-            }
-        });
-    }
+    let set: crate::hk::Setter = set_map_editor_field;
 
-    // 野生模式只显示经验倍率；boss/hybrid 显示 Boss JSON。
-    let mode_extras: Vec<VNode> = if mode == "wild" {
-        vec![rsx! {
-            label { class: "adm-editor-field",
-                span { "经验值" }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "number",
-                    min: "0",
-                    value: ed.experience.get(),
-                    "data-test-adm-mpf": "experience",
-                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                        set_map_editor_field(&mx_state_0, "experience", &e.value);
-                    }
-                }
-            }
-            label { class: "adm-editor-field",
-                span { "经验倍率" }
-                input {
-                    class: "adm-filter-input",
-                    r#type: "number",
-                    min: "0",
-                    value: ed.experience_increase_times.get(),
-                    "data-test-adm-mpf": "increase_times",
-                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                        set_map_editor_field(&mx_state_1, "increase_times", &e.value);
-                    }
-                }
-            }
-        }]
+    // -- 野生模式只显示两个倍率；boss/hybrid 显示 Boss 列表 --
+    let mode_extras: Vec<VNode> = if mode == "wild" || mode == "hybrid" {
+        vec![crate::hk::text_field(
+            st,
+            set,
+            "mp-experience",
+            "experience",
+            "经验值",
+            ed.experience.get(),
+            "number",
+        )]
     } else {
-        let mut v = Vec::new();
-        if mode == "hybrid" {
-            v.push(rsx! {
-                label { class: "adm-editor-field",
-                    span { "经验值" }
-                    input {
-                        class: "adm-filter-input",
-                        r#type: "number",
-                        min: "0",
-                        value: ed.experience.get(),
-                        "data-test-adm-mpf": "experience",
-                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                            set_map_editor_field(&mx_state_2, "experience", &e.value);
-                        }
-                    }
-                }
-            });
-        }
-        // Boss 列表 + 二级编辑弹窗（UX 对等 A：对齐 Dioxus 的 Boss 挑战区）。
+        Vec::new()
+    };
+    let rate_fields: Vec<VNode> = if mode == "wild" {
+        vec![crate::hk::text_field(
+            st,
+            set,
+            "mp-increase-times",
+            "increase_times",
+            "经验倍率",
+            ed.experience_increase_times.get(),
+            "number",
+        )]
+    } else {
+        Vec::new()
+    };
+
+    // -- Boss 挑战区（boss/hybrid）--
+    let boss_section: Vec<VNode> = if mode == "wild" {
+        Vec::new()
+    } else {
         let mut boss_rows: Vec<VNode> = Vec::new();
         let boss_entries: Vec<serde_json::Value> =
             serde_json::from_str(&ed.bosses_json.get()).unwrap_or_default();
         for (i, e) in boss_entries.iter().enumerate() {
-            let idx_attr = i.to_string();
-            let boss_edit_idx = i;
-            let boss_del_idx = i;
-            let boss_edit_state = st.clone();
-            let boss_del_state = st.clone();
+            let index = i.to_string();
+            let edit_state = st.clone();
+            let del_state = st.clone();
+            let edit_idx = i;
+            let del_idx = i;
             let name = json_str(e, "pokemon_name");
-            let lv = json_u64(e, "level");
-            let mult = e
-                .get("boss_multiplier")
-                .and_then(|m| m.as_f64())
-                .unwrap_or(1.5);
-            let lv_text = format!("Lv.{lv}");
-            let mult_text = format!("{mult:.1}x");
+            let lv_text = format!("Lv.{}", json_u64(e, "level"));
+            let mult_text = format!(
+                "{:.1}x",
+                e.get("boss_multiplier")
+                    .and_then(|m| m.as_f64())
+                    .unwrap_or(1.5)
+            );
+            let edit = crate::hk::button(
+                "编辑",
+                ButtonVariant::Secondary,
+                ButtonSize::Xs,
+                false,
+                move || boss_modal_open(&edit_state, Some(edit_idx)),
+            );
+            let del = crate::hk::button("删除", ButtonVariant::Ghost, ButtonSize::Xs, false, move || {
+                boss_remove(&del_state, del_idx)
+            });
+            let kids: Vec<VNode> = vec![
+                rsx! { span { class: "adm-boss-row-name", "{name}" } },
+                rsx! { span { class: "adm-boss-row-level", "{lv_text}" } },
+                rsx! { span { class: "adm-boss-row-mult", "{mult_text}" } },
+                rsx! { span { class: "adm-boss-row-actions", ..vec![edit, del] } },
+            ];
             boss_rows.push(rsx! {
-                div { class: "adm-boss-row",
-                    span { class: "adm-boss-row-name", "{name}" }
-                    span { class: "adm-boss-row-level", "{lv_text}" }
-                    span { class: "adm-boss-row-mult", "{mult_text}" }
-                    span { class: "adm-boss-row-actions",
-                        button {
-                            class: "admin-btn adm-row-edit",
-                            "data-test-adm-mp-boss-edit": idx_attr.clone(),
-                            onclick: move |_| boss_modal_open(&boss_edit_state, Some(boss_edit_idx)),
-                            "编辑"
-                        }
-                        button {
-                            class: "admin-btn adm-row-del",
-                            "data-test-adm-mp-boss-del": idx_attr.clone(),
-                            onclick: move |_| boss_remove(&boss_del_state, boss_del_idx),
-                            "删除"
-                        }
-                    }
-                }
+                div { class: "adm-boss-row", "data-boss-index": index, ..kids }
             });
         }
         let boss_list_block = if boss_rows.is_empty() {
@@ -2896,16 +2706,13 @@ fn map_editor_modal(st: &AppState) -> VNode {
             }
         } else {
             rsx! {
-                div { class: "adm-boss-list",
-                    for i in 0..boss_rows.len() {
-                        ..vec![boss_rows[i].clone()]
-                    }
-                }
+                div { class: "adm-boss-list", ..boss_rows }
             }
         };
+
         // 二级弹窗本体（仅 boss_open 时渲染）。
         let boss_modal = if ed.boss_open.get() {
-            let title = if ed.boss_editing_idx.get().is_some() {
+            let boss_title = if ed.boss_editing_idx.get().is_some() {
                 "编辑 Boss".to_string()
             } else {
                 "添加 Boss".to_string()
@@ -2913,19 +2720,15 @@ fn map_editor_modal(st: &AppState) -> VNode {
             let mut result_chips: Vec<VNode> = Vec::new();
             for (pid, name) in ed.boss_results.get().into_iter() {
                 let label = format!("{name} #{pid}");
-                let attr = format!("{pid}:{name}");
-                let boss_pick_state = st.clone();
-                let boss_pick_name = name.clone();
-                let boss_pick_id = pid;
-                result_chips.push(rsx! {
-                    button {
-                        class: "admin-btn adm-grant-result",
-                        disabled: ed.boss_searching.get(),
-                        "data-test-adm-mp-boss-pick": attr,
-                        onclick: move |_| boss_pick(&boss_pick_state, boss_pick_id, &boss_pick_name),
-                        "{label}"
-                    }
-                });
+                let pick_state = st.clone();
+                let pick_name = name.clone();
+                result_chips.push(crate::hk::button(
+                    label.as_str(),
+                    ButtonVariant::Secondary,
+                    ButtonSize::Sm,
+                    ed.boss_searching.get(),
+                    move || boss_pick(&pick_state, pid, &pick_name),
+                ));
             }
             let search_block = if ed.boss_searching.get() {
                 rsx! { p { class: "adm-editor-hint", "搜索中..." } }
@@ -2933,11 +2736,7 @@ fn map_editor_modal(st: &AppState) -> VNode {
                 VNode::empty()
             } else {
                 rsx! {
-                    div { class: "adm-grant-results",
-                        for i in 0..result_chips.len() {
-                            ..vec![result_chips[i].clone()]
-                        }
-                    }
+                    div { class: "adm-grant-results", ..result_chips }
                 }
             };
             let picked = if ed.boss_species_id.get() != 0 {
@@ -2949,132 +2748,116 @@ fn map_editor_modal(st: &AppState) -> VNode {
             } else {
                 "尚未选择物种（搜索后点选）".to_string()
             };
-            let iv_labels = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
             let mut iv_fields: Vec<VNode> = Vec::new();
+            let iv_labels = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
             for (i, lab) in iv_labels.iter().enumerate() {
-                let key = format!("iv:{i}");
-                let lab = *lab;
-                let val = ed.boss_ivs.get()[i].clone();
-                let iv_key = key.clone();
-                let iv_state = st.clone();
-                iv_fields.push(rsx! {
-                    label { class: "adm-editor-field",
-                        span { "{lab}" }
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "number",
-                            min: "0",
-                            max: "255",
-                            value: val,
-                            "data-test-adm-bossf": key,
-                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                set_boss_field(&iv_state, &iv_key, &e.value);
-                            }
-                        }
-                    }
-                });
+                iv_fields.push(crate::hk::text_field(
+                    st,
+                    set_boss_field,
+                    &format!("boss-iv-{i}"),
+                    &format!("iv:{i}"),
+                    lab,
+                    ed.boss_ivs.get()[i].clone(),
+                    "number",
+                ));
             }
             let boss_err_block = match ed.boss_err.get() {
                 Some(e) => rsx! { p { class: "adm-editor-error", "{e}" } },
                 None => VNode::empty(),
             };
-            let boss_cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
-                close_boss_modal(&boss_cancel_state)
+            let overlay_state = st.clone();
+            let cancel_state = st.clone();
+            let save_state = st.clone();
+            let search_state = st.clone();
+            let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
+                close_boss_modal(&cancel_state)
             });
-            let boss_save = crate::hk::HkAction::new("保存", ButtonVariant::Primary, move || {
-                boss_save(&boss_save_state)
+            let save = crate::hk::HkAction::new("保存", ButtonVariant::Primary, move || {
+                boss_save(&save_state)
             });
+            let search = crate::hk::button(
+                "搜索",
+                ButtonVariant::Secondary,
+                ButtonSize::Sm,
+                ed.boss_searching.get(),
+                move || boss_search(&search_state),
+            );
+            let query = crate::hk::text_field(
+                st,
+                set_boss_field,
+                "boss-query",
+                "query",
+                "",
+                ed.boss_query.get(),
+                "text",
+            );
+            let search_row: Vec<VNode> = vec![query, search];
+            let two: Vec<VNode> = vec![
+                crate::hk::text_field(
+                    st,
+                    set_boss_field,
+                    "boss-level",
+                    "level",
+                    "等级（可超过 100）",
+                    ed.boss_level.get(),
+                    "number",
+                ),
+                crate::hk::text_field(
+                    st,
+                    set_boss_field,
+                    "boss-mult",
+                    "mult",
+                    "属性倍率（1.0 = 无加成）",
+                    ed.boss_mult.get(),
+                    "number",
+                ),
+            ];
+            let body: Vec<VNode> = vec![
+                rsx! { div { class: "adm-editor-grid", ..search_row } },
+                search_block,
+                rsx! { p { class: "adm-grant-picked", "{picked}" } },
+                rsx! { div { class: "adm-editor-grid adm-boss-fields", ..two } },
+                rsx! { div { class: "adm-editor-section-title", "个体值（0-255）" } },
+                rsx! { div { class: "adm-editor-grid adm-boss-ivs", ..iv_fields } },
+                boss_err_block,
+            ];
             crate::hk::modal(
-                &title,
+                &boss_title,
                 "md",
-                move || close_boss_modal(&boss_overlay_state),
+                move || close_boss_modal(&overlay_state),
                 rsx! {
                     div {
                         class: "adm-editor-body",
                         "data-test-adm-boss-modal": "1",
-                            div { class: "adm-editor-grid",
-                                input {
-                                    class: "adm-filter-input",
-                                    r#type: "text",
-                                    placeholder: "按名称搜索物种（包含）",
-                                    value: ed.boss_query.get(),
-                                    "data-test-adm-bossf": "query",
-                                    onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                        set_boss_field(&bossq_state, "query", &e.value);
-                                    }
-                                }
-                                button {
-                                    class: "admin-btn adm-editor-toggle",
-                                    disabled: ed.boss_searching.get(),
-                                    "data-test-adm-mp-boss-search": "1",
-                                    onclick: move |_| boss_search(&boss_search_state),
-                                    "搜索"
-                                }
-                            }
-                            ..vec![search_block]
-                            p { class: "adm-grant-picked", "{picked}" }
-                            div { class: "adm-editor-grid adm-boss-fields",
-                                label { class: "adm-editor-field",
-                                    span { "等级（可超过 100）" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "number",
-                                        min: "1",
-                                        value: ed.boss_level.get(),
-                                        "data-test-adm-bossf": "level",
-                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                            set_boss_field(&bosslv_state, "level", &e.value);
-                                        }
-                                    }
-                                }
-                                label { class: "adm-editor-field",
-                                    span { "属性倍率（1.0 = 无加成）" }
-                                    input {
-                                        class: "adm-filter-input",
-                                        r#type: "number",
-                                        min: "1.0",
-                                        max: "5.0",
-                                        step: "0.1",
-                                        value: ed.boss_mult.get(),
-                                        "data-test-adm-bossf": "mult",
-                                        onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                            set_boss_field(&bossmult_state, "mult", &e.value);
-                                        }
-                                    }
-                                }
-                            }
-                            div { class: "adm-editor-section-title", "个体值（0-255）" }
-                            div { class: "adm-editor-grid adm-boss-ivs",
-                                for i in 0..iv_fields.len() {
-                                    ..vec![iv_fields[i].clone()]
-                                }
-                            }
-                            ..vec![boss_err_block]
+                        ..body
                     }
                 },
-                vec![boss_cancel, boss_save],
+                vec![cancel, save],
             )
         } else {
             VNode::empty()
         };
-        v.push(rsx! {
-            div { class: "adm-editor-field adm-editor-wide",
-                div { class: "adm-editor-section-title",
-                    "Boss 挑战"
-                    button {
-                        class: "admin-btn adm-editor-toggle",
-                        "data-test-adm-mp-boss-add": "1",
-                        onclick: move |_| boss_modal_open(&boss_add_state, None),
-                        "＋ 添加 Boss"
-                    }
-                }
-                ..vec![boss_list_block, boss_modal]
-            }
-        });
-        v
+
+        let add_state = st.clone();
+        let add = crate::hk::button(
+            "＋ 添加 Boss",
+            ButtonVariant::Secondary,
+            ButtonSize::Xs,
+            false,
+            move || boss_modal_open(&add_state, None),
+        );
+        let header: Vec<VNode> = vec![
+            rsx! { span { class: "adm-editor-section-title", "Boss 挑战" } },
+            add,
+        ];
+        vec![
+            rsx! { div { class: "adm-editor-field adm-editor-wide", ..header } },
+            boss_list_block,
+            boss_modal,
+        ]
     };
 
-    // -- 野怪管理区（仅已保存地图；Dioxus 的「野生宠物列表」对应物）--
+    // -- 野怪管理区（仅已保存地图）--
     let wild_section = {
         let mut chips: Vec<VNode> = Vec::new();
         for (pid, name) in ed.wild.get().into_iter() {
@@ -3088,10 +2871,7 @@ fn map_editor_modal(st: &AppState) -> VNode {
                 move || wild_remove(&remove_state, pid),
             );
             chips.push(rsx! {
-                span { class: "adm-wild-chip",
-                    "{label}"
-                    ..vec![remove]
-                }
+                span { class: "adm-wild-chip", "{label}", ..vec![remove] }
             });
         }
         let wild_list_block = if ed.wild_loading.get() {
@@ -3099,13 +2879,7 @@ fn map_editor_modal(st: &AppState) -> VNode {
         } else if chips.is_empty() {
             rsx! { p { class: "adm-editor-hint", "该地图暂无野怪。" } }
         } else {
-            rsx! {
-                div { class: "adm-grant-results",
-                    for i in 0..chips.len() {
-                        ..vec![chips[i].clone()]
-                    }
-                }
-            }
+            rsx! { div { class: "adm-grant-results", ..chips } }
         };
         let mut result_chips: Vec<VNode> = Vec::new();
         for (pid, name) in ed.wild_results.get().into_iter() {
@@ -3124,44 +2898,36 @@ fn map_editor_modal(st: &AppState) -> VNode {
         } else if result_chips.is_empty() {
             VNode::empty()
         } else {
-            rsx! {
-                div { class: "adm-grant-results",
-                    for i in 0..result_chips.len() {
-                        ..vec![result_chips[i].clone()]
-                    }
-                }
-            }
+            rsx! { div { class: "adm-grant-results", ..result_chips } }
         };
         match editing {
-            Some(_) => rsx! {
-                div { class: "adm-cfg-section",
-                    div { class: "adm-editor-section-title", "野生宠物" }
-                    ..vec![wild_list_block]
-                    div { class: "adm-editor-grid",
-                        input {
-                            class: "adm-filter-input",
-                            r#type: "text",
-                            placeholder: "按名称搜索宠物类型（包含）",
-                            value: ed.wild_query.get(),
-                            "data-test-adm-mpf": "wild_query",
-                            onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                set_map_editor_field(&wild_q_state, "wild_query", &e.value);
-                            }
-                        }
-                        button {
-                            class: "admin-btn adm-editor-toggle",
-                            disabled: ed.wild_searching.get(),
-                            "data-test-adm-mp-wild-search": "1",
-                            onclick: move |_| wild_search(&wild_search_state),
-                            "搜索"
-                        }
-                    }
-                    ..vec![search_block]
-                }
-            },
-            None => rsx! {
-                p { class: "adm-editor-hint", "保存地图后即可管理野生宠物。" }
-            },
+            Some(_) => {
+                let search_state = st.clone();
+                let search = crate::hk::button(
+                    "搜索",
+                    ButtonVariant::Secondary,
+                    ButtonSize::Sm,
+                    ed.wild_searching.get(),
+                    move || wild_search(&search_state),
+                );
+                let query = crate::hk::text_field(
+                    st,
+                    set,
+                    "mp-wild-query",
+                    "wild_query",
+                    "",
+                    ed.wild_query.get(),
+                    "text",
+                );
+                let row: Vec<VNode> = vec![query, search];
+                vec![
+                    rsx! { div { class: "adm-editor-section-title", "野生宠物" } },
+                    wild_list_block,
+                    rsx! { div { class: "adm-editor-grid", ..row } },
+                    search_block,
+                ]
+            }
+            None => vec![rsx! { p { class: "adm-editor-hint", "保存地图后即可管理野生宠物。" } }],
         }
     };
 
@@ -3170,117 +2936,93 @@ fn map_editor_modal(st: &AppState) -> VNode {
         None => VNode::empty(),
     };
 
+    // 各处理器各持一份状态句柄（闭包要求 'static）。
+    let overlay_state = st.clone();
+    let cancel_state = st.clone();
+    let save_state = st.clone();
+    let enabled_state = st.clone();
+
     let cancel = crate::hk::HkAction::new("取消", ButtonVariant::Secondary, move || {
-        close_map_editor(&mp_cancel_state)
+        close_map_editor(&cancel_state)
     })
     .disabled(saving);
     let save = crate::hk::HkAction::new(save_label, ButtonVariant::Primary, move || {
-        submit_map_editor(&mp_save_state)
+        submit_map_editor(&save_state)
     })
     .disabled(saving);
+    let enabled = crate::hk::switch(ed.is_enabled.get(), "", move || {
+        toggle_map_editor_enabled(&enabled_state)
+    });
+
+    let fields: Vec<VNode> = vec![
+        crate::hk::text_field(st, set, "mp-name", "name", "名称", ed.name.get(), "text"),
+        crate::hk::select_field(
+            st,
+            set,
+            "mp-area-type",
+            "area_type",
+            "地形类型",
+            map_area_options(),
+            area_type,
+        ),
+        crate::hk::select_field(
+            st,
+            set,
+            "mp-mode",
+            "mode",
+            "模式",
+            map_mode_options(),
+            mode,
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "mp-min-level",
+            "min_level",
+            "最低等级",
+            ed.min_level.get(),
+            "number",
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "mp-max-level",
+            "max_level",
+            "最高等级",
+            ed.max_level.get(),
+            "number",
+        ),
+        crate::hk::text_field(
+            st,
+            set,
+            "mp-min-quality",
+            "min_quality",
+            "品质门槛（0-8，0=不限制）",
+            ed.min_quality.get(),
+            "number",
+        ),
+        crate::hk::form_field("启用", None, enabled),
+    ];
+
+    let mut body: Vec<VNode> = vec![rsx! { div { class: "adm-editor-grid", ..fields } }];
+    if !mode_extras.is_empty() || !rate_fields.is_empty() {
+        let mut rates = mode_extras;
+        rates.extend(rate_fields);
+        body.push(rsx! { div { class: "adm-editor-grid", ..rates } });
+    }
+    body.extend(boss_section);
+    body.extend(wild_section);
+    body.push(err_block);
+
     crate::hk::modal(
         &title,
         "lg",
-        move || close_map_editor(&mp_x_state),
+        move || close_map_editor(&overlay_state),
         rsx! {
             div {
                 class: "adm-editor-body",
                 "data-test-adm-mp-modal": "1",
-                    div { class: "adm-editor-grid",
-                        label { class: "adm-editor-field",
-                            span { "名称" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "text",
-                                value: ed.name.get(),
-                                "data-test-adm-mpf": "name",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_map_editor_field(&mpf_state_0, "name", &e.value);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "地形类型" }
-                            select {
-                                class: "adm-filter-input",
-                                "data-test-adm-mpf": "area_type",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_map_editor_field(&mpsel_state_0, "area_type", &e.value);
-                                },
-                                for i in 0..area_options.len() {
-                                    ..vec![area_options[i].clone()]
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "模式" }
-                            select {
-                                class: "adm-filter-input",
-                                "data-test-adm-mpf": "mode",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_map_editor_field(&mpsel_state_1, "mode", &e.value);
-                                },
-                                for i in 0..mode_options.len() {
-                                    ..vec![mode_options[i].clone()]
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "最低等级" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "1",
-                                max: "255",
-                                value: ed.min_level.get(),
-                                "data-test-adm-mpf": "min_level",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_map_editor_field(&mpf_state_1, "min_level", &e.value);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "最高等级" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "1",
-                                max: "255",
-                                value: ed.max_level.get(),
-                                "data-test-adm-mpf": "max_level",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_map_editor_field(&mpf_state_2, "max_level", &e.value);
-                                }
-                            }
-                        }
-                        label { class: "adm-editor-field",
-                            span { "品质门槛（0-8，0=不限制）" }
-                            input {
-                                class: "adm-filter-input",
-                                r#type: "number",
-                                min: "0",
-                                max: "8",
-                                value: ed.min_quality.get(),
-                                "data-test-adm-mpf": "min_quality",
-                                onchange: move |e: tairitsu_vdom::ChangeEvent| {
-                                    set_map_editor_field(&mpf_state_3, "min_quality", &e.value);
-                                }
-                            }
-                        }
-                        button {
-                            class: enabled_cls,
-                            disabled: saving,
-                            "data-test-adm-mp-toggle": "enabled",
-                            onclick: move |_| toggle_map_editor_enabled(&mp_toggle_state),
-                            "{enabled_label}"
-                        }
-                    }
-                    div { class: "adm-editor-grid",
-                        for i in 0..mode_extras.len() {
-                            ..vec![mode_extras[i].clone()]
-                        }
-                    }
-                    ..vec![wild_section, err_block]
+                ..body
             }
         },
         vec![cancel, save],
@@ -4712,7 +4454,7 @@ fn grant_modal(st: &AppState) -> VNode {
             saving,
             move || toggle_grant_shiny(&shiny_state),
         );
-        let mut step2_fields: Vec<VNode> = vec![
+        let step2_fields: Vec<VNode> = vec![
             crate::hk::text_field(
                 st,
                 set_grant_field,

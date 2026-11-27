@@ -127,7 +127,7 @@ INTERFACE_MAP = {
     "css-style-declaration": ("css", ["getPropertyValue", "setProperty"]),
     "document": ("dom", [
         "createElement", "createElementNs", "createTextNode", "elementFromPoint",
-        "execCommand", "getBody",
+        "execCommand", "exitFullscreen", "getBody",
     ]),
     "dom-token-list": ("css", ["add", "contains", "remove"]),
     "element": ("dom", [
@@ -148,6 +148,9 @@ INTERFACE_MAP = {
     "html-input-element": ("html", [
         "getChecked", "getType", "getValue", "setChecked", "setValue",
     ]),
+    # setSelected：tairitsu-web 给 <option> 的 selected 落实时选中态（只写属性
+    # 对用户动过的 option 不起作用）；getSelected 供能力探针逐项读回。
+    "html-option-element": ("html", ["getSelected", "setSelected"]),
     "mouse-event": ("events", [
         "getAltKey", "getButton", "getButtons", "getClientX", "getClientY",
         "getCtrlKey", "getMetaKey", "getOffsetX", "getOffsetY", "getPageX",
