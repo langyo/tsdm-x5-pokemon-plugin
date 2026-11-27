@@ -127,10 +127,10 @@ fn slot(
                 if pm.is_shiny || pm.is_legendary {
                     span { class: "pm-mini-marks",
                         if pm.is_shiny {
-                            span { class: "pet-mark-compact", "★" }
+                            span { class: "pet-mark pet-mark-shiny pet-mark-compact", title: "异色（闪光）宠物", "闪" }
                         }
                         if pm.is_legendary {
-                            span { class: "pet-mark-compact", "◆" }
+                            span { class: "pet-mark pet-mark-god pet-mark-compact", title: "神兽 / 活动定制宠物", "神" }
                         }
                     }
                 }
@@ -224,10 +224,10 @@ fn Tooltip(pm: Box<PokemonBasic>, hp_class: String) -> VNode {
                 div { class: "pm-tooltip-name-row",
                     span { class: "pm-tooltip-name", "{display_name}" }
                     if pm.is_shiny {
-                        span { class: "pet-mark-compact", "★" }
+                        span { class: "pet-mark pet-mark-shiny pet-mark-compact", title: "异色（闪光）宠物", "闪" }
                     }
                     if pm.is_legendary {
-                        span { class: "pet-mark-compact", "◆" }
+                        span { class: "pet-mark pet-mark-god pet-mark-compact", title: "神兽 / 活动定制宠物", "神" }
                     }
                     span { class: "pm-tooltip-level", "{level_text}" }
                 }
