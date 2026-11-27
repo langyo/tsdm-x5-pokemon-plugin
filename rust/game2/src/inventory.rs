@@ -373,8 +373,7 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
         let close_for_button = state.clone();
         let close_state = state.clone();
         crate::modal::modal_hooked(
-            &title,
-            false,
+            crate::modal::ModalSpec::new(&title, false),
             crate::modal::hook_close_button!(
                 "data-test-inv-modal-close",
                 move || close_target_modal(&close_for_button)

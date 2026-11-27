@@ -90,7 +90,10 @@
   --hk-modal-border-color: transparent;
   --hk-modal-radius: 12px; // $radius-lg
   --hk-modal-padding-header: 16px 20px; // $spacing-base $spacing-lg
-  --hk-modal-padding-body: 20px; // $spacing-lg
+  // 正文内边距不给 hikari 的正文层：包着正文的 div 带着 `modal-body`（见
+  // `src/modal.rs`），内边距和旧版一样由它给——旧正文自己的类可能改写它
+  // （`.switch-pokemon-modal`、窄屏下的 `.battle-result-section`）。
+  --hk-pad: 0px;
   --hk-modal-divider-color: transparent; // 旧版标题栏下没有分隔线
   --hk-modal-title-font-size: 16px; // $font-size-lg
   --hk-modal-title-font-weight: 600;
@@ -176,7 +179,8 @@
   }
 
   // 旧版正文多一个 `custom-scrollbar` 的弹窗（`modal()` 入口，如「关于本项目」）：
-  // 那条规则设了 `scrollbar-width: thin`，实测 10px。
+  // 那条规则设了 `scrollbar-width: thin`，实测 10px。滚动发生在 hikari 的滚动层
+  // 上，所以这个宽度要落在这里，而不是落在带 `custom-scrollbar` 的正文 div 上。
   &.game-modal--thin-scroll .hk-modal-body-scroll {
     scrollbar-width: thin;
     scrollbar-color: #dee2e6 #f2f4f5; // $color-gray-300 $color-gray-100

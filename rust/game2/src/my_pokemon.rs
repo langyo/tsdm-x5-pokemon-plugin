@@ -1919,8 +1919,7 @@ fn learn_modal_vnode(st: &AppState) -> VNode {
         div { class: "skill-learn-content", ..vec![body] }
     }];
     crate::modal::modal_hooked(
-        &title,
-        false,
+        crate::modal::ModalSpec::new(&title, false),
         crate::modal::hook_close_button!(
             "data-test-learn-close",
             move || close_learn_modal(&close_state)
@@ -2131,8 +2130,7 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
         }
     };
     crate::modal::modal_hooked(
-        "努力值计算器",
-        true,
+        crate::modal::ModalSpec::new("努力值计算器", true),
         crate::modal::hook_close_button!("data-test-ev-close", move || close_ev_modal(&ev_close_state)),
         move || close_ev_modal(&ev_overlay_state),
         vec![body],
@@ -2229,8 +2227,7 @@ fn evo_path_modal(st: &AppState) -> VNode {
     }];
     body_nodes.push(body);
     crate::modal::modal_hooked(
-        "进化路径",
-        false,
+        crate::modal::ModalSpec::new("进化路径", false),
         crate::modal::hook_close_button!(
             "data-test-evo-path-close",
             move || close_evo_path_modal(&path_close_state)
@@ -2317,8 +2314,7 @@ fn evolution_modal(st: &AppState) -> VNode {
 
     // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
     crate::modal::modal_hooked(
-        "进化",
-        false,
+        crate::modal::ModalSpec::new("进化", false),
         crate::modal::hook_close_button!(
             "data-test-evo-modal-close",
             move || close_evolution_modal(&evo_close_state)

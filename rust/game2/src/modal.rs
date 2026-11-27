@@ -22,8 +22,7 @@ const WIDTH: &str = "600px";
 const WIDTH_LG: &str = "800px";
 
 /// 一处弹窗在外壳上的差异。默认值就是旧版各处手绘弹窗的形状：
-/// 宽度按 `large` 取，自带关闭键（没有测试钩子），没有额外的标题栏动作，
-/// 正文是 6px 细滚动条。
+/// 宽度按 `large` 取，自带关闭键（没有测试钩子），没有额外的标题栏动作。
 pub struct ModalSpec<'a> {
     pub title: &'a str,
     pub large: bool,
@@ -32,9 +31,14 @@ pub struct ModalSpec<'a> {
     pub closable: bool,
     /// 标题右侧的动作槽。自带关闭键时排在它前面。
     pub header_actions: Option<VNode>,
-    /// 旧版正文带 `custom-scrollbar` 的弹窗：那条规则设了
-    /// `scrollbar-width: thin`，实测 10px；其余是 `.modal-body` 自己的 6px。
-    pub thin_scrollbar: bool,
+    /// 旧正文是 `modal-body custom-scrollbar` 的那一种：共用外壳 `modal()`
+    /// 的弹窗（如「关于本项目」）。那条规则设了 `scrollbar-width: thin`，
+    /// 实测 10px；其余弹窗的正文是 `.modal-body` 自己的 6px。
+    pub custom_scrollbar: bool,
+    /// 旧正文在 `modal-body` 之外还带的类（`.switch-pokemon-modal`、
+    /// `.modal-map-details` 这些）。它必须落在带 `modal-body` 的同一个元素上，
+    /// 见 [`modal_with`]。
+    pub body_class: &'static str,
 }
 
 impl<'a> ModalSpec<'a> {
@@ -44,43 +48,66 @@ impl<'a> ModalSpec<'a> {
             large,
             closable: true,
             header_actions: None,
-            thin_scrollbar: false,
+            custom_scrollbar: false,
+            body_class: "",
+        }
+    }
+
+    /// 关不掉的弹窗：旧 markup 既没有关闭键、遮罩点击也不关的那一种（战斗的
+    /// 连接错误提示、战斗结果、替换宠物）。只能由正文里的按钮离开。
+    pub fn unclosable(title: &'a str, large: bool) -> Self {
+        Self {
+            closable: false,
+            ..Self::new(title, large)
         }
     }
 }
 
 /// 旧版共用外壳 `Modal` / `ModalLg` 的入口：它的正文是
-/// `modal-body custom-scrollbar`（细滚动条走 `thin`）。
+/// `modal-body custom-scrollbar`。
 pub fn modal(title: &str, large: bool, on_close: Rc<dyn Fn()>, body: Vec<VNode>) -> VNode {
     let on_close = Rc::clone(&on_close);
     let spec = ModalSpec {
-        thin_scrollbar: true,
+        custom_scrollbar: true,
         ..ModalSpec::new(title, large)
     };
     modal_with(spec, move || on_close(), body)
 }
 
 /// 同上，差异由 `spec` 给。
+///
+/// 包着正文的那个 div 就是旧版的 `.modal-body`：它带着 `modal-body`、按需加
+/// `custom-scrollbar`，再加上 `body_class`。旧正文自己的类各有一条规则，和
+/// `.modal-body` 的同权重、靠源码顺序分胜负，所以必须写在同一个元素上才算得
+/// 出旧版的值——实测 `.switch-pokemon-modal { padding: 12px 0 }` 在旧版败给
+/// `.modal-body` 的 `20px`；落进内层另一个 div 就会生效，弹窗高出 24px。调用
+/// 方因此不要再包一层根 div，`body` 里直接放旧 `.modal-body` 的子节点。hikari
+/// 正文层的内边距归零（皮肤里 `--hk-pad: 0px`），内边距由这个 div 给。
 pub fn modal_with(
     spec: ModalSpec<'_>,
     on_close: impl Fn() + 'static,
     body: Vec<VNode>,
 ) -> VNode {
     let close = Rc::new(on_close);
-    let content_class = if spec.thin_scrollbar {
-        "game-modal game-modal--thin-scroll"
-    } else {
-        "game-modal"
-    };
+    let mut body_class = String::from("modal-body game-modal-body");
+    let mut content_class = String::from("game-modal");
+    if spec.custom_scrollbar {
+        body_class.push_str(" custom-scrollbar");
+        content_class.push_str(" game-modal--thin-scroll");
+    }
+    if !spec.body_class.is_empty() {
+        body_class.push(' ');
+        body_class.push_str(spec.body_class);
+    }
     Modal(ModalProps {
         open: true,
         title: Some(spec.title.to_string()),
         closable: spec.closable,
         header_actions: spec.header_actions,
         width: if spec.large { WIDTH_LG } else { WIDTH }.to_string(),
-        content_class: content_class.to_string(),
+        content_class,
         children: rsx! {
-            div { class: "game-modal-body", ..body }
+            div { class: body_class, ..body }
         },
         on_close: Some(EventHandler::new(move |_event: tairitsu_vdom::MouseEvent| {
             close()
@@ -91,22 +118,19 @@ pub fn modal_with(
 
 /// 关闭键要带回归钩子的弹窗。`close_button` 是调用方用
 /// [`hook_close_button!`] 出的那一枚；点遮罩与点它走同一个 `on_close`。
+/// `spec` 照常给（标题、宽度、`body_class`），这里只把自带关闭键换掉。
 pub fn modal_hooked(
-    title: &str,
-    large: bool,
+    spec: ModalSpec<'_>,
     close_button: VNode,
     on_close: impl Fn() + 'static,
     body: Vec<VNode>,
 ) -> VNode {
-    modal_with(
-        ModalSpec {
-            closable: false,
-            header_actions: Some(close_button),
-            ..ModalSpec::new(title, large)
-        },
-        on_close,
-        body,
-    )
+    let spec = ModalSpec {
+        closable: false,
+        header_actions: Some(close_button),
+        ..spec
+    };
+    modal_with(spec, on_close, body)
 }
 
 /// 出一枚带回归钩子的关闭键，长相与 hikari 自带的那枚相同（同一个图标、同一
