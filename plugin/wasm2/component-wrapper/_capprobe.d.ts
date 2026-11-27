@@ -12,6 +12,7 @@ export type * as TairitsuBrowserFullEvent020 from './interfaces/tairitsu-browser
 export type * as TairitsuBrowserFullHistory020 from './interfaces/tairitsu-browser-full-history.js'; // import tairitsu-browser:full/history@0.2.0
 export type * as TairitsuBrowserFullHtmlCanvasElement020 from './interfaces/tairitsu-browser-full-html-canvas-element.js'; // import tairitsu-browser:full/html-canvas-element@0.2.0
 export type * as TairitsuBrowserFullHtmlInputElement020 from './interfaces/tairitsu-browser-full-html-input-element.js'; // import tairitsu-browser:full/html-input-element@0.2.0
+export type * as TairitsuBrowserFullHtmlOptionElement020 from './interfaces/tairitsu-browser-full-html-option-element.js'; // import tairitsu-browser:full/html-option-element@0.2.0
 export type * as TairitsuBrowserFullLocation020 from './interfaces/tairitsu-browser-full-location.js'; // import tairitsu-browser:full/location@0.2.0
 export type * as TairitsuBrowserFullMediaQueryList020 from './interfaces/tairitsu-browser-full-media-query-list.js'; // import tairitsu-browser:full/media-query-list@0.2.0
 export type * as TairitsuBrowserFullMouseEvent020 from './interfaces/tairitsu-browser-full-mouse-event.js'; // import tairitsu-browser:full/mouse-event@0.2.0

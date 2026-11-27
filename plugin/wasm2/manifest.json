@@ -1,8 +1,8 @@
 {
-  "build_id": "1795723783",
+  "build_id": "1795765391",
   "base": "/source/plugin/pokemon/wasm2",
-  "entry": "/source/plugin/pokemon/wasm2/boot.js?v=1795723783",
-  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_game2.js?b=1795723783",
+  "entry": "/source/plugin/pokemon/wasm2/boot.js?v=1795765391",
+  "component": "/source/plugin/pokemon/wasm2/component-wrapper/_game2.js?b=1795765391",
   "interfaces": [
     "canvas-fill-stroke-styles",
     "canvas-rect",
@@ -16,6 +16,7 @@
     "history",
     "html-canvas-element",
     "html-input-element",
+    "html-option-element",
     "location",
     "media-query-list",
     "mouse-event",

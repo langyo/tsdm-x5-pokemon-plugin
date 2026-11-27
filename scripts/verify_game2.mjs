@@ -194,25 +194,33 @@ async function isLoggedIn() {
 async function login() {
   if (!USER || !PASS) return false;
   await goto(`${BASE}/member.php?mod=logging&action=login`);
-  const submitted = await evaljs((u, p) => {
-    const form =
-      document.querySelector('form[name="login"]') ??
-      [...document.forms].find((f) => f.querySelector('input[type="password"]'));
-    if (!form) {
-      return `no-form @ ${location.href} forms=${[...document.forms].map((f) => f.name || '(unnamed)').join(',')}`;
-    }
-    const un = form.querySelector('input[name="username"], input[name="username_ll"]');
-    const pw = form.querySelector('input[type="password"]');
-    if (!un || !pw) return 'no-fields';
-    // 全新会话登录页要验证码（Discuz seccode），脚本给不出答案。
-    if (form.querySelector('[name="seccodeverify"], .seccode, #seccodeverify')) {
-      return 'captcha';
-    }
-    un.value = u;
-    pw.value = p;
-    form.submit();
-    return 'submitted';
-  }, USER, PASS);
+  // 登录表单要等。全新 profile 下 `load` 之后页面还在补：实测 load 后 0.6s
+  // 时 `document.forms` 里只有页头那个无名搜索表单，1.8s 起才有 `login`。
+  // 只看一次会把「还没出现」误报成「登录页没有表单」。按状态轮询到有结论。
+  let submitted = 'no-form';
+  for (let i = 0; i < 40; i++) {
+    submitted = await evaljs((u, p) => {
+      const form =
+        document.querySelector('form[name="login"]') ??
+        [...document.forms].find((f) => f.querySelector('input[type="password"]'));
+      if (!form) {
+        return `no-form @ ${location.href} forms=${[...document.forms].map((f) => f.name || '(unnamed)').join(',')}`;
+      }
+      const un = form.querySelector('input[name="username"], input[name="username_ll"]');
+      const pw = form.querySelector('input[type="password"]');
+      if (!un || !pw) return 'no-fields';
+      // 全新会话登录页要验证码（Discuz seccode），脚本给不出答案。
+      if (form.querySelector('[name="seccodeverify"], .seccode, #seccodeverify')) {
+        return 'captcha';
+      }
+      un.value = u;
+      pw.value = p;
+      form.submit();
+      return 'submitted';
+    }, USER, PASS);
+    if (!submitted.startsWith('no-form')) break;
+    await sleep(250);
+  }
   if (submitted.startsWith('no-form')) {
     // 登录页没渲染出表单：新版 Discuz 的登录页是 JS 渲染/或先跳到别处。
     // 这是环境侧问题，不该让整个回归崩掉。
