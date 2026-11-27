@@ -125,6 +125,7 @@ pub fn Icon(name: IconName, size: u32, class: String) -> VNode {
             "stroke-width": "2",
             "stroke-linecap": "round",
             "stroke-linejoin": "round",
+            "aria-hidden": "true",
             dangerous_inner_html: inner,
         }
     }

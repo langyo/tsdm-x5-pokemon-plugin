@@ -13,10 +13,9 @@ use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
 use crate::app_state::AppState;
+use crate::icon::{Icon, IconName, IconProps};
 use crate::state::{PokemonBasic, ToastKind, UserProfile};
 use crate::toast;
-
-const IMG_PATH: &str = "source/plugin/pokemon/images";
 
 fn avatar_url(uid: u64) -> String {
     format!("plugin.php?id=pokemon:pokemon&endpoint=avatar&uid={uid}&size=middle")
@@ -151,13 +150,14 @@ fn reload_team(state: &AppState) {
     }));
 }
 
-/// 背包分类迷你块的数据（type_id / 标签 / 图标 / tooltip）。
-fn bag_tiles() -> [(u64, &'static str, &'static str, &'static str); 4] {
+/// 背包分类迷你块的数据（type_id / 标签 / 图标 / tooltip）。图标是内联的 lucide
+/// SVG，与旧版同一份（`IconName::Pill`…），不是物品图片。
+fn bag_tiles() -> [(u64, &'static str, IconName, &'static str); 4] {
     [
-        (1, "回复药", "item/hp.gif", "查看回复药"),
-        (2, "精灵球", "item/jlq.gif", "查看精灵球"),
-        (3, "进化石", "item/szs.gif", "查看进化石"),
-        (4, "强化", "item/atkg.gif", "查看强化道具"),
+        (1, "回复药", IconName::Pill, "查看回复药"),
+        (2, "精灵球", IconName::Circle, "查看精灵球"),
+        (3, "进化石", IconName::Gem, "查看进化石"),
+        (4, "强化", IconName::Zap, "查看强化道具"),
     ]
 }
 
@@ -236,35 +236,20 @@ fn trainer_card(state: &AppState, profile: &UserProfile) -> VNode {
                             }
                             div { class: "trainer-stats-row",
                                 span { class: "stat-chip",
-                                    svg {
-                                        xmlns: "http://www.w3.org/2000/svg",
-                                        width: "12",
-                                        height: "12",
-                                        "viewBox": "0 0 24 24",
-                                        fill: "none",
-                                        stroke: "currentColor",
-                                        "stroke-width": "2",
-                                        "stroke-linecap": "round",
-                                        "stroke-linejoin": "round",
-                                        class: "stat-icon",
-                                        dangerous_inner_html: r#"<circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><path d="m16.71 13.88.7.71-2.82 2.82" />"#,
-                                    }
+                                    // 与旧版同一份 lucide 路径（IconName::Coins / Swords）。
+                                    {Icon(IconProps {
+                                        name: Some(IconName::Coins),
+                                        size: Some(12),
+                                        class: Some("stat-icon".to_string()),
+                                    })}
                                     "{money}"
                                 }
                                 span { class: "stat-chip",
-                                    svg {
-                                        xmlns: "http://www.w3.org/2000/svg",
-                                        width: "12",
-                                        height: "12",
-                                        "viewBox": "0 0 24 24",
-                                        fill: "none",
-                                        stroke: "currentColor",
-                                        "stroke-width": "2",
-                                        "stroke-linecap": "round",
-                                        "stroke-linejoin": "round",
-                                        class: "stat-icon",
-                                        dangerous_inner_html: r#"<path d="M14.5 17.5 3 6V3h3l11.5 11.5" /><path d="M13 19l6-6" /><path d="M16 16l4 4" /><path d="M19 21l2-2" />"#,
-                                    }
+                                    {Icon(IconProps {
+                                        name: Some(IconName::Swords),
+                                        size: Some(12),
+                                        class: Some("stat-icon".to_string()),
+                                    })}
                                     "{record}"
                                 }
                             }
@@ -356,7 +341,6 @@ fn bag_card(state: &AppState) -> VNode {
                 .map(|(_, c)| *c)
                 .unwrap_or(0)
                 .to_string();
-            let src = format!("{IMG_PATH}/{icon}");
             let tile_tip = tip.to_string();
             let cat = *type_id;
             let tile_state = state.clone();
@@ -374,7 +358,11 @@ fn bag_card(state: &AppState) -> VNode {
                             crate::request_remount();
                         }
                     },
-                    img { class: "bag-item-icon", src: src }
+                    {Icon(IconProps {
+                        name: Some(*icon),
+                        size: Some(16),
+                        class: Some("bag-item-icon".to_string()),
+                    })}
                     span { class: "bag-item-label", "{label}" }
                     span { class: "bag-count-badge", "{count}" }
                 }
