@@ -382,6 +382,17 @@ async function stepInventory() {
   ok('到达背包页', boot.cats > 0, `cats=${boot.cats} active=${boot.active}`);
   await waitFor(async () => (await evaljs(() => document.querySelectorAll('.shop-item-card').length > 0)), 15000, '物品列表');
   ok('分类按钮 6 个', boot.cats === 6, `got ${boot.cats}`);
+  // 进入背包页默认选中「回复药」（旧版挂载时 `INITIAL_INVENTORY_CATEGORY.take().or(Some(1))`）。
+  const entryActive = await evaljs(() => document.querySelector('[data-test-inv-cat].active')?.getAttribute('data-test-inv-cat') ?? null);
+  ok('进入时默认分类是回复药', entryActive === '1', `active=${entryActive}`);
+
+  // 下面的断言要在「全部物品」上找精灵球和装备道具：先切过去，等列表换掉
+  // （切换后旧列表会留到新数据回来，只看 count > 0 会被旧列表满足）。
+  const entryCount = await evaljs(() => document.querySelectorAll('.shop-item-card').length);
+  await evaljs(() => document.querySelector('[data-test-inv-cat="all"]').click());
+  await waitFor(async () => (await evaljs(() => document.querySelectorAll('.shop-item-card').length)) !== entryCount, 8000, '全部物品列表')
+    .catch(() => null);
+  await sleep(400);
 
   const before = await invCards();
   ok('物品卡片 ≥1', before.length >= 1, `got ${before.length}`);
@@ -455,9 +466,11 @@ async function stepInventory() {
     // 后端路由仍叫 my-pokemon）；这里断路由归属，不按文案猜。
     ok('装备道具跳转我的宠物', jump.activeNav === '个人中心', jump.activeNav);
     ok('落在装备标签页', (jump.tabActive ?? '').includes('active'), jump.tabActive);
-    // 回背包继续后续断言
+    // 回背包继续后续断言。重新进入时分类回到默认的「回复药」（见上），所以等
+    // 「列表出来、且选中的是回复药」，不按「全部物品」的数量等。
     await evaljs(() => document.querySelector('button[data-test-nav="inventory"]')?.click());
-    await waitFor(async () => (await evaljs(() => document.querySelectorAll('.shop-item-card').length)) === before.length, 10000, '回到背包');
+    await waitFor(async () => (await evaljs(() => document.querySelectorAll('.shop-item-card').length > 0
+      && document.querySelector('[data-test-inv-cat].active')?.getAttribute('data-test-inv-cat') === '1')), 10000, '回到背包');
   } else {
     skip('装备道具跳转', '数据中没有装备道具');
   }

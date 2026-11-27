@@ -100,6 +100,9 @@ pub struct UsablePokemon {
 #[derive(Clone)]
 pub struct InventoryState {
     pub component_id: std::cell::Cell<u32>,
+    /// 侧栏背包小格留下的分类，下次进入背包页时取用并清空（旧版的
+    /// `INITIAL_INVENTORY_CATEGORY`）。None = 没有待取的。
+    pub entry_category: std::cell::Cell<Option<u32>>,
     pub category: ReactiveSignal<Option<u32>>,
     pub page: ReactiveSignal<u32>,
     pub total_pages: ReactiveSignal<usize>,
@@ -120,7 +123,9 @@ impl InventoryState {
     pub fn new() -> Self {
         Self {
             component_id: std::cell::Cell::new(0),
-            category: use_signal(|| None),
+            entry_category: std::cell::Cell::new(None),
+            // 旧版挂载时的默认分类是「回复药」（见 inventory::on_enter）。
+            category: use_signal(|| Some(1u32)),
             page: use_signal(|| 1u32),
             total_pages: use_signal(|| 1usize),
             total: use_signal(|| 0usize),

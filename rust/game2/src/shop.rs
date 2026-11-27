@@ -15,8 +15,6 @@ use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
-use hikari_components::{theme::ThemeProviderProps, ThemeProvider};
-
 use crate::api;
 use crate::icon::{Icon, IconName, IconProps};
 use crate::shop_logic::{shop_tooltip_position, windowed_entries, PagerEntry};
@@ -322,13 +320,11 @@ fn debounce_reload(state: &ShopState) {
 
 #[component]
 pub fn Shop(state: Box<ShopState>) -> VNode {
+    // 外面不包 ThemeProvider：旧版没有这一层，商店页里也没有依赖主题变量的
+    // hikari 组件。它渲染出来的 div.hk-theme-provider 会多占一层，还会把 hikari
+    // 的字体与颜色继承给整页内容。
     rsx! {
-        ThemeProvider {
-            palette: "hikari".to_string(),
-            primary: Some("#5cb8e6".to_string()),
-            secondary: Some("#f5a623".to_string()),
-            ShopCard { state: Some(state) }
-        }
+        ShopCard { state: Some(state) }
     }
 }
 
@@ -524,14 +520,15 @@ fn ItemsTab(state: Box<ShopState>) -> VNode {
             }
         }
         Some(Ok(items)) => rsx! {
-            div {
-                div { class: "shop-tiles-grid",
-                    for (idx , item) in items.iter().enumerate() {
-                        { rsx! { ItemTile { state: Some(state.clone()), idx: Some(idx), item: Some(item.clone()) } } }
-                    }
+            // 网格和翻页器是兄弟节点（旧版如此），不另包一层 div——多一层会让
+            // `.shop-card-body > .shop-tiles-grid` 这类子选择器不再命中。rsx 的多个
+            // 根节点会展开成 Fragment。
+            div { class: "shop-tiles-grid",
+                for (idx , item) in items.iter().enumerate() {
+                    { rsx! { ItemTile { state: Some(state.clone()), idx: Some(idx), item: Some(item.clone()) } } }
                 }
-                Paginator { state: Some(state) }
             }
+            Paginator { state: Some(state) }
         },
     }
 }
@@ -559,14 +556,12 @@ fn PetsTab(state: Box<ShopState>) -> VNode {
             }
         }
         Some(Ok(pets)) => rsx! {
-            div {
-                div { class: "shop-tiles-grid",
-                    for (idx , pet) in pets.iter().enumerate() {
-                        { rsx! { PetTile { state: Some(state.clone()), idx: Some(idx), pet: Some(pet.clone()) } } }
-                    }
+            div { class: "shop-tiles-grid",
+                for (idx , pet) in pets.iter().enumerate() {
+                    { rsx! { PetTile { state: Some(state.clone()), idx: Some(idx), pet: Some(pet.clone()) } } }
                 }
-                Paginator { state: Some(state) }
             }
+            Paginator { state: Some(state) }
         },
     }
 }
