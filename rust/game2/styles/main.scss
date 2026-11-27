@@ -186,3 +186,41 @@
     scrollbar-color: #dee2e6 #f2f4f5; // $color-gray-300 $color-gray-100
   }
 }
+
+// =============================================================================
+// hikari 的样式表只在 hikari 组件里生效
+// =============================================================================
+
+// 构建脚本把 hikari 的全部样式表包在 @layer hikari 里：凡是 game.css / Discuz /
+// 本皮肤声明了的属性，未分层的宿主赢，不必再比特异度。但 hikari 的表里还有一大批
+// 宿主没有对应声明的规则——元素级的重置（`* { border-style: solid }`、
+// `button { font: inherit }`……）和 html / body 上的规则——它们没有对手，照样落在
+// 每一个元素上。实测（对 Dioxus 原版，2026-11-27）：v2 每个元素的 border-style 都是
+// solid、点击高亮都是透明，顶部导航一行高 44.8px 而原版是 43px。
+//
+// 所以在 hikari 之后的另一个分层里把这类声明整表退回：不属于 hikari 的元素上，
+// `all: revert` 让 hikari 声明过的属性回到浏览器默认值；未分层的宿主声明压得过
+// 这一层，照常生效。必须是平级的顶层分层，不能是 hikari 的子层——子层压不过父层
+// 自己的规则（和「未分层压过分层」同理）。层序由构建脚本写在文件开头。
+//
+// 「属于 hikari」看类名前缀：自己带 hk- 类，或者在带 hk- 类的元素里面。两处例外：
+// - Modal 的正文（`.hk-modal-body-inner`）是宿主的内容，连同里面的东西一起算宿主；
+//   里面再嵌的 hikari 组件（带 hk- 类）不算。
+// - hikari `Button` 带着旧版类名渲染（见 `src/button.rs`）：它带 hk- 类，但观感要
+//   是 game.css 的，而按钮表声明、旧规则没声明的属性（gap、min-height、
+//   white-space、outline、悬停时的 filter……）会漏出来——按钮连同内容整棵退回。
+//
+// 以后哪处要 hikari 的原生观感，在本皮肤里（未分层）写规则即可：未分层压得过这一层。
+@layer hikari-reset {
+  :where(*):not([class*="hk-"], [class*="hk-"] *),
+  :where(.hk-modal-body-inner, .hk-modal-body-inner *):not([class*="hk-"], [class*="hk-"] *),
+  :where(*):not([class*="hk-"], [class*="hk-"] *)::before,
+  :where(*):not([class*="hk-"], [class*="hk-"] *)::after {
+    all: revert;
+  }
+
+  .hk-btn,
+  .hk-btn * {
+    all: revert;
+  }
+}
