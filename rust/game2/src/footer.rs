@@ -139,5 +139,6 @@ pub fn about_modal(state: &AppState) -> VNode {
                         }
                     }
     };
-    crate::modal::modal("关于本项目", true, on_close, vec![dialog])
+    // 旧版用的是普通宽度的 Modal（600px），不是 ModalLg。
+    crate::modal::modal("关于本项目", false, on_close, vec![dialog])
 }
