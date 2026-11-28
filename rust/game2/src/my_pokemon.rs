@@ -1800,43 +1800,6 @@ impl ToRadians for f64 {
 // 技能标签页面板与学习弹窗
 // ---------------------------------------------------------------------------
 
-/// 技能属性 → 徽章类（旧版 `TypeBadge` 的对照表；表里没有的算「未知」）。
-fn skill_type_badge_class(skill_type: &str) -> String {
-    let name = match skill_type.to_lowercase().as_str() {
-        "火" | "fire" => "火",
-        "水" | "water" => "水",
-        "草" | "grass" => "草",
-        "电" | "electric" => "电",
-        "超能" | "psychic" => "超能",
-        "冰" | "ice" => "冰",
-        "龙" | "dragon" => "龙",
-        "恶" | "dark" => "恶",
-        "妖精" | "fairy" => "妖精",
-        "格斗" | "fighting" => "格斗",
-        "飞行" | "flying" => "飞行",
-        "地面" | "ground" => "地面",
-        "岩石" | "rock" => "岩石",
-        "虫" | "bug" => "虫",
-        "幽灵" | "ghost" => "幽灵",
-        "钢" | "steel" => "钢",
-        "毒" | "poison" => "毒",
-        "普通" | "normal" => "普通",
-        _ => "未知",
-    };
-    format!("badge-type-{name}")
-}
-
-/// 技能分类 → 徽章类（旧版 `TypeBadge`；其余算「其他」）。
-fn skill_category_badge_class(category: &str) -> String {
-    let name = match category.to_lowercase().as_str() {
-        "物攻" | "物理" | "physical" => "物攻",
-        "特攻" | "特殊" | "special" => "特攻",
-        "变化" | "status" => "变化",
-        _ => "其他",
-    };
-    format!("badge-cat-{name}")
-}
-
 /// 技能标签页面板：技能卡（点击展开遗忘）+ 空槽（点击学习）。
 fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
     let loading = st.my_pm.skill_loading.get();
@@ -1870,15 +1833,7 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
         } else {
             format!(" /{}", skill.pp)
         };
-        // 徽章走旧版 TypeBadge 的对照表（属性、分类各一张），包在 .skill-type-badges 里。
-        let type_badge_cls = format!(
-            "badge badge-skill-type {}",
-            skill_type_badge_class(&skill.skill_type)
-        );
-        let cat_badge_cls = format!(
-            "badge badge-category {}",
-            skill_category_badge_class(&skill.category)
-        );
+        // 徽章走旧版 TypeBadge（crate::type_badge）：属性、分类各一张。
         let power_label = match skill.category.as_str() {
             "特攻" | "特殊" => "特攻：",
             "物攻" | "物理" => "物攻：",
@@ -1899,6 +1854,7 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
         };
         let stype = skill.skill_type.clone();
         let scat = skill.category.clone();
+        let badges = crate::type_badge::type_badge(&stype, &scat, "");
 
         let forget_block = if is_selected {
             let btn_cls = if skill.can_forget {
@@ -1935,14 +1891,7 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
                     }
                 }
                 div { class: "skill-card-bottom",
-                    div { class: "skill-type-badges",
-                        if !stype.is_empty() {
-                            span { class: type_badge_cls, "{stype}" }
-                        }
-                        if !scat.is_empty() {
-                            span { class: cat_badge_cls, "{scat}" }
-                        }
-                    }
+                    ..vec![badges]
                     div { class: "skill-stats",
                         span { class: "skill-power",
                             "{power_label}"

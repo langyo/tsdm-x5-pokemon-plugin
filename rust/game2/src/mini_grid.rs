@@ -194,21 +194,21 @@ fn Tooltip(pm: Box<PokemonBasic>, hp_class: String) -> VNode {
     let exp_style = format!("width: {exp_pct}%;");
     let exp_text = format!("{in_level}/{needed}");
 
+    // 旧版逐槽列出（空槽也占一行：空名字 + `PP: 0/0`，没有属性徽章）。
     let skills: Vec<VNode> = pm
         .skills
         .iter()
-        .filter(|s| !s.name.is_empty())
         .map(|s| {
-            let type_cls = format!("badge badge-type-{}", s.skill_type);
             let pp = format!("PP: {}/{}", s.pp, s.max_pp);
             let name = s.name.clone();
             let skill_type = s.skill_type.clone();
+            let show_type = !skill_type.is_empty();
             rsx! {
                 div { class: "pm-tooltip-skill-row",
                     span { class: "skill-name", "{name}" }
                     span { class: "skill-pp", "{pp}" }
-                    if !skill_type.is_empty() {
-                        span { class: "badge {type_cls} type-badge-sm", "{skill_type}" }
+                    if show_type {
+                        {crate::type_badge::type_badge(&skill_type, "", "type-badge-sm")}
                     }
                 }
             }

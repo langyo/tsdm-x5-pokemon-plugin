@@ -107,7 +107,7 @@ fn team(state: &AppState) -> Vec<PokemonBasic> {
 fn select_slot(state: &AppState, team: &[PokemonBasic], index: usize) {
     use crate::app_state::Route;
 
-    let in_battle = matches!(state.battle.scene.get(), Some(Some(_)));
+    let in_battle = crate::battle::user_in_battle(state);
     if in_battle {
         crate::battle::open_switch_modal(state);
         return;
@@ -172,7 +172,14 @@ pub fn Sidebar(state: Box<AppState>) -> VNode {
         return VNode::empty();
     };
     let team = team(state);
-    let active_id = state.sidebar.selected_id.get();
+    // 高亮的格子：战斗里是在场的那只（旧版按 my_pokemon.instance_id 找），
+    // 平时是用户点选的那只。
+    let active_id = match state.battle.scene.get() {
+        Some(Some(ref scene)) if crate::battle::user_in_battle(state) => {
+            Some(scene.my_pokemon.instance_id)
+        }
+        _ => state.sidebar.selected_id.get(),
+    };
 
     // 点击迷你格：先把 team 摘出来给闭包（'static）。
     let team_for_click: Rc<Vec<PokemonBasic>> = Rc::new(team.clone());
@@ -296,7 +303,7 @@ fn pets_card(
     on_select: Rc<dyn Fn(usize)>,
 ) -> VNode {
     // 与 select_slot 同一个「在战斗里」的判断。
-    let user_in_battle = matches!(state.battle.scene.get(), Some(Some(_)));
+    let user_in_battle = crate::battle::user_in_battle(state);
     let grid = crate::mini_grid::mini_grid(
         team,
         active_id,

@@ -23,7 +23,7 @@ use crate::battle_types::{
     difficulty_class, quality_gate_notice, recommendation, BattleStatus, MapInfo,
 };
 use crate::icon::{Icon, IconName, IconProps};
-use crate::state::{PendingBattleAction, PokemonBasic, ToastKind};
+use crate::state::{ItemCardKey, PendingBattleAction, PokemonBasic, ToastKind};
 use crate::toast;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
@@ -359,14 +359,27 @@ pub fn select_region(state: &AppState, region: Option<String>) {
     crate::request_remount();
 }
 
+/// 切换战斗页标签。对齐 Dioxus 版：切到道具 / 捕捉时拉一次清单（标签变化的
+/// use_effect）；已经停在这两个标签上再点一次也重拉（`!loading` 时）。卡片上的
+/// 悬浮提示与详情弹窗是组件内状态，换标签即卸载，所以一并收起。
 pub fn switch_tab(state: &AppState, tab: u8) {
     let bt = state.battle.clone();
-    let reload = tab == 1 || tab == 2;
+    let changed = bt.tab.get() != tab;
+    let reload = (tab == 1 || tab == 2) && (changed || !bt.loading.get());
     bt.tab.inner().set(tab);
+    bt.item_hover.inner().set(None);
+    bt.item_details.inner().set(None);
     crate::request_remount();
     if reload {
         refresh_battle_inventory(&bt);
     }
+}
+
+/// 用户此刻是否在战斗里（旧版 `USER_STATE.is_in_battle()`，取资料的 `npcid > 0`，
+/// 战斗一结束服务端就清零）。这边从场景派生：有场景且战斗没结束。只看「有没有
+/// 场景」的话，结算弹窗开着的时候侧栏迷你格还顶着「战斗中」的角标。
+pub fn user_in_battle(state: &AppState) -> bool {
+    matches!(state.battle.scene.get(), Some(Some(ref scene)) if !scene.effective_battle_over())
 }
 
 pub fn open_switch_modal(state: &AppState) {
@@ -413,6 +426,74 @@ pub fn close_log(state: &AppState) {
     crate::request_remount();
 }
 
+/// 战报弹窗的「重新载入」（旧版 `report.restart()`）：清掉复制提示，重拉战报。
+pub fn reload_log(state: &AppState) {
+    open_log(state);
+}
+
+// ---------------------------------------------------------------------------
+// 道具 / 精灵球卡（旧版 BattleItemCard 的组件内状态）
+// ---------------------------------------------------------------------------
+
+/// 指针进入卡片：记下光标位置（提示框落点用）并显示。
+fn item_card_enter(state: &AppState, key: ItemCardKey, client_x: i32, client_y: i32) {
+    let bt = state.battle.clone();
+    bt.item_hover_pos
+        .inner()
+        .set((client_x as f64, client_y as f64));
+    bt.item_hover.inner().set(Some(key));
+    crate::request_remount();
+}
+
+/// 指针离开卡片：收起提示框。
+fn item_card_leave(state: &AppState, key: ItemCardKey) {
+    let bt = state.battle.clone();
+    if bt.item_hover.get() == Some(key) {
+        bt.item_hover.inner().set(None);
+        crate::request_remount();
+    }
+}
+
+/// 点卡片：开详情弹窗，收起提示框。
+fn open_item_details(state: &AppState, key: ItemCardKey) {
+    let bt = state.battle.clone();
+    if bt.loading.get() {
+        return;
+    }
+    bt.item_hover.inner().set(None);
+    bt.item_details.inner().set(Some(key));
+    crate::request_remount();
+}
+
+fn close_item_details(state: &AppState) {
+    state.battle.item_details.inner().set(None);
+    crate::request_remount();
+}
+
+/// 详情弹窗里的「使用道具 / 使用精灵球」：关弹窗，再按卡的类型派发。
+/// `disabled` 是旧版那一条：卡当前用不了 / 动作进行中 / 数量为 0。
+fn use_item_card(state: &AppState, is_ball: bool, use_id: u64, disabled: bool) {
+    if disabled {
+        return;
+    }
+    state.battle.item_details.inner().set(None);
+    if is_ball {
+        capture(state, use_id);
+    } else {
+        use_item_in_battle(state, use_id);
+    }
+}
+
+fn show_player_tooltip(state: &AppState) {
+    state.battle.player_hover.inner().set(true);
+    crate::request_remount();
+}
+
+fn hide_player_tooltip(state: &AppState) {
+    state.battle.player_hover.inner().set(false);
+    crate::request_remount();
+}
+
 /// 复制战报 BBCode 到剪贴板（对齐 Dioxus 版 log.rs 的「复制战报」）。
 pub fn copy_log(state: &AppState) {
     let bbcode = state
@@ -448,6 +529,239 @@ fn gender_symbol(gender: u8) -> &'static str {
         1 => "♀",
         _ => "",
     }
+}
+
+/// 性别类名后缀（旧版 `gender_class`；未知为空）。
+fn gender_class(gender: u8) -> &'static str {
+    match gender {
+        0 => "male",
+        1 => "female",
+        _ => "",
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 道具 / 精灵球卡（旧版 BattleItemCard）
+// ---------------------------------------------------------------------------
+
+/// 一张道具 / 精灵球卡的显示数据（旧版 `battle_item_for_card` 之后的 `InventoryItem`
+/// 加上 `BattleItemCard` 的几个 prop）。
+struct ItemCard {
+    key: ItemCardKey,
+    /// 使用键：道具传记录 id，精灵球传种类 id（旧版 `on_click` 的两种实参）。
+    use_id: u64,
+    name: String,
+    description: String,
+    image_src: String,
+    qty: i64,
+    type_name: String,
+    /// 当前用不了（详情里的「使用」禁用；卡面变灰但照样能点开看详情）。
+    disabled: bool,
+    /// 动作进行中（卡面按钮本身禁用）。
+    busy: bool,
+    condition: String,
+}
+
+/// 物品图地址：带扩展名的原样用，否则补 `.gif`（旧版 card / tooltip 同一规则）。
+fn item_image_src(image: &str) -> String {
+    if image.contains('.') {
+        format!("{IMG_PATH}/item/{image}")
+    } else {
+        format!("{IMG_PATH}/item/{image}.gif")
+    }
+}
+
+/// 道具（`is_ball = false`）/ 精灵球（`is_ball = true`）页签的卡片数据。
+fn item_cards(
+    st: &AppState,
+    my: &crate::battle_types::BattlePokemon,
+    loading: bool,
+    is_ball: bool,
+) -> Vec<ItemCard> {
+    let bt = st.battle.clone();
+    if is_ball {
+        bt.battle_balls
+            .get()
+            .into_iter()
+            .enumerate()
+            .map(|(idx, ball)| ItemCard {
+                key: (true, idx),
+                use_id: ball.type_id,
+                name: ball.name,
+                description: ball.description,
+                image_src: item_image_src(&ball.image),
+                qty: ball.quantity,
+                type_name: ball.type_name,
+                disabled: loading,
+                busy: loading,
+                condition: "用于捕捉当前野生宠物；捕捉失败时对方可能反击。".to_string(),
+            })
+            .collect()
+    } else {
+        bt.battle_items
+            .get()
+            .into_iter()
+            .enumerate()
+            .map(|(idx, item)| {
+                let usable = item.can_use_on(my);
+                let condition = if my.hp <= 0 {
+                    "宠物已倒下，请先替换宠物。".to_string()
+                } else if item.is_pp_restore() {
+                    if usable {
+                        "选择一个PP未满的技能，恢复后对方会反击。".to_string()
+                    } else {
+                        "所有技能PP已满，暂时不需要恢复。".to_string()
+                    }
+                } else if usable {
+                    "恢复当前宠物的HP，使用后对方会反击。".to_string()
+                } else {
+                    "当前HP已满，暂时不需要恢复。".to_string()
+                };
+                ItemCard {
+                    key: (false, idx),
+                    use_id: item.id,
+                    name: item.name.clone(),
+                    description: item.display_description(),
+                    image_src: item_image_src(&item.img),
+                    qty: item.nums,
+                    type_name: item.type_label().to_string(),
+                    disabled: loading || !usable,
+                    busy: loading,
+                    condition,
+                }
+            })
+            .collect()
+    }
+}
+
+/// 按标识找回一张卡（清单刷新后下标可能失效，找不到就不画）。
+fn find_card(
+    st: &AppState,
+    my: &crate::battle_types::BattlePokemon,
+    loading: bool,
+    key: ItemCardKey,
+) -> Option<ItemCard> {
+    item_cards(st, my, loading, key.0).into_iter().nth(key.1)
+}
+
+/// 道具 / 精灵球卡：48px 图标格 + 数量角标。悬浮出提示、点击开详情弹窗——两者
+/// 渲染在页面层（[`battle_item_tooltip`] / [`battle_item_details_modal`]）。
+///
+/// 有意是原生 `button` 而不是 hikari `Button`：卡片要 `mouseenter` / `mouseleave`
+/// （hikari `Button` 只接 `onclick`），与迷你格的格子同一处理。
+fn battle_item_card(st: &AppState, card: &ItemCard) -> VNode {
+    let card_cls = if card.disabled {
+        "battle-item-card disabled"
+    } else if card.key.0 {
+        "battle-item-card capture-ball-card"
+    } else {
+        "battle-item-card"
+    };
+    let alt = card.name.clone();
+    let image_src = card.image_src.clone();
+    let aria_label = format!("查看 {}", card.name);
+    let aria_disabled = if card.busy { "true" } else { "false" };
+    let hook = if card.key.0 {
+        format!("ball-{}", card.use_id)
+    } else {
+        format!("item-{}", card.use_id)
+    };
+    let qty = card.qty.to_string();
+    let busy = card.busy;
+    let key = card.key;
+    let click_state = st.clone();
+    let enter_state = st.clone();
+    let leave_state = st.clone();
+    rsx! {
+        div { class: "battle-item-card-wrapper",
+            button {
+                r#type: "button",
+                class: card_cls,
+                "aria-label": aria_label,
+                "aria-disabled": aria_disabled,
+                "data-test-bt-item-card": hook,
+                disabled: busy,
+                onclick: move |_| open_item_details(&click_state, key),
+                onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
+                    item_card_enter(&enter_state, key, e.client_x, e.client_y)
+                },
+                onmouseleave: move |_| item_card_leave(&leave_state, key),
+                div { class: "battle-item-icon",
+                    img { src: image_src, alt: alt }
+                }
+                span { class: "battle-item-qty", "{qty}" }
+            }
+        }
+    }
+}
+
+/// 卡片的悬浮提示（旧版 BattleItemTooltip）：落在光标下方 30px、水平居中。
+fn battle_item_tooltip(card: &ItemCard, pos: (f64, f64)) -> VNode {
+    const TOOLTIP_WIDTH: f64 = 180.0;
+    let tooltip_left = pos.0 - TOOLTIP_WIDTH / 2.0;
+    let tooltip_top = pos.1 + 30.0;
+    let style = format!("left: {tooltip_left}px; top: {tooltip_top}px;");
+    let alt = card.name.clone();
+    let image_src = card.image_src.clone();
+    let name = card.name.clone();
+    let description = card.description.clone();
+    let show_desc = !description.is_empty();
+    let type_line = format!("类型: {}", card.type_name);
+    let qty_line = format!("数量: {}", card.qty);
+    rsx! {
+        div { class: "battle-item-tooltip", style: style,
+            div { class: "tooltip-header",
+                img { class: "tooltip-icon", src: image_src, alt: alt }
+                span { class: "tooltip-name", "{name}" }
+            }
+            if show_desc {
+                div { class: "tooltip-desc", "{description}" }
+            }
+            div { class: "tooltip-info",
+                div { class: "tooltip-type", "{type_line}" }
+                div { class: "tooltip-qty", "{qty_line}" }
+            }
+        }
+    }
+}
+
+/// 点开卡片后的详情弹窗（旧版 BattleItemCard 里内嵌的 Modal）：效果 / 持有数量 /
+/// 适用条件 + 「使用道具」或「使用精灵球」。
+fn battle_item_details_modal(st: &AppState, card: &ItemCard) -> VNode {
+    let close_state = st.clone();
+    let use_state = st.clone();
+    let effect = format!("效果：{}", card.description);
+    let owned = format!("持有数量：{}", card.qty);
+    let condition = format!("适用条件：{}", card.condition);
+    let use_label = if card.key.0 {
+        "使用精灵球"
+    } else {
+        "使用道具"
+    };
+    let use_disabled = card.disabled || card.busy || card.qty <= 0;
+    // 使用键与种类随卡走：闭包要 'static，拷一份。
+    let use_id = card.use_id;
+    let is_ball = card.key.0;
+    let body: Vec<VNode> = vec![rsx! {
+        div { class: "battle-item-details",
+            p { "{effect}" }
+            p { "{owned}" }
+            p { "{condition}" }
+            { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                class: ("btn btn-primary").to_string(),
+                disabled: use_disabled,
+                onclick: crate::button::click(move || {
+                    use_item_card(&use_state, is_ball, use_id, use_disabled)
+                }),
+                "{use_label}"
+                                            } }, [("data-test-bt-item-use", ("1").to_string())]) }
+        }
+    }];
+    crate::modal::modal_with(
+        crate::modal::ModalSpec::new(&card.name, false),
+        move || close_item_details(&close_state),
+        body,
+    )
 }
 
 fn hp_pct_class(hp: i64, max_hp: i64) -> (u32, &'static str) {
@@ -499,9 +813,9 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
                 "重新同步战斗"
             };
             let conn_state = st.clone();
-            // 外壳是共用的 hikari Modal（见 crate::modal）；这一框旧 markup 既没有
-            // 关闭键、遮罩点击也不关，只能由正文里的按钮离开。旧正文的类
-            // `battle-connection` 落在 body_class 上，子节点与旧版相同。
+            // 外壳是共用的 hikari Modal（见 crate::modal）。旧版这一框照样带关闭键，
+            // 只是遮罩不接点击、关闭回调是空的（只能由正文里的按钮离开）。旧正文
+            // 的类 `battle-connection` 落在 body_class 上，子节点与旧版相同。
             let body: Vec<VNode> = vec![
                 rsx! { p { role: "alert", "{err}" } },
                 rsx! { p { "{hint}" } },
@@ -524,7 +838,7 @@ pub fn Adventure(state: Box<AppState>) -> VNode {
             crate::modal::modal_with(
                 crate::modal::ModalSpec {
                     body_class: "battle-connection",
-                    ..crate::modal::ModalSpec::unclosable("确认战斗状态", false)
+                    ..crate::modal::ModalSpec::new("确认战斗状态", false)
                 },
                 || {},
                 body,
@@ -990,28 +1304,81 @@ fn battle_scene(
     let needs_replacement = scene.needs_replacement();
     let turn = scene.turn.to_string();
     let switch_open_state = st.clone();
+    // 我方出场位的悬浮详情（旧版 MyPokemonSection 的 show_tooltip）。
+    let hover_enter_state = st.clone();
+    let hover_leave_state = st.clone();
+    let player_hover = bt.player_hover.get();
 
     // —— 两侧精灵 ——
     let wild = &scene.wild_pokemon;
     let (wild_pct, wild_cls) = hp_pct_class(wild.hp, wild.max_hp);
     let wild_style = format!("width: {wild_pct}%;");
     let wild_hp_text = format!("{}/{}", wild.hp, wild.max_hp);
-    let wild_sprite = format!("{IMG_PATH_REMOTE}/pm/{}.gif", wild.id);
+    let wild_sprite = crate::state::front_sprite_url(wild.id, wild.is_shiny);
     let wild_name = wild.name.clone();
     let wild_alt = wild_name.clone();
     let wild_level = format!("Lv.{}", wild.level);
     let wild_gender = gender_symbol(wild.gender);
+    let wild_gender_cls = format!("enemy-gender {}", gender_class(wild.gender));
     let wild_shiny = wild.is_shiny;
 
     let my = &scene.my_pokemon;
     let (my_pct, my_cls) = hp_pct_class(my.hp, my.max_hp);
     let my_style = format!("width: {my_pct}%;");
     let my_hp_text = format!("{}/{}", my.hp, my.max_hp);
-    let my_sprite = format!("{IMG_PATH_REMOTE}/back/{}.gif", my.id);
+    // 我方出场位是背面图（目录 `pmb` / `pmsgb`，与正面图不同）。
+    let my_sprite = crate::state::back_sprite_url(my.id, my.is_shiny);
     let my_name = my.name.clone();
     let my_alt = my_name.clone();
     let my_level = format!("Lv.{}", my.level);
     let my_shiny = my.is_shiny;
+    let tooltip_level = format!("Lv.{}", my.level);
+    let tooltip_hp = format!("{}/{}", my.hp, my.max_hp);
+    let tooltip_name = my_name.clone();
+    let tooltip_skills: Vec<VNode> = my
+        .skills
+        .iter()
+        .map(|skill| {
+            let name = skill.name.clone();
+            let pp = format!("PP: {}/{}", skill.pp, skill.max_pp);
+            let stype = skill.skill_type.clone();
+            let show_type = !stype.is_empty();
+            rsx! {
+                div { class: "tooltip-skill-row",
+                    span { class: "skill-name", "{name}" }
+                    span { class: "skill-pp", "{pp}" }
+                    if show_type {
+                        ..vec![crate::type_badge::type_badge(&stype, "", "type-badge-sm")]
+                    }
+                }
+            }
+        })
+        .collect();
+    let player_tooltip = if player_hover {
+        rsx! {
+            div { class: "pokemon-tooltip",
+                div { class: "pokemon-tooltip-header",
+                    div { class: "tooltip-name-row",
+                        span { class: "tooltip-name", "{tooltip_name}" }
+                        span { class: "tooltip-level", "{tooltip_level}" }
+                    }
+                }
+                div { class: "pokemon-tooltip-stats",
+                    div { class: "tooltip-stat",
+                        span { class: "stat-label", "HP" }
+                        span { class: "stat-value", "{tooltip_hp}" }
+                    }
+                }
+                div { class: "pokemon-tooltip-skills",
+                    for i in 0..tooltip_skills.len() {
+                        ..vec![tooltip_skills[i].clone()]
+                    }
+                }
+            }
+        }
+    } else {
+        VNode::empty()
+    };
 
     // —— 标签页 ——
     let skills_cls = if tab == 0 {
@@ -1048,15 +1415,22 @@ fn battle_scene(
                     "skill-btn"
                 };
                 let name = skill.name.clone();
-                let type_badge = format!("badge badge-type-{}", skill.skill_type);
-                let cat_badge = format!("badge badge-cat-{}", skill.category);
+                // 徽章是旧版 TypeBadge：属性、分类各一枚，并排在 .skill-type-badges 里。
+                let stype = skill.skill_type.clone();
+                let scat = skill.category.clone();
+                let badges = crate::type_badge::type_badge(&stype, &scat, "");
                 let power_label = match skill.category.as_str() {
-                    "特攻" | "特殊" => "特攻",
-                    "物攻" | "物理" => "物攻",
-                    _ => "威力",
+                    "特攻" | "特殊" => "特攻：",
+                    "物攻" | "物理" => "物攻：",
+                    _ => "威力：",
                 };
-                let power_text = format!("{}：{}", power_label, skill.power);
-                let pp_text = format!("PP：{}/{}", skill.pp, skill.max_pp);
+                let power_str = skill.power.to_string();
+                // `PP：<strong>15/15</strong>`，上限在 strong 里面；没有上限时只有当前值。
+                let pp_str = if skill.max_pp > 0 {
+                    format!("{}/{}", skill.pp, skill.max_pp)
+                } else {
+                    skill.pp.to_string()
+                };
                 let pp_cls = if skill.pp == 0 {
                     "skill-pp low"
                 } else if skill.max_pp > 0 && skill.pp <= skill.max_pp / 3 {
@@ -1064,8 +1438,6 @@ fn battle_scene(
                 } else {
                     "skill-pp"
                 };
-                let stype = skill.skill_type.clone();
-                let scat = skill.category.clone();
                 skill_btns.push(rsx! {
                     Button {
                         class: (cls).to_string(),
@@ -1073,11 +1445,16 @@ fn battle_scene(
                         onclick: crate::button::click(move || use_skill(&skill_state, sid)),
                         div { class: "skill-btn-content",
                             div { class: "skill-name", "{name}" }
-                            span { class: type_badge, "{stype}" }
-                            span { class: cat_badge, "{scat}" }
+                            ..vec![badges]
                             div { class: "skill-stats-row",
-                                span { class: "skill-power", "{power_text}" }
-                                span { class: pp_cls, "{pp_text}" }
+                                span { class: "skill-power",
+                                    "{power_label}"
+                                    strong { "{power_str}" }
+                                }
+                                span { class: pp_cls,
+                                    "PP："
+                                    strong { "{pp_str}" }
+                                }
                             }
                         }
                                         }
@@ -1096,6 +1473,11 @@ fn battle_scene(
                             class: (if loading { "normal-attack-btn disabled" } else { "normal-attack-btn" }).to_string(),
                             disabled: loading,
                             onclick: crate::button::click(move || normal_attack(&attack_state)),
+                            {Icon(IconProps {
+                                name: Some(IconName::Swords),
+                                size: Some(22),
+                                class: Some("attack-btn-icon".to_string()),
+                            })}
                             span { class: "attack-btn-label", "普通攻击" }
                                                 } }, [("data-test-bt-attack", ("1").to_string())]) }
                     }
@@ -1110,62 +1492,16 @@ fn battle_scene(
             }
         }
         1 => {
-            let items = bt.battle_items.get();
-            if items.is_empty() {
+            let cards = item_cards(st, my, loading, false);
+            if cards.is_empty() {
                 rsx! { div { class: "items-panel", div { class: "empty-items-hint", "暂无道具" } } }
             } else {
-                let mut cards: Vec<VNode> = Vec::new();
-                for item in items.iter() {
-                    let item_id = item.id;
-                    let item_state = st.clone();
-                    let usable = item.can_use_on(my);
-                    let is_disabled = loading || !usable;
-                    let cls = if is_disabled {
-                        "battle-item-card disabled"
-                    } else {
-                        "battle-item-card"
-                    };
-                    let img_src = format!("{IMG_PATH}/item/{}.gif", item.img);
-                    let name = item.name.clone();
-                    let alt_name = name.clone();
-                    let qty = format!("×{}", item.nums);
-                    let label = item.type_label();
-                    let desc = item.display_description();
-                    let condition = if my.hp <= 0 {
-                        "宠物已倒下，请先替换宠物。".to_string()
-                    } else if item.is_pp_restore() {
-                        if usable {
-                            "选择一个PP未满的技能，恢复后对方会反击。".to_string()
-                        } else {
-                            "所有技能PP已满，暂时不需要恢复。".to_string()
-                        }
-                    } else if usable {
-                        "恢复当前宠物的HP，使用后对方会反击。".to_string()
-                    } else {
-                        "当前HP已满，暂时不需要恢复。".to_string()
-                    };
-                    cards.push(rsx! {
-                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
-                            class: (cls).to_string(),
-                            disabled: is_disabled,
-                            onclick: crate::button::click(move || use_item_in_battle(&item_state, item_id)),
-                            div { class: "battle-item-icon",
-                                img { src: img_src, alt: alt_name }
-                            }
-                            div { class: "battle-item-info",
-                                div { class: "battle-item-name", "{name}" }
-                                div { class: "battle-item-desc", "{desc}" }
-                                span { class: "battle-item-type", "{label}" }
-                            }
-                            span { class: "battle-item-qty", "{qty}" }
-                                                } }, [("title", (condition).to_string())]) }
-                    });
-                }
+                let nodes: Vec<VNode> = cards.iter().map(|c| battle_item_card(st, c)).collect();
                 rsx! {
                     div { class: "items-panel",
                         div { class: "battle-items-grid",
-                            for i in 0..cards.len() {
-                                ..vec![cards[i].clone()]
+                            for i in 0..nodes.len() {
+                                ..vec![nodes[i].clone()]
                             }
                         }
                     }
@@ -1173,50 +1509,16 @@ fn battle_scene(
             }
         }
         2 => {
-            let balls = bt.battle_balls.get();
-            if balls.is_empty() {
-                rsx! { div { class: "capture-panel", div { class: "empty-items-hint", "没有精灵球" } } }
+            let cards = item_cards(st, my, loading, true);
+            if cards.is_empty() {
+                rsx! { div { class: "capture-panel", div { class: "empty-items-hint", "暂无精灵球" } } }
             } else {
-                let mut cards: Vec<VNode> = Vec::new();
-                for ball in balls.iter() {
-                    let ball_id = ball.type_id;
-                    let ball_state = st.clone();
-                    let is_disabled = loading || ball.quantity <= 0;
-                    let cls = if is_disabled {
-                        "battle-item-card disabled"
-                    } else {
-                        "battle-item-card"
-                    };
-                    let img_src = format!("{IMG_PATH}/item/{}.gif", ball.image);
-                    let name = ball.name.clone();
-                    let alt_name = name.clone();
-                    let qty = format!("×{}", ball.quantity);
-                    let desc = if ball.quantity <= 0 {
-                        "数量不足".to_string()
-                    } else {
-                        "投掷精灵球尝试捕捉野生的宝可梦。".to_string()
-                    };
-                    cards.push(rsx! {
-                        Button {
-                            class: (cls).to_string(),
-                            disabled: is_disabled,
-                            onclick: crate::button::click(move || capture(&ball_state, ball_id)),
-                            div { class: "battle-item-icon",
-                                img { src: img_src, alt: alt_name }
-                            }
-                            div { class: "battle-item-info",
-                                div { class: "battle-item-name", "{name}" }
-                                div { class: "battle-item-desc", "{desc}" }
-                            }
-                            span { class: "battle-item-qty", "{qty}" }
-                                                }
-                    });
-                }
+                let nodes: Vec<VNode> = cards.iter().map(|c| battle_item_card(st, c)).collect();
                 rsx! {
                     div { class: "capture-panel",
                         div { class: "battle-items-grid",
-                            for i in 0..cards.len() {
-                                ..vec![cards[i].clone()]
+                            for i in 0..nodes.len() {
+                                ..vec![nodes[i].clone()]
                             }
                         }
                     }
@@ -1227,13 +1529,17 @@ fn battle_scene(
             let flee_state = st.clone();
             rsx! {
                 div { class: "flee-panel",
-                    p { class: "flee-hint", "确定要离开这场战斗吗？离开后将无法获得本场奖励。" }
-                    Button {
-                        class: ("btn btn-warning").to_string(),
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: (if loading { "flee-button disabled" } else { "flee-button" }).to_string(),
                         disabled: loading,
                         onclick: crate::button::click(move || flee(&flee_state)),
-                        "退出战斗"
-                                        }
+                        {Icon(IconProps {
+                            name: Some(IconName::CircleX),
+                            size: Some(16),
+                            class: Some("flee-icon".to_string()),
+                        })}
+                        span { "退出战斗" }
+                                                } }, [("data-test-bt-flee-tab", ("1").to_string())]) }
                 }
             }
         }
@@ -1306,14 +1612,24 @@ fn battle_scene(
     };
 
     let log_modal = if bt.show_log.get() {
-        // 对齐 Dioxus 版 log.rs：逐回合分组 + 「可贴到论坛的战报」文本框 + 复制按钮。
+        // 对齐 Dioxus 版 log.rs：「重新载入」+ 逐回合分组 + 「可贴到论坛的战报」
+        // 文本框 + 复制按钮，整列排在 `.battle-log-panel`（flex 列、12px 间距）里。
         let log = bt.log_data.get();
         let copy_status = bt.log_copy_status.get();
-        let body = match log {
-            None => rsx! { p { role: "status", "正在加载战报..." } },
+        let reload_state = st.clone();
+        let reload_btn: VNode = crate::button::hooked(
+            tairitsu_macros::rsx! { Button {
+            class: ("btn btn-secondary").to_string(),
+            onclick: crate::button::click(move || reload_log(&reload_state)),
+            "重新载入"
+                        } },
+            [("data-test-bt-log-refresh", ("1").to_string())],
+        );
+        let report = match log {
+            None => rsx! { p { role: "status", "正在载入战报..." } },
             Some(Err(e)) => {
-                let msg = format!("战报加载失败：{e}");
-                rsx! { p { role: "alert", class: "error-message", "{msg}" } }
+                let msg = format!("战报载入失败：{e}。请重新载入。");
+                rsx! { p { role: "alert", "data-test-bt-log-error": "1", "{msg}" } }
             }
             Some(Ok(data)) => {
                 let bbcode = data.bbcode.clone();
@@ -1365,13 +1681,19 @@ fn battle_scene(
                             }
                         }
                     }
-                    label { "可贴到论坛的战报" }
-                    textarea { class: "battle-share-text", readonly: true, rows: "5", "{bbcode}" }
+                    label { "for": "battle-share-text", "可贴到论坛的战报" }
+                    textarea {
+                        id: "battle-share-text",
+                        "data-test-bt-log-text": "1",
+                        readonly: true,
+                        rows: "5",
+                        "{bbcode}"
+                    }
                     { crate::button::hooked(tairitsu_macros::rsx! { Button {
                         class: ("btn btn-primary").to_string(),
                         onclick: crate::button::click(move || copy_log(&copy_state)),
                         "复制战报"
-                                        } }, [("data-test-bt-log-copy", ("1").to_string())]) }
+                                                    } }, [("data-test-bt-log-copy", ("1").to_string())]) }
                     p { role: "status", class: "battle-copy-status", "{copy_status}" }
                 }
             }
@@ -1379,20 +1701,37 @@ fn battle_scene(
         let log_overlay_state = st.clone();
         let log_close_state = st.clone();
         // 外壳是共用的 hikari Modal（见 crate::modal）。旧正文的类
-        // `battle-log-body` 落在 body_class 上，子节点与旧版相同。
+        // `battle-log-panel` 落在 body_class 上，子节点与旧版相同。
         crate::modal::modal_hooked(
             crate::modal::ModalSpec {
-                body_class: "battle-log-body",
-                ..crate::modal::ModalSpec::new("战报", false)
+                body_class: "battle-log-panel",
+                ..crate::modal::ModalSpec::new("逐回合战报", false)
             },
             crate::modal::hook_close_button("data-test-bt-log-close", move || {
                 close_log(&log_close_state)
             }),
             move || close_log(&log_overlay_state),
-            vec![body],
+            vec![reload_btn, report],
         )
     } else {
         VNode::empty()
+    };
+
+    // 道具卡的悬浮提示与详情弹窗（旧版渲染在卡片组件里；这里放在页面层，
+    // 免得被战斗卡片的变换/动画当成包含块）。
+    let item_tooltip = match bt.item_hover.get() {
+        Some(key) => match find_card(st, my, loading, key) {
+            Some(card) => battle_item_tooltip(&card, bt.item_hover_pos.get()),
+            None => VNode::empty(),
+        },
+        None => VNode::empty(),
+    };
+    let item_details = match bt.item_details.get() {
+        Some(key) => match find_card(st, my, loading, key) {
+            Some(card) => battle_item_details_modal(st, &card),
+            None => VNode::empty(),
+        },
+        None => VNode::empty(),
     };
 
     let _ = pokemon_empty;
@@ -1409,32 +1748,57 @@ fn battle_scene(
                     variant: hikari_components::ButtonVariant::Secondary,,                    class: ("btn btn-secondary").to_string(),
                     disabled: scene.engine_battle_id == 0,
                     onclick: crate::button::click(move || open_log(&log_open_state)),
-                    "查看战报"
+                    "查看战报 / 分享"
                                 } }, [("data-test-bt-log-open", ("1").to_string())]) }
             }
             div { class: "battle-card",
                 div { class: "battle-card-body",
                     div { class: "battle-content-area",
+                        // 页签：激活的那一枚前后各一枚箭头，文字包在 span 里（旧版如此）。
                         div { class: "battle-tab-menu",
                             { crate::button::hooked(tairitsu_macros::rsx! { Button {
                                 class: (skills_cls).to_string(),
                                 onclick: crate::button::click(move || switch_tab(&skills_tab_state, 0)),
-                                "技能"
+                                if tab == 0 {
+                                    span { class: "tab-arrow left", ">" }
+                                }
+                                span { "技能" }
+                                if tab == 0 {
+                                    span { class: "tab-arrow right", "<" }
+                                }
                                                         } }, [("data-test-bt-tab", ("0").to_string())]) }
                             { crate::button::hooked(tairitsu_macros::rsx! { Button {
                                 class: (items_cls).to_string(),
                                 onclick: crate::button::click(move || switch_tab(&items_tab_state, 1)),
-                                "道具"
+                                if tab == 1 {
+                                    span { class: "tab-arrow left", ">" }
+                                }
+                                span { "道具" }
+                                if tab == 1 {
+                                    span { class: "tab-arrow right", "<" }
+                                }
                                                         } }, [("data-test-bt-tab", ("1").to_string())]) }
                             { crate::button::hooked(tairitsu_macros::rsx! { Button {
                                 class: (capture_cls).to_string(),
                                 onclick: crate::button::click(move || switch_tab(&capture_tab_state, 2)),
-                                "捕捉"
+                                if tab == 2 {
+                                    span { class: "tab-arrow left", ">" }
+                                }
+                                span { "捕捉" }
+                                if tab == 2 {
+                                    span { class: "tab-arrow right", "<" }
+                                }
                                                         } }, [("data-test-bt-tab", ("2").to_string())]) }
                             { crate::button::hooked(tairitsu_macros::rsx! { Button {
                                 class: (flee_cls).to_string(),
                                 onclick: crate::button::click(move || switch_tab(&flee_tab_state, 3)),
-                                "退出战斗"
+                                if tab == 3 {
+                                    span { class: "tab-arrow left", ">" }
+                                }
+                                span { "退出战斗" }
+                                if tab == 3 {
+                                    span { class: "tab-arrow right", "<" }
+                                }
                                                         } }, [("data-test-bt-tab", ("3").to_string())]) }
                         }
                         div { class: "battle-divider" }
@@ -1448,71 +1812,80 @@ fn battle_scene(
                                             }
                                             div { class: "enemy-info-box",
                                                 div { class: "enemy-header",
-                                                    div { class: "enemy-name-row",
-                                                        span { class: "enemy-name", "{wild_name}" }
-                                                        if wild_shiny {
-                                                            span { class: "pet-mark pet-mark-shiny", title: "异色（闪光）宠物", "闪" }
-                                                        }
-                                                        span { class: "enemy-gender", "{wild_gender}" }
+                                                div { class: "enemy-name-row",
+                                                    span { class: "enemy-name", "{wild_name}" }
+                                                    if wild_shiny {
+                                                        span { class: "pet-mark pet-mark-shiny", title: "异色（闪光）宠物", "闪" }
                                                     }
-                                                    span { class: "enemy-level-text", "{wild_level}" }
+                                                    span { class: wild_gender_cls, "{wild_gender}" }
                                                 }
-                                                div { class: "enemy-hp-row",
-                                                    div { class: "hp-bar-bg",
-                                                        div { class: wild_cls, style: wild_style }
-                                                    }
-                                                    span { class: "hp-text", "{wild_hp_text}" }
-                                                }
+                                                span { class: "enemy-level-text", "{wild_level}" }
                                             }
-                                        }
-                                        div { class: "player-pokemon-block",
-                                            "data-test-bt-switch-open": "1",
-                                            onclick: move |_| open_switch_modal(&switch_open_state),
-                                            div { class: "player-info-box",
-                                                div { class: "player-header",
-                                                    div { class: "player-name-row",
-                                                        span { class: "player-name", "{my_name}" }
-                                                        if my_shiny {
-                                                            span { class: "pet-mark pet-mark-shiny", title: "异色（闪光）宠物", "闪" }
-                                                        }
-                                                        span { class: "player-level", "{my_level}" }
-                                                    }
+                                            div { class: "enemy-hp-row",
+                                                div { class: "hp-bar-bg",
+                                                    div { class: wild_cls, style: wild_style }
                                                 }
-                                                div { class: "player-hp-row",
-                                                    div { class: "hp-bar-bg",
-                                                        div { class: my_cls, style: my_style }
-                                                    }
-                                                    span { class: "hp-text", "{my_hp_text}" }
-                                                }
-                                            }
-                                            div { class: "player-sprite-container",
-                                                img { class: "player-sprite", src: my_sprite, alt: my_alt }
+                                                span { class: "hp-text", "{wild_hp_text}" }
                                             }
                                         }
                                     }
-                                    div { class: "battle-turn-display",
-                                        span { class: "turn-label", "回合" }
-                                        span { class: "turn-number", "{turn}" }
+                                    div { class: "player-pokemon-block",
+                                        "data-test-bt-switch-open": "1",
+                                        onclick: move |_| open_switch_modal(&switch_open_state),
+                                        onmouseenter: move |_| show_player_tooltip(&hover_enter_state),
+                                        onmouseleave: move |_| hide_player_tooltip(&hover_leave_state),
+                                        div { class: "player-info-box",
+                                            div { class: "player-header",
+                                                div { class: "player-name-row",
+                                                    span { class: "player-name", "{my_name}" }
+                                                    if my_shiny {
+                                                        span { class: "pet-mark pet-mark-shiny", title: "异色（闪光）宠物", "闪" }
+                                                    }
+                                                    span { class: "player-level", "{my_level}" }
+                                                }
+                                            }
+                                            div { class: "player-hp-row",
+                                                div { class: "hp-bar-bg",
+                                                    div { class: my_cls, style: my_style }
+                                                }
+                                                span { class: "hp-text", "{my_hp_text}" }
+                                            }
+                                        }
+                                        div { class: "player-sprite-container",
+                                            img { class: "player-sprite", src: my_sprite, alt: my_alt }
+                                        }
+                                        ..vec![player_tooltip]
                                     }
                                 }
+                                div { class: "battle-turn-display",
+                                    span { class: "turn-label", "回合" }
+                                    span { class: "turn-number", "{turn}" }
+                                }
                             }
-                            div { class: "battle-tab-content", ..vec![tab_content] }
+                        }
+                        div { class: "battle-tab-content", ..vec![tab_content] }
                         }
                     }
                 }
             }
-            ..vec![modal, selection_modal, log_modal]
+            ..vec![modal, selection_modal, log_modal, item_details, item_tooltip]
         }
     }
 }
 
 /// 结算弹窗（胜利/失败/逃脱/捕捉 + 奖励 + 结束/继续）。
 fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading: bool) -> VNode {
-    let bt = st.battle.clone();
     let result_log_state = st.clone();
     let end_state = st.clone();
     let continue_state = st.clone();
     let title = scene.status.result_title();
+    // 结果旁的图标按状态取（旧版 BattleResultSection 的 result_icon）。
+    let result_icon = match scene.status {
+        BattleStatus::Victory | BattleStatus::Captured => Some(IconName::PartyPopper),
+        BattleStatus::Defeat => Some(IconName::HeartCrack),
+        BattleStatus::Fled => Some(IconName::Footprints),
+        BattleStatus::Active => None,
+    };
     let result_cls = match scene.status {
         BattleStatus::Victory | BattleStatus::Captured => "battle-result victory",
         BattleStatus::Defeat => "battle-result defeat",
@@ -1545,8 +1918,22 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
                 div { class: "battle-rewards",
                     h4 { "获得奖励" }
                     div { class: "reward-items",
-                        div { class: "reward-item", span { class: "reward-value", "{exp_text}" } }
-                        div { class: "reward-item", span { class: "reward-value", "{money_text}" } }
+                        div { class: "reward-item",
+                            {Icon(IconProps {
+                                name: Some(IconName::Star),
+                                size: Some(14),
+                                class: Some("reward-icon".to_string()),
+                            })}
+                            span { class: "reward-value", "{exp_text}" }
+                        }
+                        div { class: "reward-item",
+                            {Icon(IconProps {
+                                name: Some(IconName::Coins),
+                                size: Some(14),
+                                class: Some("reward-icon".to_string()),
+                            })}
+                            span { class: "reward-value", "{money_text}" }
+                        }
                     }
                     ..vec![today_row]
                     for i in 0..notes.len() {
@@ -1560,13 +1947,17 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
 
     let level_up_block = match &scene.level_up {
         Some(lu) if lu.level_up => {
-            let text = format!(
-                "{my_name} 升级了！Lv.{} → Lv.{}",
-                lu.old_level, lu.new_level
-            );
+            let text = format!("{my_name} 升级了！");
+            let levels = format!("Lv.{} → Lv.{}", lu.old_level, lu.new_level);
             rsx! {
                 div { class: "level-up-notice",
+                    {Icon(IconProps {
+                        name: Some(IconName::ArrowUp),
+                        size: Some(14),
+                        class: Some("level-up-icon".to_string()),
+                    })}
                     span { class: "level-up-text", "{text}" }
+                    span { class: "level-up-levels", "{levels}" }
                 }
             }
         }
@@ -1587,17 +1978,23 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
     } else {
         VNode::empty()
     };
-    let _ = bt;
 
-    // 外壳是共用的 hikari Modal（见 crate::modal）。旧 markup 既没有关闭键、
-    // 遮罩点击也不关：只能由正文里的按钮离开。旧正文的类
-    // `battle-result-section` 落在 body_class 上（窄屏下它的 `padding: 0` 与
-    // `.modal-body` 的 `20px` 同权重，同一个元素上才是旧版的结果），子节点与
-    // 旧版相同。
+    // 外壳是共用的 hikari Modal（见 crate::modal）。旧正文 `battle-result-section`
+    // 落在 body_class 上（窄屏下它的 `padding: 0` 与 `.modal-body` 的 `20px`
+    // 同权重，同一个元素上才是旧版的结果），子节点与旧版相同。
     let body: Vec<VNode> = vec![
         rsx! {
             div { class: result_cls,
-                h2 { "{title}" }
+                h2 {
+                    if let Some(icon) = result_icon {
+                        {Icon(IconProps {
+                            name: Some(icon),
+                            size: Some(20),
+                            class: Some("lucide-inline".to_string()),
+                        })}
+                    }
+                    "{title}"
+                }
                 ..vec![rewards_block, level_up_block]
             }
         },
@@ -1606,8 +2003,8 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
                 { crate::button::hooked(tairitsu_macros::rsx! { Button {
                     class: ("battle-end-btn").to_string(),
                     onclick: crate::button::click(move || open_log(&result_log_state)),
-                    "查看战报"
-                                } }, [("data-test-bt-log-open", ("1").to_string())]) }
+                    "查看 / 分享战报"
+                                } }, [("data-test-bt-end-log", ("1").to_string())]) }
                 { crate::button::hooked(tairitsu_macros::rsx! { Button {
                     class: ("battle-end-btn").to_string(),
                     disabled: loading,
@@ -1618,12 +2015,24 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
             }
         },
     ];
+    // 旧版这个弹窗有关闭键、遮罩也点得动（`close_on_overlay: !loading &&
+    // !pokemon_fainted`），两者的回调在战斗已结束时就等于「返回冒险地图」。
+    let close_state = st.clone();
+    let battle_over = scene.effective_battle_over();
+    let needs_replacement = scene.needs_replacement();
     crate::modal::modal_with(
         crate::modal::ModalSpec {
             body_class: "battle-result-section",
-            ..crate::modal::ModalSpec::unclosable(&title, false)
+            ..crate::modal::ModalSpec::new(&title, false)
         },
-        || {},
+        move || {
+            if loading || needs_replacement {
+                return;
+            }
+            if battle_over {
+                end_battle(&close_state);
+            }
+        },
         body,
     )
 }
@@ -1632,12 +2041,9 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
 fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading: bool) -> VNode {
     let fainted_name = scene.my_pokemon.name.clone();
     let message = format!("{fainted_name} 倒下了！请选择一只宠物继续战斗：");
-    let list = st
-        .center
-        .pokemons
-        .get()
-        .and_then(|r| r.ok())
-        .unwrap_or_default();
+    let list_state = st.center.pokemons.get();
+    let list_loading = list_state.is_none();
+    let list = list_state.and_then(|r| r.ok()).unwrap_or_default();
     let fainted_id = scene.my_pokemon.instance_id;
     let replace_flee_state = st.clone();
 
@@ -1662,6 +2068,11 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
             if is_the_fainted { 0 } else { pm.hp },
             pm.max_hp
         );
+        let hp_cls = if is_fainted {
+            "hp-text fainted"
+        } else {
+            "hp-text"
+        };
         let first_badge = if pm.site == 1 {
             rsx! { span { class: "first-badge", "首位" } }
         } else {
@@ -1686,17 +2097,23 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
                     div { class: "replacement-pokemon-level", "{level}" }
                 }
                 div { class: "replacement-pokemon-hp",
-                    span { class: "hp-text", "{hp_text}" }
+                    span { class: hp_cls, "{hp_text}" }
                 }
                         } }, [("data-test-bt-replace", (attr).to_string())]) }
         });
     }
 
-    // 替换宠物的选择框：外壳是共用的 hikari Modal。旧 markup 既没有关闭键、
-    // 遮罩点击也不关，只能选一只或逃跑。旧正文的类 `faint-replace-modal` 落在
-    // body_class 上，子节点与旧版相同。
+    // 替换宠物的选择框：外壳是共用的 hikari Modal。旧版它照样带关闭键、遮罩
+    // 也接了点击，只是回调在宠物倒下时直接返回——所以这里关闭键在、点了没反应，
+    // 只能选一只或逃跑。旧正文的类 `faint-replace-modal` 落在 body_class 上，
+    // 子节点与旧版相同。
     let body: Vec<VNode> = vec![
         rsx! { p { class: "faint-message", "{message}" } },
+        if list_loading {
+            rsx! { p { "正在加载可替换的宠物..." } }
+        } else {
+            VNode::empty()
+        },
         rsx! {
             div { class: "replacement-pokemon-list",
                 for i in 0..rows.len() {
@@ -1710,6 +2127,11 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
                     class: ("btn btn-warning").to_string(),
                     disabled: loading,
                     onclick: crate::button::click(move || flee(&replace_flee_state)),
+                    {Icon(IconProps {
+                        name: Some(IconName::Footprints),
+                        size: Some(14),
+                        class: Some("lucide-inline".to_string()),
+                    })}
                     "逃跑（无惩罚）"
                                 } }, [("data-test-bt-flee", ("1").to_string())]) }
             }
@@ -1718,7 +2140,7 @@ fn replace_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loadin
     crate::modal::modal_with(
         crate::modal::ModalSpec {
             body_class: "faint-replace-modal",
-            ..crate::modal::ModalSpec::unclosable("选择替换宠物", false)
+            ..crate::modal::ModalSpec::new("选择替换宠物", false)
         },
         || {},
         body,
@@ -1736,10 +2158,17 @@ fn switch_modal(st: &AppState, loading: bool) -> VNode {
     // `.modal-body` 的同权重，同一个元素上才是旧版的结果），子节点与旧版相同。
     let body: Vec<VNode> = vec![
         rsx! {
-            p { class: "switch-pokemon-warning", "切换宠物可能会让当前上场宠物再受到一次攻击！" }
+            p { class: "switch-pokemon-warning",
+                {Icon(IconProps {
+                    name: Some(IconName::TriangleAlert),
+                    size: Some(14),
+                    class: Some("lucide-inline".to_string()),
+                })}
+                "切换宠物可能会让当前上场宠物再受到一次攻击！"
+            }
         },
         rsx! {
-            p { class: "switch-pokemon-hint", "确定要切换吗？（将轮换背包中的下一只宠物）" }
+            p { class: "switch-pokemon-hint", "确定要切换吗？" }
         },
         rsx! {
             div { class: "switch-pokemon-actions",
@@ -1765,7 +2194,12 @@ fn switch_modal(st: &AppState, loading: bool) -> VNode {
         crate::modal::hook_close_button("data-test-bt-switch-cancel", move || {
             close_switch_modal(&close_state)
         }),
-        move || close_switch_modal(&overlay_state),
+        // 旧版关闭回调：动作进行中不关（`if loading || pokemon_fainted { return }`）。
+        move || {
+            if !loading {
+                close_switch_modal(&overlay_state);
+            }
+        },
         body,
     )
 }
