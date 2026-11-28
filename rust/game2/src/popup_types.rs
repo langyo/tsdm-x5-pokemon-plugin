@@ -1,4 +1,5 @@
-//! 弹出菜单的数据与定位（纯逻辑，host 可测）。
+//! 弹出菜单与装备提示的数据与定位（纯逻辑，host 可测）。两者都由 hikari
+//! `Popover` 的锚定分支承接（`crate::popup` / `crate::equip_tooltip`）。
 //!
 //! 与 Dioxus 版 `state/ui.rs` 的 `open_popup_at_mouse`、`pages/my_pokemon.rs`
 //! 的技能卡菜单、`pages/pokemon_storage.rs` 的 `PokemonSlot` 菜单逐项对齐。
@@ -75,6 +76,15 @@ pub fn position_at_mouse(
         (client_y + 10.0).max(10.0)
     };
     (x, y)
+}
+
+/// 旧版 `EquipmentTooltipInline` 的定位：提示的最小宽度是 180，横向把指针所在点
+/// 当作一张 48 宽卡片的中心来对中，顶边落在指针下方 8px。`(x, y)` 是指针进入
+/// 卡片那一刻的视口坐标。
+pub fn equipment_tooltip_position(x: f64, y: f64) -> (f64, f64) {
+    const TOOLTIP_WIDTH: f64 = 180.0;
+    const CARD_WIDTH: f64 = 48.0;
+    (x + (CARD_WIDTH - TOOLTIP_WIDTH) / 2.0, y + 8.0)
 }
 
 /// 技能卡的菜单：只有「遗忘此技能」，技能动作进行中禁用。
@@ -186,6 +196,13 @@ mod tests {
         );
         // 贴左缘 / 上缘：都夹到 10。
         assert_eq!(position_at_mouse(0.0, 0.0, 1280.0, 900.0), (10.0, 10.0));
+    }
+
+    /// 旧版 EquipmentTooltipInline：`left = x + (48 - 180) / 2`、`top = y + 8`。
+    #[test]
+    fn equipment_tooltip_sits_centered_under_the_pointer() {
+        assert_eq!(equipment_tooltip_position(400.0, 300.0), (334.0, 308.0));
+        assert_eq!(equipment_tooltip_position(100.5, 50.0), (34.5, 58.0));
     }
 
     #[test]

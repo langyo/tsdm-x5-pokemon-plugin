@@ -807,14 +807,23 @@ def root_custom_properties(css: str) -> dict[str, str]:
     return out
 
 
-# hikari 容器里包着的旧版内容：这些根自己不带 hk- 类，里面不在（嵌套的）hikari
-# 组件内的部分算宿主内容。
+# hikari 容器里包着的旧版内容，和带着旧类名、观感全归 game.css 的 hikari 元素：根、它的
+# 后代，去掉（嵌套的）hikari 组件及其内容，都算宿主内容。根自己是不是 hikari 的元素
+# 不要紧——`_host_content_root` 只排除根里面带 hk- 类的后代，不排除根本身。
 #   - hikari `Modal` 的正文（`rust/game2/src/modal.rs`）；
-#   - 弹出菜单的菜单本体，在 hikari `Popover` 的面板里（`rust/game2/src/popup.rs`）。
+#   - 弹出菜单的菜单本体 `.popup-menu`，和承载它的 `Popover` 面板 `.popup-container`
+#     （`rust/game2/src/popup.rs`）：面板带着旧类名，hikari 的面板表在它上面什么都不画；
+#   - 装备悬浮提示 `.equipment-tooltip-inline`，同样是 `Popover` 面板带旧类名
+#     （`rust/game2/src/equip_tooltip.rs`）。
 # 以后若用别的 hikari 容器组件（ThemeProvider 之类）包住旧版内容，往这里加一项：
 # 那类容器自己带 hk- 类，不加的话里面的旧内容会被当成 hikari 的（撤销层不撤它，
 # 令牌也是 hikari 的）。
-HOST_CONTENT_ROOTS = (".hk-modal-body-inner", ".popup-menu")
+HOST_CONTENT_ROOTS = (
+    ".hk-modal-body-inner",
+    ".popup-menu",
+    ".popup-container",
+    ".equipment-tooltip-inline",
+)
 
 
 def _host_content_root(root: str) -> str:

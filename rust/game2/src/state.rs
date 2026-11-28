@@ -510,7 +510,7 @@ pub struct LearnableSkill {
 }
 
 /// 装备物品（equipment 载荷的显示子集，槽位与背包共用同一形态）。
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct EquipmentItem {
     /// 背包行 ID（pm_myitem.id）——装备/卸下都以它为键。
     pub myitem_id: u64,
@@ -544,24 +544,16 @@ impl EquipmentItem {
             self.equipment_sd as i64,
         ]
     }
+}
 
-    /// 悬浮提示文案：非零加成拼接（「HP +10、攻击 +5」）。
-    pub fn bonus_summary(&self) -> String {
-        const NAMES: [&str; 6] = ["HP", "攻击", "防御", "特攻", "特防", "速度"];
-        self.bonuses()
-            .iter()
-            .zip(NAMES.iter())
-            .filter(|(v, _)| **v != 0)
-            .map(|(v, n)| {
-                if *v > 0 {
-                    format!("{n} +{v}")
-                } else {
-                    format!("{n} {v}")
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("、")
-    }
+/// 悬浮中的装备提示（旧版 `EquipmentTooltipInline`）：物品与指针进入那一刻的
+/// 视口坐标。旧版每个卡片各有一份 `show_tooltip` / `tooltip_position`，但指针
+/// 总是先离开旧卡片再进新卡片，同一时刻至多一份，所以这里只留一席。
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct EquipmentTooltip {
+    pub item: EquipmentItem,
+    pub x: f64,
+    pub y: f64,
 }
 
 /// 单个装备槽。
@@ -658,6 +650,8 @@ pub struct MyPokemonState {
     /// 装备/卸下动作进行中（互斥守卫）。
     pub equip_loading: ReactiveSignal<bool>,
     pub equip_selected: ReactiveSignal<Option<SelectedEquip>>,
+    /// 悬浮中的装备提示；None = 没有卡片被悬浮（旧版 `EquipmentTooltipInline`）。
+    pub equip_tooltip: ReactiveSignal<Option<EquipmentTooltip>>,
 
     // ---- 技能标签页 ----
     pub learn_modal_open: ReactiveSignal<bool>,
@@ -733,6 +727,7 @@ impl MyPokemonState {
             equipment: use_signal(|| None),
             equip_loading: use_signal(|| false),
             equip_selected: use_signal(|| None),
+            equip_tooltip: use_signal(|| None),
             learn_modal_open: use_signal(|| false),
             learnable: use_signal(|| None),
             skill_loading: use_signal(|| false),

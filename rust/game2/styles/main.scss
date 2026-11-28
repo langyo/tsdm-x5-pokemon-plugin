@@ -248,17 +248,17 @@
 }
 
 // =============================================================================
-// 弹出菜单：hikari `Popover`（.hk-popover-*）承接旧版 .popup-overlay / .popup-container
+// Popover：hikari `Popover`（.hk-popover-*）承接旧版的弹出菜单与装备悬浮提示
 // =============================================================================
 //
-// 结构见 `src/popup.rs`。面板自己带着 `popup-container` 类：底色、圆角、阴影、
-// 内边距、宽度的上下限、层叠 1000 和进场动画都是 game.css 那条旧规则给的
-// （未分层，压得过 hikari 的面板表）。这里只剩 hikari 面板表声明、旧规则没声明
-// 的两条，以及背板。
+// 结构见 `src/popup.rs` 与 `src/equip_tooltip.rs`。两者都是 hikari 的锚定面板带着
+// 旧类名（`popup-container` / `equipment-tooltip-inline`）：底色、圆角、阴影、内边距、
+// 宽度的上下限、层叠和进场动画都是 game.css 的旧规则给的（未分层，压得过 hikari 的
+// 面板表）。这里只剩 hikari 面板表声明、旧规则没声明的两条，以及背板。
 
 // hikari 的锚定面板按内容定宽（`width: max-content`，HkPopover.scss 里防「越摆越宽」
-// 的那条）并限高 70vh；旧版容器是固定定位下的 shrink-to-fit，不限高。
-.hk-popover-panel.popup-container {
+// 的那条）并限高 70vh；旧版这两个容器是固定定位下的 shrink-to-fit，不限高。
+.hk-popover-panel:is(.popup-container, .equipment-tooltip-inline) {
   width: auto;
   max-height: none;
 }

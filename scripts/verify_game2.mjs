@@ -760,7 +760,7 @@ async function stepMyPokemon() {
   ok('取消后退出编辑态',
     await evaljs(() => !document.querySelector('[data-test-my-pm-nick-input]')));
 
-  // 装备标签页（只读断言：渲染与提示格式；真实装载/卸下属写操作，另行验收）
+  // 装备标签页（只读断言：渲染与悬浮提示；真实装载/卸下属写操作，另行验收）
   await evaljs(() => document.querySelector('[data-test-my-pm-tab="equipment"]')?.click());
   await waitFor(
     async () => (await evaljs(() => !!document.querySelector('.equipment-tab'))),
@@ -771,13 +771,58 @@ async function stepMyPokemon() {
     slots: document.querySelectorAll('.equip-slot').length,
     invItems: document.querySelectorAll('[data-test-eq-inv-item]').length,
     invTitle: document.querySelector('[data-test-eq-inv-item]')?.getAttribute('title') ?? null,
+    slotTitle: document.querySelector('.equip-slot .equip-icon')?.getAttribute('title') ?? null,
     panic: document.getElementById('app')?.getAttribute('data-panic') ?? null,
   }));
   ok('装备页无 panic', eqView.panic === null, eqView.panic ?? '');
   ok('装备槽恒定 4 个', eqView.slots === 4, `got ${eqView.slots}`);
+  ok('装备卡与槽图标不带原生 title（旧版用悬浮提示，不用 title）', eqView.invTitle === null && eqView.slotTitle === null,
+    JSON.stringify({ invTitle: eqView.invTitle, slotTitle: eqView.slotTitle }));
   if (eqView.invItems > 0) {
-    ok('装备卡悬浮提示为加成格式', /(HP|攻击|防御|特攻|特防|速度)\s*[+-]\d+/.test(eqView.invTitle ?? ''),
-      eqView.invTitle ?? '');
+    // 悬浮提示是应用级的一层（旧版 EquipmentTooltipInline）：指针进入卡片时挂在
+    // 鼠标下方，离开摘掉。这里派发带坐标的 mouseenter / mouseleave。
+    const hover = await evaljs(() => {
+      const card = document.querySelector('[data-test-eq-inv-item]');
+      const r = card.getBoundingClientRect();
+      card.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false, clientX: r.x + 24, clientY: r.y + 20 }));
+      return { x: r.x, y: r.y };
+    });
+    const tipShown = await waitFor(
+      async () => (await evaljs(() => !!document.querySelector('.equipment-tooltip-inline'))),
+      8000,
+      '装备悬浮提示',
+    );
+    ok('指针进入装备卡时出现悬浮提示', tipShown);
+    if (tipShown) {
+      const tip = await evaljs(() => {
+        const el = document.querySelector('.equipment-tooltip-inline');
+        const cs = getComputedStyle(el);
+        const b = el.getBoundingClientRect();
+        return {
+          position: cs.position,
+          pointerEvents: cs.pointerEvents,
+          zIndex: cs.zIndex,
+          rect: [b.x, b.y, b.width, b.height].map((v) => Math.round(v * 100) / 100),
+          hasIcon: !!el.querySelector('.tooltip-header .tooltip-icon'),
+          name: el.querySelector('.tooltip-name')?.textContent?.trim() ?? '',
+          stats: [...el.querySelectorAll('.tooltip-stat')].map((s) => s.textContent?.trim() ?? ''),
+        };
+      });
+      ok('悬浮提示定位于视口、不挡鼠标', tip.position === 'fixed' && tip.pointerEvents === 'none', JSON.stringify(tip));
+      // 旧版：left = x + (48 - 180) / 2、top = y + 8，(x, y) 是指针进入点。
+      const near =
+        Math.abs(tip.rect[0] - (hover.x + 24 - 66)) <= 1 && Math.abs(tip.rect[1] - (hover.y + 20 + 8)) <= 1;
+      ok('悬浮提示落在指针下方', near, JSON.stringify({ tip: tip.rect, hover }));
+      ok('悬浮提示有图标、名称与加成标签', tip.hasIcon && tip.name.length > 0
+        && tip.stats.some((s) => /^(HP|攻击|防御|特攻|特防|速度) \+\d+$/.test(s)), JSON.stringify(tip));
+      await evaljs(() => document.querySelector('[data-test-eq-inv-item]')?.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false })));
+      const tipGone = await waitFor(
+        async () => (await evaljs(() => !document.querySelector('.equipment-tooltip-inline'))),
+        8000,
+        '装备悬浮提示关闭',
+      );
+      ok('指针离开装备卡时悬浮提示消失', tipGone);
+    }
   } else {
     skip('装备卡细节', '没有可装备物品');
   }
