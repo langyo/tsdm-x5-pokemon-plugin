@@ -165,8 +165,8 @@
   --hk-modal-radius: 12px; // $radius-lg
   --hk-modal-padding-header: 16px 20px; // $spacing-base $spacing-lg
   // 正文内边距不给 hikari 的正文层：包着正文的 div 带着 `modal-body`（见
-  // `src/modal.rs`），内边距和旧版一样由它给——旧正文自己的类可能改写它
-  // （`.switch-pokemon-modal`、窄屏下的 `.battle-result-section`）。
+  // `src/modal.rs`），内边距和旧版一样由它给；旧正文自己那一层（`body_class`）
+  // 的内边距规则落在它里面的那个 div 上，叠在 20px 之外。
   --hk-pad: 0px;
   --hk-modal-divider-color: transparent; // 旧版标题栏下没有分隔线
   --hk-modal-title-font-size: 16px; // $font-size-lg

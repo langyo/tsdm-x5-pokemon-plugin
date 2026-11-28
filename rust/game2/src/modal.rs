@@ -33,9 +33,9 @@ pub struct ModalSpec<'a> {
     pub closable: bool,
     /// 标题右侧的动作槽。自带关闭键时排在它前面。
     pub header_actions: Option<VNode>,
-    /// 旧正文在 `modal-body` 之外还带的类（`.switch-pokemon-modal`、
-    /// `.modal-map-details` 这些）。它必须落在带 `modal-body` 的同一个元素上，
-    /// 见 [`modal_with`]。
+    /// 旧正文自己那一层的类（`.switch-pokemon-modal`、`.modal-map-details` 这些）。
+    /// 它是 `modal-body` 里面的一个 div，自己的内边距规则落在这一层，见
+    /// [`modal_with`]。
     pub body_class: &'static str,
 }
 
@@ -59,21 +59,29 @@ pub fn modal(title: &str, large: bool, on_close: Rc<dyn Fn()>, body: Vec<VNode>)
 
 /// 同上，差异由 `spec` 给。
 ///
-/// 包着正文的那个 div 就是旧版的 `.modal-body custom-scrollbar`：它带着这两个类，
-/// 再加上 `body_class`。旧正文自己的类各有一条规则，和 `.modal-body` 的同权重、
-/// 靠源码顺序分胜负，所以必须写在同一个元素上才算得出旧版的值——实测
-/// `.switch-pokemon-modal { padding: 12px 0 }` 在旧版败给 `.modal-body` 的 `20px`；
-/// 落进内层另一个 div 就会生效，弹窗高出 24px。`custom-scrollbar` 设的
-/// `scrollbar-width` / `scrollbar-color` 是可继承属性，正文里的元素都从它拿。调用
-/// 方因此不要再包一层根 div，`body` 里直接放旧 `.modal-body` 的子节点。hikari
-/// 正文层的内边距归零（皮肤里 `--hk-pad: 0px`），内边距由这个 div 给。
+/// 层级照旧版三个外壳共用的那两层：`div.modal-body.custom-scrollbar`（内边距
+/// 20px）里面是正文自己那一层 `div.{body_class}`（旧版各处弹窗传给 Modal 的根
+/// 节点），再里面才是调用方给的节点。`body_class` 自己的内边距规则
+/// （`.switch-pokemon-modal` / `.faint-replace-modal` 的 `12px 0`）因此落在内层，
+/// 叠在正文的 20px 之外——旧版实测正是如此：换宠弹窗正文高 202.97px，内层
+/// 162.97px。早先把两者合在同一个元素上，这两个弹窗各矮了 24px。
+/// `custom-scrollbar` 设的 `scrollbar-width` / `scrollbar-color` 是可继承属性，
+/// 正文里的元素都从它拿。调用方不要再包一层根 div，`body` 里直接放旧
+/// `body_class` 那一层的子节点。hikari 正文层的内边距归零（皮肤里
+/// `--hk-pad: 0px`），内边距由这两层给。
 pub fn modal_with(spec: ModalSpec<'_>, on_close: impl Fn() + 'static, body: Vec<VNode>) -> VNode {
     let close = Rc::new(on_close);
-    let mut body_class = String::from("modal-body game-modal-body custom-scrollbar");
-    if !spec.body_class.is_empty() {
-        body_class.push(' ');
-        body_class.push_str(spec.body_class);
-    }
+    let children = if spec.body_class.is_empty() {
+        rsx! {
+            div { class: "modal-body game-modal-body custom-scrollbar", ..body }
+        }
+    } else {
+        rsx! {
+            div { class: "modal-body game-modal-body custom-scrollbar",
+                div { class: spec.body_class, ..body }
+            }
+        }
+    };
     Modal(ModalProps {
         open: true,
         title: Some(spec.title.to_string()),
@@ -81,9 +89,7 @@ pub fn modal_with(spec: ModalSpec<'_>, on_close: impl Fn() + 'static, body: Vec<
         header_actions: spec.header_actions,
         width: if spec.large { WIDTH_LG } else { WIDTH }.to_string(),
         content_class: "game-modal".to_string(),
-        children: rsx! {
-            div { class: body_class, ..body }
-        },
+        children,
         on_close: Some(EventHandler::new(
             move |_event: tairitsu_vdom::MouseEvent| close(),
         )),

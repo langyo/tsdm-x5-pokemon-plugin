@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/document
-import { INTERFACES } from '../glue/dom/index.js?v=1795830039';
+import { INTERFACES } from '../glue/dom/index.js?v=1795831640';
 const obj = INTERFACES['@tairitsu-glue/document'];
 export const createElement = obj.createElement;
 export const createElementNs = obj.createElementNs;
