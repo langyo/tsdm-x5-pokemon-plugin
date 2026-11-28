@@ -1718,7 +1718,9 @@ fn battle_scene(
                         onclick: crate::button::click(move || copy_log(&copy_state)),
                         "复制战报"
                                                     } }, [("data-test-bt-log-copy", ("1").to_string())]) }
-                    p { role: "status", class: "battle-copy-status", "{copy_status}" }
+                    // 旧版这一行没有类（game.css 里那条 `.battle-copy-status` 是孤儿规则）：
+                    // 带上会变成 12px 灰字并多出 4px 上边距。
+                    p { role: "status", "data-test-bt-log-copy-status": "1", "{copy_status}" }
                 }
             }
         };
@@ -2004,8 +2006,7 @@ fn result_modal(st: &AppState, scene: &crate::battle_types::BattleScene, loading
     };
 
     // 外壳是共用的 hikari Modal（见 crate::modal）。旧正文 `battle-result-section`
-    // 落在 body_class 上（窄屏下它的 `padding: 0` 与 `.modal-body` 的 `20px`
-    // 同权重，同一个元素上才是旧版的结果），子节点与旧版相同。
+    // 落在 body_class 上（正文里面那一层），子节点与旧版相同。
     let body: Vec<VNode> = vec![
         rsx! {
             div { class: result_cls,
@@ -2178,8 +2179,8 @@ fn switch_modal(st: &AppState, loading: bool) -> VNode {
     let cancel_state = st.clone();
     let confirm_state = st.clone();
     // 外壳是共用的 hikari Modal（见 crate::modal）。旧正文的类
-    // `switch-pokemon-modal` 落在 body_class 上（它的 `padding` 规则与
-    // `.modal-body` 的同权重，同一个元素上才是旧版的结果），子节点与旧版相同。
+    // `switch-pokemon-modal` 落在 body_class 上（正文里面那一层，它自己的
+    // `padding: 12px 0` 叠在正文的 20px 之外），子节点与旧版相同。
     let body: Vec<VNode> = vec![
         rsx! {
             p { class: "switch-pokemon-warning",
