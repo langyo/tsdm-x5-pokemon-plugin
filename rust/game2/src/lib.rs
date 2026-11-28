@@ -12,13 +12,13 @@ pub mod app_state;
 pub mod battle;
 pub mod battle_types;
 pub mod button;
-/// 装备卡与装备槽的悬浮提示（hikari `Popover` 承接）。
-#[cfg(target_family = "wasm")]
-pub mod equip_tooltip;
 #[cfg(target_family = "wasm")]
 pub mod footer;
 #[cfg(target_family = "wasm")]
 pub mod home;
+/// 悬浮提示（装备、商店瓦片、战斗道具卡；hikari `Popover` 承接）。
+#[cfg(target_family = "wasm")]
+pub mod hover_tip;
 pub mod icon;
 #[cfg(target_family = "wasm")]
 pub mod inventory;
@@ -194,7 +194,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     // 顶部提示容器常驻根部（对齐 Dioxus 版 AppProviders → ToastProvider）。
     let toast_container = toast::container();
     // 根的末尾：页脚常驻；“关于本项目”弹窗按状态挂载（结构与类名对齐 Dioxus 版）；
-    // 弹出菜单（PopupProvider）与装备悬浮提示开着才出节点。没开着的槽不出节点——
+    // 弹出菜单（PopupProvider）与悬浮提示开着才出节点。没开着的槽不出节点——
     // `VNode::empty()` 会落成一个空文本节点，挂在根上会多一个子节点。
     let mut tail: Vec<tairitsu_vdom::VNode> = Vec::with_capacity(4);
     tail.push(footer::Footer(footer::FooterProps {
@@ -207,7 +207,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     if let Some(popup_node) = popup::provider(state) {
         tail.push(popup_node);
     }
-    if let Some(tooltip_node) = equip_tooltip::provider(state) {
+    if let Some(tooltip_node) = hover_tip::provider(state) {
         tail.push(tooltip_node);
     }
     // 根上的点击 = 旧版遮罩的 onclick：菜单开着就关（见 popup.rs）。
@@ -335,8 +335,8 @@ fn load_profile(state: &app_state::AppState) {
 pub fn navigate(state: &app_state::AppState, route: app_state::Route) {
     let changed = state.route.get() != route;
     state.route.inner().set(route);
-    // 装备悬浮提示挂在应用根部、不随页面销毁：换页时收起（同 `switch_tab`）。
-    equip_tooltip::hide(state);
+    // 悬浮提示挂在应用根部、不随页面销毁：换页时收起（同 `switch_tab`）。
+    hover_tip::hide(state);
     if changed && route == app_state::Route::Inventory {
         inventory::on_enter(state);
     }

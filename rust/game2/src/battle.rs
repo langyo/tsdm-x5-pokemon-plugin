@@ -14,6 +14,8 @@
 //! - 品质门槛不做客户端预判（list 载荷无个体值；服务端仍会拦截），
 //!   地图卡仍显示门槛要求文案。
 
+use std::rc::Rc;
+
 use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
@@ -23,7 +25,7 @@ use crate::battle_types::{
     difficulty_class, quality_gate_notice, recommendation, BattleStatus, MapInfo,
 };
 use crate::icon::{Icon, IconName, IconProps};
-use crate::state::{ItemCardKey, PendingBattleAction, PokemonBasic, ToastKind};
+use crate::state::{HoverTip, ItemCardKey, PendingBattleAction, PokemonBasic, ToastKind};
 use crate::toast;
 
 const IMG_PATH: &str = "source/plugin/pokemon/images";
@@ -373,7 +375,7 @@ pub fn switch_tab(state: &AppState, tab: u8) {
     let changed = bt.tab.get() != tab;
     let reload = (tab == 1 || tab == 2) && (changed || !bt.loading.get());
     bt.tab.inner().set(tab);
-    bt.item_hover.inner().set(None);
+    crate::hover_tip::hide(state);
     bt.item_details.inner().set(None);
     crate::request_remount();
     if reload {
@@ -459,32 +461,45 @@ pub fn reload_log(state: &AppState) {
 // 道具 / 精灵球卡（旧版 BattleItemCard 的组件内状态）
 // ---------------------------------------------------------------------------
 
-/// 指针进入卡片：记下光标位置（提示框落点用）并显示。
+/// 道具卡的悬浮提示宽度（旧版 `BattleItemTooltip` 的定位用：提示水平居中在指针下）。
+const BATTLE_ITEM_TOOLTIP_WIDTH: f64 = 180.0;
+
+/// 指针进入卡片：挂出提示（应用级的 `crate::hover_tip`）。正文在每次渲染时按卡片
+/// 键重新查一遍（[`find_card`]），清单刷新了内容跟着变。
 fn item_card_enter(state: &AppState, key: ItemCardKey, client_x: i32, client_y: i32) {
     let bt = state.battle.clone();
-    bt.item_hover_pos
-        .inner()
-        .set((client_x as f64, client_y as f64));
-    bt.item_hover.inner().set(Some(key));
-    crate::request_remount();
+    let loading = bt.loading.get();
+    let Some(my) = bt.scene.get().flatten().map(|s| s.my_pokemon.clone()) else {
+        return;
+    };
+    let lookup = state.clone();
+    crate::hover_tip::show(
+        state,
+        HoverTip {
+            class: "battle-item-tooltip",
+            x: client_x as f64 - BATTLE_ITEM_TOOLTIP_WIDTH / 2.0,
+            y: client_y as f64 + 30.0,
+            in_place_owner: None,
+            content: Rc::new(move || match find_card(&lookup, &my, loading, key) {
+                Some(card) => battle_item_tooltip_content(&card),
+                None => VNode::empty(),
+            }),
+        },
+    );
 }
 
-/// 指针离开卡片：收起提示框。
-fn item_card_leave(state: &AppState, key: ItemCardKey) {
-    let bt = state.battle.clone();
-    if bt.item_hover.get() == Some(key) {
-        bt.item_hover.inner().set(None);
-        crate::request_remount();
-    }
+/// 指针离开卡片：收起提示。
+fn item_card_leave(state: &AppState) {
+    crate::hover_tip::hide(state);
 }
 
-/// 点卡片：开详情弹窗，收起提示框。
+/// 点卡片：开详情弹窗，收起提示。
 fn open_item_details(state: &AppState, key: ItemCardKey) {
     let bt = state.battle.clone();
     if bt.loading.get() {
         return;
     }
-    bt.item_hover.inner().set(None);
+    crate::hover_tip::hide(state);
     bt.item_details.inner().set(Some(key));
     crate::request_remount();
 }
@@ -668,8 +683,9 @@ fn find_card(
     item_cards(st, my, loading, key.0).into_iter().nth(key.1)
 }
 
-/// 道具 / 精灵球卡：48px 图标格 + 数量角标。悬浮出提示、点击开详情弹窗——两者
-/// 渲染在页面层（[`battle_item_tooltip`] / [`battle_item_details_modal`]）。
+/// 道具 / 精灵球卡：48px 图标格 + 数量角标。悬浮出提示、点击开详情弹窗——提示
+/// 挂在应用根部（`crate::hover_tip`，正文见 [`battle_item_tooltip_content`]），
+/// 详情弹窗渲染在页面层（[`battle_item_details_modal`]）。
 ///
 /// 有意是原生 `button` 而不是 hikari `Button`：卡片要 `mouseenter` / `mouseleave`
 /// （hikari `Button` 只接 `onclick`），与迷你格的格子同一处理。
@@ -709,7 +725,7 @@ fn battle_item_card(st: &AppState, card: &ItemCard) -> VNode {
                 onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
                     item_card_enter(&enter_state, key, e.client_x, e.client_y)
                 },
-                onmouseleave: move |_| item_card_leave(&leave_state, key),
+                onmouseleave: move |_| item_card_leave(&leave_state),
                 div { class: "battle-item-icon",
                     img { src: image_src, alt: alt }
                 }
@@ -719,12 +735,10 @@ fn battle_item_card(st: &AppState, card: &ItemCard) -> VNode {
     }
 }
 
-/// 卡片的悬浮提示（旧版 BattleItemTooltip）：落在光标下方 30px、水平居中。
-fn battle_item_tooltip(card: &ItemCard, pos: (f64, f64)) -> VNode {
-    const TOOLTIP_WIDTH: f64 = 180.0;
-    let tooltip_left = pos.0 - TOOLTIP_WIDTH / 2.0;
-    let tooltip_top = pos.1 + 30.0;
-    let style = format!("left: {tooltip_left}px; top: {tooltip_top}px;");
+/// 卡片的悬浮提示正文（旧版 `BattleItemTooltip` 的子节点；根节点由
+/// `crate::hover_tip` 的面板充当，带 `battle-item-tooltip` 类，落在光标下方 30px、
+/// 水平居中——定位在 [`item_card_enter`]）。
+fn battle_item_tooltip_content(card: &ItemCard) -> VNode {
     let alt = card.name.clone();
     let image_src = card.image_src.clone();
     let name = card.name.clone();
@@ -732,21 +746,25 @@ fn battle_item_tooltip(card: &ItemCard, pos: (f64, f64)) -> VNode {
     let show_desc = !description.is_empty();
     let type_line = format!("类型: {}", card.type_name);
     let qty_line = format!("数量: {}", card.qty);
-    rsx! {
-        div { class: "battle-item-tooltip", style: style,
-            div { class: "tooltip-header",
-                img { class: "tooltip-icon", src: image_src, alt: alt }
-                span { class: "tooltip-name", "{name}" }
-            }
-            if show_desc {
-                div { class: "tooltip-desc", "{description}" }
-            }
-            div { class: "tooltip-info",
-                div { class: "tooltip-type", "{type_line}" }
-                div { class: "tooltip-qty", "{qty_line}" }
-            }
+    let mut nodes: Vec<VNode> = Vec::with_capacity(3);
+    nodes.push(rsx! {
+        div { class: "tooltip-header",
+            img { class: "tooltip-icon", src: image_src, alt: alt }
+            span { class: "tooltip-name", "{name}" }
         }
+    });
+    if show_desc {
+        nodes.push(rsx! {
+            div { class: "tooltip-desc", "{description}" }
+        });
     }
+    nodes.push(rsx! {
+        div { class: "tooltip-info",
+            div { class: "tooltip-type", "{type_line}" }
+            div { class: "tooltip-qty", "{qty_line}" }
+        }
+    });
+    VNode::Fragment(nodes)
 }
 
 /// 点开卡片后的详情弹窗（旧版 BattleItemCard 里内嵌的 Modal）：效果 / 持有数量 /
@@ -1743,15 +1761,9 @@ fn battle_scene(
         VNode::empty()
     };
 
-    // 道具卡的悬浮提示与详情弹窗（旧版渲染在卡片组件里；这里放在页面层，
-    // 免得被战斗卡片的变换/动画当成包含块）。
-    let item_tooltip = match bt.item_hover.get() {
-        Some(key) => match find_card(st, my, loading, key) {
-            Some(card) => battle_item_tooltip(&card, bt.item_hover_pos.get()),
-            None => VNode::empty(),
-        },
-        None => VNode::empty(),
-    };
+    // 点开的道具卡详情弹窗（旧版渲染在卡片组件里；这里放在页面层）。卡片上的悬浮
+    // 提示不在这里：它挂在应用根部（`crate::hover_tip`）——战斗卡片自带变换和动画，
+    // 固定定位的提示放进卡片会被它们当成包含块。
     let item_details = match bt.item_details.get() {
         Some(key) => match find_card(st, my, loading, key) {
             Some(card) => battle_item_details_modal(st, &card),
@@ -1894,7 +1906,7 @@ fn battle_scene(
                     }
                 }
             }
-            ..vec![modal, selection_modal, log_modal, item_details, item_tooltip]
+            ..vec![modal, selection_modal, log_modal, item_details]
         }
     }
 }

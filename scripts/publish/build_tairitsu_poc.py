@@ -813,8 +813,9 @@ def root_custom_properties(css: str) -> dict[str, str]:
 #   - hikari `Modal` 的正文（`rust/game2/src/modal.rs`）；
 #   - 弹出菜单的菜单本体 `.popup-menu`，和承载它的 `Popover` 面板 `.popup-container`
 #     （`rust/game2/src/popup.rs`）：面板带着旧类名，hikari 的面板表在它上面什么都不画；
-#   - 装备悬浮提示 `.equipment-tooltip-inline`，同样是 `Popover` 面板带旧类名
-#     （`rust/game2/src/equip_tooltip.rs`）。
+#   - 悬浮提示 `.equipment-tooltip-inline` / `.shop-tile-tooltip` /
+#     `.battle-item-tooltip`，同样是 `Popover` 面板带旧类名
+#     （`rust/game2/src/hover_tip.rs`）。
 # 以后若用别的 hikari 容器组件（ThemeProvider 之类）包住旧版内容，往这里加一项：
 # 那类容器自己带 hk- 类，不加的话里面的旧内容会被当成 hikari 的（撤销层不撤它，
 # 令牌也是 hikari 的）。
@@ -823,6 +824,8 @@ HOST_CONTENT_ROOTS = (
     ".popup-menu",
     ".popup-container",
     ".equipment-tooltip-inline",
+    ".shop-tile-tooltip",
+    ".battle-item-tooltip",
 )
 
 

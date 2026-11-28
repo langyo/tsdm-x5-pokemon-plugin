@@ -241,11 +241,6 @@ pub struct ShopState {
     pub pets: ReactiveSignal<Option<Result<Vec<ShopPet>, String>>>,
     pub total_pages: ReactiveSignal<usize>,
 
-    /// 悬浮详情：当前悬停的瓦片下标 + 视口定位。
-    /// （tairitsu 的 use_signal 每次渲染新建，受控 hover 状态挂这里。）
-    pub hover_key: ReactiveSignal<Option<usize>>,
-    pub hover_pos: ReactiveSignal<(f64, f64)>,
-
     pub buying: ReactiveSignal<bool>,
 }
 
@@ -260,8 +255,6 @@ impl ShopState {
             items: use_signal(|| None),
             pets: use_signal(|| None),
             total_pages: use_signal(|| 1usize),
-            hover_key: use_signal(|| None),
-            hover_pos: use_signal(|| (0.0f64, 0.0f64)),
             buying: use_signal(|| false),
         }
     }
@@ -546,14 +539,24 @@ impl EquipmentItem {
     }
 }
 
-/// 悬浮中的装备提示（旧版 `EquipmentTooltipInline`）：物品与指针进入那一刻的
-/// 视口坐标。旧版每个卡片各有一份 `show_tooltip` / `tooltip_position`，但指针
-/// 总是先离开旧卡片再进新卡片，同一时刻至多一份，所以这里只留一席。
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct EquipmentTooltip {
-    pub item: EquipmentItem,
+/// 悬浮中的提示（旧版各页的悬浮提示：装备、商店瓦片、战斗道具卡）。指针总是先
+/// 离开旧卡片再进新卡片，同一时刻至多一份，所以整个应用只留一席
+/// （`AppState::hover_tip`）；承载与定位规则见 `crate::hover_tip`。
+#[derive(Clone)]
+pub struct HoverTip {
+    /// 旧版提示根节点的类：game.css 里那条规则照常给观感。
+    pub class: &'static str,
+    /// 提示左上角，由各页自己的定位函数算好。挂到应用根部时是视口坐标；就地渲染
+    /// （`in_place_owner`）时是所在卡片的内边距盒坐标——见那里的说明。
     pub x: f64,
     pub y: f64,
+    /// `Some(卡片下标)`：由那张卡片自己就地渲染（`hover_tip::surface_for`），不挂到
+    /// 应用根部。旧版把提示画在卡片里面，而卡片带 `transform`（商店瓦片悬停时上移）：
+    /// 固定定位的提示于是相对卡片的内边距盒落位，而不是相对视口——旧版的实际效果
+    /// 就是这样，端口照搬。
+    pub in_place_owner: Option<usize>,
+    /// 正文：每次渲染重新生成，页面数据变了内容跟着变（旧版读的是当前信号）。
+    pub content: std::rc::Rc<dyn Fn() -> tairitsu_vdom::VNode>,
 }
 
 /// 单个装备槽。
@@ -650,8 +653,6 @@ pub struct MyPokemonState {
     /// 装备/卸下动作进行中（互斥守卫）。
     pub equip_loading: ReactiveSignal<bool>,
     pub equip_selected: ReactiveSignal<Option<SelectedEquip>>,
-    /// 悬浮中的装备提示；None = 没有卡片被悬浮（旧版 `EquipmentTooltipInline`）。
-    pub equip_tooltip: ReactiveSignal<Option<EquipmentTooltip>>,
 
     // ---- 技能标签页 ----
     pub learn_modal_open: ReactiveSignal<bool>,
@@ -727,7 +728,6 @@ impl MyPokemonState {
             equipment: use_signal(|| None),
             equip_loading: use_signal(|| false),
             equip_selected: use_signal(|| None),
-            equip_tooltip: use_signal(|| None),
             learn_modal_open: use_signal(|| false),
             learnable: use_signal(|| None),
             skill_loading: use_signal(|| false),
@@ -850,11 +850,9 @@ pub struct BattleState {
     pub log_copy_status: ReactiveSignal<String>,
     /// 上次开战的地图（结算「继续战斗」用）。
     pub last_map_id: ReactiveSignal<u64>,
-    /// 道具 / 精灵球卡的悬浮提示与点开的详情（旧版 BattleItemCard 的组件内
-    /// 状态；整树重挂不保留组件状态，所以放在这里）。`(是否精灵球, 列表下标)`。
-    pub item_hover: ReactiveSignal<Option<ItemCardKey>>,
-    /// 悬浮提示的落点（视口坐标，px）。
-    pub item_hover_pos: ReactiveSignal<(f64, f64)>,
+    /// 点开的道具 / 精灵球卡详情（旧版 BattleItemCard 的组件内状态；整树重挂不
+    /// 保留组件状态，所以放在这里；悬浮提示走应用级的 `AppState::hover_tip`）。
+    /// `(是否精灵球, 列表下标)`。
     pub item_details: ReactiveSignal<Option<ItemCardKey>>,
     /// 我方出场位的悬浮详情（旧版 MyPokemonSection 的 show_tooltip）。
     pub player_hover: ReactiveSignal<bool>,
@@ -883,8 +881,6 @@ impl BattleState {
             log_data: use_signal(|| None),
             log_copy_status: use_signal(String::new),
             last_map_id: use_signal(|| 0u64),
-            item_hover: use_signal(|| None),
-            item_hover_pos: use_signal(|| (0.0f64, 0.0f64)),
             item_details: use_signal(|| None),
             player_hover: use_signal(|| false),
         }

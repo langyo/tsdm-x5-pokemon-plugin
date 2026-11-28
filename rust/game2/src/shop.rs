@@ -11,15 +11,18 @@
 //!
 //! 本模块只在 wasm 下编译（依赖 fetch 回调桥）。
 
+use std::rc::Rc;
+
 use hikari_components::{Button, ButtonProps};
 use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
 use crate::api;
 use crate::app_state::AppState;
+use crate::hover_tip;
 use crate::icon::{Icon, IconName, IconProps};
 use crate::shop_logic::{shop_tooltip_position, windowed_entries, PagerEntry};
-use crate::state::{ShopItem, ShopPet, ShopState, ToastKind};
+use crate::state::{HoverTip, ShopItem, ShopPet, ShopState, ToastKind};
 use crate::toast;
 
 /// 图片资源基础路径（对应 Dioxus 版 IMG_PATH）。
@@ -198,24 +201,40 @@ pub fn viewport_width_or_default() -> f64 {
 const ITEM_TOOLTIP_H: f64 = 130.0;
 const PET_TOOLTIP_H: f64 = 190.0;
 
-/// 指针进入瓦片：按光标位置算出 tooltip 落点并显示。tooltip 是纯派生 UI，
-/// 走内部值写入（不触发信号调度）+ 请求重渲染。
-fn tooltip_enter(state: &ShopState, idx: usize, tooltip_h: f64, client_x: i32, client_y: i32) {
+/// 指针进入瓦片：按光标位置算出提示落点，挂到应用级的悬浮提示上
+/// （`crate::hover_tip`，面板由 hikari `Popover` 承接）。提示由瓦片自己就地渲染
+/// （`in_place_owner`），原因见 `HoverTip::in_place_owner`。`content` 每次渲染时
+/// 生成正文，瓦片的数据在进入那一刻拷进闭包（旧版 `ShopItemTooltip { item:
+/// item.clone() }`）。
+fn tooltip_enter(
+    app: &AppState,
+    idx: usize,
+    tooltip_h: f64,
+    client_x: i32,
+    client_y: i32,
+    content: Rc<dyn Fn() -> VNode>,
+) {
     let (x, y) = shop_tooltip_position(
         client_x as f64,
         client_y as f64,
         tooltip_h,
         viewport_width_or_default(),
     );
-    state.hover_pos.inner().set((x, y));
-    state.hover_key.inner().set(Some(idx));
-    crate::request_remount();
+    hover_tip::show(
+        app,
+        HoverTip {
+            class: "shop-tile-tooltip",
+            x,
+            y,
+            in_place_owner: Some(idx),
+            content,
+        },
+    );
 }
 
-/// 指针离开瓦片：收起 tooltip。
-fn tooltip_leave(state: &ShopState) {
-    state.hover_key.inner().set(None);
-    crate::request_remount();
+/// 指针离开瓦片：收起提示。
+fn tooltip_leave(app: &AppState) {
+    hover_tip::hide(app);
 }
 
 /// promise 线程版：全部走内部值写入，不触发任何调度。
@@ -584,9 +603,12 @@ fn PetsTab(state: Box<ShopState>, app: Box<AppState>) -> VNode {
     }
 }
 
-/// 单个商品宫格：悬浮展示详情 tooltip（光标上方，不遮挡价格/购买按钮）。
+/// 单个商品宫格：悬浮展示详情提示（光标上方，不遮挡价格/购买按钮；面板由
+/// `crate::hover_tip` 承接，正文见 [`item_tooltip_content`]）。
 #[component]
 fn ItemTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, item: ShopItem) -> VNode {
+    // 这张瓦片的悬浮提示（指针正在它上面时才有）。
+    let tip_node = hover_tip::surface_for(&app, idx).unwrap_or_else(VNode::empty);
     let img_src = format!("{IMG_PATH}/item/{}.gif", item.image);
     let buy_class = if item.can_buy {
         "buy-btn"
@@ -594,27 +616,35 @@ fn ItemTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, item: ShopIte
         "buy-btn disabled"
     };
     let buying = state.buying.get();
-    let show_tooltip = state.hover_key.get() == Some(idx);
-    let (tip_x, tip_y) = state.hover_pos.get();
     // "{ident}" 简写会移动字段，先取出字符串（i64 也无 IntoVNodeChild 实现）。
     let price = item.price.to_string();
     let name = item.name.clone();
     let title_text = item.name.clone();
     let type_name = item.type_name.clone();
+    // 提示正文：数据拷进闭包，每次渲染时重新生成。
+    let tip_item = item.clone();
+    let tip_content: Rc<dyn Fn() -> VNode> = Rc::new(move || item_tooltip_content(&tip_item));
 
     // 购买入口是整块瓦片：点到瓦片内任意位置都触发购买（按钮不单独绑定）。
     let item_id = item.id;
-    // 处理器闭包要求 'static：三个处理器各持一份状态句柄。
-    let (click_state, enter_state, leave_state) = (state.clone(), state.clone(), state);
-    let click_app = app;
+    // 处理器闭包要求 'static：各持一份状态句柄。
+    let (click_state, leave_state) = (state.clone(), state);
+    let (enter_app, leave_app, click_app) = (app.clone(), app.clone(), app);
     rsx! {
         div {
             class: "shop-tile",
             onclick: move |_| buy_item_by_id(&click_state, &click_app, item_id),
             onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
-                tooltip_enter(&enter_state, idx, ITEM_TOOLTIP_H, e.client_x, e.client_y)
+                tooltip_enter(
+                    &enter_app,
+                    idx,
+                    ITEM_TOOLTIP_H,
+                    e.client_x,
+                    e.client_y,
+                    Rc::clone(&tip_content),
+                )
             },
-            onmouseleave: move |_| tooltip_leave(&leave_state),
+            onmouseleave: move |_| tooltip_leave(&leave_app),
             div { class: "shop-tile-icon",
                 img { class: "tile-icon-img", src: img_src }
             }
@@ -633,16 +663,14 @@ fn ItemTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, item: ShopIte
                     "购买"
                                 }
             }
-            if show_tooltip {
-                ItemTooltip { item: Some(item.clone()), x: Some(tip_x), y: Some(tip_y) }
-            }
+            ..vec![tip_node]
         }
     }
 }
 
-#[component]
-fn ItemTooltip(item: ShopItem, x: f64, y: f64) -> VNode {
-    let style = format!("left: {x}px; top: {y}px;");
+/// 商品提示的正文（旧版 `ShopItemTooltip` 的子节点；根节点由 `crate::hover_tip`
+/// 的面板充当，带 `shop-tile-tooltip` 类）。
+fn item_tooltip_content(item: &ShopItem) -> VNode {
     let effect = item.effect.clone();
     let price = item.price.to_string();
     let name = item.name.clone();
@@ -651,32 +679,46 @@ fn ItemTooltip(item: ShopItem, x: f64, y: f64) -> VNode {
     let hp = format!("回复HP +{}", effect.addhp);
     let exp = format!("经验 +{}", effect.addexp);
     let lv = format!("等级 +{}", effect.addlv);
-    rsx! {
-        div { class: "shop-tile-tooltip",
-            style: style,
-            div { class: "tile-tooltip-header",
-                span { class: "tile-tooltip-name", "{name}" }
-                span { class: "item-type-badge", "{type_name}" }
-            }
-            if !description.is_empty() {
-                p { class: "tile-tooltip-desc", "{description}" }
-            }
-            div { class: "tile-tooltip-stats",
-                if effect.addhp != 0 { span { class: "tile-tooltip-stat", "{hp}" } }
-                if effect.addexp != 0 { span { class: "tile-tooltip-stat", "{exp}" } }
-                if effect.addlv != 0 { span { class: "tile-tooltip-stat", "{lv}" } }
-            }
-            div { class: "tile-tooltip-price",
-                Icon { name: Some(IconName::Coins), size: Some(14), class: Some("price-icon".to_string()) }
-                span { "{price}" }
-            }
+    let mut nodes: Vec<VNode> = Vec::with_capacity(4);
+    nodes.push(rsx! {
+        div { class: "tile-tooltip-header",
+            span { class: "tile-tooltip-name", "{name}" }
+            span { class: "item-type-badge", "{type_name}" }
         }
+    });
+    if !description.is_empty() {
+        nodes.push(rsx! {
+            p { class: "tile-tooltip-desc", "{description}" }
+        });
     }
+    nodes.push(rsx! {
+        div { class: "tile-tooltip-stats",
+            if effect.addhp != 0 { span { class: "tile-tooltip-stat", "{hp}" } }
+            if effect.addexp != 0 { span { class: "tile-tooltip-stat", "{exp}" } }
+            if effect.addlv != 0 { span { class: "tile-tooltip-stat", "{lv}" } }
+        }
+    });
+    // 函数调用形式：rsx 的组件形式会补一句 `..Default::default()`，而 `IconProps` 的
+    // 字段这里都给了（clippy needless_update）。
+    let coin = Icon(IconProps {
+        name: Some(IconName::Coins),
+        size: Some(14),
+        class: Some("price-icon".to_string()),
+    });
+    nodes.push(rsx! {
+        div { class: "tile-tooltip-price",
+            ..vec![coin, rsx! { span { "{price}" } }]
+        }
+    });
+    VNode::Fragment(nodes)
 }
 
-/// 单个宠物宫格：悬浮展示六维种族值 tooltip。
+/// 单个宠物宫格：悬浮展示六维种族值提示（面板由 `crate::hover_tip` 承接，正文见
+/// [`pet_tooltip_content`]）。
 #[component]
 fn PetTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, pet: ShopPet) -> VNode {
+    // 这张瓦片的悬浮提示（指针正在它上面时才有）。
+    let tip_node = hover_tip::surface_for(&app, idx).unwrap_or_else(VNode::empty);
     let img_src = format!("{IMG_PATH}/spm/{}.gif", pet.id);
     let buy_class = if pet.can_buy {
         "buy-btn"
@@ -684,8 +726,6 @@ fn PetTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, pet: ShopPet) 
         "buy-btn disabled"
     };
     let buying = state.buying.get();
-    let show_tooltip = state.hover_key.get() == Some(idx);
-    let (tip_x, tip_y) = state.hover_pos.get();
     let has_type2 = pet
         .type_2
         .as_deref()
@@ -699,28 +739,31 @@ fn PetTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, pet: ShopPet) 
     // 属性标签沿用彩色类型徽章（.badge.badge-type-*），与 Dioxus 版一致。
     let type_1_cls = format!("badge badge-type-{type_1}");
     let type_2_cls = format!("badge badge-type-{type_2}");
+    // 提示正文：数据拷进闭包，每次渲染时重新生成。
+    let tip_pet = pet.clone();
+    let tip_content: Rc<dyn Fn() -> VNode> = Rc::new(move || pet_tooltip_content(&tip_pet));
 
     // 购买入口是整块瓦片：点到瓦片内任意位置都触发购买（按钮不单独绑定）。
     let pet_id = pet.id;
-    // 处理器闭包要求 'static：三个处理器各持一份状态句柄。
-    let (click_state, enter_state, leave_state) = (state.clone(), state.clone(), state);
-    let click_app = app;
-
-    let hp = format!("HP {}", pet.hp);
-    let atk = format!("攻击 {}", pet.atk);
-    let def = format!("防御 {}", pet.def);
-    let spatk = format!("特攻 {}", pet.spatk);
-    let spdef = format!("特防 {}", pet.spdef);
-    let speed = format!("速度 {}", pet.speed);
+    // 处理器闭包要求 'static：各持一份状态句柄。
+    let (click_state, leave_state) = (state.clone(), state);
+    let (enter_app, leave_app, click_app) = (app.clone(), app.clone(), app);
 
     rsx! {
         div {
             class: "shop-tile pet-tile",
             onclick: move |_| buy_pet_by_id(&click_state, &click_app, pet_id),
             onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
-                tooltip_enter(&enter_state, idx, PET_TOOLTIP_H, e.client_x, e.client_y)
+                tooltip_enter(
+                    &enter_app,
+                    idx,
+                    PET_TOOLTIP_H,
+                    e.client_x,
+                    e.client_y,
+                    Rc::clone(&tip_content),
+                )
             },
-            onmouseleave: move |_| tooltip_leave(&leave_state),
+            onmouseleave: move |_| tooltip_leave(&leave_app),
             div { class: "shop-tile-icon",
                 img { class: "tile-icon-img pet-sprite-img", src: img_src }
             }
@@ -742,37 +785,14 @@ fn PetTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, pet: ShopPet) 
                     "购买"
                                 }
             }
-            if show_tooltip {
-                PetTooltip {
-                    pet: Some(pet.clone()),
-                    x: Some(tip_x),
-                    y: Some(tip_y),
-                    hp: Some(hp),
-                    atk: Some(atk),
-                    def: Some(def),
-                    spatk: Some(spatk),
-                    spdef: Some(spdef),
-                    speed: Some(speed),
-                }
-            }
+            ..vec![tip_node]
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-#[component]
-fn PetTooltip(
-    pet: ShopPet,
-    x: f64,
-    y: f64,
-    hp: String,
-    atk: String,
-    def: String,
-    spatk: String,
-    spdef: String,
-    speed: String,
-) -> VNode {
-    let style = format!("left: {x}px; top: {y}px;");
+/// 宠物提示的正文（旧版 `PetTooltip` 的子节点；根节点由 `crate::hover_tip` 的面板
+/// 充当，带 `shop-tile-tooltip` 类）。
+fn pet_tooltip_content(pet: &ShopPet) -> VNode {
     let has_type2 = pet
         .type_2
         .as_deref()
@@ -780,36 +800,50 @@ fn PetTooltip(
         .unwrap_or(false);
     let price = pet.price.to_string();
     let name = pet.name.clone();
-    let title_text = pet.name.clone();
     let type_1 = pet.type_1.clone();
     let type_2 = pet.type_2.clone().unwrap_or_default();
     // 属性标签沿用彩色类型徽章（.badge.badge-type-*），与 Dioxus 版一致。
     let type_1_cls = format!("badge badge-type-{type_1}");
     let type_2_cls = format!("badge badge-type-{type_2}");
-    rsx! {
-        div { class: "shop-tile-tooltip",
-            style: style,
-            div { class: "tile-tooltip-header",
-                span { class: "tile-tooltip-name", "{name}" }
-                span { class: type_1_cls, "{type_1}" }
-                if has_type2 {
-                    span { class: type_2_cls, "{type_2}" }
-                }
-            }
-            div { class: "tile-tooltip-stats pet-stats-grid",
-                span { class: "tile-tooltip-stat", "{hp}" }
-                span { class: "tile-tooltip-stat", "{atk}" }
-                span { class: "tile-tooltip-stat", "{def}" }
-                span { class: "tile-tooltip-stat", "{spatk}" }
-                span { class: "tile-tooltip-stat", "{spdef}" }
-                span { class: "tile-tooltip-stat", "{speed}" }
-            }
-            div { class: "tile-tooltip-price",
-                Icon { name: Some(IconName::Coins), size: Some(14), class: Some("price-icon".to_string()) }
-                span { "{price}" }
+    let hp = format!("HP {}", pet.hp);
+    let atk = format!("攻击 {}", pet.atk);
+    let def = format!("防御 {}", pet.def);
+    let spatk = format!("特攻 {}", pet.spatk);
+    let spdef = format!("特防 {}", pet.spdef);
+    let speed = format!("速度 {}", pet.speed);
+    let mut nodes: Vec<VNode> = Vec::with_capacity(3);
+    nodes.push(rsx! {
+        div { class: "tile-tooltip-header",
+            span { class: "tile-tooltip-name", "{name}" }
+            span { class: type_1_cls, "{type_1}" }
+            if has_type2 {
+                span { class: type_2_cls, "{type_2}" }
             }
         }
-    }
+    });
+    nodes.push(rsx! {
+        div { class: "tile-tooltip-stats pet-stats-grid",
+            span { class: "tile-tooltip-stat", "{hp}" }
+            span { class: "tile-tooltip-stat", "{atk}" }
+            span { class: "tile-tooltip-stat", "{def}" }
+            span { class: "tile-tooltip-stat", "{spatk}" }
+            span { class: "tile-tooltip-stat", "{spdef}" }
+            span { class: "tile-tooltip-stat", "{speed}" }
+        }
+    });
+    // 函数调用形式：rsx 的组件形式会补一句 `..Default::default()`，而 `IconProps` 的
+    // 字段这里都给了（clippy needless_update）。
+    let coin = Icon(IconProps {
+        name: Some(IconName::Coins),
+        size: Some(14),
+        class: Some("price-icon".to_string()),
+    });
+    nodes.push(rsx! {
+        div { class: "tile-tooltip-price",
+            ..vec![coin, rsx! { span { "{price}" } }]
+        }
+    });
+    VNode::Fragment(nodes)
 }
 
 // ---------------------------------------------------------------------------
