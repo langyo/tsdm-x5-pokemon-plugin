@@ -1031,6 +1031,47 @@ check('flee failure message notes the failure', strpos($fb2['message'], '逃跑�
 check('flee failure keeps the mirror', (int)DB::$usersdata['npcid'] === 129);
 check('flee failure counter damaged the pet', (int)DB::$pet_row['hp'] < 100);
 
+// flee after the ally fainted: the replacement dialog offers a penalty-free flee,
+// so with a bench left the flee must end the battle without a roll or a counter
+seed_battle(80, 5000, 90, 42);     // enemy faster and one-shots the ally
+seed_pet_and_party(100, 2);        // two healthy bench mons keep awaiting_switch
+$r = run_turn();
+$awaiting_id = 0;
+foreach (DB::$battles as $row) $awaiting_id = max($awaiting_id, (int)$row['id']);
+check('faint setup waits for a replacement', $r->data['status'] === 'defeat' && $r->data['can_continue_switch'] === true
+    && DB::$battles[$awaiting_id]['phase'] === 'awaiting_switch' && (int)DB::$usersdata['npcid'] === 129);
+$enemy_hp = function () use ($awaiting_id) {
+    foreach (DB::$units as $u) {
+        if ((int)$u['battle_id'] === $awaiting_id && $u['side'] === 'enemy') return (int)$u['hp'];
+    }
+    return -1;
+};
+$enemy_hp_before = $enemy_hp();
+DB::reset(); // scope the SQL audit log to the flee request
+$fb3 = null;
+try {
+    api_flee();
+} catch (BattleApiResponse $fr3) {
+    $fb3 = $fr3->data;
+}
+check('flee after faint responds fled', isset($fb3) && $fb3['status'] === 'fled' && $fb3['battle_over'] === true && $fb3['can_continue_switch'] === false);
+check('flee after faint reports the success message', isset($fb3) && $fb3['message'] === '成功逃脱了！');
+check('flee after faint attaches the battle_end event', isset($fb3) && count($fb3['events']) === 1
+    && $fb3['events'][0]['type'] === 'battle_end' && $fb3['events'][0]['payload'] === ['result' => 'fled']);
+check('flee after faint clears the mirror', (int)DB::$usersdata['npcid'] === 0);
+check('flee after faint ends engine row', DB::$battles[$awaiting_id]['phase'] === 'ended' && DB::$battles[$awaiting_id]['result'] === 'fled');
+check('flee after faint persists exactly one battle_end event', (function () {
+    $n = 0;
+    foreach (DB::$logs as $l) {
+        if (strpos($l, 'INSERT INTO pm_battle_event') === 0) {
+            $n++;
+            if (strpos($l, "'battle_end'") === false || strpos($l, 'fled') === false) return false;
+        }
+    }
+    return $n === 1;
+})());
+check('flee after faint leaves the enemy untouched', $enemy_hp() === $enemy_hp_before);
+
 echo "=== scenario G: no active battle rejected before transaction work ===\n";
 DB::reset();
 DB::$usersdata['npcid'] = 0;

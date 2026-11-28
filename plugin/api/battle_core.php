@@ -1292,6 +1292,10 @@ function battle_core_events_has($events, $type, $side = null)
  * 逃跑判定（rules_version 1 与旧版 api_flee 一致）：
  * 基础 0.5 + (我方等级 - 敌方等级) * 0.05，夹在 [0.1, 0.9]
  *
+ * 我方行动位已倒下、战斗仍在进行（等待换宠）时不掷骰、必定逃脱——
+ * 前端换宠弹窗的"逃跑（无惩罚）"即走这里：没有敌方回合，也不消耗随机数。
+ * 已结束的战斗不改写结果。
+ *
  * @return array {'state', 'events', 'fled': bool}
  */
 function battle_core_try_flee($state, $rng = null)
@@ -1299,8 +1303,16 @@ function battle_core_try_flee($state, $rng = null)
     $events = [];
     $ally = battle_core_active_unit($state, 'ally');
     $enemy = battle_core_active_unit($state, 'enemy');
-    if ($ally === null || $enemy === null) {
+    // 敌方无行动位，或我方无行动位且战斗已结束（如无替补的 defeat）：不逃跑
+    if ($enemy === null || ($ally === null && $state['phase'] === 'ended')) {
         return ['state' => $state, 'events' => $events, 'fled' => false];
+    }
+    if ($ally === null) {
+        // 行动位倒下、等待换宠：无惩罚逃跑，不看等级概率
+        $state['phase'] = 'ended';
+        $state['result'] = 'fled';
+        battle_core_emit($state, $events, 'battle_end', ['result' => 'fled']);
+        return ['state' => $state, 'events' => $events, 'fled' => true];
     }
     $chance = 0.5 + (((int)$ally['level']) - ((int)$enemy['level'])) * 0.05;
     $chance = max(0.1, min(0.9, $chance));
