@@ -17,7 +17,6 @@ dependencies = [
  "dioxus-config-macros",
  "dioxus-core",
  "dioxus-core-macro",
- "dioxus-document",
  "dioxus-hooks",
  "dioxus-html",
  "dioxus-router",

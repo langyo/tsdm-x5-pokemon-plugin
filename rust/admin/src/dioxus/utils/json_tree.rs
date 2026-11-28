@@ -239,22 +239,8 @@ fn JsonDropdownMenu(
 ) -> Element {
     let mut show_menu = use_signal(|| false);
 
-    // 点击外部关闭菜单
-    use_effect(move || {
-        if *show_menu.read() {
-            let _ = dioxus_document::eval(
-                r#"
-                (event) => {
-                    if (!event.target.closest('.json-dropdown')) {
-                        window.__close_json_menu = true;
-                    } else {
-                        window.__close_json_menu = false;
-                    }
-                }
-                "#,
-            );
-        }
-    });
+    // 关闭路径只有两条：再点一次触发器，或选中一项。此前这里有一段经 eval 求值的
+    // “点击外部关闭”脚本，但它只求值出一个从未被调用的函数，没有任何效果。
 
     rsx! {
         div { class: "json-dropdown",

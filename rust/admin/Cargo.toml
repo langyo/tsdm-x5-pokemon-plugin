@@ -27,9 +27,6 @@ dioxus-signals = "0.7"
 # 明确指定 dioxus-web 依赖，禁用 devtools 功能
 dioxus-web = { version = "0.7", default-features = false, features = ["mounted", "document"] }
 
-# JSON 树下拉菜单仍直接调用 eval，需要 document 门面
-dioxus-document = "0.7"
-
 gloo-timers = { version = "^0.4", features = ["futures"] }
 
 anyhow = "^1"
