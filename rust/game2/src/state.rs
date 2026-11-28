@@ -6,8 +6,9 @@
 
 use tairitsu_hooks::{use_signal, ReactiveSignal};
 
-/// 远程 CDN 的精灵图库——X3 时代的动画 GIF 素材（正面 pm / 异色 pmsg），覆盖含
-/// 自定宠在内的全部物种（旧版 utils/sprite.rs 的 `IMG_PATH_REMOTE`）。
+/// 远程 CDN 的精灵图库——X3 时代的动画 GIF 素材（正面 pm / 异色 pmsg，背面
+/// pmb / 异色 pmsgb），覆盖含自定宠在内的全部物种（旧版 utils/sprite.rs 的
+/// `IMG_PATH_REMOTE`）。
 pub const IMG_PATH_REMOTE: &str = "https://img.tsdm39.com/Pokemon";
 
 /// 正面精灵图地址（旧版 `front_sprite_url`）。CDN 缺图或不可达时，由页面模板
@@ -15,6 +16,13 @@ pub const IMG_PATH_REMOTE: &str = "https://img.tsdm39.com/Pokemon";
 /// 选宠列表都用它；迷你格、进化路径这些小图标位仍用本地 `spm/` 小图。
 pub fn front_sprite_url(species_id: u64, is_shiny: bool) -> String {
     let dir = if is_shiny { "pmsg" } else { "pm" };
+    format!("{IMG_PATH_REMOTE}/{dir}/{species_id}.gif")
+}
+
+/// 背面精灵图地址（旧版 `back_sprite_url`，普通 `pmb` / 异色 `pmsgb`）：
+/// 战斗里我方出场位用的是背面图，目录名与正面图不同。
+pub fn back_sprite_url(species_id: u64, is_shiny: bool) -> String {
+    let dir = if is_shiny { "pmsgb" } else { "pmb" };
     format!("{IMG_PATH_REMOTE}/{dir}/{species_id}.gif")
 }
 
@@ -301,6 +309,32 @@ impl PokemonBasic {
 /// 负面状态码表（对齐服务端；20–22 是虚弱状态，同样要治疗）。
 pub fn is_negative_state(state: u8) -> bool {
     matches!(state, 0 | 2 | 3 | 4 | 5 | 6 | 7 | 11 | 15 | 20 | 21 | 22)
+}
+
+#[cfg(test)]
+mod sprite_tests {
+    use super::{back_sprite_url, front_sprite_url};
+
+    #[test]
+    fn front_and_back_sprites_use_their_own_directories() {
+        assert_eq!(
+            front_sprite_url(384, false),
+            "https://img.tsdm39.com/Pokemon/pm/384.gif"
+        );
+        assert_eq!(
+            front_sprite_url(384, true),
+            "https://img.tsdm39.com/Pokemon/pmsg/384.gif"
+        );
+        // 背面图是 `pmb` / `pmsgb`——之前写成 `back/`，战斗里我方精灵图是裂的。
+        assert_eq!(
+            back_sprite_url(384, false),
+            "https://img.tsdm39.com/Pokemon/pmb/384.gif"
+        );
+        assert_eq!(
+            back_sprite_url(384, true),
+            "https://img.tsdm39.com/Pokemon/pmsgb/384.gif"
+        );
+    }
 }
 
 #[cfg(test)]
@@ -784,7 +818,18 @@ pub struct BattleState {
     pub log_copy_status: ReactiveSignal<String>,
     /// 上次开战的地图（结算「继续战斗」用）。
     pub last_map_id: ReactiveSignal<u64>,
+    /// 道具 / 精灵球卡的悬浮提示与点开的详情（旧版 BattleItemCard 的组件内
+    /// 状态；整树重挂不保留组件状态，所以放在这里）。`(是否精灵球, 列表下标)`。
+    pub item_hover: ReactiveSignal<Option<ItemCardKey>>,
+    /// 悬浮提示的落点（视口坐标，px）。
+    pub item_hover_pos: ReactiveSignal<(f64, f64)>,
+    pub item_details: ReactiveSignal<Option<ItemCardKey>>,
+    /// 我方出场位的悬浮详情（旧版 MyPokemonSection 的 show_tooltip）。
+    pub player_hover: ReactiveSignal<bool>,
 }
+
+/// 道具 / 精灵球卡的标识：`(是否精灵球, 列表下标)`。
+pub type ItemCardKey = (bool, usize);
 
 impl BattleState {
     pub fn new() -> Self {
@@ -806,6 +851,10 @@ impl BattleState {
             log_data: use_signal(|| None),
             log_copy_status: use_signal(String::new),
             last_map_id: use_signal(|| 0u64),
+            item_hover: use_signal(|| None),
+            item_hover_pos: use_signal(|| (0.0f64, 0.0f64)),
+            item_details: use_signal(|| None),
+            player_hover: use_signal(|| false),
         }
     }
 }

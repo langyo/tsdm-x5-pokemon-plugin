@@ -41,6 +41,8 @@ pub mod state;
 pub mod storage_logic;
 #[cfg(target_family = "wasm")]
 pub mod toast;
+/// 技能属性 / 分类徽章的对照表（纯数据 + 单测，可在 host 上测）。
+pub mod type_badge;
 #[cfg(target_family = "wasm")]
 pub mod welcome;
 

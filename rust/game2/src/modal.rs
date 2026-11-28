@@ -52,15 +52,6 @@ impl<'a> ModalSpec<'a> {
             body_class: "",
         }
     }
-
-    /// 关不掉的弹窗：旧 markup 既没有关闭键、遮罩点击也不关的那一种（战斗的
-    /// 连接错误提示、战斗结果、替换宠物）。只能由正文里的按钮离开。
-    pub fn unclosable(title: &'a str, large: bool) -> Self {
-        Self {
-            closable: false,
-            ..Self::new(title, large)
-        }
-    }
 }
 
 /// 旧版共用外壳 `Modal` / `ModalLg` 的入口：它的正文是
