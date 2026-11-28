@@ -421,63 +421,68 @@ fn ShopItemTile(item: _utils::types::api_shop::ShopItem, mut buying: Signal<bool
     // rsx 内不便解构元组信号，这里先读出（仅在 mouseenter 后有意义，隐藏时不使用）。
     let tip = tooltip_pos();
 
+    // tooltip 与瓦片平级，不画在 .shop-tile 里面：悬浮时 .shop-tile 带 transform，
+    // 会成为 fixed 定位后代的包含块，提示就相对瓦片而不是视口落位。外层
+    // .shop-tile-cell 不生成盒子（见 _shop.scss），宫格条目仍然是 .shop-tile。
     rsx! {
-        div {
-            class: "shop-tile",
-            onmouseenter: move |evt| {
-                let c = evt.data().client_coordinates();
-                tooltip_pos.set(shop_tooltip_position(c.x, c.y, ITEM_TOOLTIP_H));
-                show_tooltip.set(true);
-            },
-            onmouseleave: move |_| show_tooltip.set(false),
-            div { class: "shop-tile-icon",
-                img {
-                    class: "tile-icon-img",
-                    src: "{IMG_PATH}/item/{item.image}.gif",
-                    alt: "{item.name}",
+        div { class: "shop-tile-cell",
+            div {
+                class: "shop-tile",
+                onmouseenter: move |evt| {
+                    let c = evt.data().client_coordinates();
+                    tooltip_pos.set(shop_tooltip_position(c.x, c.y, ITEM_TOOLTIP_H));
+                    show_tooltip.set(true);
+                },
+                onmouseleave: move |_| show_tooltip.set(false),
+                div { class: "shop-tile-icon",
+                    img {
+                        class: "tile-icon-img",
+                        src: "{IMG_PATH}/item/{item.image}.gif",
+                        alt: "{item.name}",
+                    }
                 }
-            }
-            div { class: "shop-tile-name", title: "{item.name}", "{item.name}" }
-            div { class: "shop-tile-meta",
-                span { class: "item-type-badge", "{item.type_name}" }
-            }
-            div { class: "shop-tile-foot",
-                div { class: "item-price",
-                    Icon { name: IconName::Coins, size: 12, class: "price-icon".to_string() }
-                    span { class: "price-value", "{item.price}" }
+                div { class: "shop-tile-name", title: "{item.name}", "{item.name}" }
+                div { class: "shop-tile-meta",
+                    span { class: "item-type-badge", "{item.type_name}" }
                 }
-                button {
-                    class: if item.can_buy { "buy-btn" } else { "buy-btn disabled" },
-                    disabled: !item.can_buy || *buying.read(),
-                    onclick: move |_| {
-                        if !item.can_buy || *buying.read() || use_battle_state() { return; }
-                        buying.set(true);
-                        let name_clone = item.name.clone();
-                        let api = NewApiClient::new();
-                        let do_refresh = || {
-                            refresh_user_profile_state();
-                            refresh_inventory_state();
-                        };
-                        spawn(async move {
-                            match api.buy_item(item.id, 1).await {
-                                Ok(resp) => {
-                                    show_success(
-                                        format!(
-                                            "成功购买 {} ×1！余额: {}",
-                                            name_clone,
-                                            resp.remaining_money,
-                                        ),
-                                    );
+                div { class: "shop-tile-foot",
+                    div { class: "item-price",
+                        Icon { name: IconName::Coins, size: 12, class: "price-icon".to_string() }
+                        span { class: "price-value", "{item.price}" }
+                    }
+                    button {
+                        class: if item.can_buy { "buy-btn" } else { "buy-btn disabled" },
+                        disabled: !item.can_buy || *buying.read(),
+                        onclick: move |_| {
+                            if !item.can_buy || *buying.read() || use_battle_state() { return; }
+                            buying.set(true);
+                            let name_clone = item.name.clone();
+                            let api = NewApiClient::new();
+                            let do_refresh = || {
+                                refresh_user_profile_state();
+                                refresh_inventory_state();
+                            };
+                            spawn(async move {
+                                match api.buy_item(item.id, 1).await {
+                                    Ok(resp) => {
+                                        show_success(
+                                            format!(
+                                                "成功购买 {} ×1！余额: {}",
+                                                name_clone,
+                                                resp.remaining_money,
+                                            ),
+                                        );
+                                    }
+                                    Err(e) => {
+                                        show_error(format!("购买失败: {}", e));
+                                    }
                                 }
-                                Err(e) => {
-                                    show_error(format!("购买失败: {}", e));
-                                }
-                            }
-                            do_refresh();
-                            buying.set(false);
-                        });
-                    },
-                    "购买"
+                                do_refresh();
+                                buying.set(false);
+                            });
+                        },
+                        "购买"
+                    }
                 }
             }
             if *show_tooltip.read() {
@@ -577,71 +582,74 @@ fn ShopPetTile(pet: _utils::types::api_shop::ShopPet, mut buying: Signal<bool>) 
     let mut tooltip_pos = use_signal(|| (0.0f64, 0.0f64));
     let tip = tooltip_pos();
 
+    // 同商品宫格：tooltip 与瓦片平级，避开悬浮时带 transform 的 .shop-tile。
     rsx! {
-        div {
-            class: "shop-tile pet-tile",
-            onmouseenter: move |evt| {
-                let c = evt.data().client_coordinates();
-                tooltip_pos.set(shop_tooltip_position(c.x, c.y, PET_TOOLTIP_H));
-                show_tooltip.set(true);
-            },
-            onmouseleave: move |_| show_tooltip.set(false),
-            div { class: "shop-tile-icon",
-                img {
-                    class: "tile-icon-img pet-sprite-img",
-                    src: "{IMG_PATH}/spm/{pet.id}.gif",
-                    alt: "{pet.name}",
-                }
-            }
-            div { class: "shop-tile-name", title: "{pet.name}", "{pet.name}" }
-            div { class: "shop-tile-meta",
-                span { class: "badge badge-type-{pet.type_1}", "{pet.type_1}" }
-                if let Some(t2) = &pet.type_2 {
-                    if !t2.is_empty() {
-                        span { class: "badge badge-type-{t2}", "{t2}" }
+        div { class: "shop-tile-cell",
+            div {
+                class: "shop-tile pet-tile",
+                onmouseenter: move |evt| {
+                    let c = evt.data().client_coordinates();
+                    tooltip_pos.set(shop_tooltip_position(c.x, c.y, PET_TOOLTIP_H));
+                    show_tooltip.set(true);
+                },
+                onmouseleave: move |_| show_tooltip.set(false),
+                div { class: "shop-tile-icon",
+                    img {
+                        class: "tile-icon-img pet-sprite-img",
+                        src: "{IMG_PATH}/spm/{pet.id}.gif",
+                        alt: "{pet.name}",
                     }
                 }
-            }
-            div { class: "shop-tile-foot",
-                div { class: "item-price",
-                    Icon { name: IconName::Coins, size: 12, class: "price-icon".to_string() }
-                    span { class: "price-value", "{pet.price}" }
+                div { class: "shop-tile-name", title: "{pet.name}", "{pet.name}" }
+                div { class: "shop-tile-meta",
+                    span { class: "badge badge-type-{pet.type_1}", "{pet.type_1}" }
+                    if let Some(t2) = &pet.type_2 {
+                        if !t2.is_empty() {
+                            span { class: "badge badge-type-{t2}", "{t2}" }
+                        }
+                    }
                 }
-                button {
-                    class: if pet.can_buy { "buy-btn" } else { "buy-btn disabled" },
-                    disabled: !pet.can_buy || *buying.read(),
-                    onclick: move |_| {
-                        if !pet.can_buy || *buying.read() || use_battle_state() { return; }
-                        buying.set(true);
-                        let name_clone = pet.name.clone();
-                        let api = NewApiClient::new();
-                        spawn(async move {
-                            match api.buy_pet(pet.id).await {
-                                Ok(resp) => {
-                                    let location = match resp.site {
-                                        1 => "首位",
-                                        2 => "背包",
-                                        _ => "仓库",
-                                    };
-                                    show_success(
-                                        format!(
-                                            "成功购买 {}！已放入{}，余额: {}",
-                                            name_clone,
-                                            location,
-                                            resp.remaining_money,
-                                        ),
-                                    );
-                                    refresh_pokemon_list();
-                                    refresh_user_profile_state();
+                div { class: "shop-tile-foot",
+                    div { class: "item-price",
+                        Icon { name: IconName::Coins, size: 12, class: "price-icon".to_string() }
+                        span { class: "price-value", "{pet.price}" }
+                    }
+                    button {
+                        class: if pet.can_buy { "buy-btn" } else { "buy-btn disabled" },
+                        disabled: !pet.can_buy || *buying.read(),
+                        onclick: move |_| {
+                            if !pet.can_buy || *buying.read() || use_battle_state() { return; }
+                            buying.set(true);
+                            let name_clone = pet.name.clone();
+                            let api = NewApiClient::new();
+                            spawn(async move {
+                                match api.buy_pet(pet.id).await {
+                                    Ok(resp) => {
+                                        let location = match resp.site {
+                                            1 => "首位",
+                                            2 => "背包",
+                                            _ => "仓库",
+                                        };
+                                        show_success(
+                                            format!(
+                                                "成功购买 {}！已放入{}，余额: {}",
+                                                name_clone,
+                                                location,
+                                                resp.remaining_money,
+                                            ),
+                                        );
+                                        refresh_pokemon_list();
+                                        refresh_user_profile_state();
+                                    }
+                                    Err(e) => {
+                                        show_error(format!("购买失败: {}", e));
+                                    }
                                 }
-                                Err(e) => {
-                                    show_error(format!("购买失败: {}", e));
-                                }
-                            }
-                            buying.set(false);
-                        });
-                    },
-                    "购买"
+                                buying.set(false);
+                            });
+                        },
+                        "购买"
+                    }
                 }
             }
             if *show_tooltip.read() {
