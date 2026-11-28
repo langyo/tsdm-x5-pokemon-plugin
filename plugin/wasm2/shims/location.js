@@ -1,5 +1,5 @@
 // shim for tairitsu-browser:full/location
-import { INTERFACES } from '../glue/html/index.js?v=1795839614';
+import { INTERFACES } from '../glue/html/index.js?v=1795840361';
 const obj = INTERFACES['@tairitsu-glue/location'];
 export const assign = obj.assign;
 export const getAncestorOrigins = obj.getAncestorOrigins;
