@@ -333,4 +333,11 @@
   .hk-btn svg {
     color: revert;
   }
+
+  // hikari `Badge` 带着旧版类名渲染（见 `src/badge.rs`）：同理整表退回。旧徽章
+  // （`.badge.badge-type-*`、`.badge.badge-skill-type.*`……）里面只有文字，
+  // `all: revert` 在它身上是安全的。只管带着旧类名的那些。
+  .hk-badge.badge {
+    all: revert;
+  }
 }

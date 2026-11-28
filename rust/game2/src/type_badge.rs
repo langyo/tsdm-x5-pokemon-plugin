@@ -1,8 +1,9 @@
 //! 技能属性 / 分类徽章（与 Dioxus 版 `components/common/type_badge.rs` 同一张
 //! 对照表）。个人中心的技能卡、战斗页的技能按钮、宠物 tooltip 共用这一处。
 //!
-//! 对照表是纯数据（可在 host 上测），标记用 rsx 现搭——和 Dioxus 的 `TypeBadge`
-//! 组件一样：`div.skill-type-badges` 里属性、分类各一枚，空串的那枚不渲染。
+//! 对照表是纯数据（可在 host 上测）；标记是 hikari `Badge` 带着旧类名
+//! （`crate::badge`）——和 Dioxus 的 `TypeBadge` 组件一样：`div.skill-type-badges`
+//! 里属性、分类各一枚，空串的那枚不渲染。
 
 use tairitsu_macros::rsx;
 use tairitsu_vdom::VNode;
@@ -64,15 +65,16 @@ pub fn type_badge(skill_type: &str, category: &str, extra_class: &str) -> VNode 
     );
     let skill_type = skill_type.to_string();
     let category = category.to_string();
+    // 徽章是 hikari `Badge` 带着旧类名（`crate::badge`）；空串的那枚不出节点。
+    let mut badges: Vec<VNode> = Vec::with_capacity(2);
+    if show_type {
+        badges.push(crate::badge::legacy(type_cls, skill_type));
+    }
+    if show_category {
+        badges.push(crate::badge::legacy(cat_cls, category));
+    }
     rsx! {
-        div { class: cls,
-            if show_type {
-                span { class: type_cls, "{skill_type}" }
-            }
-            if show_category {
-                span { class: cat_cls, "{category}" }
-            }
-        }
+        div { class: cls, ..badges }
     }
 }
 

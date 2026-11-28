@@ -840,16 +840,25 @@ def _host_content_root(root: str) -> str:
     )
 
 
+# 带着旧类名、观感全归 game.css 的 hikari 元素本身（`Button` 的 `.hk-btn`、`Badge` 的
+# `.hk-badge.badge`，见 rust/game2/src/button.rs 与 badge.rs）：它和它的内容都算宿主内容。
+HOST_CONTENT_HIKARI = (".hk-btn", ".hk-badge.badge")
+
+
+def _hikari_with_content(sep: str = ",") -> str:
+    """这些元素「本身 + 后代」的选择器串：`el, el *, …`。"""
+    return sep.join(part for el in HOST_CONTENT_HIKARI for part in (el, f"{el} *"))
+
+
 # 「宿主的内容」：该拿 game.css 样式、不该被 hikari 的表碰到的元素。
 #   - hikari 区域之外的一切；
 #   - HOST_CONTENT_ROOTS 各根之下，不在（嵌套的）hikari 组件内的部分；
-#   - 带着旧类名渲染的 hikari `Button` 及其内容（见 rust/game2/styles/main.scss）。
-# 这里是唯一的出处：撤销层和令牌规则都由它生成。
+#   - HOST_CONTENT_HIKARI 各元素及其内容。
+# 这里是唯一的出处：撤销层和令牌规则都由它生成。每一项是一个复合选择器。
 HOST_CONTENT = (
     ':where(*):not([class*="hk-"], [class*="hk-"] *)',
     *(_host_content_root(root) for root in HOST_CONTENT_ROOTS),
-    ".hk-btn",
-    ".hk-btn *",
+    *(part for el in HOST_CONTENT_HIKARI for part in (el, f"{el} *")),
 )
 
 
@@ -943,9 +952,10 @@ def token_restore_rule(game: dict[str, str], hikari: dict[str, str]) -> str:
       还有一批派生令牌（`--c-primary: rgb(var(--color-primary))`）是在 :root 上算好
       了再往下继承的，只补基础令牌，派生的仍是坏值；全部重声明才会重新算。
     - 宿主的内容——HOST_CONTENT_ROOTS 各根（Modal 的正文、弹出菜单的菜单本体）、
-      带着旧类名渲染的按钮 `.hk-btn`——长在 hikari 的元素里面，自定义属性是继承的，
-      所以要把 game.css 的 :root 令牌在它们上面再声明，切断继承。这些根里再嵌的
-      hikari 组件（自己带 hk- 类）由第一条的后半截定回 hikari 的值。
+      HOST_CONTENT_HIKARI 各元素（带着旧类名渲染的按钮、徽章）——长在 hikari 的
+      元素里面或是 hikari 的元素本身，自定义属性是继承的，所以要把 game.css 的
+      :root 令牌在它们上面再声明，切断继承。这些根里再嵌的 hikari 组件（自己带
+      hk- 类）由第一条的后半截定回 hikari 的值。
 
     都未分层、排在皮肤之后：要压得过 :root 上的声明。值从两份编译产物里读，不手抄。
     「宿主内容」的清单见 HOST_CONTENT。
@@ -954,12 +964,19 @@ def token_restore_rule(game: dict[str, str], hikari: dict[str, str]) -> str:
     hikari_body = ";".join(f"{name}:{value}" for name, value in hikari.items())
     game_body = ";".join(f"{name}:{value}" for name, value in game.items())
     # 宿主内容（不算 hikari 的元素）……
-    not_host = ":not(" + ",".join([".hk-btn", ".hk-btn *"] + [f"{root},{root} *" for root in HOST_CONTENT_ROOTS]) + ")"
+    not_host = (
+        ":not("
+        + _hikari_with_content()
+        + ","
+        + ",".join(f"{root},{root} *" for root in HOST_CONTENT_ROOTS)
+        + ")"
+    )
     # ……但宿主内容的根里嵌着的 hikari 组件要定回 hikari 的令牌。
     nested_hikari = ",".join(
-        f'{root} [class*="hk-"]:not(.hk-btn,.hk-btn *)' for root in HOST_CONTENT_ROOTS
+        f'{root} [class*="hk-"]:not({_hikari_with_content()})'
+        for root in HOST_CONTENT_ROOTS
     )
-    host_roots = ",".join((*HOST_CONTENT_ROOTS, ".hk-btn"))
+    host_roots = ",".join((*HOST_CONTENT_ROOTS, *HOST_CONTENT_HIKARI))
     print(
         f"[poc] hikari.css: {len(hikari)} hikari :root tokens re-declared on hikari elements,"
         f" {len(game)} game.css :root tokens on the host's content inside them"
