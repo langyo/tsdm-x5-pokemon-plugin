@@ -747,6 +747,8 @@ pub fn open_evolution_modal(state: &AppState) {
     };
     my.show_evolution_modal.inner().set(true);
     my.evo_check.inner().set(None);
+    // 上一次的失败原因不带到新打开的弹窗里（旧版组件内的 evolve_error）。
+    my.evo_error.inner().set(None);
     crate::request_remount();
     crate::api::evolution_check(
         pid,
@@ -759,14 +761,13 @@ pub fn open_evolution_modal(state: &AppState) {
 
 pub fn close_evolution_modal(state: &AppState) {
     let my = state.my_pm.clone();
-    if my.evolving.get() {
-        return;
-    }
+    // 旧版 on_close 不看请求是否进行中，直接关。
     my.show_evolution_modal.inner().set(false);
     crate::request_remount();
 }
 
-/// 执行进化：成功后关闭弹窗、刷列表与详情（形态会变）。
+/// 执行进化：成功后关闭弹窗、刷列表与详情（形态会变）；失败的原因显示在
+/// 弹窗里（旧版 evolve_error），不走提示条。
 pub fn evolve_to(state: &AppState, to_id: u64, to_name: &str) {
     let my = state.my_pm.clone();
     if my.evolving.get() {
@@ -776,6 +777,7 @@ pub fn evolve_to(state: &AppState, to_id: u64, to_name: &str) {
         return;
     };
     my.evolving.inner().set(true);
+    my.evo_error.inner().set(None);
     crate::request_remount();
     let st = state.clone();
     let name = to_name.to_string();
@@ -801,7 +803,7 @@ pub fn evolve_to(state: &AppState, to_id: u64, to_name: &str) {
                     }));
                 }
                 Err(e) => {
-                    toast::show(crate::state::ToastKind::Error, format!("进化失败：{e}"));
+                    my.evo_error.inner().set(Some(format!("进化失败：{e}")));
                 }
             }
             my.evolving.inner().set(false);
@@ -2231,9 +2233,55 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
     )
 }
 
-/// 进化路径弹窗：进化 / 退化两个 tab。
+/// 一段属性徽章（`div.evo-path-types`）：第一属性恒有，第二属性非空才渲染。
+fn evo_type_badges(type_1: &str, type_2: Option<&str>) -> VNode {
+    let type_1 = type_1.to_string();
+    let type_1_cls = format!("badge badge-type-{type_1}");
+    let second = type_2
+        .filter(|t| !t.is_empty())
+        .map(|t| (t.to_string(), format!("badge badge-type-{t}")));
+    rsx! {
+        div { class: "evo-path-types",
+            span { class: type_1_cls, "{type_1}" }
+            if let Some((t2_name, t2_cls)) = second {
+                span { class: t2_cls, "{t2_name}" }
+            }
+        }
+    }
+}
+
+/// 一枚进化路径节点（旧版两段路线共用的那段标记）：精灵图、名字、属性徽章、
+/// 带包裹图标的进化条件。
+fn evo_path_node(n: &crate::state::EvolutionPathNode) -> VNode {
+    let sprite = format!("{IMG_PATH}/spm/{}.gif", n.id);
+    let name = n.name.clone();
+    let alt_name = name.clone();
+    let condition = n.condition_display.clone();
+    rsx! {
+        div { class: "evo-path-node",
+            img { class: "evo-path-sprite", src: sprite, alt: alt_name }
+            div { class: "evo-path-node-info",
+                span { class: "evo-path-name", "{name}" }
+                ..vec![evo_type_badges(&n.type_1, n.type_2.as_deref())]
+                div { class: "evo-path-condition",
+                    {Icon(IconProps {
+                        name: Some(IconName::Package),
+                        size: Some(12),
+                        class: Some("lucide-inline".to_string()),
+                    })}
+                    "{condition}"
+                }
+            }
+        }
+    }
+}
+
+/// 进化路径弹窗（对齐旧版 EvolutionPathModal）：当前宝可梦的头部 +
+/// 「进化目标 / 进化来源」两个页签 + 对应那一段路线；没有节点时给空态文案。
 fn evo_path_modal(st: &AppState) -> VNode {
     let forward = st.my_pm.evo_path_forward.get();
+    let fwd_state = st.clone();
+    let bwd_state = st.clone();
     let fwd_cls = if forward {
         "evo-path-tab active"
     } else {
@@ -2246,53 +2294,69 @@ fn evo_path_modal(st: &AppState) -> VNode {
     };
 
     let body = match st.my_pm.evo_path.get() {
-        None => rsx! { div { class: "evo-path-loading", "正在加载进化路径..." } },
+        None => rsx! { div { class: "evo-path-loading", "正在查询进化数据..." } },
         Some(Err(error)) => {
-            let msg = format!("加载失败：{error}");
+            // 旧版这里前缀出现两次（resource 的 map_err 已经加过一回）。
+            let msg = format!("查询失败: 查询失败: {error}");
             rsx! { div { class: "evo-path-error", "{msg}" } }
         }
         Some(Ok(data)) => {
+            let current_sprite = format!("{IMG_PATH}/spm/{}.gif", data.pokemon_id);
+            let current_name = data.pokemon_name.clone();
+            let current_alt = current_name.clone();
             let nodes = if forward {
                 &data.forward
             } else {
                 &data.backward
             };
-            if nodes.is_empty() {
+            let section = if nodes.is_empty() {
                 let hint = if forward {
-                    "没有进化路线"
+                    "该宝可梦没有已知的进化形态"
                 } else {
-                    "没有退化路线"
+                    "该宝可梦没有已知的进化来源"
                 };
-                rsx! { div { class: "evo-path-empty", "{hint}" } }
-            } else {
-                let rows: Vec<VNode> = nodes
-                    .iter()
-                    .map(|n| {
-                        let sprite = format!("{IMG_PATH}/spm/{}.gif", n.id);
-                        let name = n.name.clone();
-                        let alt_name = name.clone();
-                        let cond = if n.condition_display.is_empty() {
-                            "—".to_string()
-                        } else {
-                            n.condition_display.clone()
-                        };
-                        rsx! {
-                            div { class: "evo-path-node",
-                                img { class: "evo-path-sprite", src: sprite, alt: alt_name }
-                                div { class: "evo-path-node-info",
-                                    span { class: "evo-path-name", "{name}" }
-                                    div { class: "evo-path-condition", "{cond}" }
-                                }
-                            }
-                        }
-                    })
-                    .collect();
                 rsx! {
-                    div { class: "evo-path-content",
+                    div { class: "evo-path-empty",
+                        span { "{hint}" }
+                    }
+                }
+            } else {
+                let rows: Vec<VNode> = nodes.iter().map(evo_path_node).collect();
+                rsx! {
+                    div { class: "evo-path-section",
                         for i in 0..rows.len() {
                             ..vec![rows[i].clone()]
                         }
                     }
+                }
+            };
+            rsx! {
+                div { class: "evo-path-content",
+                    div { class: "evo-path-current",
+                        div { class: "evo-path-current-header",
+                            img { class: "evo-path-sprite", src: current_sprite, alt: current_alt }
+                            div { class: "evo-path-current-info",
+                                span { class: "evo-path-name", "{current_name}" }
+                                ..vec![evo_type_badges(
+                                    &data.pokemon_type1,
+                                    data.pokemon_type2.as_deref(),
+                                )]
+                            }
+                        }
+                    }
+                    div { class: "evo-path-tab-bar",
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: (fwd_cls).to_string(),
+                            onclick: crate::button::click(move || switch_evo_path_tab(&fwd_state, true)),
+                            "进化目标"
+                                        } }, [("data-test-evo-path-tab", ("forward").to_string())]) }
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: (bwd_cls).to_string(),
+                            onclick: crate::button::click(move || switch_evo_path_tab(&bwd_state, false)),
+                            "进化来源"
+                                        } }, [("data-test-evo-path-tab", ("backward").to_string())]) }
+                    }
+                    ..vec![section]
                 }
             }
         }
@@ -2300,35 +2364,18 @@ fn evo_path_modal(st: &AppState) -> VNode {
 
     let path_overlay_state = st.clone();
     let path_close_state = st.clone();
-    let fwd_state = st.clone();
-    let bwd_state = st.clone();
     // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
-    let mut body_nodes: Vec<VNode> = vec![rsx! {
-        div { class: "evo-path-tab-bar",
-            { crate::button::hooked(tairitsu_macros::rsx! { Button {
-                class: (fwd_cls).to_string(),
-                onclick: crate::button::click(move || switch_evo_path_tab(&fwd_state, true)),
-                "进化路线"
-                        } }, [("data-test-evo-path-tab", ("forward").to_string())]) }
-            { crate::button::hooked(tairitsu_macros::rsx! { Button {
-                class: (bwd_cls).to_string(),
-                onclick: crate::button::click(move || switch_evo_path_tab(&bwd_state, false)),
-                "退化路线"
-                        } }, [("data-test-evo-path-tab", ("backward").to_string())]) }
-        }
-    }];
-    body_nodes.push(body);
     crate::modal::modal_hooked(
         crate::modal::ModalSpec::new("进化路径", false),
         crate::modal::hook_close_button("data-test-evo-path-close", move || {
             close_evo_path_modal(&path_close_state)
         }),
         move || close_evo_path_modal(&path_overlay_state),
-        body_nodes,
+        vec![body],
     )
 }
 
-/// 进化弹窗：可进化路线（条件 + 状态 + 执行按钮）。
+/// 进化弹窗：可进化路线（条件 + 状态 + 执行按钮），对齐旧版 EvolutionModal。
 fn evolution_modal(st: &AppState) -> VNode {
     let evolving = st.my_pm.evolving.get();
     let evolve_state = st.clone();
@@ -2342,7 +2389,11 @@ fn evolution_modal(st: &AppState) -> VNode {
             rsx! { div { class: "evo-path-error", "{msg}" } }
         }
         Some(Ok(list)) if list.is_empty() => {
-            rsx! { div { class: "evo-path-empty", "该宝可梦没有可用的进化路线" } }
+            rsx! {
+                div { class: "evo-path-empty",
+                    span { "该宝可梦没有可用的进化路线" }
+                }
+            }
         }
         Some(Ok(list)) => {
             let rows: Vec<VNode> = list
@@ -2351,14 +2402,11 @@ fn evolution_modal(st: &AppState) -> VNode {
                     let sprite = format!("{IMG_PATH}/spm/{}.gif", evo.to_id);
                     let name = evo.to_name.clone();
                     let alt_name = name.clone();
-                    let condition = evo
-                        .condition_display
-                        .clone()
-                        .unwrap_or_else(|| "—".to_string());
+                    let condition = evo.condition_display.clone().unwrap_or_else(|| "—".to_string());
+                    // 旧版：可进化时「满足进化条件」，否则原样显示服务端给的原因
+                    // （可能为空）。
                     let status = if evo.can_evolve {
                         "满足进化条件".to_string()
-                    } else if evo.reason.is_empty() {
-                        "条件未满足".to_string()
                     } else {
                         evo.reason.clone()
                     };
@@ -2385,8 +2433,22 @@ fn evolution_modal(st: &AppState) -> VNode {
                             img { class: "evo-path-sprite", src: sprite, alt: alt_name }
                             div { class: "evo-path-node-info",
                                 span { class: "evo-path-name", "{name}" }
-                                div { class: "evo-path-condition", "{condition}" }
-                                div { class: "evo-path-condition", "{status}" }
+                                div { class: "evo-path-condition",
+                                    {Icon(IconProps {
+                                        name: Some(IconName::Package),
+                                        size: Some(12),
+                                        class: Some("lucide-inline".to_string()),
+                                    })}
+                                    "{condition}"
+                                }
+                                div { class: "evo-path-condition",
+                                    {Icon(IconProps {
+                                        name: Some(if evo.can_evolve { IconName::Check } else { IconName::X }),
+                                        size: Some(12),
+                                        class: Some("lucide-inline".to_string()),
+                                    })}
+                                    "{status}"
+                                }
                             }
                             ..vec![btn]
                         }
@@ -2402,6 +2464,14 @@ fn evolution_modal(st: &AppState) -> VNode {
             }
         }
     };
+    // 上次进化失败的原因跟在正文后面（旧版 evolve_error）。
+    let error_node = match st.my_pm.evo_error.get() {
+        Some(error) => {
+            let msg = error;
+            rsx! { div { class: "evo-path-error", "{msg}" } }
+        }
+        None => VNode::empty(),
+    };
 
     // 外壳是共用的 hikari Modal（见 crate::modal）；正文保持旧类名，样式不动。
     crate::modal::modal_hooked(
@@ -2410,6 +2480,6 @@ fn evolution_modal(st: &AppState) -> VNode {
             close_evolution_modal(&evo_close_state)
         }),
         move || close_evolution_modal(&evo_overlay_state),
-        vec![body],
+        vec![body, error_node],
     )
 }

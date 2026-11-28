@@ -1427,7 +1427,13 @@ struct EvoPathNodeDto {
 #[derive(Deserialize)]
 struct EvoPathResponseDto {
     #[serde(default)]
+    pokemon_id: u64,
+    #[serde(default)]
     pokemon_name: String,
+    #[serde(default)]
+    pokemon_type1: String,
+    #[serde(default)]
+    pokemon_type2: Option<String>,
     #[serde(default)]
     forward: Vec<EvoPathNodeDto>,
     #[serde(default)]
@@ -1439,37 +1445,27 @@ pub fn evolution_path(
     pmid: u64,
     on_done: Box<dyn FnOnce(Result<crate::state::EvolutionPathData, String>)>,
 ) {
+    fn node(n: EvoPathNodeDto) -> crate::state::EvolutionPathNode {
+        crate::state::EvolutionPathNode {
+            id: n.id,
+            name: n.name,
+            type_1: n.type_1,
+            type_2: n.type_2,
+            condition_display: n.condition_display,
+        }
+    }
     request(
         "evolution",
         &format!("evolution_path&pmid={pmid}"),
         None,
         Box::new(|result: Result<EvoPathResponseDto, String>| {
-            on_done(result.map(|dto| {
-                crate::state::EvolutionPathData {
-                    pokemon_name: dto.pokemon_name,
-                    forward: dto
-                        .forward
-                        .into_iter()
-                        .map(|n| crate::state::EvolutionPathNode {
-                            id: n.id,
-                            name: n.name,
-                            type_1: n.type_1,
-                            type_2: n.type_2,
-                            condition_display: n.condition_display,
-                        })
-                        .collect(),
-                    backward: dto
-                        .backward
-                        .into_iter()
-                        .map(|n| crate::state::EvolutionPathNode {
-                            id: n.id,
-                            name: n.name,
-                            type_1: n.type_1,
-                            type_2: n.type_2,
-                            condition_display: n.condition_display,
-                        })
-                        .collect(),
-                }
+            on_done(result.map(|dto| crate::state::EvolutionPathData {
+                pokemon_id: dto.pokemon_id,
+                pokemon_name: dto.pokemon_name,
+                pokemon_type1: dto.pokemon_type1,
+                pokemon_type2: dto.pokemon_type2,
+                forward: dto.forward.into_iter().map(node).collect(),
+                backward: dto.backward.into_iter().map(node).collect(),
             }))
         }),
     );

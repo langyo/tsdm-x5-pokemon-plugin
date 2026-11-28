@@ -683,6 +683,8 @@ pub struct MyPokemonState {
     pub evo_check: ReactiveSignal<Option<Result<Vec<AvailableEvolution>, String>>>,
     /// 进化请求进行中（互斥守卫）。
     pub evolving: ReactiveSignal<bool>,
+    /// 上次进化失败的原因，显示在进化弹窗里（旧版 `evolve_error`；不用提示条）。
+    pub evo_error: ReactiveSignal<Option<String>>,
 }
 
 /// 进化路径节点（evolution_path 载荷）。
@@ -695,10 +697,13 @@ pub struct EvolutionPathNode {
     pub condition_display: String,
 }
 
-/// evolution_path 载荷（前向/后向两段）。
+/// evolution_path 载荷（当前宝可梦 + 前向/后向两段）。
 #[derive(Debug, Clone, Default)]
 pub struct EvolutionPathData {
+    pub pokemon_id: u64,
     pub pokemon_name: String,
+    pub pokemon_type1: String,
+    pub pokemon_type2: Option<String>,
     pub forward: Vec<EvolutionPathNode>,
     pub backward: Vec<EvolutionPathNode>,
 }
@@ -743,6 +748,7 @@ impl MyPokemonState {
             show_evolution_modal: use_signal(|| false),
             evo_check: use_signal(|| None),
             evolving: use_signal(|| false),
+            evo_error: use_signal(|| None),
         }
     }
 }
