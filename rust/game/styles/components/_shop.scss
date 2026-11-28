@@ -594,6 +594,13 @@
   }
 }
 
+// 宫格条目的外层（ShopItemTile / ShopPetTile 的根）：只为把 tooltip 挪到 .shop-tile
+// 外面、与它平级——悬浮时 .shop-tile 带 transform，是 fixed 定位后代的包含块，画在
+// 瓦片里的提示会相对瓦片而不是视口落位。这层不生成盒子，宫格条目仍然是 .shop-tile。
+.shop-tile-cell {
+  display: contents;
+}
+
 // 窄屏时进一步压缩宫格尺寸，保持 4 列 × 2 行一页铺满。
 @media (max-width: 767px) {
   .shop-tiles-grid {
