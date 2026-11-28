@@ -273,6 +273,51 @@ foreach ([['格斗', '毒'], ['格斗', '虫'], ['火', '岩石']] as $pair) {
     check_turn($damage['effectiveness'] === 1.0 && $damage['amount'] > 0, "Version-one resistance stays compatible: $pair[0] -> $pair[1]");
 }
 
+// Fleeing from the replacement dialog is penalty-free. The core only holds the
+// current combatant, so "awaiting_switch with no active ally unit" is the state
+// the endpoint keeps while the party still has a bench: no roll, no enemy turn.
+$min_rng = function ($min, $max) { return $min; };
+$state = turn_state();
+$state['sides']['ally'][0]['hp'] = 1;
+$ko = battle_core_apply_action($state, ['type' => 'move', 'skill' => turn_move(0), 'enemy_move' => turn_move()], $max_rng);
+$flee_rolls = 0;
+$flee_fail_rng = function ($min, $max) use (&$flee_rolls) {
+    $flee_rolls++;
+    return $max; // the highest roll always fails the level chance (capped at 0.9)
+};
+$fled = battle_core_try_flee($ko['state'], $flee_fail_rng);
+check_turn($ko['state']['phase'] === 'awaiting_switch' && battle_core_active_unit($ko['state'], 'ally') === null, 'Enemy KO leaves the fainted ally side without an active unit');
+check_turn($fled['fled'] === true && $flee_rolls === 0, 'Fleeing with no active ally unit succeeds without a roll');
+check_turn($fled['state']['phase'] === 'ended' && $fled['state']['result'] === 'fled', 'Penalty-free flee ends the battle as fled');
+check_turn(count($fled['events']) === 1 && $fled['events'][0]['type'] === 'battle_end' && $fled['events'][0]['payload'] === ['result' => 'fled'], 'Penalty-free flee emits exactly one battle_end event');
+check_turn($fled['state']['sides']['enemy'][0]['hp'] === $ko['state']['sides']['enemy'][0]['hp'] && $fled['state']['turn'] === $ko['state']['turn'], 'Penalty-free flee leaves the enemy untouched and takes no turn');
+check_turn(battle_core_try_flee($ko['state'])['state']['rng_counter'] === $ko['state']['rng_counter'], 'Penalty-free flee consumes no built-in RNG draw');
+
+// The endpoint records defeat once no replacement is left; that ended battle is
+// never rewritten into a flee.
+$defeat = $ko['state'];
+$defeat['phase'] = 'ended';
+$defeat['result'] = 'defeat';
+$not_fled = battle_core_try_flee($defeat, $min_rng);
+check_turn($not_fled['fled'] === false && $not_fled['state'] === $defeat && $not_fled['events'] === [], 'Ended battle with a fainted ally is not rewritten by a flee attempt');
+
+// With an active ally unit the level chance is still rolled.
+$rolled = battle_core_try_flee(turn_state(), $min_rng);
+check_turn($rolled['fled'] === true && $rolled['state']['phase'] === 'ended' && $rolled['state']['result'] === 'fled', 'Active ally still flees on the lowest roll');
+check_turn(count(turn_events($rolled, 'battle_end')) === 1 && !turn_events($rolled, 'message'), 'Chance flee emits battle_end without flee_failed');
+$rolled = battle_core_try_flee(turn_state(), $max_rng);
+check_turn($rolled['fled'] === false && $rolled['state']['phase'] === 'active' && $rolled['state']['result'] === null && !turn_events($rolled, 'battle_end'), 'Active ally still fails on the highest roll');
+check_turn(count(turn_events($rolled, 'message')) === 1 && turn_events($rolled, 'message')[0]['payload'] === ['text' => 'flee_failed'], 'Failed chance flee still emits flee_failed');
+check_turn(battle_core_try_flee(turn_state())['state']['rng_counter'] === 1, 'Chance flee still consumes one built-in RNG draw');
+
+// Nothing to flee from once the enemy side has no active unit.
+$state = turn_state();
+$state['sides']['enemy'][0]['hp'] = 1;
+$won = battle_core_apply_action($state, ['type' => 'move', 'skill' => turn_move()], $max_rng);
+$not_fled = battle_core_try_flee($won['state'], $min_rng);
+check_turn($won['state']['phase'] === 'ended' && battle_core_active_unit($won['state'], 'enemy') === null, 'First-strike KO leaves the enemy side without an active unit');
+check_turn($not_fled['fled'] === false && $not_fled['state'] === $won['state'] && $not_fled['events'] === [], 'No enemy unit means the flee attempt fails without touching the won battle');
+
 if ($failures) {
     echo "$failures of $checks battle turn regression assertions failed\n";
     exit(1);
