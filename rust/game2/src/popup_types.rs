@@ -1,5 +1,5 @@
 //! 弹出菜单与装备提示的数据与定位（纯逻辑，host 可测）。两者都由 hikari
-//! `Popover` 的锚定分支承接（`crate::popup` / `crate::equip_tooltip`）。
+//! `Popover` 的锚定分支承接（`crate::popup` / `crate::hover_tip`）。
 //!
 //! 与 Dioxus 版 `state/ui.rs` 的 `open_popup_at_mouse`、`pages/my_pokemon.rs`
 //! 的技能卡菜单、`pages/pokemon_storage.rs` 的 `PokemonSlot` 菜单逐项对齐。

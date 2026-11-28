@@ -198,7 +198,7 @@ pub fn switch_tab(state: &AppState, tab: crate::state::MyPokemonTab) {
     my.equip_selected.inner().set(None);
     // 悬浮提示也要清：卡片被换掉时鼠标未必「离开」过它（旧版的提示随卡片组件
     // 一起销毁，这边的提示状态是持久的）。
-    crate::equip_tooltip::hide(state);
+    crate::hover_tip::hide(state);
     crate::request_remount();
     if tab == crate::state::MyPokemonTab::Equipment {
         ensure_equipment(state);
@@ -1132,10 +1132,10 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                             onclick: move |_| click_slot(&slot_state, slot_index),
                             onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
                                 if let Some(item) = hover_item.clone() {
-                                    crate::equip_tooltip::show(&enter_state, item, e.client_x, e.client_y);
+                                    crate::hover_tip::show_equipment(&enter_state, item, e.client_x, e.client_y);
                                 }
                             },
-                            onmouseleave: move |_| crate::equip_tooltip::hide(&leave_state),
+                            onmouseleave: move |_| crate::hover_tip::hide(&leave_state),
                             div { class: overlay_cls }
                             div { class: inner_cls, ..vec![inner] }
                         }
@@ -1190,9 +1190,9 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                                 "data-test-eq-inv-item": mid,
                                 onclick: move |_| select_inventory_item(&item_state, myitem_id),
                                 onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
-                                    crate::equip_tooltip::show(&enter_state, hover_item.clone(), e.client_x, e.client_y);
+                                    crate::hover_tip::show_equipment(&enter_state, hover_item.clone(), e.client_x, e.client_y);
                                 },
-                                onmouseleave: move |_| crate::equip_tooltip::hide(&leave_state),
+                                onmouseleave: move |_| crate::hover_tip::hide(&leave_state),
                                 div { class: "inventory-item-icon",
                                     img { src: src, alt: alt }
                                 }

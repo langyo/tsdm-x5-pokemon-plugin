@@ -92,10 +92,13 @@ pub struct AppState {
     // ---- 页脚“关于本项目”弹窗 ----
     pub show_about: ReactiveSignal<bool>,
 
-    // ---- 应用级弹出菜单（技能卡 / 仓库格）----
+    // ---- 应用级弹出菜单（技能卡 / 仓库格）与悬浮提示（装备 / 商店 / 战斗道具卡）----
     /// None = 没开着。旧版放在 `UI_STATE.popup`，由根部的 `PopupProvider` 渲染；
     /// 这里对应 `crate::popup::provider`。
     pub popup: ReactiveSignal<Option<crate::popup_types::OpenPopup>>,
+    /// None = 没有卡片被悬浮。旧版每处提示各是卡片组件内的状态；这里收成一席，
+    /// 由 `crate::hover_tip::provider` 渲染。
+    pub hover_tip: ReactiveSignal<Option<crate::state::HoverTip>>,
 
     // ---- 首页 ----
     /// 话题+新闻合并列表。None = 加载中；Some(Err) = 失败。
@@ -133,6 +136,7 @@ impl AppState {
             welcome_success: use_signal(|| false),
             show_about: use_signal(|| false),
             popup: use_signal(|| None),
+            hover_tip: use_signal(|| None),
             topics: use_signal(|| None),
             online: use_signal(|| None),
             shop: ShopState::new(),

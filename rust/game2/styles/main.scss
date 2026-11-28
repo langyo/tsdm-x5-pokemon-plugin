@@ -248,17 +248,23 @@
 }
 
 // =============================================================================
-// Popover：hikari `Popover`（.hk-popover-*）承接旧版的弹出菜单与装备悬浮提示
+// Popover：hikari `Popover`（.hk-popover-*）承接旧版的弹出菜单与各处悬浮提示
 // =============================================================================
 //
-// 结构见 `src/popup.rs` 与 `src/equip_tooltip.rs`。两者都是 hikari 的锚定面板带着
-// 旧类名（`popup-container` / `equipment-tooltip-inline`）：底色、圆角、阴影、内边距、
-// 宽度的上下限、层叠和进场动画都是 game.css 的旧规则给的（未分层，压得过 hikari 的
-// 面板表）。这里只剩 hikari 面板表声明、旧规则没声明的两条，以及背板。
+// 结构见 `src/popup.rs` 与 `src/hover_tip.rs`。都是 hikari 的锚定面板带着旧类名
+// （`popup-container` / `equipment-tooltip-inline` / `shop-tile-tooltip` /
+// `battle-item-tooltip`）：底色、圆角、阴影、内边距、宽度的上下限、层叠和进场动画
+// 都是 game.css 的旧规则给的（未分层，压得过 hikari 的面板表）。这里只剩 hikari
+// 面板表声明、旧规则没声明的两条，以及背板。
 
 // hikari 的锚定面板按内容定宽（`width: max-content`，HkPopover.scss 里防「越摆越宽」
-// 的那条）并限高 70vh；旧版这两个容器是固定定位下的 shrink-to-fit，不限高。
-.hk-popover-panel:is(.popup-container, .equipment-tooltip-inline) {
+// 的那条）并限高 70vh；旧版这几个容器是固定定位下的 shrink-to-fit，不限高。
+.hk-popover-panel:is(
+    .popup-container,
+    .equipment-tooltip-inline,
+    .shop-tile-tooltip,
+    .battle-item-tooltip
+  ) {
   width: auto;
   max-height: none;
 }
@@ -271,6 +277,15 @@
 .app-layout > .hk-popover-backdrop {
   pointer-events: auto;
   z-index: 999;
+}
+
+// 就地渲染的提示（商店瓦片）：旧版把 `div.shop-tile-tooltip` 直接画在瓦片里，瓦片
+// 悬停时带 `transform`，固定定位的提示于是相对瓦片的内边距盒落位。hikari 在面板
+// 外面多包一层 `div[data-hk-popout-layer]`——它是常规流里的盒子，会在瓦片（纵向
+// flex、带 gap）里多占一格。设成 `display: contents` 后这层不生成盒子，面板和旧版
+// 一样直接落在瓦片里，也不参与瓦片的布局。
+.shop-tile > [data-hk-popout-layer] {
+  display: contents;
 }
 
 // 旧版把「点里面不关」写在容器上（面板内边距那两条 4px 也算里面）。hikari 的面板
