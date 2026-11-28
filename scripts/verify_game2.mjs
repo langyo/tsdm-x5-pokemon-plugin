@@ -782,7 +782,7 @@ async function stepMyPokemon() {
     skip('装备卡细节', '没有可装备物品');
   }
 
-  // 技能标签页（只读断言：卡片渲染 + 选中展开遗忘 + 弹窗列表 + 关闭）
+  // 技能标签页（只读断言：卡片渲染 + 卡片弹出菜单 + 弹窗列表 + 关闭）
   await evaljs(() => document.querySelector('[data-test-my-pm-tab="skills"]')?.click());
   await waitFor(async () => (await evaljs(() => !!document.querySelector('.skills-grid'))), 15000, '技能页');
   const skView = await evaljs(() => ({
@@ -803,13 +803,36 @@ async function stepMyPokemon() {
   if (skView.cards > 0) {
     ok('技能卡右上角带 PP', /^PP\s*\d+\s*\/\d+$/.test(skView.ppTop ?? ''), skView.ppTop ?? '');
     ok('技能卡底部带 PP', /^PP：\d+(\/\d+)?$/.test(skView.ppBottom ?? ''), skView.ppBottom ?? '');
-    // 选中卡片展开遗忘按钮，再点一次收起（不执行遗忘）
+    // 点卡片在鼠标处弹出菜单（旧版 PopupMenu，hikari Popover 承接）：只有一项
+    // 「遗忘此技能」，危险色；卡片自己不再有选中态或行内按钮。点背板关掉（不执行遗忘）。
     await evaljs(() => document.querySelector('[data-test-skill-card]')?.click());
-    await waitFor(async () => (await evaljs(() => !!document.querySelector('[data-test-skill-forget]'))), 8000, '遗忘按钮');
-    ok('选中技能卡展开遗忘操作',
-      await evaljs(() => !!document.querySelector('.skill-card-v2.selected')));
-    await evaljs(() => document.querySelector('[data-test-skill-card]')?.click());
-    await sleep(500);
+    await waitFor(
+      async () => (await evaljs(() => !!document.querySelector('.popup-container .popup-menu'))),
+      8000,
+      '技能卡菜单',
+    );
+    await sleep(700);
+    const menu = await evaljs(() => ({
+      items: [...document.querySelectorAll('.popup-container .popup-menu-item')].map((b) => ({
+        text: b.textContent?.trim() ?? '',
+        danger: b.classList.contains('danger'),
+      })),
+      inlineForget: !!document.querySelector('.skill-forget-btn'),
+      cardSelected: !!document.querySelector('.skill-card-v2.selected'),
+      position: getComputedStyle(document.querySelector('.popup-container')).position,
+    }));
+    ok('技能卡菜单只有「遗忘此技能」一项',
+      menu.items.length === 1 && menu.items[0].text === '遗忘此技能' && menu.items[0].danger,
+      JSON.stringify(menu));
+    ok('技能卡菜单不再行内展开', !menu.inlineForget && !menu.cardSelected);
+    ok('技能卡菜单是定位于视口的面板', menu.position === 'fixed', menu.position);
+    await evaljs(() => document.querySelector('.hk-popover-backdrop')?.click());
+    await waitFor(
+      async () => (await evaljs(() => !document.querySelector('.popup-container'))),
+      8000,
+      '技能卡菜单关闭',
+    );
+    ok('点背板关闭技能卡菜单', true);
   } else {
     skip('技能卡细节', '宠物没有已学技能');
   }
@@ -915,20 +938,61 @@ async function stepStorage() {
     } else {
       skip('等级过滤', '仓库只有一只宠物，无法验证收窄');
     }
-    // 卡片菜单（只读展开）
-    await evaljs(() => document.querySelector('.storage-grid [data-test-st-card]')?.click());
-    await waitFor(
-      async () => (await evaljs(() => !!document.querySelector('.slot-actions'))),
-      8000,
-      '卡片菜单',
-    );
-    const menu = await evaljs(() => ({
-      toBag: !!document.querySelector('[data-test-st-to-bag]'),
-      release: !!document.querySelector('[data-test-st-release]'),
+    // 卡片菜单是应用级弹出菜单（旧版 PopupMenu）：仓库区 → 放入背包 + 放生，
+    // 携带区 → 放入仓库。只读：开了就点背板关，不执行动作。
+    const openSlotMenu = async (cardSel, label) => {
+      await evaljs((s) => document.querySelector(s)?.click(), cardSel);
+      await waitFor(
+        async () => (await evaljs(() => !!document.querySelector('.popup-container .popup-menu'))),
+        8000,
+        label,
+      );
+      await sleep(700);
+      return evaljs(() => ({
+        items: [...document.querySelectorAll('.popup-container .popup-menu-item')].map((b) => ({
+          text: b.textContent?.trim() ?? '',
+          danger: b.classList.contains('danger'),
+          hook: b.getAttribute('data-test-st-to-bag') !== null ? 'to-bag'
+            : b.getAttribute('data-test-st-release') !== null ? 'release' : null,
+        })),
+        inline: !!document.querySelector('.slot-actions'),
+      }));
+    };
+    const closeSlotMenu = async (label) => {
+      await evaljs(() => document.querySelector('.hk-popover-backdrop')?.click());
+      await waitFor(
+        async () => (await evaljs(() => !document.querySelector('.popup-container'))),
+        8000,
+        label,
+      );
+    };
+    const menu = await openSlotMenu('.storage-grid [data-test-st-card]', '卡片菜单');
+    ok('仓库卡菜单含放入背包/放生', menu.items.some((i) => i.hook === 'to-bag') && menu.items.some((i) => i.hook === 'release'), JSON.stringify(menu));
+    ok('仓库卡菜单项与旧版一致',
+      JSON.stringify(menu.items.map((i) => i.text)) === JSON.stringify(['放入背包', '放生'])
+        && menu.items[1].danger && !menu.items[0].danger && !menu.inline,
+      JSON.stringify(menu));
+    await closeSlotMenu('卡片菜单关闭');
+    ok('点背板关闭仓库卡菜单', true);
+    // 多选模式只对仓库格生效：背包卡不出勾选框（旧版背包卡恒按非多选渲染）。
+    await evaljs(() => document.querySelector('[data-test-st-select-mode]')?.click());
+    await sleep(700);
+    const selectMode = await evaljs(() => ({
+      exit: !!document.querySelector('.select-mode-btn.exit'),
+      bagCheckbox: document.querySelectorAll('.bag-panel .pokemon-select-checkbox').length,
+      storageCheckbox: document.querySelectorAll('.storage-grid .pokemon-select-checkbox').length,
     }));
-    ok('仓库卡菜单含放入背包/放生', menu.toBag && menu.release, JSON.stringify(menu));
-    await evaljs(() => document.querySelector('.storage-grid [data-test-st-card]')?.click());
+    ok('多选模式进入，仓库格出勾选框', selectMode.exit && selectMode.storageCheckbox > 0, JSON.stringify(selectMode));
+    ok('多选模式下背包卡不出勾选框', selectMode.bagCheckbox === 0, JSON.stringify(selectMode));
+    await evaljs(() => document.querySelector('.select-mode-btn.exit')?.click());
     await sleep(500);
+    if (view.bagSlots - view.bagEmpty > 0) {
+      const bagMenu = await openSlotMenu('.bag-panel .pokemon-slot:not(.empty-slot)', '携带区卡片菜单');
+      ok('携带区卡片菜单有「放入仓库」、没有「放生」',
+        bagMenu.items.some((i) => i.text === '放入仓库') && !bagMenu.items.some((i) => i.text === '放生'),
+        JSON.stringify(bagMenu));
+      await closeSlotMenu('携带区卡片菜单关闭');
+    }
   } else {
     skip('仓库筛选与菜单', '仓库没有宠物');
   }

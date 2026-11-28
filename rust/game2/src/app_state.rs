@@ -92,6 +92,11 @@ pub struct AppState {
     // ---- 页脚“关于本项目”弹窗 ----
     pub show_about: ReactiveSignal<bool>,
 
+    // ---- 应用级弹出菜单（技能卡 / 仓库格）----
+    /// None = 没开着。旧版放在 `UI_STATE.popup`，由根部的 `PopupProvider` 渲染；
+    /// 这里对应 `crate::popup::provider`。
+    pub popup: ReactiveSignal<Option<crate::popup_types::OpenPopup>>,
+
     // ---- 首页 ----
     /// 话题+新闻合并列表。None = 加载中；Some(Err) = 失败。
     pub topics: ReactiveSignal<Option<Result<Vec<TopicItem>, String>>>,
@@ -127,6 +132,7 @@ impl AppState {
             welcome_error: use_signal(|| None),
             welcome_success: use_signal(|| false),
             show_about: use_signal(|| false),
+            popup: use_signal(|| None),
             topics: use_signal(|| None),
             online: use_signal(|| None),
             shop: ShopState::new(),

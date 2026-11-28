@@ -6,9 +6,10 @@
 //! 多选批量放生、设为首位、移入仓库/背包、放生（带濒危/战斗中/背包满
 //! 的门禁提示）。筛选与排序逻辑在 storage_logic.rs（带单测）。
 //!
-//! 与 Dioxus 版的两处有意差异：
-//! - 点击卡片展开内联操作行（Dioxus 是浮层菜单；移植时委托架构下内联更稳，沿用）。
-//! - 战斗中遮罩随战斗页移植接入（当前无战斗态，全部按非战斗渲染）。
+//! 卡片的操作菜单是应用级的弹出菜单（`crate::popup`，hikari `Popover` 承接）：
+//! 点击卡片，在鼠标下方 10px 弹出，与 Dioxus 版的 `PopupMenu` 相同。菜单项
+//! 在打开那一刻定格（`crate::popup_types::slot_menu`），门禁（战斗中、背包满、
+//! 濒危或 HP 归零不能放生）都算在那会儿。
 //!
 //! 事件用 tairitsu 原生绑定：搜索框逐字过滤（oninput，与 Dioxus 版一致）；
 //! 属性 / 等级区间 / 闪光 / 排序走 change（Dioxus 版等级区间同样是 oninput）。
@@ -18,6 +19,7 @@ use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
 use crate::app_state::AppState;
+use crate::icon::{Icon, IconName, IconProps};
 use crate::state::{ToastKind, STORAGE_PAGE_SIZE};
 use crate::storage_logic::{
     hp_class_storage, hp_health_status, is_weak_state, matching_storage_ids, parse_level_range,
@@ -94,30 +96,43 @@ pub fn exit_select_mode(state: &AppState) {
     crate::request_remount();
 }
 
-/// 点卡片：多选模式下切换勾选，否则展开/收起操作行。
-pub fn click_card(state: &AppState, id: u64) {
+/// 多选模式下点仓库格：切换勾选（旧版 `toggle_select`）。非多选模式的点击
+/// 走 [`open_slot_menu`]。
+pub fn toggle_select(state: &AppState, id: u64) {
     let st = state.storage.clone();
-    if st.action_loading.get() {
-        return;
-    }
-    if st.select_mode.get() {
-        let mut ids = st.selected_ids.get();
-        if let Some(pos) = ids.iter().position(|&x| x == id) {
-            ids.remove(pos);
-        } else {
-            ids.push(id);
-        }
-        st.selected_ids.inner().set(ids);
-        crate::request_remount();
-        return;
-    }
-    let next = if st.open_menu.get() == Some(id) {
-        None
+    let mut ids = st.selected_ids.get();
+    if let Some(pos) = ids.iter().position(|&x| x == id) {
+        ids.remove(pos);
     } else {
-        Some(id)
-    };
-    st.open_menu.inner().set(next);
+        ids.push(id);
+    }
+    st.selected_ids.inner().set(ids);
     crate::request_remount();
+}
+
+/// 在鼠标处弹出卡片的操作菜单（旧版 `PokemonSlot` 的 `onclick` 后半段：
+/// `popup.open_at_mouse(x, y + 10, content)`）。`card` 是卡片上菜单用得到的四个
+/// 字段 `(id, site, state, hp)`；`client_y` 是事件的原始坐标，加 10 在这里。
+fn open_slot_menu(state: &AppState, card: (u64, u8, u8, i64), client_x: i32, client_y: i32) {
+    let (id, site, pm_state, hp) = card;
+    let bag_count = state
+        .center
+        .pokemons
+        .get()
+        .and_then(|r| r.ok())
+        .map(|list| list.iter().filter(|p| p.site == 1 || p.site == 2).count())
+        .unwrap_or(0);
+    let items = crate::popup_types::slot_menu(
+        &crate::popup_types::SlotMenuFacts {
+            site,
+            state: pm_state,
+            hp,
+            user_in_battle: crate::battle::user_in_battle(state),
+            bag_count,
+        },
+        id,
+    );
+    crate::popup::open_at_mouse(state, items, client_x, client_y + 10);
 }
 
 /// 全选当前筛选结果（执行时以最新筛选重核，对齐 Dioxus 版注释）。
@@ -185,7 +200,6 @@ fn finish_action(state: &AppState, message: Option<(ToastKind, String)>) {
         toast::show(kind, msg);
     }
     st.action_loading.inner().set(false);
-    st.open_menu.inner().set(None);
     crate::request_remount();
     reload_list(state);
 }
@@ -349,18 +363,11 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
         .err()
         .map(|m| m.to_string());
 
-    // 背包 6 槽（含空槽）。
+    // 背包 6 槽（含空槽）。背包卡不参与多选（旧版恒按非多选渲染，不出勾选框）。
     let mut bag_cells: Vec<VNode> = Vec::with_capacity(6);
     for i in 0..6usize {
         if i < bag.len() {
-            bag_cells.push(slot_card(
-                &bag[i],
-                false,
-                false,
-                &selected_ids,
-                select_mode,
-                &st,
-            ));
+            bag_cells.push(slot_card(&bag[i], &selected_ids, false, &st));
         } else {
             bag_cells.push(rsx! { div { class: "pokemon-slot empty-slot" } });
         }
@@ -379,7 +386,7 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
     } else {
         let mut cells: Vec<VNode> = shown
             .iter()
-            .map(|p| slot_card(p, true, false, &selected_ids, select_mode, &st))
+            .map(|p| slot_card(p, &selected_ids, select_mode, &st))
             .collect();
         let more = if filtered.len() > shown.len() {
             let label = format!("加载更多（已显示 {}/{}）", shown.len(), filtered.len());
@@ -608,11 +615,10 @@ pub fn PokemonStorage(state: Box<AppState>) -> VNode {
     }
 }
 
-/// 单张宠物卡（背包/仓库通用）。操作行内联展开（见模块注释）。
+/// 单张宠物卡（背包/仓库通用，旧版 `PokemonSlot`）。菜单按 `site` 分
+/// （见 `crate::popup_types::slot_menu`），所以不需要「在哪一侧」的参数。
 fn slot_card(
     pm: &crate::state::PokemonBasic,
-    in_storage: bool,
-    _is_in_battle: bool,
     selected_ids: &[u64],
     select_mode: bool,
     st: &AppState,
@@ -630,7 +636,8 @@ fn slot_card(
     let critical = status == "critical";
     let weak = is_weak_state(pm.state);
     let is_selected = selected_ids.contains(&pm.id);
-    let menu_open = st.storage.open_menu.get() == Some(pm.id) && !select_mode;
+    // 出战中的只有首位宠物（旧版调用处：`is_user_in_battle && pokemon.site == 1`）。
+    let in_battle = pm.site == 1 && crate::battle::user_in_battle(st);
 
     let slot_class = if critical {
         "pokemon-slot critical".to_string()
@@ -682,111 +689,48 @@ fn slot_card(
         VNode::empty()
     };
 
-    // 操作行（菜单展开时）：携带区 → 设为首位/放入仓库；仓库区 → 放入背包/放生。
-    // 操作按钮在卡片内部，而卡片自己监听 click（展开/收起、勾选）：按钮的
-    // 回调必须 stop_propagation，等价于委托时代「操作按钮先于卡片命中」。
-    let menu = if menu_open {
-        let bag_full = st
-            .center
-            .pokemons
-            .get()
-            .and_then(|r| r.ok())
-            .map(|list| list.iter().filter(|p| p.site == 1 || p.site == 2).count() >= 6)
-            .unwrap_or(false);
-        let cannot_release = pm.state == 0 || pm.hp <= 0;
-        let mut actions: Vec<VNode> = Vec::new();
-        if in_storage {
-            let bag_btn = if bag_full {
-                rsx! {
-                    Button { class: ("popup-menu-item disabled").to_string(), disabled: true, "背包已满（6/6）"                     }
-                }
-            } else {
-                let to_bag_state = st.clone();
-                let to_bag_key = id.to_string();
-                rsx! {
-                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
-                        class: ("popup-menu-item").to_string(),
-                        onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
-                            e.stop_propagation();
-                            move_to_site(&to_bag_state, id, 2, "放入背包");
-                        })),
-                        "放入背包"
-                                        } }, [("data-test-st-to-bag", (to_bag_key).to_string())]) }
-                }
-            };
-            actions.push(bag_btn);
-            let release_btn = if cannot_release {
-                rsx! {
-                    Button { class: ("popup-menu-item danger disabled").to_string(), disabled: true, "放生"                     }
-                }
-            } else {
-                let release_state = st.clone();
-                let release_key = id.to_string();
-                rsx! {
-                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
-                        class: ("popup-menu-item danger").to_string(),
-                        onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
-                            e.stop_propagation();
-                            release_one(&release_state, id);
-                        })),
-                        "放生"
-                                        } }, [("data-test-st-release", (release_key).to_string())]) }
-                }
-            };
-            actions.push(release_btn);
-        } else {
-            if pm.site != 1 {
-                let first_state = st.clone();
-                let first_btn = rsx! {
-                    Button {
-                        class: ("popup-menu-item").to_string(),
-                        onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
-                            e.stop_propagation();
-                            set_first(&first_state, id);
-                        })),
-                        "设为首位"
-                                        }
-                };
-                actions.push(first_btn);
-            }
-            let to_storage_state = st.clone();
-            let store_btn = rsx! {
-                Button {
-                    class: ("popup-menu-item").to_string(),
-                    onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
-                        e.stop_propagation();
-                        move_to_site(&to_storage_state, id, 3, "放入仓库");
-                    })),
-                    "放入仓库"
-                                }
-            };
-            actions.push(store_btn);
-        }
+    let battle_icon = if in_battle {
         rsx! {
-            div { class: "popup-menu slot-actions",
-                for i in 0..actions.len() {
-                    ..vec![actions[i].clone()]
-                }
-            }
+            {Icon(IconProps {
+                name: Some(IconName::Swords),
+                size: Some(8),
+                class: Some("pokemon-battle-icon".to_string()),
+            })}
         }
     } else {
         VNode::empty()
     };
 
-    // 卡片自身的点击：多选模式切换勾选，否则展开/收起操作行。
+    // 卡片自身的点击：多选模式切换勾选，否则拦下冒泡、在鼠标下方 10px 弹出菜单
+    // （旧版 PokemonSlot 的 onclick）。
     let card_state = st.clone();
     let card_key = id.to_string();
+    let site = pm.site;
+    let pm_state = pm.state;
+    let hp = pm.hp;
     rsx! {
         div { class: slot_class,
             "data-test-st-card": card_key,
             "data-pokemon-id": id.to_string(),
             "data-shiny": if pm.is_shiny { "true" } else { "false" },
-            onclick: move |_: tairitsu_vdom::MouseEvent| click_card(&card_state, id),
+            onclick: move |e: tairitsu_vdom::MouseEvent| {
+                if select_mode {
+                    toggle_select(&card_state, id);
+                    return;
+                }
+                e.stop_propagation();
+                open_slot_menu(
+                    &card_state,
+                    (id, site, pm_state, hp),
+                    e.client_x,
+                    e.client_y,
+                );
+            },
             title: title,
             div { class: "pokemon-sprite",
                 img { src: sprite, alt: alt_name }
             }
-            ..vec![checkbox]
+            ..vec![battle_icon, checkbox]
             div { class: "pokemon-slot-name",
                 span { class: "pokemon-slot-name-text", "{name_text}" }
                 if pm.is_shiny {
@@ -804,7 +748,6 @@ fn slot_card(
                 }
             }
             div { class: "pokemon-hp-text", ..vec![hp_text] }
-            ..vec![menu]
         }
     }
 }

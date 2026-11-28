@@ -660,8 +660,6 @@ pub struct MyPokemonState {
     pub equip_selected: ReactiveSignal<Option<SelectedEquip>>,
 
     // ---- 技能标签页 ----
-    /// 当前选中（展开遗忘操作）的技能 type_id。
-    pub skill_selected: ReactiveSignal<Option<u64>>,
     pub learn_modal_open: ReactiveSignal<bool>,
     /// None = 加载中；Some(Err) = 失败。(可学习, 等级不足)
     pub learnable:
@@ -735,7 +733,6 @@ impl MyPokemonState {
             equipment: use_signal(|| None),
             equip_loading: use_signal(|| false),
             equip_selected: use_signal(|| None),
-            skill_selected: use_signal(|| None),
             learn_modal_open: use_signal(|| false),
             learnable: use_signal(|| None),
             skill_loading: use_signal(|| false),
@@ -775,8 +772,6 @@ pub struct StorageState {
     pub sort_value: ReactiveSignal<String>,
     /// 已渲染数量（每次 +60，筛选变化时重置）。
     pub visible_count: ReactiveSignal<usize>,
-    /// 当前展开操作菜单的卡片。
-    pub open_menu: ReactiveSignal<Option<u64>>,
     /// 写操作进行中（互斥守卫）。
     pub action_loading: ReactiveSignal<bool>,
 }
@@ -797,7 +792,6 @@ impl StorageState {
             shiny_filter: use_signal(String::new),
             sort_value: use_signal(|| "oldest".to_string()),
             visible_count: use_signal(|| STORAGE_PAGE_SIZE),
-            open_menu: use_signal(|| None),
             action_loading: use_signal(|| false),
         }
     }
