@@ -557,7 +557,6 @@ fn finish_skill_action(
         toast::show(kind, msg);
     }
     my.skill_loading.inner().set(false);
-    my.skill_selected.inner().set(None);
     if close_modal {
         my.learn_modal_open.inner().set(false);
     }
@@ -606,22 +605,9 @@ pub fn learn_skill(state: &AppState, skill_id: u64) {
     );
 }
 
-/// 选中/取消选中技能卡（展开遗忘操作）。
-pub fn toggle_skill_card(state: &AppState, skill_type_id: u64) {
-    let my = state.my_pm.clone();
-    if my.skill_loading.get() {
-        return;
-    }
-    let next = if my.skill_selected.get() == Some(skill_type_id) {
-        None
-    } else {
-        Some(skill_type_id)
-    };
-    my.skill_selected.inner().set(next);
-    crate::request_remount();
-}
-
-/// 遗忘技能（客户端先行校验 can_forget，对齐 Dioxus 版）。
+/// 遗忘技能（客户端先行校验 can_forget，对齐 Dioxus 版）。由弹出菜单的
+/// 「遗忘此技能」调用——菜单在调用前已经关了（旧版 `PopupMenuItem` 的 onclick
+/// 同样以 `popup.close()` 打头）。
 pub fn forget_skill(state: &AppState, skill_type_id: u64) {
     let my = state.my_pm.clone();
     if my.skill_loading.get() {
@@ -637,8 +623,9 @@ pub fn forget_skill(state: &AppState, skill_type_id: u64) {
         return;
     };
     if !skill.can_forget {
+        // 旧版是 show_warning（黄色提示条），不是报错。
         toast::show(
-            crate::state::ToastKind::Error,
+            crate::state::ToastKind::Warning,
             format!(
                 "该技能PP未满（{}/{}），请先在宠物中心治疗，或使用PP恢复道具补满后再遗忘",
                 skill.pp, skill.max_pp
@@ -1808,10 +1795,9 @@ impl ToRadians for f64 {
 // 技能标签页面板与学习弹窗
 // ---------------------------------------------------------------------------
 
-/// 技能标签页面板：技能卡（点击展开遗忘）+ 空槽（点击学习）。
+/// 技能标签页面板：技能卡（点击在鼠标处弹出「遗忘此技能」菜单）+ 空槽（点击学习）。
 fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
     let loading = st.my_pm.skill_loading.get();
-    let selected = st.my_pm.skill_selected.get();
 
     let valid: Vec<&crate::state::PokemonSkill> =
         pm.skills.iter().filter(|s| s.type_id > 0).collect();
@@ -1822,13 +1808,6 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
         let tid = skill.type_id.to_string();
         let skill_type_id = skill.type_id;
         let card_state = st.clone();
-        let forget_state = st.clone();
-        let is_selected = selected == Some(skill.type_id);
-        let card_cls = if is_selected {
-            "skill-card-v2 skill-slot-clickable selected"
-        } else {
-            "skill-card-v2 skill-slot-clickable"
-        };
         let name = if skill.name.is_empty() {
             format!("技能 {}", skill.type_id)
         } else {
@@ -1864,32 +1843,20 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
         let scat = skill.category.clone();
         let badges = crate::type_badge::type_badge(&stype, &scat, "");
 
-        let forget_block = if is_selected {
-            let btn_cls = if skill.can_forget {
-                "skill-forget-btn"
-            } else {
-                "skill-forget-btn disabled"
-            };
-            rsx! {
-                { crate::button::hooked(tairitsu_macros::rsx! { Button {
-                    class: (btn_cls).to_string(),
-                    disabled: loading,
-                    onclick: Some(tairitsu_vdom::EventHandler::new(move |e: tairitsu_vdom::MouseEvent| {
-                        // 遗忘按钮在技能卡内部：不挡住冒泡会连卡片一起 toggle。
-                        e.stop_propagation();
-                        forget_skill(&forget_state, skill_type_id);
-                    })),
-                    "遗忘此技能"
-                                } }, [("data-test-skill-forget", (tid.clone()).to_string())]) }
-            }
-        } else {
-            VNode::empty()
-        };
-
         cards.push(rsx! {
-            div { class: card_cls,
+            div { class: "skill-card-v2 skill-slot-clickable",
                 "data-test-skill-card": tid.clone(),
-                onclick: move |_| toggle_skill_card(&card_state, skill_type_id),
+                // 旧版：拦下冒泡，在鼠标下方 10px 弹出菜单。菜单项在动作进行中
+                // 禁用；卡片本身照常能点开菜单（旧版这里不看 action_loading）。
+                onclick: move |e: tairitsu_vdom::MouseEvent| {
+                    e.stop_propagation();
+                    crate::popup::open_at_mouse(
+                        &card_state,
+                        crate::popup_types::skill_menu(skill_type_id, loading),
+                        e.client_x,
+                        e.client_y + 10,
+                    );
+                },
                 div { class: "skill-card-top",
                     span { class: "skill-name", "{name}" }
                     span { class: "skill-pp",
@@ -1914,7 +1881,6 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
                         span { class: "skill-level", "{_lv}" }
                     }
                 }
-                ..vec![forget_block]
             }
         });
     }

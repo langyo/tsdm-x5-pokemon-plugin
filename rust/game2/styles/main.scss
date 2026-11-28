@@ -248,6 +248,43 @@
 }
 
 // =============================================================================
+// 弹出菜单：hikari `Popover`（.hk-popover-*）承接旧版 .popup-overlay / .popup-container
+// =============================================================================
+//
+// 结构见 `src/popup.rs`。面板自己带着 `popup-container` 类：底色、圆角、阴影、
+// 内边距、宽度的上下限、层叠 1000 和进场动画都是 game.css 那条旧规则给的
+// （未分层，压得过 hikari 的面板表）。这里只剩 hikari 面板表声明、旧规则没声明
+// 的两条，以及背板。
+
+// hikari 的锚定面板按内容定宽（`width: max-content`，HkPopover.scss 里防「越摆越宽」
+// 的那条）并限高 70vh；旧版容器是固定定位下的 shrink-to-fit，不限高。
+.hk-popover-panel.popup-container {
+  width: auto;
+  max-height: none;
+}
+
+// 背板：hikari 的锚定分支里它是 `pointer-events: none` 的纯装饰（Vue 版靠
+// document 级捕获监听关面板，Rust 版没有这条缝，头注释写明由宿主自己关）。
+// 旧版的 `.popup-overlay` 是一层透明遮罩：层叠 999，点哪儿都关。这里把它改成
+// 可点，点击冒泡到应用根，由根上的 onclick 关菜单。只管挂在应用根下的那一块
+// （本应用只用 Popover 出弹出菜单）。
+.app-layout > .hk-popover-backdrop {
+  pointer-events: auto;
+  z-index: 999;
+}
+
+// 旧版把「点里面不关」写在容器上（面板内边距那两条 4px 也算里面）。hikari 的面板
+// 没有事件槽，拦截落在它的直接子节点 `.popup-menu` 上；这里给菜单加一块铺满面板
+// 内边距盒的透明命中区，让那两条也算点在菜单上。面板带内联 transform，自成层叠
+// 上下文，`z-index: -1` 只是把命中区压到菜单项下面，不会盖住按钮。
+.popup-container > .popup-menu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+}
+
+// =============================================================================
 // hikari 的样式表只在 hikari 组件里生效
 // =============================================================================
 

@@ -31,6 +31,10 @@ pub mod pet_state;
 pub mod pokemon_center;
 #[cfg(target_family = "wasm")]
 pub mod pokemon_storage;
+#[cfg(target_family = "wasm")]
+pub mod popup;
+/// 弹出菜单的数据与定位（纯逻辑 + 单测，可在 host 上测）。
+pub mod popup_types;
 pub mod quality;
 #[cfg(target_family = "wasm")]
 pub mod refresh;
@@ -186,19 +190,26 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
     );
     // 顶部提示容器常驻根部（对齐 Dioxus 版 AppProviders → ToastProvider）。
     let toast_container = toast::container();
-    // 页脚常驻；“关于本项目”弹窗按状态挂载（结构与类名对齐 Dioxus 版）。
-    let footer_node = footer::Footer(footer::FooterProps {
+    // 根的末尾：页脚常驻；“关于本项目”弹窗按状态挂载（结构与类名对齐 Dioxus 版）；
+    // 弹出菜单对齐 PopupProvider，开着才出节点。没开着的槽不出节点——`VNode::empty()`
+    // 会落成一个空文本节点，挂在根上会多一个子节点。
+    let mut tail: Vec<tairitsu_vdom::VNode> = Vec::with_capacity(3);
+    tail.push(footer::Footer(footer::FooterProps {
         state: Some(Box::new(state.clone())),
         ..Default::default()
-    });
-    let about_node = if state.show_about.get() {
-        footer::about_modal(state)
-    } else {
-        tairitsu_vdom::VNode::empty()
-    };
+    }));
+    if state.show_about.get() {
+        tail.push(footer::about_modal(state));
+    }
+    if let Some(popup_node) = popup::provider(state) {
+        tail.push(popup_node);
+    }
+    // 根上的点击 = 旧版遮罩的 onclick：菜单开着就关（见 popup.rs）。
+    let root_state = state.clone();
 
     rsx! {
         div { class: "app-layout",
+            onclick: move |_| popup::dismiss(&root_state),
             ..vec![toast_container]
             div { class: "toast-spacer" }
             header { class: "app-header",
@@ -249,7 +260,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
                     Sidebar { state: Some(Box::new(state.clone())) }
                 }
             }
-            ..vec![footer_node, about_node]
+            ..tail
         }
     }
 }
