@@ -196,6 +196,9 @@ pub fn switch_tab(state: &AppState, tab: crate::state::MyPokemonTab) {
     my.tab.inner().set(tab);
     // 切标签页时清掉装备选择，避免残留高亮。
     my.equip_selected.inner().set(None);
+    // 悬浮提示也要清：卡片被换掉时鼠标未必「离开」过它（旧版的提示随卡片组件
+    // 一起销毁，这边的提示状态是持久的）。
+    crate::equip_tooltip::hide(state);
     crate::request_remount();
     if tab == crate::state::MyPokemonTab::Equipment {
         ensure_equipment(state);
@@ -1113,17 +1116,26 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                             };
                             let src = format!("{IMG_PATH}/item/{img_src}");
                             let alt = item.name.clone();
-                            let title = item.name.clone();
                             rsx! {
-                                img { class: "equip-icon", src: src, alt: alt, title: title }
+                                img { class: "equip-icon", src: src, alt: alt }
                             }
                         }
                         None => rsx! { span { class: "equip-plus", "＋" } },
                     };
+                    // 旧版：槽里有物品时，指针进入就挂悬浮提示，离开摘掉。
+                    let hover_item = slot.item.clone();
+                    let enter_state = st.clone();
+                    let leave_state = st.clone();
                     rsx! {
                         div { class: "equip-slot",
                             "data-test-eq-slot": idx,
                             onclick: move |_| click_slot(&slot_state, slot_index),
+                            onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
+                                if let Some(item) = hover_item.clone() {
+                                    crate::equip_tooltip::show(&enter_state, item, e.client_x, e.client_y);
+                                }
+                            },
+                            onmouseleave: move |_| crate::equip_tooltip::hide(&leave_state),
                             div { class: overlay_cls }
                             div { class: inner_cls, ..vec![inner] }
                         }
@@ -1140,16 +1152,12 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                     let myitem_id = item.myitem_id;
                     let item_state = st.clone();
                     let is_equipped = item.is_equipped || item.equipped_count > 0;
-                    let is_selected_item = selected
-                        .as_ref()
-                        .map(|s| s.from_inventory && s.myitem_id == item.myitem_id)
-                        .unwrap_or(false);
-                    let wrapper_cls = if is_equipped {
-                        "inventory-item-wrapper equipped"
-                    } else if is_selected_item {
-                        "inventory-item-wrapper selected"
+                    // 旧版：已装备（或被别的宠物占着）的卡本身带 `equipped`（半透明、
+                    // 不可点），外层的 wrapper 也带。
+                    let (wrapper_cls, item_cls) = if is_equipped {
+                        ("inventory-item-wrapper equipped", "inventory-item equipped")
                     } else {
-                        "inventory-item-wrapper"
+                        ("inventory-item-wrapper", "inventory-item")
                     };
                     let img_src = if item.image.contains('.') {
                         item.image.clone()
@@ -1171,14 +1179,20 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                     } else {
                         VNode::empty()
                     };
-                    let title = item.bonus_summary();
+                    // 旧版：指针进入就挂悬浮提示，离开摘掉（提示本体挂在应用根部）。
+                    let hover_item = item.clone();
+                    let enter_state = st.clone();
+                    let leave_state = st.clone();
                     rsx! {
                         div { class: wrapper_cls,
                             div {
-                                class: "inventory-item",
-                                title: title,
+                                class: item_cls,
                                 "data-test-eq-inv-item": mid,
                                 onclick: move |_| select_inventory_item(&item_state, myitem_id),
+                                onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
+                                    crate::equip_tooltip::show(&enter_state, hover_item.clone(), e.client_x, e.client_y);
+                                },
+                                onmouseleave: move |_| crate::equip_tooltip::hide(&leave_state),
                                 div { class: "inventory-item-icon",
                                     img { src: src, alt: alt }
                                 }
