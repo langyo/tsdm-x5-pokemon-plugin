@@ -11,7 +11,9 @@ use crate::dioxus::{
         tabs::Tabs,
         user_grant::{GrantItemModal, GrantPokemonModal},
     },
-    pages::shared::{update_filter_operator, ActionModal, FilterCollapsiblePanel, ListBottomDock},
+    pages::shared::{
+        bind_auto_load, update_filter_operator, ActionModal, FilterCollapsiblePanel, ListBottomDock,
+    },
     state::{
         set_busy, set_notice, AdminNoticeLevel, FilterPackage, ADMIN_BUSY, ADMIN_ITEM_DATA,
         ADMIN_POKEMON_DATA, ADMIN_USER_DATA,
@@ -306,36 +308,7 @@ pub fn UserDataPage() -> Element {
     use_effect(move || {
         #[cfg(target_arch = "wasm32")]
         {
-            let _ = js_sys::eval(
-                r#"
-                (function () {
-                    const container = document.getElementById('user-table-scroll');
-                    if (!container) return;
-                    if (container.dataset.autoLoadBound === '1') return;
-                    container.dataset.autoLoadBound = '1';
-                    let ticking = false;
-                    const tryLoad = () => {
-                        const trigger = document.getElementById('user-load-more-trigger');
-                        if (!trigger) return;
-                        if (trigger.dataset.canLoad !== '1' || trigger.dataset.loading === '1') return;
-                        const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 48;
-                        if (nearBottom) {
-                            trigger.click();
-                            setTimeout(tryLoad, 120);
-                        }
-                    };
-                    container.addEventListener('scroll', () => {
-                        if (ticking) return;
-                        ticking = true;
-                        requestAnimationFrame(() => {
-                            ticking = false;
-                            tryLoad();
-                        });
-                    });
-                    setTimeout(tryLoad, 0);
-                })();
-                "#,
-            );
+            bind_auto_load("user-table-scroll", "user-load-more-trigger");
         }
     });
 

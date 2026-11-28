@@ -1,4 +1,6 @@
 use crate::dioxus::prelude::*;
+use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::dioxus::{
     components::{
@@ -7,6 +9,7 @@ use crate::dioxus::{
     },
     state::{FilterConditionType, FilterFieldState, LogicalOperation, NumberOperation},
 };
+use wasm_bindgen::JsCast;
 
 #[component]
 pub fn FilterCollapsiblePanel(
@@ -446,6 +449,105 @@ pub fn update_filter_operator(fields: &mut [FilterFieldState], index: usize, raw
             }),
             FilterConditionType::Boolean => FilterConditionType::Boolean,
         };
+    }
+}
+
+/// 数据页“滚动到底自动加载”：给滚动容器挂 scroll 监听，距底部不足 48px 时点击
+/// “加载更多”触发器；触发器标记 `data-can-load="0"` 或 `data-loading="1"` 时不动作。
+/// scroll 经 requestAnimationFrame 节流；绑定后立即检查一次，每次点击后 120ms 再检查
+/// 一次，所以内容不足一屏时会连续补页。同一个容器只绑定一次。
+pub fn bind_auto_load(container_id: &'static str, trigger_id: &'static str) {
+    let Some(window) = web_sys::window() else {
+        return;
+    };
+    let Some(document) = window.document() else {
+        return;
+    };
+    let Some(container) = document.get_element_by_id(container_id) else {
+        return;
+    };
+    if container.get_attribute("data-auto-load-bound").as_deref() == Some("1") {
+        return;
+    }
+    let _ = container.set_attribute("data-auto-load-bound", "1");
+
+    let auto_load = AutoLoad {
+        window,
+        document,
+        container: container.clone(),
+        trigger_id,
+    };
+    let ticking = Rc::new(AtomicBool::new(false));
+    let on_scroll = wasm_bindgen::closure::Closure::<dyn Fn()>::new({
+        let auto_load = auto_load.clone();
+        move || {
+            if ticking.load(Ordering::Relaxed) {
+                return;
+            }
+            ticking.store(true, Ordering::Relaxed);
+            let on_frame = wasm_bindgen::closure::Closure::once({
+                let auto_load = auto_load.clone();
+                let ticking = ticking.clone();
+                move || {
+                    ticking.store(false, Ordering::Relaxed);
+                    auto_load.try_load();
+                }
+            });
+            let _ = auto_load
+                .window
+                .request_animation_frame(on_frame.as_ref().unchecked_ref());
+            on_frame.forget();
+        }
+    });
+    let _ =
+        container.add_event_listener_with_callback("scroll", on_scroll.as_ref().unchecked_ref());
+    on_scroll.forget();
+
+    auto_load.after(0);
+}
+
+/// 自动加载绑定所依赖的节点句柄。
+#[derive(Clone)]
+struct AutoLoad {
+    window: web_sys::Window,
+    document: web_sys::Document,
+    container: web_sys::Element,
+    trigger_id: &'static str,
+}
+
+impl AutoLoad {
+    /// 距底部不足 48px 且触发器允许加载时点击它，并在 120ms 后再试一次。
+    fn try_load(&self) {
+        let Some(trigger) = self.document.get_element_by_id(self.trigger_id) else {
+            return;
+        };
+        let is = |name| trigger.get_attribute(name).as_deref() == Some("1");
+        // 没有更多数据或正在加载时不动作
+        if !is("data-can-load") || is("data-loading") {
+            return;
+        }
+        let near_bottom = self.container.scroll_top() + self.container.client_height()
+            >= self.container.scroll_height() - 48;
+        if !near_bottom {
+            return;
+        }
+        if let Some(button) = trigger.dyn_ref::<web_sys::HtmlElement>() {
+            button.click();
+        }
+        self.after(120);
+    }
+
+    /// `timeout_ms` 毫秒后再执行一次 `try_load`。
+    fn after(&self, timeout_ms: i32) {
+        let auto_load = self.clone();
+        let callback = wasm_bindgen::closure::Closure::once(move || auto_load.try_load());
+        let _ = self
+            .window
+            .set_timeout_with_callback_and_timeout_and_arguments_0(
+                callback.as_ref().unchecked_ref(),
+                timeout_ms,
+            );
+        callback.forget();
     }
 }
 

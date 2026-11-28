@@ -65,6 +65,7 @@ features = [
   "Navigator",
   "Clipboard",
   "Storage",
+  "HtmlDocument",
 ]
 version = "^0.3"
 
