@@ -336,26 +336,30 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
         None => rsx! { div { class: "shop-loading", "正在加载背包..." } },
         Some(Err(message)) => {
             let m = message.clone();
-            rsx! { div { class: "shop-empty", "{m}" } }
-        }
-        Some(Ok(items)) if items.is_empty() => {
-            let has_query = !inv.search_query.get().is_empty();
-            let msg = if has_query {
-                "没有找到匹配的物品，试试其他名称或分类"
-            } else {
-                "此分类没有物品"
-            };
-            let src = format!("{IMG_PATH}/item/box.gif");
-            rsx! {
-                div { class: "shop-empty",
-                    img { class: "empty-icon-img", src: src }
-                    p { "{msg}" }
-                }
-            }
+            rsx! { div { class: "shop-empty", role: "alert", "{m}" } }
         }
         Some(Ok(items)) => {
             let total = inv.total.get();
             let count_text = format!("当前分类共 {total} 项");
+            // 旧版：数据到了就先出「当前分类共 N 项」这一行（空分类也有），再按有没有
+            // 物品给空态或网格。
+            let empty = if items.is_empty() {
+                let has_query = !inv.search_query.get().is_empty();
+                let msg = if has_query {
+                    "没有找到匹配的物品，试试其他名称或分类"
+                } else {
+                    "此分类没有物品"
+                };
+                let src = format!("{IMG_PATH}/item/box.gif");
+                Some(rsx! {
+                    div { class: "shop-empty",
+                        img { class: "empty-icon-img", src: src, alt: "" }
+                        p { "{msg}" }
+                    }
+                })
+            } else {
+                None
+            };
             let total_pages = inv.total_pages.get();
             let page = inv.page.get();
             let page_info = format!("第 {page} / {total_pages} 页");
@@ -364,16 +368,25 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
             // 翻页按钮在点击时才读当前页码（与委托版一致），不取渲染时的 page。
             let prev_state = state.clone();
             let next_state = state.clone();
-            rsx! {
-                p { class: "inventory-result-count", "{count_text}" }
-                div { class: "shop-items-scroll",
-                    div { class: "shop-items-grid",
-                        for idx in 0..items.len() {
-                            { rsx! { InventoryTile { state: Some(state.clone()), item: Some(items[idx].clone()) } } }
+            let mut nodes: Vec<VNode> = Vec::with_capacity(3);
+            nodes.push(rsx! {
+                p { id: "inventory-result-count", class: "inventory-result-count", "{count_text}" }
+            });
+            if let Some(empty) = empty {
+                nodes.push(empty);
+            } else {
+                nodes.push(rsx! {
+                    div { class: "shop-items-scroll",
+                        div { class: "shop-items-grid",
+                            for idx in 0..items.len() {
+                                { rsx! { InventoryTile { state: Some(state.clone()), item: Some(items[idx].clone()) } } }
+                            }
                         }
                     }
-                }
-                if total_pages > 1 {
+                });
+            }
+            if total_pages > 1 {
+                nodes.push(rsx! {
                     div { class: "shop-pagination",
                         Button {
                             class: ("page-btn").to_string(),
@@ -402,8 +415,9 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                             })}
                                                 }
                     }
-                }
+                });
             }
+            VNode::Fragment(nodes)
         }
     };
 
@@ -641,8 +655,9 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                             "清除"
                                                 } }, [("data-test-inv-search-clear", ("1").to_string())]) }
                     }
+                    // 旧版背包页的分类栏里按钮直接挂在 `.shop-category-bar` 下（商店页
+                    // 才有一层 `.shop-category-group`）。
                     div { class: "shop-category-bar",
-                        div { class: "shop-category-group",
                             for i in 0..cats.len() {
                                 {
                                     let (cat_id, cat_name, cat_icon) = cats[i];
@@ -657,14 +672,13 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                                             class: (cls).to_string(),
                                             onclick: crate::button::click(move || select_category(&cat_state, cat_id)),
                                             span { class: "cat-icon",
-                                                img { class: "cat-icon-img", src: img_src }
+                                                img { class: "cat-icon-img", src: img_src, alt: cat_name }
                                             }
                                             span { "{cat_name}" }
                                                                                 } }, [("data-test-inv-cat", (cat_key).to_string())]) }
                                     }
                                 }
                             }
-                        }
                     }
                     ..vec![body]
                 }

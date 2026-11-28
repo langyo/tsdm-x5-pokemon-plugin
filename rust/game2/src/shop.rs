@@ -525,7 +525,7 @@ fn FilterPopover(state: Box<ShopState>) -> VNode {
                     { crate::button::hooked(tairitsu_macros::rsx! { Button {
                         class: ("shop-filter-clear").to_string(),
                         onclick: crate::button::click(move || reload_from_filter(&clear_state, "")),
-                        Icon { name: Some(IconName::X), size: Some(12), class: Some(String::new()) }
+                        Icon { name: Some(IconName::X), size: Some(12), class: Some("lucide-icon".to_string()) }
                                         } }, [("title", ("清除筛选").to_string())]) }
                 }
             }
@@ -872,13 +872,15 @@ fn Paginator(state: Box<ShopState>) -> VNode {
 
     rsx! {
         div { class: "shop-pagination",
+            // 旧版：上一页 / 下一页带 aria-label；图标用默认类名 `lucide-icon`。
             Button {
                 class: ("pager-btn pager-nav").to_string(),
                 disabled: current <= 1,
+                aria_label: Some("上一页".to_string()),
                 onclick: crate::button::click(move || {
                     goto_page(&prev_state, prev_state.page.get().saturating_sub(1).max(1))
                 }),
-                Icon { name: Some(IconName::ChevronLeft), size: Some(14), class: Some(String::new()) }
+                Icon { name: Some(IconName::ChevronLeft), size: Some(14), class: Some("lucide-icon".to_string()) }
                         }
             for i in 0..entries.len() {
                 {
@@ -888,13 +890,15 @@ fn Paginator(state: Box<ShopState>) -> VNode {
                             let active = p == current;
                             let class = if active { "pager-btn pager-num active" } else { "pager-btn pager-num" };
                             let label = p.to_string();
+                            // 旧版 `aria_current`：当前页是 "page"，其余是空串（属性仍在）。
+                            let aria_current = (if active { "page" } else { "" }).to_string();
                             rsx! {
-                                Button {
+                                { crate::button::hooked(tairitsu_macros::rsx! { Button {
                                     class: (class).to_string(),
                                     disabled: total == 1,
                                     onclick: crate::button::click(move || goto_page(&state, p as u32)),
                                     "{label}"
-                                                                }
+                                                                } }, [("aria-current", aria_current)]) }
                             }
                         }
                         PagerEntry::Ellipsis => rsx! { span { class: "pager-ellipsis", "…" } },
@@ -904,8 +908,9 @@ fn Paginator(state: Box<ShopState>) -> VNode {
             Button {
                 class: ("pager-btn pager-nav").to_string(),
                 disabled: current >= total,
+                aria_label: Some("下一页".to_string()),
                 onclick: crate::button::click(move || goto_page(&next_state, next_state.page.get() + 1)),
-                Icon { name: Some(IconName::ChevronRight), size: Some(14), class: Some(String::new()) }
+                Icon { name: Some(IconName::ChevronRight), size: Some(14), class: Some("lucide-icon".to_string()) }
                         }
         }
     }

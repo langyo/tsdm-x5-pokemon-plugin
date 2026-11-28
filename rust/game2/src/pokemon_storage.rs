@@ -675,14 +675,24 @@ fn slot_card(
     };
 
     let checkbox = if select_mode {
-        let checked = if is_selected {
+        let class = if is_selected {
             "checkbox-icon checked"
         } else {
             "checkbox-icon"
         };
+        // 旧版：勾选态是 10px 的 Check 图标（默认类名 `lucide-icon`），未勾选是空文本。
+        let mark: VNode = if is_selected {
+            Icon(IconProps {
+                name: Some(IconName::Check),
+                size: Some(10),
+                class: Some("lucide-icon".to_string()),
+            })
+        } else {
+            VNode::Text(tairitsu_vdom::VText::new(""))
+        };
         rsx! {
             div { class: "pokemon-select-checkbox",
-                span { class: checked, "✓" }
+                span { class: class, ..vec![mark] }
             }
         }
     } else {
