@@ -157,6 +157,41 @@ pub struct InventoryState {
     pub selected_item: ReactiveSignal<Option<u64>>,
     pub show_target_modal: ReactiveSignal<bool>,
     pub usable_pokemon: ReactiveSignal<Option<Result<UsablePokemonList, String>>>,
+    /// 品质重洗药使用成功后的前后对比（旧版 `QualityRerollResult`）：有值时
+    /// 弹窗原位换成对比面板，代替目标列表。
+    pub quality_result: ReactiveSignal<Option<QualityRerollResult>>,
+    /// 目标列表加载失败的提示只弹一次（旧版 `pokemon_list_error_shown`）。
+    pub list_error_shown: ReactiveSignal<bool>,
+}
+
+/// use_item 带回的目标宠物更新（旧版 `PokemonUpdate`）。
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct PokemonUpdate {
+    pub id: u64,
+    pub hp: Option<i64>,
+    pub max_hp: Option<i64>,
+    pub state: Option<u64>,
+    /// 品质重洗前的品质名（仅品质重洗药返回）。
+    pub old_quality_grade: Option<String>,
+    /// 品质重洗后的品质名（仅品质重洗药返回）。
+    pub new_quality_grade: Option<String>,
+    pub old_iv_total: Option<u64>,
+    pub new_iv_total: Option<u64>,
+}
+
+/// 品质重洗药使用成功后的前后对比面板数据（旧版 `QualityRerollResult`）。
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct QualityRerollResult {
+    pub pokemon_id: u64,
+    pub name: String,
+    pub type_id: u64,
+    pub level: u64,
+    pub is_shiny: bool,
+    pub old_grade: String,
+    pub new_grade: String,
+    pub old_iv_total: u64,
+    pub new_iv_total: u64,
+    pub item_remaining: i64,
 }
 
 impl InventoryState {
@@ -176,6 +211,8 @@ impl InventoryState {
             selected_item: use_signal(|| None),
             show_target_modal: use_signal(|| false),
             usable_pokemon: use_signal(|| None),
+            quality_result: use_signal(|| None),
+            list_error_shown: use_signal(|| false),
         }
     }
 }

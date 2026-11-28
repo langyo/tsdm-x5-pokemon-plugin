@@ -42,6 +42,12 @@ fn load_bag_counts(state: &AppState) {
     }));
 }
 
+/// 重拉背包小格的数量（旧版 `refresh_inventory_state`）：买入、用道具、战斗
+/// 动作之后调，入口统一在 `crate::refresh::bag_counts`。
+pub fn refresh_bag_counts(state: &AppState) {
+    load_bag_counts(state);
+}
+
 fn load_badge(state: &AppState) {
     let st = state.clone();
     crate::api::badge_status(Box::new(move |result| {

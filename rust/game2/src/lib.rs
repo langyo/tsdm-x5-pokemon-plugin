@@ -33,6 +33,8 @@ pub mod pokemon_center;
 pub mod pokemon_storage;
 pub mod quality;
 #[cfg(target_family = "wasm")]
+pub mod refresh;
+#[cfg(target_family = "wasm")]
 pub mod shop;
 pub mod shop_logic;
 #[cfg(target_family = "wasm")]
@@ -124,6 +126,7 @@ fn render_route(state: &app_state::AppState) -> tairitsu_vdom::VNode {
         Route::Welcome => unreachable!(),
         Route::Shop => shop::Shop(shop::ShopProps {
             state: Some(Box::new(state.shop.clone())),
+            app: Some(Box::new(state.clone())),
             ..Default::default()
         }),
         Route::Inventory => inventory::Inventory(inventory::InventoryProps {

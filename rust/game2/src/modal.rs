@@ -21,8 +21,10 @@ use tairitsu_vdom::{EventHandler, VNode};
 const WIDTH: &str = "600px";
 const WIDTH_LG: &str = "800px";
 
-/// 一处弹窗在外壳上的差异。默认值就是旧版各处手绘弹窗的形状：
+/// 一处弹窗在外壳上的差异。默认值就是旧版共用外壳 `Modal` / `ModalLg` 的形状：
 /// 宽度按 `large` 取，自带关闭键（没有测试钩子），没有额外的标题栏动作。
+/// 旧版三个弹窗外壳（`Modal` / `ModalLg` / `Popup`）的正文一律是
+/// `modal-body custom-scrollbar`，所以这边也不设开关。
 pub struct ModalSpec<'a> {
     pub title: &'a str,
     pub large: bool,
@@ -31,10 +33,6 @@ pub struct ModalSpec<'a> {
     pub closable: bool,
     /// 标题右侧的动作槽。自带关闭键时排在它前面。
     pub header_actions: Option<VNode>,
-    /// 旧正文是 `modal-body custom-scrollbar` 的那一种：共用外壳 `modal()`
-    /// 的弹窗（如「关于本项目」）。那条规则设了 `scrollbar-width: thin`，
-    /// 实测 10px；其余弹窗的正文是 `.modal-body` 自己的 6px。
-    pub custom_scrollbar: bool,
     /// 旧正文在 `modal-body` 之外还带的类（`.switch-pokemon-modal`、
     /// `.modal-map-details` 这些）。它必须落在带 `modal-body` 的同一个元素上，
     /// 见 [`modal_with`]。
@@ -48,40 +46,30 @@ impl<'a> ModalSpec<'a> {
             large,
             closable: true,
             header_actions: None,
-            custom_scrollbar: false,
             body_class: "",
         }
     }
 }
 
-/// 旧版共用外壳 `Modal` / `ModalLg` 的入口：它的正文是
-/// `modal-body custom-scrollbar`。
+/// 旧版共用外壳 `Modal` / `ModalLg` 的入口。
 pub fn modal(title: &str, large: bool, on_close: Rc<dyn Fn()>, body: Vec<VNode>) -> VNode {
     let on_close = Rc::clone(&on_close);
-    let spec = ModalSpec {
-        custom_scrollbar: true,
-        ..ModalSpec::new(title, large)
-    };
-    modal_with(spec, move || on_close(), body)
+    modal_with(ModalSpec::new(title, large), move || on_close(), body)
 }
 
 /// 同上，差异由 `spec` 给。
 ///
-/// 包着正文的那个 div 就是旧版的 `.modal-body`：它带着 `modal-body`、按需加
-/// `custom-scrollbar`，再加上 `body_class`。旧正文自己的类各有一条规则，和
-/// `.modal-body` 的同权重、靠源码顺序分胜负，所以必须写在同一个元素上才算得
-/// 出旧版的值——实测 `.switch-pokemon-modal { padding: 12px 0 }` 在旧版败给
-/// `.modal-body` 的 `20px`；落进内层另一个 div 就会生效，弹窗高出 24px。调用
+/// 包着正文的那个 div 就是旧版的 `.modal-body custom-scrollbar`：它带着这两个类，
+/// 再加上 `body_class`。旧正文自己的类各有一条规则，和 `.modal-body` 的同权重、
+/// 靠源码顺序分胜负，所以必须写在同一个元素上才算得出旧版的值——实测
+/// `.switch-pokemon-modal { padding: 12px 0 }` 在旧版败给 `.modal-body` 的 `20px`；
+/// 落进内层另一个 div 就会生效，弹窗高出 24px。`custom-scrollbar` 设的
+/// `scrollbar-width` / `scrollbar-color` 是可继承属性，正文里的元素都从它拿。调用
 /// 方因此不要再包一层根 div，`body` 里直接放旧 `.modal-body` 的子节点。hikari
 /// 正文层的内边距归零（皮肤里 `--hk-pad: 0px`），内边距由这个 div 给。
 pub fn modal_with(spec: ModalSpec<'_>, on_close: impl Fn() + 'static, body: Vec<VNode>) -> VNode {
     let close = Rc::new(on_close);
-    let mut body_class = String::from("modal-body game-modal-body");
-    let mut content_class = String::from("game-modal");
-    if spec.custom_scrollbar {
-        body_class.push_str(" custom-scrollbar");
-        content_class.push_str(" game-modal--thin-scroll");
-    }
+    let mut body_class = String::from("modal-body game-modal-body custom-scrollbar");
     if !spec.body_class.is_empty() {
         body_class.push(' ');
         body_class.push_str(spec.body_class);
@@ -92,7 +80,7 @@ pub fn modal_with(spec: ModalSpec<'_>, on_close: impl Fn() + 'static, body: Vec<
         closable: spec.closable,
         header_actions: spec.header_actions,
         width: if spec.large { WIDTH_LG } else { WIDTH }.to_string(),
-        content_class,
+        content_class: "game-modal".to_string(),
         children: rsx! {
             div { class: body_class, ..body }
         },
