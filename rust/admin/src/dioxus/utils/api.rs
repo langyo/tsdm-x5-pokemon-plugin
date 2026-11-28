@@ -433,41 +433,31 @@ struct CountResult {
     count: u64,
 }
 
+/// 当前页面地址解析成的 URL：hash 已清空，查询参数由调用方改写。
+fn current_page_url() -> Option<web_sys::Url> {
+    let href = web_sys::window()?.location().href().ok()?;
+    let url = web_sys::Url::new(&href).ok()?;
+    url.set_hash("");
+    Some(url)
+}
+
 fn get_admin_endpoint() -> Result<String> {
-    let js_code = r#"(() => {
-        const url = new URL(window.location.href);
-        url.hash = '';
-        url.searchParams.set('id', 'pokemon:pokemon');
-        url.searchParams.set('index', 'admin');
-        return url.toString();
-    })()"#
-        .to_string();
-    match js_sys::eval(js_code.as_str()) {
-        Ok(value) => value
-            .as_string()
-            .ok_or_else(|| anyhow!("获取后台接口地址失败")),
-        Err(error) => Err(anyhow!("获取后台接口地址失败")),
-    }
+    let url = current_page_url().ok_or_else(|| anyhow!("获取后台接口地址失败"))?;
+    let params = url.search_params();
+    params.set("id", "pokemon:pokemon");
+    params.set("index", "admin");
+    Ok(url.href())
 }
 
 /// Boss 系统走独立的 API 端点（plugin.php?...&endpoint=boss），
 /// 不经过后台 dispatch 路由
 fn get_boss_endpoint() -> Result<String> {
-    let js_code = r#"(() => {
-        const url = new URL(window.location.href);
-        url.hash = '';
-        url.searchParams.set('id', 'pokemon:pokemon');
-        url.searchParams.delete('index');
-        url.searchParams.set('endpoint', 'boss');
-        return url.toString();
-    })()"#
-        .to_string();
-    match js_sys::eval(js_code.as_str()) {
-        Ok(value) => value
-            .as_string()
-            .ok_or_else(|| anyhow!("获取 Boss 接口地址失败")),
-        Err(error) => Err(anyhow!("获取 Boss 接口地址失败")),
-    }
+    let url = current_page_url().ok_or_else(|| anyhow!("获取 Boss 接口地址失败"))?;
+    let params = url.search_params();
+    params.set("id", "pokemon:pokemon");
+    params.delete("index");
+    params.set("endpoint", "boss");
+    Ok(url.href())
 }
 
 fn strip_script_prefix(mut text: &str) -> &str {

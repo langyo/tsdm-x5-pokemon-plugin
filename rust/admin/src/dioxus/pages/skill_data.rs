@@ -2,7 +2,9 @@ use crate::dioxus::prelude::*;
 
 use crate::dioxus::{
     components::skill_editor::SkillTypeEditorModal,
-    pages::shared::{update_filter_operator, FilterCollapsiblePanel, ListBottomDock},
+    pages::shared::{
+        bind_auto_load, update_filter_operator, FilterCollapsiblePanel, ListBottomDock,
+    },
     state::{set_busy, set_notice, AdminNoticeLevel, FilterPackage, ADMIN_BUSY, ADMIN_SKILL_DATA},
     utils::api::{
         count_skill_type, filter_skill_type, insert_skill_type, list_skill_type, set_skill_type,
@@ -32,36 +34,7 @@ pub fn SkillDataPage() -> Element {
     use_effect(move || {
         #[cfg(target_arch = "wasm32")]
         {
-            let _ = js_sys::eval(
-                r#"
-                (function () {
-                    const container = document.getElementById('skill-table-scroll');
-                    if (!container) return;
-                    if (container.dataset.autoLoadBound === '1') return;
-                    container.dataset.autoLoadBound = '1';
-                    let ticking = false;
-                    const tryLoad = () => {
-                        const trigger = document.getElementById('skill-load-more-trigger');
-                        if (!trigger) return;
-                        if (trigger.dataset.canLoad !== '1' || trigger.dataset.loading === '1') return;
-                        const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 48;
-                        if (nearBottom) {
-                            trigger.click();
-                            setTimeout(tryLoad, 120);
-                        }
-                    };
-                    container.addEventListener('scroll', () => {
-                        if (ticking) return;
-                        ticking = true;
-                        requestAnimationFrame(() => {
-                            ticking = false;
-                            tryLoad();
-                        });
-                    });
-                    setTimeout(tryLoad, 0);
-                })();
-                "#,
-            );
+            bind_auto_load("skill-table-scroll", "skill-load-more-trigger");
         }
     });
 

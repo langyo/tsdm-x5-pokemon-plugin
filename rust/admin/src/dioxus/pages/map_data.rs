@@ -2,7 +2,9 @@ use crate::dioxus::prelude::*;
 
 use crate::dioxus::{
     components::map_editor::MapInfoEditorModal,
-    pages::shared::{update_filter_operator, FilterCollapsiblePanel, ListBottomDock},
+    pages::shared::{
+        bind_auto_load, update_filter_operator, FilterCollapsiblePanel, ListBottomDock,
+    },
     state::{set_busy, set_notice, AdminNoticeLevel, FilterPackage, ADMIN_BUSY, ADMIN_MAP_DATA},
     utils::api::{count_map_info, filter_map_info, insert_map_info, list_map_info, set_map_info},
 };
@@ -29,36 +31,7 @@ pub fn MapDataPage() -> Element {
     use_effect(move || {
         #[cfg(target_arch = "wasm32")]
         {
-            let _ = js_sys::eval(
-                r#"
-                (function () {
-                    const container = document.getElementById('map-table-scroll');
-                    if (!container) return;
-                    if (container.dataset.autoLoadBound === '1') return;
-                    container.dataset.autoLoadBound = '1';
-                    let ticking = false;
-                    const tryLoad = () => {
-                        const trigger = document.getElementById('map-load-more-trigger');
-                        if (!trigger) return;
-                        if (trigger.dataset.canLoad !== '1' || trigger.dataset.loading === '1') return;
-                        const nearBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 48;
-                        if (nearBottom) {
-                            trigger.click();
-                            setTimeout(tryLoad, 120);
-                        }
-                    };
-                    container.addEventListener('scroll', () => {
-                        if (ticking) return;
-                        ticking = true;
-                        requestAnimationFrame(() => {
-                            ticking = false;
-                            tryLoad();
-                        });
-                    });
-                    setTimeout(tryLoad, 0);
-                })();
-                "#,
-            );
+            bind_auto_load("map-table-scroll", "map-load-more-trigger");
         }
     });
 
