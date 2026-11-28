@@ -1216,10 +1216,16 @@ fn equipment_panel(st: &AppState, pokemon_id: u64) -> VNode {
                 VNode::empty()
             };
             let section_state = st.clone();
+            // 战斗中的遮罩层（旧版同位置，排在处理中遮罩之前）：战斗里不能调整装备。
+            let battle_overlay = if crate::battle::user_in_battle(st) {
+                crate::battle::battle_disabled_overlay("战斗中无法调整装备")
+            } else {
+                VNode::empty()
+            };
 
             rsx! {
                 div { class: "equipment-tab",
-                    ..vec![loading_overlay]
+                    ..vec![battle_overlay, loading_overlay]
                     div { class: "equipment-slots-row",
                         for i in 0..slot_nodes.len() {
                             ..vec![slot_nodes[i].clone()]
@@ -1924,14 +1930,20 @@ fn skills_panel(st: &AppState, pm: &crate::state::PokemonBasic) -> VNode {
     }
 
     let loading_hint = if loading {
-        rsx! { div { role: "status", class: "skill-loading-hint", "正在更新技能..." } }
+        rsx! { div { role: "status", "正在更新技能..." } }
+    } else {
+        VNode::empty()
+    };
+    // 战斗中的遮罩层（旧版同位置）：战斗里不能调整技能。
+    let battle_overlay = if crate::battle::user_in_battle(st) {
+        crate::battle::battle_disabled_overlay("战斗中无法调整技能")
     } else {
         VNode::empty()
     };
 
     rsx! {
         div { class: "skills-grid-container",
-            ..vec![loading_hint]
+            ..vec![loading_hint, battle_overlay]
             div { class: "skills-grid",
                 for i in 0..cards.len() {
                     ..vec![cards[i].clone()]

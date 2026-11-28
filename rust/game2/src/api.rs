@@ -594,17 +594,37 @@ struct UsableListDto {
 }
 
 #[derive(Deserialize)]
+struct PokemonUpdateDto {
+    #[serde(default)]
+    id: u64,
+    hp: Option<i64>,
+    max_hp: Option<i64>,
+    state: Option<u64>,
+    #[serde(default)]
+    old_quality_grade: Option<String>,
+    #[serde(default)]
+    new_quality_grade: Option<String>,
+    #[serde(default)]
+    old_iv_total: Option<u64>,
+    #[serde(default)]
+    new_iv_total: Option<u64>,
+}
+
+#[derive(Deserialize)]
 struct UseItemDto {
     #[serde(default)]
     message: String,
     #[serde(default)]
     item_remaining: Option<i64>,
+    pokemon_updated: Option<PokemonUpdateDto>,
 }
 
 /// use_item 的公开载荷。
 pub struct UseItemOutcome {
     pub message: String,
     pub item_remaining: Option<i64>,
+    /// 目标宠物的更新（旧版 `PokemonUpdate`）：品质重洗药带前后品质与个体值总和。
+    pub pokemon_updated: Option<crate::state::PokemonUpdate>,
 }
 
 pub struct InventoryList {
@@ -706,6 +726,16 @@ pub fn use_item(
             on_done(result.map(|dto| UseItemOutcome {
                 message: dto.message,
                 item_remaining: dto.item_remaining,
+                pokemon_updated: dto.pokemon_updated.map(|u| crate::state::PokemonUpdate {
+                    id: u.id,
+                    hp: u.hp,
+                    max_hp: u.max_hp,
+                    state: u.state,
+                    old_quality_grade: u.old_quality_grade,
+                    new_quality_grade: u.new_quality_grade,
+                    old_iv_total: u.old_iv_total,
+                    new_iv_total: u.new_iv_total,
+                }),
             }))
         }),
     );

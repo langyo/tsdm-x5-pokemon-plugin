@@ -11,47 +11,121 @@
 // Toast：直接用上游 `ToastStore` + `Toast`（容器 .hk-toast-container）
 // =============================================================================
 //
-// 旧版（Dioxus）是自绘的 `.toast-item` 药丸：白字、居中、顶部堆叠、可复制。
-// 现在容器是 hikari 的，观感按旧版调：顶部居中、堆叠间距、深色半透明底。
+// 旧版（Dioxus）的 `.toast-item`：贴顶通栏、内容居中、按类型着色的药丸
+// （成功绿 / 失败红 / 提示蓝 / 警告黄），圆角 6px，带「复制」「关闭」两个字符键，
+// 压在弹窗遮罩之上。下面把 hikari 的提示条逐项调回这些值；数值都取自
+// game.css 的 `.toast-container` / `.toast-item` 规则。
 
 .hk-toast-container {
-  // hikari 默认贴在右上（`inset-inline-end`）；旧版是顶部居中，改成水平居中。
-  inset-inline-end: auto;
-  left: 50%;
-  transform: translateX(-50%);
-  width: max-content;
-  max-width: min(90vw, 560px);
+  // 旧版容器：`top: 0; left: 0; right: 0`，层叠 10000（弹窗遮罩是 1000，
+  // 提示要浮在遮罩上面）。hikari 默认贴右上、层叠 100，会被开着的弹窗盖住。
+  top: 0;
+  inset-inline-end: 0;
+  left: 0;
+  right: 0;
+  transform: none;
+  width: auto;
+  max-width: none;
+  z-index: 10000;
+  padding: 8px;
   align-items: center;
-  gap: 8px;
+
+  // 条与条之间：旧版是每条的 `margin-bottom: 4px`。
+  > div {
+    gap: 4px;
+    align-items: center;
+  }
 
   .hk-toast-item {
-    // 旧版是深色药丸 + 白字，圆角比 hikari 默认更圆。
-    background: rgba(0, 0, 0, 0.75);
-    color: #fff; // $color-white
-    border-radius: 999px;
-    padding: 8px 16px;
-    max-width: min(90vw, 560px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    // 旧版 `.toast-item`。
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: inherit;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    min-width: 200px;
+    max-width: 400px;
+    // 旧版条本身的文字色是继承页面的（深灰）；只有消息与两个键是白字。
+    color: #212529; // $color-text-primary
+    cursor: pointer;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    // 旧版：消息与操作区之间 4px（`.toast-actions` 的 margin-left），
+    // 复制与关闭之间 4px；hikari 的条内间距是 8px。
+    gap: 4px;
+    animation: toast-slide-in 0.3s ease-out;
 
-    // 旧版没有变体图标，靠底色区分成功/失败。
+    // 旧版没有变体图标，靠底色区分类型。
     .hk-toast-icon {
       display: none;
     }
 
-    .hk-toast-message {
-      color: inherit;
-      font-size: 13px;
-      line-height: 1.4;
+    // 旧版消息与计数之间没有额外间距。
+    .hk-toast-body {
+      gap: 0;
     }
 
-    // 关闭键在深色底上要够亮。
-    .hk-toast-close,
-    .hk-toast-copy-btn {
-      color: rgba(255, 255, 255, 0.75);
+    // 旧版 `.toast-message`：单行、居中、溢出省略。
+    .hk-toast-message {
+      display: block;
+      -webkit-line-clamp: none;
+      flex: 1;
+      min-width: 0;
+      color: #fff; // $color-white
+      font-size: 13px;
+      line-height: inherit;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    // 旧版 `.toast-copy` / `.toast-close`：20×20 的字符键，七成不透明，
+    // 没有底色与悬停底色。
+    .hk-toast-copy-btn,
+    .hk-toast-close {
+      width: 20px;
+      height: 20px;
+      min-width: 20px;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: none;
+      color: #fff; // $color-white
+      opacity: 0.7;
+      --hi-icon-button-icon-color: currentColor;
+      --hi-icon-button-icon-color-active: currentColor;
+      --hi-icon-button-bg-hover: transparent;
+      --hi-icon-button-bg-active: transparent;
+      transition: opacity 150ms ease;
 
       &:hover {
-        color: #fff; // $color-white
+        opacity: 1;
       }
+    }
+  }
+
+  // 旧版按类型着色。
+  .hk-toast-success {
+    background: #43cf7c;
+  }
+
+  .hk-toast-error {
+    background: #e74c3c;
+  }
+
+  .hk-toast-info {
+    background: #5cb8e6;
+  }
+
+  .hk-toast-warning {
+    background: #f8d030;
+
+    // 旧版警告条的底是浅黄：两个键改深灰（消息仍是白字）。
+    .hk-toast-copy-btn,
+    .hk-toast-close {
+      color: #212529; // $color-text-primary
     }
   }
 }
@@ -98,6 +172,9 @@
   --hk-modal-title-font-size: 16px; // $font-size-lg
   --hk-modal-title-font-weight: 600;
   --hk-modal-title-color: #ffffff; // $color-white
+  // 旧版弹窗里的文字色是从页面继承的深灰（hikari 的正文层自带 #1e1e1e，
+  // 会顺着继承给正文里所有没写颜色的元素）。
+  --hk-modal-body-color: #212529; // $color-text-primary
 
   max-height: 80vh;
   border: 0;
@@ -106,12 +183,21 @@
   // 旧版的进场动画；关键帧 modal-slide-in / modal-fade-in 在 game.css 里。
   animation: modal-slide-in 0.3s ease-out;
 
+  // 标题栏的内外两个值都显式写，不只给变量：论坛主题（style_2_common.css）的
+  // `* { padding: 0 }` 和 `h1..h6 { font-size: 1em }` 是未分层规则，压得过 hikari
+  // 分层里读变量的那两条（`.hk-modal-header { padding: var(--hk-modal-padding-header) }`、
+  // `.hk-modal-title { font-size: var(--hk-modal-title-font-size) }`）——只设变量的话
+  // 标题栏会被压成 0 内边距、标题掉到 14px（2026-11-28 实测，旧版是 16px 20px / 16px）。
   .hk-modal-header {
+    padding: 16px 20px; // $spacing-base $spacing-lg
     background: linear-gradient(135deg, #8ed1f0, #5cb8e6); // $color-primary
     border-bottom: 0;
   }
 
   .hk-modal-title {
+    margin: 0;
+    font-size: 16px; // $font-size-lg
+    font-weight: 600;
     line-height: 1.6;
   }
 
@@ -147,41 +233,15 @@
     }
   }
 
-  // 正文：面框自己限高 80vh，正文交给 flex 去分；滚动条回到旧版 `.modal-body` 的
-  // 6px 细条（hikari 默认把原生滚动条藏掉、走覆盖式滚动条）。`scrollbar-width`
-  // 必须是 auto：设成 thin 时 Chromium 会忽略下面这组 `::-webkit-scrollbar`。
+  // 正文：面框自己限高 80vh，正文交给 flex 去分。滚动发生在 hikari 的滚动层上，
+  // 而旧版每个弹窗的正文都是 `modal-body custom-scrollbar`（细滚动条、实测 10px、
+  // 灰轨浅灰拇指），所以这两个值落在这里，而不是落在带 `custom-scrollbar` 的
+  // 正文 div 上。hikari 默认把原生滚动条藏掉、走覆盖式滚动条。
   .hk-modal-body {
     max-height: none;
   }
 
   .hk-modal-body-scroll {
-    scrollbar-width: auto;
-
-    &::-webkit-scrollbar {
-      display: block;
-      width: 6px;
-      height: 6px;
-    }
-
-    &::-webkit-scrollbar-track {
-      background: #f2f4f5; // $color-gray-100
-      border-radius: 3px;
-    }
-
-    &::-webkit-scrollbar-thumb {
-      background: #dee2e6; // $color-gray-300
-      border-radius: 3px;
-
-      &:hover {
-        background: #ced4da; // $color-gray-400
-      }
-    }
-  }
-
-  // 旧版正文多一个 `custom-scrollbar` 的弹窗（`modal()` 入口，如「关于本项目」）：
-  // 那条规则设了 `scrollbar-width: thin`，实测 10px。滚动发生在 hikari 的滚动层
-  // 上，所以这个宽度要落在这里，而不是落在带 `custom-scrollbar` 的正文 div 上。
-  &.game-modal--thin-scroll .hk-modal-body-scroll {
     scrollbar-width: thin;
     scrollbar-color: #dee2e6 #f2f4f5; // $color-gray-300 $color-gray-100
   }

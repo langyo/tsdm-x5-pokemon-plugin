@@ -5,9 +5,9 @@
 //! - 分类切换/搜索重置回第 1 页，服务端返回总页数后把当前页夹回
 //! - 悬浮详情显示在光标上方（视口内横向收拢），不遮挡价格与购买按钮
 //! - 购买互斥（buying 守卫），成功/失败反馈走应用级提示（toast.rs）
+//! - 战斗中整页盖遮罩、买入入口直接返回（旧版 `use_battle_state()`）
+//! - 买入后刷新侧栏的金币与背包数量、买宠物后刷新宠物列表（`crate::refresh`）
 //! - 分页器窗口化页码（shop_logic::windowed_pages，同算法带测试）
-//!
-//! 战斗中禁用商店的遮罩随对战页移植一起接（当前 v2 无对战状态）。
 //!
 //! 本模块只在 wasm 下编译（依赖 fetch 回调桥）。
 
@@ -16,6 +16,7 @@ use tairitsu_macros::{component, rsx};
 use tairitsu_vdom::VNode;
 
 use crate::api;
+use crate::app_state::AppState;
 use crate::icon::{Icon, IconName, IconProps};
 use crate::shop_logic::{shop_tooltip_position, windowed_entries, PagerEntry};
 use crate::state::{ShopItem, ShopPet, ShopState, ToastKind};
@@ -153,24 +154,27 @@ fn current_list(
     }
 }
 
-pub fn buy_item_by_id(state: &ShopState, id: u64) {
+/// 买入道具。`app` 是整个应用的状态：买入后要刷新侧栏的金币与背包数量
+/// （旧版 `do_refresh`），战斗中不许买（旧版 `use_battle_state()`）。
+pub fn buy_item_by_id(state: &ShopState, app: &AppState, id: u64) {
     let Some((false, items, _)) = current_list(state) else {
         return;
     };
     let Some(item) = items.iter().find(|i| i.id == id) else {
         return;
     };
-    buy_item(state, item);
+    buy_item(state, app, item);
 }
 
-pub fn buy_pet_by_id(state: &ShopState, id: u64) {
+/// 买入宠物。成功后另刷宠物列表（旧版 `refresh_pokemon_list`）。
+pub fn buy_pet_by_id(state: &ShopState, app: &AppState, id: u64) {
     let Some((true, _, pets)) = current_list(state) else {
         return;
     };
     let Some(pet) = pets.iter().find(|p| p.id == id) else {
         return;
     };
-    buy_pet(state, pet);
+    buy_pet(state, app, pet);
 }
 
 /// 筛选提交（回车）/清除：更新关键字并重载。
@@ -232,12 +236,13 @@ fn buy_guarded(state: &ShopState) -> bool {
     true
 }
 
-fn buy_item(state: &ShopState, item: &ShopItem) {
-    if !item.can_buy || !buy_guarded(state) {
+fn buy_item(state: &ShopState, app: &AppState, item: &ShopItem) {
+    if !item.can_buy || crate::battle::user_in_battle(app) || !buy_guarded(state) {
         return;
     }
     let name = item.name.clone();
     let state = state.clone();
+    let app = app.clone();
     api::buy_item(
         item.id,
         Box::new(move |result| {
@@ -248,18 +253,22 @@ fn buy_item(state: &ShopState, item: &ShopItem) {
                 ),
                 Err(e) => toast::show(ToastKind::Error, format!("购买失败: {e}")),
             }
+            // 成败都刷新（旧版 do_refresh 在 match 之外）。
+            crate::refresh::profile(&app);
+            crate::refresh::bag_counts(&app);
             state.buying.inner().set(false);
             reload(&state);
         }),
     );
 }
 
-fn buy_pet(state: &ShopState, pet: &ShopPet) {
-    if !pet.can_buy || !buy_guarded(state) {
+fn buy_pet(state: &ShopState, app: &AppState, pet: &ShopPet) {
+    if !pet.can_buy || crate::battle::user_in_battle(app) || !buy_guarded(state) {
         return;
     }
     let name = pet.name.clone();
     let state = state.clone();
+    let app = app.clone();
     api::buy_pet(
         pet.id,
         Box::new(move |result| {
@@ -277,6 +286,8 @@ fn buy_pet(state: &ShopState, pet: &ShopPet) {
                             resp.remaining_money
                         ),
                     );
+                    crate::refresh::pokemon_list(&app);
+                    crate::refresh::profile(&app);
                 }
                 Err(e) => toast::show(ToastKind::Error, format!("购买失败: {e}")),
             }
@@ -319,17 +330,20 @@ fn debounce_reload(state: &ShopState) {
 // ---------------------------------------------------------------------------
 
 #[component]
-pub fn Shop(state: Box<ShopState>) -> VNode {
+pub fn Shop(state: Box<ShopState>, app: Box<AppState>) -> VNode {
     // 外面不包 ThemeProvider：旧版没有这一层，商店页里也没有依赖主题变量的
     // hikari 组件。它渲染出来的 div.hk-theme-provider 会多占一层，还会把 hikari
     // 的字体与颜色继承给整页内容。
+    //
+    // `app` 是整个应用的状态：战斗遮罩、买入守卫与买后刷新都要它；商店自己的
+    // 列表状态仍在 `state`。
     rsx! {
-        ShopCard { state: Some(state) }
+        ShopCard { state: Some(state), app: Some(app) }
     }
 }
 
 #[component]
-fn ShopCard(state: Box<ShopState>) -> VNode {
+fn ShopCard(state: Box<ShopState>, app: Box<AppState>) -> VNode {
     // 首次装载即拉取（Dioxus 版由 use_resource 首次求值触发）。
     if state.items.get().is_none() && state.pets.get().is_none() {
         reload(&state);
@@ -338,6 +352,10 @@ fn ShopCard(state: Box<ShopState>) -> VNode {
     rsx! {
         div { class: "page-shop",
             div { class: "shop-card",
+                // 战斗中整页盖一层（旧版 battle-disabled-overlay）：战斗里不能用商店。
+                if crate::battle::user_in_battle(&app) {
+                    ..vec![crate::battle::battle_disabled_overlay("战斗中无法使用商店")]
+                }
                 div { class: "shop-card-header",
                     Icon { name: Some(IconName::Shoppingcart), size: Some(18), class: Some("header-icon".to_string()) }
                     span { "道具商店" }
@@ -345,9 +363,9 @@ fn ShopCard(state: Box<ShopState>) -> VNode {
                 div { class: "shop-card-body",
                     CategoryBar { state: Some(state.clone()) }
                     if state.category.get() == PET_CATEGORY {
-                        PetsTab { state: Some(state.clone()) }
+                        PetsTab { state: Some(state.clone()), app: Some(app.clone()) }
                     } else {
-                        ItemsTab { state: Some(state.clone()) }
+                        ItemsTab { state: Some(state.clone()), app: Some(app.clone()) }
                     }
                 }
             }
@@ -498,7 +516,7 @@ fn FilterPopover(state: Box<ShopState>) -> VNode {
 }
 
 #[component]
-fn ItemsTab(state: Box<ShopState>) -> VNode {
+fn ItemsTab(state: Box<ShopState>, app: Box<AppState>) -> VNode {
     let data = state.items.get();
     let keyword_empty = state.keyword.get().trim().is_empty();
 
@@ -525,7 +543,7 @@ fn ItemsTab(state: Box<ShopState>) -> VNode {
             // 根节点会展开成 Fragment。
             div { class: "shop-tiles-grid",
                 for (idx , item) in items.iter().enumerate() {
-                    { rsx! { ItemTile { state: Some(state.clone()), idx: Some(idx), item: Some(item.clone()) } } }
+                    { rsx! { ItemTile { state: Some(state.clone()), app: Some(app.clone()), idx: Some(idx), item: Some(item.clone()) } } }
                 }
             }
             Paginator { state: Some(state) }
@@ -534,7 +552,7 @@ fn ItemsTab(state: Box<ShopState>) -> VNode {
 }
 
 #[component]
-fn PetsTab(state: Box<ShopState>) -> VNode {
+fn PetsTab(state: Box<ShopState>, app: Box<AppState>) -> VNode {
     let data = state.pets.get();
     let keyword_empty = state.keyword.get().trim().is_empty();
 
@@ -558,7 +576,7 @@ fn PetsTab(state: Box<ShopState>) -> VNode {
         Some(Ok(pets)) => rsx! {
             div { class: "shop-tiles-grid",
                 for (idx , pet) in pets.iter().enumerate() {
-                    { rsx! { PetTile { state: Some(state.clone()), idx: Some(idx), pet: Some(pet.clone()) } } }
+                    { rsx! { PetTile { state: Some(state.clone()), app: Some(app.clone()), idx: Some(idx), pet: Some(pet.clone()) } } }
                 }
             }
             Paginator { state: Some(state) }
@@ -568,7 +586,7 @@ fn PetsTab(state: Box<ShopState>) -> VNode {
 
 /// 单个商品宫格：悬浮展示详情 tooltip（光标上方，不遮挡价格/购买按钮）。
 #[component]
-fn ItemTile(state: Box<ShopState>, idx: usize, item: ShopItem) -> VNode {
+fn ItemTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, item: ShopItem) -> VNode {
     let img_src = format!("{IMG_PATH}/item/{}.gif", item.image);
     let buy_class = if item.can_buy {
         "buy-btn"
@@ -588,10 +606,11 @@ fn ItemTile(state: Box<ShopState>, idx: usize, item: ShopItem) -> VNode {
     let item_id = item.id;
     // 处理器闭包要求 'static：三个处理器各持一份状态句柄。
     let (click_state, enter_state, leave_state) = (state.clone(), state.clone(), state);
+    let click_app = app;
     rsx! {
         div {
             class: "shop-tile",
-            onclick: move |_| buy_item_by_id(&click_state, item_id),
+            onclick: move |_| buy_item_by_id(&click_state, &click_app, item_id),
             onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
                 tooltip_enter(&enter_state, idx, ITEM_TOOLTIP_H, e.client_x, e.client_y)
             },
@@ -657,7 +676,7 @@ fn ItemTooltip(item: ShopItem, x: f64, y: f64) -> VNode {
 
 /// 单个宠物宫格：悬浮展示六维种族值 tooltip。
 #[component]
-fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
+fn PetTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, pet: ShopPet) -> VNode {
     let img_src = format!("{IMG_PATH}/spm/{}.gif", pet.id);
     let buy_class = if pet.can_buy {
         "buy-btn"
@@ -685,6 +704,7 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
     let pet_id = pet.id;
     // 处理器闭包要求 'static：三个处理器各持一份状态句柄。
     let (click_state, enter_state, leave_state) = (state.clone(), state.clone(), state);
+    let click_app = app;
 
     let hp = format!("HP {}", pet.hp);
     let atk = format!("攻击 {}", pet.atk);
@@ -696,7 +716,7 @@ fn PetTile(state: Box<ShopState>, idx: usize, pet: ShopPet) -> VNode {
     rsx! {
         div {
             class: "shop-tile pet-tile",
-            onclick: move |_| buy_pet_by_id(&click_state, pet_id),
+            onclick: move |_| buy_pet_by_id(&click_state, &click_app, pet_id),
             onmouseenter: move |e: tairitsu_vdom::MouseEvent| {
                 tooltip_enter(&enter_state, idx, PET_TOOLTIP_H, e.client_x, e.client_y)
             },

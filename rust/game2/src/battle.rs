@@ -168,8 +168,11 @@ fn submit(state: &AppState, pending: PendingBattleAction, is_retry: bool) {
                     bt.selection.inner().set(None);
                     bt.last_map_id.inner().set(scene.map_id);
                     bt.scene.inner().set(Some(Some(scene)));
-                    // 战斗会改宠物 HP/PP 与道具数量。
+                    // 战斗会改宠物 HP/PP 与道具数量；侧栏的金币、背包数量也跟着
+                    // 刷新（旧版每个动作结果之后的三连刷新）。
                     refresh_battle_inventory(&bt);
+                    crate::refresh::profile(&st);
+                    crate::refresh::bag_counts(&st);
                     let st2 = st.clone();
                     crate::api::pokemon_list(Box::new(move |r| {
                         st2.center.pokemons.inner().set(Some(r));
@@ -203,6 +206,9 @@ pub fn end_battle(state: &AppState) {
     bt.selection.inner().set(None);
     bt.show_switch_modal.inner().set(false);
     crate::request_remount();
+    // 旧版 end_battle_with_refresh：宠物列表 + 用户资料 + 背包数量。
+    crate::refresh::profile(state);
+    crate::refresh::bag_counts(state);
     let st = state.clone();
     crate::api::pokemon_list(Box::new(move |r| {
         st.center.pokemons.inner().set(Some(r));
@@ -380,6 +386,24 @@ pub fn switch_tab(state: &AppState, tab: u8) {
 /// 场景」的话，结算弹窗开着的时候侧栏迷你格还顶着「战斗中」的角标。
 pub fn user_in_battle(state: &AppState) -> bool {
     matches!(state.battle.scene.get(), Some(Some(ref scene)) if !scene.effective_battle_over())
+}
+
+/// 战斗中盖在背包 / 商店 / 装备 / 技能页上的遮罩（旧版 `use_battle_state()` 为真
+/// 时各页同一段 `battle-disabled-overlay`）：`message` 是各页自己的那句。
+pub fn battle_disabled_overlay(message: &'static str) -> VNode {
+    rsx! {
+        div { class: "battle-disabled-overlay",
+            div { class: "battle-disabled-message",
+                {Icon(IconProps {
+                    name: Some(IconName::Swords),
+                    size: Some(40),
+                    class: Some("battle-icon".to_string()),
+                })}
+                p { "{message}" }
+                p { class: "battle-hint", "请先结束当前战斗" }
+            }
+        }
+    }
 }
 
 pub fn open_switch_modal(state: &AppState) {

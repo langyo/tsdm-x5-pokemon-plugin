@@ -147,17 +147,21 @@ pub fn use_item(state: &AppState, item_id: u64, item_type: u64, use_target: Opti
             inv.selected_item.inner().set(Some(item_id));
             inv.show_target_modal.inner().set(true);
             inv.usable_pokemon.inner().set(None);
+            // 上一次的品质对比面板与失败提示不带到新的一次使用里（旧版
+            // `quality_result.set(None)` + `pokemon_list_error_shown`）。
+            inv.quality_result.inner().set(None);
+            inv.list_error_shown.inner().set(false);
             crate::request_remount();
             load_usable_pokemon(state, item_id);
         }
         "battle" => {
-            toast::show(ToastKind::Error, "精灵球请在战斗中使用");
+            toast::show(ToastKind::Warning, "精灵球请在战斗中使用");
             crate::request_remount();
         }
         _ => {
             inv.using.inner().set(Some(item_id));
             crate::request_remount();
-            api_use_item(state, item_id, None);
+            api_use_item(state, item_id, None, None, false);
         }
     }
 }
@@ -167,6 +171,13 @@ fn load_usable_pokemon(state: &AppState, item_id: u64) {
     crate::api::usable_pokemon(
         item_id,
         Box::new(move |result| {
+            // 目标列表拉取失败弹一次提示（旧版 use_effect + pokemon_list_error_shown）。
+            if let Err(e) = &result {
+                if !inv.list_error_shown.get() {
+                    inv.list_error_shown.inner().set(true);
+                    toast::show(ToastKind::Error, format!("加载宠物列表失败: {e}"));
+                }
+            }
             inv.usable_pokemon.inner().set(Some(result));
             crate::request_remount();
         }),
@@ -178,10 +189,16 @@ pub fn close_target_modal(state: &AppState) {
     inv.show_target_modal.set(false);
     inv.selected_item.set(None);
     inv.usable_pokemon.set(None);
+    inv.quality_result.set(None);
+    inv.list_error_shown.set(false);
     crate::request_remount();
 }
 
-/// 在弹窗中选定宝可梦，执行使用。
+/// 品质重洗的目标：弹窗里那一行的名字、物种、等级、是否异色。
+type QualityTarget = (String, u64, u64, bool);
+
+/// 在弹窗中选定宝可梦，执行使用。品质重洗药与怠惰药片成功后保留弹窗（前者
+/// 原位换成品质对比面板，后者刷新目标列表）；其余道具选中即关弹窗（旧版如此）。
 pub fn confirm_use_on_pokemon(state: &AppState, pokemon_id: u64) {
     let inv = state.inv.clone();
     if inv.using.get().is_some() {
@@ -190,12 +207,41 @@ pub fn confirm_use_on_pokemon(state: &AppState, pokemon_id: u64) {
     let Some(item_id) = inv.selected_item.get() else {
         return;
     };
+    let (quality_target, is_ev_reset): (Option<QualityTarget>, bool) =
+        match inv.usable_pokemon.get() {
+            Some(Ok(list)) if list.item_module == "quality" => (
+                list.usable_pokemon
+                    .iter()
+                    .find(|p| p.id == pokemon_id)
+                    .map(|p| (p.nickname.clone(), p.type_id, p.level, p.is_shiny)),
+                false,
+            ),
+            Some(Ok(list)) if list.item_module == "clean_equipment" => (None, true),
+            _ => (None, false),
+        };
+    let keep_modal = quality_target.is_some() || is_ev_reset;
     inv.using.inner().set(Some(item_id));
+    if !keep_modal {
+        inv.show_target_modal.inner().set(false);
+    }
     crate::request_remount();
-    api_use_item(state, item_id, Some(pokemon_id));
+    api_use_item(
+        state,
+        item_id,
+        Some(pokemon_id),
+        quality_target,
+        is_ev_reset,
+    );
 }
 
-fn api_use_item(state: &AppState, item_id: u64, pokemon_id: Option<u64>) {
+/// use_item 的回调分流（旧版 confirm_use_on_pokemon 的 spawn 体）。
+fn api_use_item(
+    state: &AppState,
+    item_id: u64,
+    pokemon_id: Option<u64>,
+    quality_target: Option<QualityTarget>,
+    is_ev_reset: bool,
+) {
     let inv = state.inv.clone();
     // 回调须 'static：捕获 AppState 的克隆（而非借用）。
     let state = state.clone();
@@ -205,22 +251,64 @@ fn api_use_item(state: &AppState, item_id: u64, pokemon_id: Option<u64>) {
         Box::new(move |result| {
             match result {
                 Ok(out) => {
+                    // 载荷带回前后品质 → 弹窗原位换成对比面板。
+                    let reroll = match (quality_target, out.pokemon_updated.as_ref()) {
+                        (Some((name, type_id, level, is_shiny)), Some(update))
+                            if update.old_quality_grade.is_some()
+                                || update.new_quality_grade.is_some() =>
+                        {
+                            Some(crate::state::QualityRerollResult {
+                                pokemon_id: pokemon_id.unwrap_or(0),
+                                name,
+                                type_id,
+                                level,
+                                is_shiny,
+                                old_grade: update.old_quality_grade.clone().unwrap_or_default(),
+                                new_grade: update.new_quality_grade.clone().unwrap_or_default(),
+                                old_iv_total: update.old_iv_total.unwrap_or(0),
+                                new_iv_total: update.new_iv_total.unwrap_or(0),
+                                item_remaining: out.item_remaining.unwrap_or(0),
+                            })
+                        }
+                        _ => None,
+                    };
+                    let remaining = out.item_remaining.unwrap_or(0);
+                    let on_pokemon = pokemon_id.is_some();
                     toast::show(ToastKind::Success, out.message);
-                    if pokemon_id.is_none() {
-                        inv.show_target_modal.inner().set(false);
-                        inv.selected_item.inner().set(None);
-                        inv.usable_pokemon.inner().set(None);
-                    } else if out.item_remaining.unwrap_or(0) > 0 {
-                        // 弹窗保留、刷新目标列表供「继续使用」（对齐 Dioxus 版
-                        // 品质/怠惰道具行为；普通道具也统一保留，行为差异随
-                        // 品质对比面板补齐时再分）。
-                        load_usable_pokemon(&state, item_id);
-                    } else {
-                        inv.show_target_modal.inner().set(false);
-                        inv.selected_item.inner().set(None);
-                        inv.usable_pokemon.inner().set(None);
+                    match reroll {
+                        Some(reroll) => {
+                            // 还有剩余药品时刷新目标列表供「继续使用」；用尽则不再请求
+                            // （服务端会因无库存报错）。
+                            let can_continue = reroll.item_remaining > 0;
+                            inv.quality_result.inner().set(Some(reroll));
+                            reload(&inv);
+                            crate::refresh::bag_counts(&state);
+                            crate::refresh::pokemon_list(&state);
+                            if can_continue {
+                                load_usable_pokemon(&state, item_id);
+                            }
+                        }
+                        None if is_ev_reset => {
+                            // 怠惰药片：保留弹窗并刷新目标列表，努力值已清零的宠物会
+                            // 从列表消失；用尽则关闭。
+                            reload(&inv);
+                            crate::refresh::bag_counts(&state);
+                            crate::refresh::pokemon_list(&state);
+                            if remaining > 0 {
+                                load_usable_pokemon(&state, item_id);
+                            } else {
+                                close_target_modal(&state);
+                            }
+                        }
+                        None => {
+                            if on_pokemon {
+                                close_target_modal(&state);
+                                crate::refresh::pokemon_list(&state);
+                            }
+                            reload(&inv);
+                            crate::refresh::bag_counts(&state);
+                        }
                     }
-                    reload(&inv);
                 }
                 Err(e) => {
                     toast::show(ToastKind::Error, format!("使用失败: {e}"));
@@ -320,28 +408,35 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
     };
 
     let modal = if inv.show_target_modal.get() {
-        let pokemon_body = match inv.usable_pokemon.get() {
-            None => plain("正在加载可用宠物列表...", "loading-pokemon-list"),
-            Some(Err(_)) => plain("加载宠物列表失败，请关闭后重试", "error-pokemon-list"),
-            Some(Ok(list)) if list.usable_pokemon.is_empty() => {
-                let carried_only = is_carried_only_module(&list.item_module);
-                let text = if carried_only {
-                    "没有携带中的宠物可以使用该物品"
-                } else {
-                    "没有可以使用该物品的宝可梦"
-                };
-                plain(text, "empty-pokemon-list")
-            }
-            Some(Ok(list)) => {
-                // 品质重洗药（quality）与怠惰药片（clean_equipment）只作用于
-                // 携带中的宠物：服务端只返回携带中的目标，选择器展示精灵图
-                // 与品质/努力值摘要（对齐 Dioxus 版的目标选择器）。
-                let is_quality = list.item_module == "quality";
-                let is_ev_reset = list.item_module == "clean_equipment";
-                let carried_only = is_carried_only_module(&list.item_module);
-                let item_name = list.item_name.clone();
-                let unusable_count = list.unusable_count;
-                let rows: Vec<VNode> = list
+        // 品质重洗成功：弹窗原位换成前后对比面板（旧版 quality_result）。
+        let quality_panel = inv
+            .quality_result
+            .get()
+            .map(|result| quality_compare_panel(&state, &result));
+        let pokemon_body = match quality_panel {
+            Some(panel) => panel,
+            None => match inv.usable_pokemon.get() {
+                None => plain("正在加载可用宠物列表...", "loading-pokemon-list"),
+                Some(Err(_)) => plain("加载宠物列表失败，请关闭后重试", "error-pokemon-list"),
+                Some(Ok(list)) if list.usable_pokemon.is_empty() => {
+                    let carried_only = is_carried_only_module(&list.item_module);
+                    let text = if carried_only {
+                        "没有携带中的宠物可以使用该物品"
+                    } else {
+                        "没有可以使用该物品的宝可梦"
+                    };
+                    plain(text, "empty-pokemon-list")
+                }
+                Some(Ok(list)) => {
+                    // 品质重洗药（quality）与怠惰药片（clean_equipment）只作用于
+                    // 携带中的宠物：服务端只返回携带中的目标，选择器展示精灵图
+                    // 与品质/努力值摘要（对齐 Dioxus 版的目标选择器）。
+                    let is_quality = list.item_module == "quality";
+                    let is_ev_reset = list.item_module == "clean_equipment";
+                    let carried_only = is_carried_only_module(&list.item_module);
+                    let item_name = list.item_name.clone();
+                    let unusable_count = list.unusable_count;
+                    let rows: Vec<VNode> = list
                     .usable_pokemon
                     .iter()
                     .map(|p| {
@@ -433,8 +528,9 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                                     div { class: "pokemon-select-info",
                                         span { class: "pokemon-select-name", "{name}" }
                                         span { class: "pokemon-select-level", "{level}" }
+                                        ..vec![quality_block]
                                     }
-                                    ..vec![quality_block, iv_block, ev_block]
+                                    ..vec![iv_block, ev_block]
                                     div { class: "hp-bar-container",
                                         div { class: "hp-bar", style: hp_style }
                                         span { class: "hp-text", "{hp_text}" }
@@ -444,29 +540,31 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
                         }
                     })
                     .collect();
-                let unusable_block = if !carried_only && unusable_count > 0 {
-                    let t = format!("剩余 {unusable_count} 个宠物无法使用该物品");
-                    rsx! { div { class: "unusable-pokemon-hint", "{t}" } }
-                } else {
-                    VNode::empty()
-                };
-                let picker_hint = if carried_only {
-                    rsx! { div { class: "quality-picker-hint", "{item_name}只显示携带中的宠物（最多 6 只）" } }
-                } else {
-                    VNode::empty()
-                };
-                rsx! {
-                    div { class: "pokemon-select-modal",
-                        ..vec![picker_hint]
-                        div { class: "pokemon-select-list custom-scrollbar",
-                            for i in 0..rows.len() {
-                                ..vec![rows[i].clone()]
+                    let unusable_block = if !carried_only && unusable_count > 0 {
+                        let t = format!("剩余 {unusable_count} 个宠物无法使用该物品");
+                        rsx! { div { class: "unusable-pokemon-hint", "{t}" } }
+                    } else {
+                        VNode::empty()
+                    };
+                    let picker_hint = if carried_only {
+                        let t = format!("{item_name}只显示携带中的宠物（最多 6 只）");
+                        rsx! { div { class: "quality-picker-hint", "{t}" } }
+                    } else {
+                        VNode::empty()
+                    };
+                    rsx! {
+                        div { class: "pokemon-select-modal",
+                            ..vec![picker_hint]
+                            div { class: "pokemon-select-list custom-scrollbar",
+                                for i in 0..rows.len() {
+                                    ..vec![rows[i].clone()]
+                                }
                             }
+                            ..vec![unusable_block]
                         }
-                        ..vec![unusable_block]
                     }
                 }
-            }
+            },
         };
         let item_name = inv
             .selected_item
@@ -510,6 +608,10 @@ pub fn Inventory(state: Box<AppState>) -> VNode {
     rsx! {
         div { class: "page-inventory",
             div { class: "inventory-card",
+                // 战斗中整页盖一层（旧版 battle-disabled-overlay）：战斗里不能用背包。
+                if crate::battle::user_in_battle(&state) {
+                    ..vec![crate::battle::battle_disabled_overlay("战斗中无法使用背包")]
+                }
                 div { class: "inventory-card-body",
                     div { class: "inventory-search-bar",
                         // 回车/失焦提交（change）：先记下输入值，再按它搜索。
@@ -581,6 +683,79 @@ fn plain(text: &str, class: &str) -> VNode {
 /// 服务端只返回携带中的目标（对齐 Dioxus 版 is_carried_only）。
 fn is_carried_only_module(module: &str) -> bool {
     matches!(module, "quality" | "clean_equipment")
+}
+
+/// 品质重洗成功后的前后对比面板（旧版 quality-compare-panel）：精灵图、品质徽章
+/// 前后对比、个体值总和、剩余数量，以及「继续使用」/「关闭」。
+fn quality_compare_panel(state: &AppState, result: &crate::state::QualityRerollResult) -> VNode {
+    let continue_state = state.clone();
+    let close_state = state.clone();
+    let sprite = crate::state::front_sprite_url(result.type_id, result.is_shiny);
+    let pet_attr = result.pokemon_id.to_string();
+    let name = result.name.clone();
+    let alt = name.clone();
+    let level = format!("Lv.{}", result.level);
+    let shiny = result.is_shiny;
+    let old_badge = format!(
+        "quality-badge quality-rank-{}",
+        crate::quality::quality_rank(result.old_iv_total)
+    );
+    let new_badge = format!(
+        "quality-badge quality-rank-{}",
+        crate::quality::quality_rank(result.new_iv_total)
+    );
+    let old_grade = result.old_grade.clone();
+    let new_grade = result.new_grade.clone();
+    let ivs = format!("总个体值 {} → {}", result.old_iv_total, result.new_iv_total);
+    let remaining = format!("品质重洗药剩余 {} 个", result.item_remaining);
+    let can_continue = result.item_remaining > 0;
+    rsx! {
+        div { class: "pokemon-select-modal",
+            div { class: "quality-compare-panel", "data-pokemon-id": pet_attr,
+                div { class: "quality-compare-pet",
+                    div { class: "quality-compare-sprite",
+                        img { class: "quality-compare-sprite-img", src: sprite, alt: alt }
+                        if shiny {
+                            span { class: "pet-mark pet-mark-shiny pet-mark-compact", title: "异色（闪光）宠物", "闪" }
+                        }
+                    }
+                    div { class: "quality-compare-pet-info",
+                        span { class: "quality-compare-pet-name", "{name}" }
+                        span { class: "quality-compare-pet-level", "{level}" }
+                    }
+                }
+                div { class: "quality-compare-change",
+                    span { class: old_badge, "{old_grade}" }
+                    span { class: "quality-compare-arrow", "→" }
+                    span { class: new_badge, "{new_grade}" }
+                }
+                div { class: "quality-compare-ivs", "{ivs}" }
+                div { class: "quality-compare-remaining", "{remaining}" }
+                div { class: "quality-compare-actions",
+                    if can_continue {
+                        { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                            class: ("quality-compare-btn primary").to_string(),
+                            onclick: crate::button::click(move || {
+                                continue_quality_reroll(&continue_state)
+                            }),
+                            "继续使用"
+                                                    } }, [("data-test-inv-reroll-continue", ("1").to_string())]) }
+                    }
+                    { crate::button::hooked(tairitsu_macros::rsx! { Button {
+                        class: ("quality-compare-btn").to_string(),
+                        onclick: crate::button::click(move || close_target_modal(&close_state)),
+                        "关闭"
+                                                } }, [("data-test-inv-reroll-close", ("1").to_string())]) }
+                }
+            }
+        }
+    }
+}
+
+/// 对比面板的「继续使用」：收起面板，回到（已刷新的）目标列表。
+pub fn continue_quality_reroll(state: &AppState) {
+    state.inv.quality_result.inner().set(None);
+    crate::request_remount();
 }
 
 /// 单个物品卡片。use_item 需要整个 AppState（装备道具会切到个人中心页），
