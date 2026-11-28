@@ -736,9 +736,19 @@ fn PetTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, pet: ShopPet) 
     let title_text = pet.name.clone();
     let type_1 = pet.type_1.clone();
     let type_2 = pet.type_2.clone().unwrap_or_default();
-    // 属性标签沿用彩色类型徽章（.badge.badge-type-*），与 Dioxus 版一致。
-    let type_1_cls = format!("badge badge-type-{type_1}");
-    let type_2_cls = format!("badge badge-type-{type_2}");
+    // 属性标签沿用彩色类型徽章（.badge.badge-type-*）：hikari `Badge` 带着旧类名
+    // （`crate::badge`），第二属性非空才出。
+    let mut meta_badges: Vec<VNode> = Vec::with_capacity(2);
+    meta_badges.push(crate::badge::legacy(
+        format!("badge badge-type-{type_1}"),
+        type_1,
+    ));
+    if has_type2 {
+        meta_badges.push(crate::badge::legacy(
+            format!("badge badge-type-{type_2}"),
+            type_2,
+        ));
+    }
     // 提示正文：数据拷进闭包，每次渲染时重新生成。
     let tip_pet = pet.clone();
     let tip_content: Rc<dyn Fn() -> VNode> = Rc::new(move || pet_tooltip_content(&tip_pet));
@@ -768,12 +778,7 @@ fn PetTile(state: Box<ShopState>, app: Box<AppState>, idx: usize, pet: ShopPet) 
                 img { class: "tile-icon-img pet-sprite-img", src: img_src }
             }
             div { class: "shop-tile-name", title: title_text, "{name}" }
-            div { class: "shop-tile-meta",
-                span { class: type_1_cls, "{type_1}" }
-                if has_type2 {
-                    span { class: type_2_cls, "{type_2}" }
-                }
-            }
+            div { class: "shop-tile-meta", ..meta_badges }
             div { class: "shop-tile-foot",
                 div { class: "item-price",
                     Icon { name: Some(IconName::Coins), size: Some(12), class: Some("price-icon".to_string()) }
@@ -802,9 +807,19 @@ fn pet_tooltip_content(pet: &ShopPet) -> VNode {
     let name = pet.name.clone();
     let type_1 = pet.type_1.clone();
     let type_2 = pet.type_2.clone().unwrap_or_default();
-    // 属性标签沿用彩色类型徽章（.badge.badge-type-*），与 Dioxus 版一致。
-    let type_1_cls = format!("badge badge-type-{type_1}");
-    let type_2_cls = format!("badge badge-type-{type_2}");
+    // 属性标签沿用彩色类型徽章（.badge.badge-type-*）：hikari `Badge` 带着旧类名
+    // （`crate::badge`），第二属性非空才出。
+    let mut header_badges: Vec<VNode> = Vec::with_capacity(2);
+    header_badges.push(crate::badge::legacy(
+        format!("badge badge-type-{type_1}"),
+        type_1,
+    ));
+    if has_type2 {
+        header_badges.push(crate::badge::legacy(
+            format!("badge badge-type-{type_2}"),
+            type_2,
+        ));
+    }
     let hp = format!("HP {}", pet.hp);
     let atk = format!("攻击 {}", pet.atk);
     let def = format!("防御 {}", pet.def);
@@ -815,10 +830,7 @@ fn pet_tooltip_content(pet: &ShopPet) -> VNode {
     nodes.push(rsx! {
         div { class: "tile-tooltip-header",
             span { class: "tile-tooltip-name", "{name}" }
-            span { class: type_1_cls, "{type_1}" }
-            if has_type2 {
-                span { class: type_2_cls, "{type_2}" }
-            }
+            ..header_badges
         }
     });
     nodes.push(rsx! {

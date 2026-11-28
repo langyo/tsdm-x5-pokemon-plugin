@@ -1291,6 +1291,8 @@ fn stats_panel(
     let type1_cls = format!("badge badge-type-{}", d.type_1);
     let type1 = d.type_1.clone();
     let type2 = d.type_2.clone();
+    // 属性徽章：hikari `Badge` 带着旧类名（`crate::badge`）。
+    let type1_block = crate::badge::legacy(type1_cls, type1);
     let show_state = d.state != 1;
     let state_cls = format!("state-label state-{}", d.state_class);
     let state_text = d.state_text.clone();
@@ -1465,7 +1467,7 @@ fn stats_panel(
     let type2_block = match type2 {
         Some(t2) => {
             let cls = format!("badge badge-type-{t2}");
-            rsx! { span { class: cls, "{t2}" } }
+            crate::badge::legacy(cls, t2)
         }
         None => VNode::empty(),
     };
@@ -1562,8 +1564,7 @@ fn stats_panel(
                 }
                 div { class: "tags-group",
                     div { class: "type-badges",
-                        span { class: type1_cls, "{type1}" }
-                        ..vec![type2_block]
+                        ..vec![type1_block, type2_block]
                     }
                     ..vec![state_block]
                 }
@@ -2034,6 +2035,12 @@ fn learn_item(skill: &crate::state::LearnableSkill, loading: bool, st: Option<&A
     let stype = skill.skill_type.clone();
     let scat = skill.category.clone();
     let sdesc = skill.description.clone();
+    // 属性、分类徽章：hikari `Badge` 带着旧类名（`crate::badge`）；分类为空的那枚不出节点。
+    let mut learn_badges: Vec<VNode> = Vec::with_capacity(2);
+    learn_badges.push(crate::badge::legacy(type_cls, stype));
+    if !scat.is_empty() {
+        learn_badges.push(crate::badge::legacy(cat_cls, scat));
+    }
 
     rsx! {
         { crate::button::hooked(tairitsu_macros::rsx! { Button {
@@ -2053,10 +2060,7 @@ fn learn_item(skill: &crate::state::LearnableSkill, loading: bool, st: Option<&A
                 }
             }
             div { class: "skill-learn-item-body",
-                span { class: type_cls, "{stype}" }
-                if !scat.is_empty() {
-                    span { class: cat_cls, "{scat}" }
-                }
+                ..learn_badges
                 if let Some(_p) = power_text {
                     span { class: "skill-power", "{_p}" }
                 }
@@ -2215,18 +2219,17 @@ fn ev_calculator_modal(st: &AppState) -> VNode {
 
 /// 一段属性徽章（`div.evo-path-types`）：第一属性恒有，第二属性非空才渲染。
 fn evo_type_badges(type_1: &str, type_2: Option<&str>) -> VNode {
-    let type_1 = type_1.to_string();
-    let type_1_cls = format!("badge badge-type-{type_1}");
-    let second = type_2
-        .filter(|t| !t.is_empty())
-        .map(|t| (t.to_string(), format!("badge badge-type-{t}")));
+    // 徽章是 hikari `Badge` 带着旧类名（`crate::badge`）；第二属性为空的那枚不出节点。
+    let mut badges: Vec<VNode> = Vec::with_capacity(2);
+    badges.push(crate::badge::legacy(
+        format!("badge badge-type-{type_1}"),
+        type_1,
+    ));
+    if let Some(t2) = type_2.filter(|t| !t.is_empty()) {
+        badges.push(crate::badge::legacy(format!("badge badge-type-{t2}"), t2));
+    }
     rsx! {
-        div { class: "evo-path-types",
-            span { class: type_1_cls, "{type_1}" }
-            if let Some((t2_name, t2_cls)) = second {
-                span { class: t2_cls, "{t2_name}" }
-            }
-        }
+        div { class: "evo-path-types", ..badges }
     }
 }
 

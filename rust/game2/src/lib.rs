@@ -4,10 +4,20 @@
 //! 状态在 `run_app` 里、于根组件上下文内创建一次，交互用 tairitsu 原生事件
 //! 绑定，变更经 signal → mark_dirty → 下一帧 flush → diff → apply_patches，
 //! 只把差异落到 DOM。来龙去脉见 docs/refactor-tairitsu-hikari-research.md。
+//!
+//! 标准件：按钮、徽章、弹窗、提示条、弹出菜单与悬浮提示都是 hikari 组件带着旧版
+//! 类名 / 皮肤承接的（`button.rs`、`badge.rs`、`modal.rs`、`toast.rs`、`popup.rs`、
+//! `hover_tip.rs`）。仍是原生元素的，都是有意保留的，各有原因：
+//! - `<select>` / `<input>` / `<textarea>`：hikari 的 `Select` / `Input` / `Textarea` 是
+//!   带外壳的表单字段（标签、盒子、前后缀），没有属性透传，`Select` 展开后的面板也
+//!   不是原生下拉——承接不了旧版的原生控件，做不到一比一。
+//! - 3 个原生 `<button>`：hikari `Button` 没有鼠标进入 / 离开事件（卡片要靠它们出
+//!   悬浮提示），另一枚是弹窗外壳自带的关闭键（见 `modal.rs`）。
 
 #[cfg(target_family = "wasm")]
 pub mod api;
 pub mod app_state;
+pub mod badge;
 #[cfg(target_family = "wasm")]
 pub mod battle;
 pub mod battle_types;
